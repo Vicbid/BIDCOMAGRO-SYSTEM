@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.0
 //  PORTAL RESELLER — Avisos / Comunicados post-login
 //  Almacenado en MASTER hoja PORTAL_CONFIG (clave | valor)
 // ============================================================

@@ -1,3 +1,4 @@
+// @version 1.0
 // Código migrado a módulos separados:
 // V3
 //  Env.js          — SCHEMA, config de sheets, caché getSheetValues

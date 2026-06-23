@@ -1,3 +1,4 @@
+// @version 1.1
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {

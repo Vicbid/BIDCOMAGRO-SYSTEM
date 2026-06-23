@@ -1,3 +1,4 @@
+// @version 1.0
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 

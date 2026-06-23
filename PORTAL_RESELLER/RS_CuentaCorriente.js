@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.0
 //  PORTAL RESELLER — Módulo Cuenta Corriente (Solo Lectura)
 //  Fuente: CC.VtaCte (spreadsheet externo, ID en servidor)
 //  Seguridad: nombre de sesión revalidado contra hoja Resellers

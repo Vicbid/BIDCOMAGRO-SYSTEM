@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.0
 //  STOCK MANAGER BIDCOMAGRO v2.0 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //

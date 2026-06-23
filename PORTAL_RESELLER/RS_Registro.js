@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.0
 //  PORTAL RESELLER — Módulo de Registro de Nuevos Resellers
 //  Flujo: El reseller selecciona su empresa (ya existente en la hoja)
 //         → completa los campos que faltan →

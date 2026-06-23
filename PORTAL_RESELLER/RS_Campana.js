@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.0
 //  PORTAL RESELLER — Pedidos de Campaña (estimados sin compromiso)
 // ============================================================
 //  Script Properties requeridas (configurar desde Apps Script editor):

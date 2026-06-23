@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.1
 //  DJI HUB PRO v14 — Codigo.gs - ¿FUNCIONAL?
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)

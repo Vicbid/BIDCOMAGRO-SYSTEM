@@ -1,3 +1,4 @@
+// @version 1.0
 // SharedLogger.js — ES5 estricto
 // Copiar este archivo a cada módulo (HUB_PRO, STOCK_MANAGER, PORTAL_RESELLER).
 // Depende de: getSheet() definida en Env.js del módulo correspondiente.
