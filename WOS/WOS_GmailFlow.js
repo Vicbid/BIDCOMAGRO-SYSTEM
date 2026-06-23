@@ -1,4 +1,5 @@
 // ============================================================
+// @version 1.2
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -431,15 +432,13 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       var cantFinal   = oldCantDesp + dispNow;
 
       if (dispNow > 0) {
-        ped.hoja.getRange(i + 1, COL.CANT_DESP     + 1).setValue(cantFinal);
-        ped.hoja.getRange(i + 1, COL.FECHA_ESTADO  + 1).setValue(ahora);
-        if (track) ped.hoja.getRange(i + 1, COL.TRACKING + 1).setValue(track);
-        ped.hoja.getRange(i + 1, COL.FECHA_DESPACHO    + 1).setValue(ahora);
-        ped.hoja.getRange(i + 1, COL.NOTA_ENTREGA      + 1).setValue(notaEntrega);
-        ped.hoja.getRange(i + 1, COL.TRANSPORTISTA_DESP + 1).setValue(transp);
-        if (costo    > 0) ped.hoja.getRange(i + 1, COL.COSTO_ENVIO + 1).setValue(costo);
-        if (peso     > 0) ped.hoja.getRange(i + 1, COL.PESO_ENVIO  + 1).setValue(peso);
-        if (operario)     ped.hoja.getRange(i + 1, COL.OPERARIO    + 1).setValue(operario);
+        // CANT_DESP aislado (col 6)
+        ped.hoja.getRange(i + 1, COL.CANT_DESP + 1).setValue(cantFinal);
+        // FECHA_DESPACHO (col 15), NOTA_ENTREGA (col 16), TRACKING (col 17) — bloque contiguo
+        ped.hoja.getRange(i + 1, COL.FECHA_DESPACHO + 1, 1, 3).setValues([[ahora, notaEntrega, track || '']]);
+        // FECHA_ESTADO (col 19), TRANSPORTISTA_DESP (col 20), COSTO_ENVIO (col 21), PESO_ENVIO (col 22) — bloque contiguo
+        ped.hoja.getRange(i + 1, COL.FECHA_ESTADO + 1, 1, 4).setValues([[ahora, transp, costo > 0 ? costo : '', peso > 0 ? peso : '']]);
+        if (operario) ped.hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(operario);
         filasDesp.push(i + 1);
       }
 

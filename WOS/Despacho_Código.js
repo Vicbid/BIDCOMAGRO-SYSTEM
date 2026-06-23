@@ -1,3 +1,4 @@
+// @version 2.7
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -149,20 +150,6 @@ function WOS_actualizarValidacion() {
 }
 
 // ── Email: busca el email del reseller en la hoja MASTER ──────
-function _lookupResellerEmail(resellerNombre) {
-  try {
-    var datos = SpreadsheetApp.openById(MASTER_SS_ID)
-      .getSheetByName('Resellers').getDataRange().getValues();
-    var nombreB = String(resellerNombre || '').trim().toLowerCase();
-    for (var i = 1; i < datos.length; i++) {
-      if (String(datos[i][COL_RS.NOMBRE] || '').trim().toLowerCase() === nombreB) {
-        return String(datos[i][COL_RS.EMAIL] || '').trim();
-      }
-    }
-  } catch(e) { Logger.log('_lookupResellerEmail: ' + e); }
-  return '';
-}
-
 // ── Etiqueta de envío: datos del pedido + reseller ────────────
 function WOS_getEtiquetaData(numero) {
   try {
@@ -208,38 +195,23 @@ function WOS_getEtiquetaData(numero) {
   }
 }
 
-// ── Email: bloque HTML reutilizable ───────────────────────────
-function _emailHead() {
-  return "<div style='font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:560px;margin:0 auto'>" +
-    "<div style='background:#00a3e0;padding:20px 24px;border-radius:10px 10px 0 0;display:flex;align-items:center;gap:12px'>" +
-      "<span style='color:#fff;font-size:18px;font-weight:800;letter-spacing:-.02em'>BIDCOMAGRO</span>" +
-      "<span style='color:rgba(255,255,255,.6);font-size:14px;font-weight:300'>· Portal Resellers</span>" +
-    "</div>" +
-    "<div style='background:#fff;border:1px solid #dde3ea;border-top:none;padding:28px 24px;border-radius:0 0 10px 10px'>";
-}
-function _emailFoot() {
-  return "<p style='font-size:11px;color:#aaa;margin-top:28px;border-top:1px solid #f0f2f5;padding-top:14px'>" +
-    "Cualquier consulta respondé este email o escribinos a <a href='mailto:" + _wosConfig().emailSoporte + "' style='color:#00a3e0'>" + _wosConfig().emailSoporte + "</a>.</p>" +
-    "</div></div>";
-}
-
 // ── Email fallback: cancela sin threadId (nuevo email) ───────
 function _enviarEmailEstado(numero, reseller, obs) {
-  var email = _lookupResellerEmail(reseller);
+  var email = _wosGetEmailReseller(reseller);
   if (!email) { Logger.log('_enviarEmailEstado: sin email para ' + reseller); return; }
 
   var asunto = 'Tu pedido ' + numero + ' fue cancelado — BIDCOMAGRO';
-  var html = _emailHead() +
-    "<p style='font-size:14px;color:#444;margin:0 0 16px'>Hola <strong>" + reseller + "</strong>,</p>" +
-    "<p style='font-size:13px;color:#555;margin:0 0 20px'>Tu pedido <strong style='color:#e74c3c'>" + numero + "</strong> fue <strong>cancelado</strong>.</p>" +
+  var html = _wosPortalHead('Pedido cancelado — ' + numero) +
+    "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + "</strong>:</p>" +
+    "<p style='font-size:13px;color:#555;margin:0 0 14px'>Tu pedido <strong style='color:#e74c3c'>" + numero + "</strong> fue <strong>cancelado</strong>.</p>" +
     (obs ? "<div style='background:#fdecea;border:1px solid #f5a5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px'><p style='margin:0;font-size:12px;color:#7f1919'><strong>Motivo:</strong> " + obs + "</p></div>" : '') +
-    "<p style='font-size:13px;color:#555'>Si creés que esto es un error, respondé este email y te ayudamos.</p>" +
-    _emailFoot();
+    "<p style='font-size:13px;color:#555'>Si cre\xe9s que esto es un error, respond\xe9 este email y te ayudamos.</p>" +
+    _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + reseller + '.');
 
   try {
     GmailApp.sendEmail(email, asunto, '', {
       htmlBody: html,
-      name:     'BIDCOMAGRO · Portal Resellers',
+      name:     'BIDCOMAGRO \xb7 Portal Resellers',
       replyTo:  _wosConfig().emailSoporte
     });
     Logger.log('WOS email [cancelado fallback] → ' + email + ' pedido ' + numero);
@@ -604,12 +576,10 @@ function WOS_getEnCaminoMap() {
     for (var c = 1; c < casData.length; c++) {
       var casId  = String(casData[c][0] || '').trim().toUpperCase();
       var estado = String(casData[c][2] || '').trim();
-      Logger.log('[EC] CAS fila ' + c + ': id="' + casId + '" estado="' + estado + '" activo=' + (casId && estado !== 'En depósito' && estado.indexOf('Borrador') < 0));
       if (casId && estado !== 'En depósito' && estado.indexOf('Borrador') < 0) {
         casActivos[casId] = true;
       }
     }
-    Logger.log('[EC] casActivos: ' + JSON.stringify(casActivos));
 
     var detData = dDET.getDataRange().getValues();
     for (var d = 1; d < detData.length; d++) {
@@ -617,7 +587,6 @@ function WOS_getEnCaminoMap() {
       var dSku = String(detData[d][1] || '').trim().toUpperCase();
       var dPed = Number(detData[d][3]) || 0;
       var dRec = Number(detData[d][4]) || 0;
-      Logger.log('[EC] DET fila ' + d + ': cas="' + dCas + '" sku="' + dSku + '" ped=' + dPed + ' rec=' + dRec + ' activo=' + !!casActivos[dCas]);
       if (!dSku || !casActivos[dCas]) continue;
       var pend = Math.max(0, dPed - dRec);
       if (pend > 0) {
@@ -626,13 +595,12 @@ function WOS_getEnCaminoMap() {
         enCaminoMap[dSku].ocs[dCas] = (enCaminoMap[dSku].ocs[dCas] || 0) + pend;
       }
     }
-    Logger.log('[EC] enCaminoMap: ' + JSON.stringify(enCaminoMap));
 
-    // Stock actual desde CARMEN — con cache 5 min para evitar openById extra
+    // Stock actual desde CARMEN — cache 5 min, clave compartida con WOS_cargarPedidos
     var stockMap = {};
     try {
       var cache = CacheService.getScriptCache();
-      var cached = cache.get('wos_stock_map');
+      var cached = cache.get('wos_carmen_stock_v1');
       if (cached) {
         stockMap = JSON.parse(cached);
       } else {
@@ -642,7 +610,7 @@ function WOS_getEnCaminoMap() {
           var sCod = String(carmenStock[sc][0] || '').trim().toUpperCase();
           if (sCod) stockMap[sCod] = parseInt(carmenStock[sc][2]) || 0;
         }
-        try { cache.put('wos_stock_map', JSON.stringify(stockMap), 300); } catch(eCp) {}
+        try { cache.put('wos_carmen_stock_v1', JSON.stringify(stockMap), 300); } catch(eCp) {}
       }
     } catch(eSC) { Logger.log('WOS_getEnCaminoMap stockMap: ' + eSC); }
 
@@ -707,43 +675,17 @@ function WOS_cargarStock(q) {
           var pMin   = parseFloat(planifData[p][14]) || 0;                   // col O: Stock mínimo
           if (pCod) planifMap[pCod] = { clase: pClase, minimo: Math.round(pMin) };
         }
-        Logger.log('WOS planifMap v4: ' + Object.keys(planifMap).length + ' entradas. Ej: ' + JSON.stringify(planifMap[Object.keys(planifMap)[0]]));
         if (Object.keys(planifMap).length > 0) {
           try { cache.put('wos_planif_map_v6', JSON.stringify(planifMap), 300); } catch(eCp) {}
         }
       }
     } catch(ePl) { Logger.log('WOS_cargarStock planifMap ERROR: ' + ePl); }
 
-    // Unidades en camino desde compras DJI activas (excluye Borrador y En depósito)
+    // Unidades en camino — reutiliza WOS_getEnCaminoMap para evitar duplicar lógica
     var enCaminoMap = {};
     try {
-      var dCAS = master.getSheetByName('COMPRAS_DJI');
-      var dDET = master.getSheetByName('COMPRAS_DETALLE');
-      if (dCAS && dDET) {
-        var casData  = dCAS.getDataRange().getValues();
-        var detData  = dDET.getDataRange().getValues();
-        var casActivos = {};
-        for (var ci = 1; ci < casData.length; ci++) {
-          var casId  = String(casData[ci][0] || '').trim().toUpperCase();
-          var casEst = String(casData[ci][2] || '').trim();
-          if (casId && casEst !== 'En depósito' && casEst.indexOf('Borrador') < 0) {
-            casActivos[casId] = true;
-          }
-        }
-        for (var di = 1; di < detData.length; di++) {
-          var dCas = String(detData[di][0] || '').trim().toUpperCase();
-          var dSku = String(detData[di][1] || '').trim().toUpperCase();
-          var dPed = parseInt(detData[di][3]) || 0;
-          var dRec = parseInt(detData[di][4]) || 0;
-          if (!dSku || !casActivos[dCas]) continue;
-          var pend = Math.max(0, dPed - dRec);
-          if (pend > 0) {
-            if (!enCaminoMap[dSku]) enCaminoMap[dSku] = { total: 0, ocs: {} };
-            enCaminoMap[dSku].total += pend;
-            enCaminoMap[dSku].ocs[dCas] = (enCaminoMap[dSku].ocs[dCas] || 0) + pend;
-          }
-        }
-      }
+      var ecRes = WOS_getEnCaminoMap();
+      if (ecRes.ok) enCaminoMap = ecRes.map;
     } catch(eEC) { Logger.log('WOS_cargarStock enCamino: ' + eEC); }
 
     var datos  = hojaCarmen.getDataRange().getValues();
@@ -999,13 +941,14 @@ function WOS_revertirAPreparado(numero, operario) {
       var r = hoja.getRange(fila, COL.ESTADO + 1);
       r.clearDataValidations();
       r.setValue(EST.PREPARADO);
-      hoja.getRange(fila, COL.CANT_DESP          + 1).setValue('');
-      hoja.getRange(fila, COL.FECHA_DESPACHO     + 1).setValue('');
-      hoja.getRange(fila, COL.NOTA_ENTREGA       + 1).setValue('');
-      hoja.getRange(fila, COL.TRACKING           + 1).setValue('');
-      hoja.getRange(fila, COL.TRANSPORTISTA_DESP + 1).setValue('');
-      hoja.getRange(fila, COL.NE_URL             + 1).setValue('');
-      hoja.getRange(fila, COL.FECHA_ESTADO       + 1).setValue(ahora);
+      // CANT_DESP aislado
+      hoja.getRange(fila, COL.CANT_DESP + 1).setValue('');
+      // FECHA_DESPACHO (col 15), NOTA_ENTREGA (col 16), TRACKING (col 17) — bloque contiguo
+      hoja.getRange(fila, COL.FECHA_DESPACHO + 1, 1, 3).setValues([['', '', '']]);
+      // FECHA_ESTADO (col 19), TRANSPORTISTA_DESP (col 20) — bloque contiguo
+      hoja.getRange(fila, COL.FECHA_ESTADO + 1, 1, 2).setValues([[ahora, '']]);
+      // NE_URL aislado
+      hoja.getRange(fila, COL.NE_URL + 1).setValue('');
     }
     SpreadsheetApp.flush();
     _wosLogAccion('Revertido a Preparado', numero, reseller, String(operario || ''), 'Revert manual por error de despacho');
@@ -1116,16 +1059,15 @@ function WOS_reporteBackorder() {
       backMap[sku].pedidos.push(numero + ' · ' + reseller + ' (' + nec + 'u)');
     }
 
-    // 3. Unidades en camino por SKU (COMPRAS_DETALLE, solo CAS activos)
+    // 3. Unidades en camino por SKU — misma lógica que WOS_getEnCaminoMap (excluye Borrador y En depósito)
     var casActivos = {};
-    var ESTADOS_ACTIVOS = { 'Comprado': 1, 'Pagado': 1, 'Envío confirmado': 1, 'Forwarder HK': 1, 'En vuelo': 1, 'En aduana': 1, 'En depósito': 1 };
     var hojaCAS = masterSS.getSheetByName('COMPRAS_DJI');
     if (hojaCAS) {
       var casData = hojaCAS.getDataRange().getValues();
       for (var c = 1; c < casData.length; c++) {
         var casId  = String(casData[c][0] || '').trim();
         var casEst = String(casData[c][2] || '').trim();
-        if (casId && ESTADOS_ACTIVOS[casEst]) casActivos[casId] = true;
+        if (casId && casEst !== 'En dep\xf3sito' && casEst.indexOf('Borrador') < 0) casActivos[casId] = true;
       }
     }
     var enCamino = {};
