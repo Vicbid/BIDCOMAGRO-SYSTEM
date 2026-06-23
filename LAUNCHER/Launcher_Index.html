@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BIDCOMAGRO · Sistema Central</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --blue:#00a3e0;--blue-d:#0088bb;
+  --green:#1a9e4a;--orange:#e67e22;
+  --purple:#7c4dff;
+  --red:#d63031;--yellow:#d4890a;
+  --dark:#0d1b2a;--dark2:#1a2f42;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--dark);min-height:100vh;color:#1a1f2e;padding-bottom:44px}
+
+/* ── LOADING ── */
+.overlay{position:fixed;inset:0;background:var(--dark);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:999;transition:opacity .4s}
+.overlay.gone{opacity:0;pointer-events:none}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ov-txt{font-size:12px;color:rgba(255,255,255,.35);margin-top:4px}
+
+/* ── HEADER ── */
+.hdr{background:linear-gradient(135deg,var(--dark) 0%,var(--dark2) 100%);padding:22px 28px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.07);position:sticky;top:0;z-index:50}
+.hdr-logo{width:42px;height:42px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;letter-spacing:.05em;flex-shrink:0}
+.hdr-title h1{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.02em}
+.hdr-title p{font-size:10px;color:rgba(255,255,255,.35);margin-top:2px}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.hdr-ts{font-size:10px;color:rgba(255,255,255,.22);white-space:nowrap}
+.hdr-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);border-radius:8px;padding:7px 13px;cursor:pointer;font-size:12px;transition:all .15s;display:flex;align-items:center;gap:6px}
+.hdr-btn:hover{background:rgba(255,255,255,.13);color:#fff;border-color:rgba(255,255,255,.2)}
+
+/* ── MAIN ── */
+.main{max-width:1280px;margin:0 auto;padding:28px 24px}
+
+/* ── CARDS GRID ── */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+
+/* ── MODULE CARD ── */
+.card{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.28);display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.card-stripe{height:4px}
+.card-stripe.blue{background:var(--blue)}
+.card-stripe.green{background:var(--green)}
+.card-stripe.orange{background:var(--orange)}
+.card-stripe.purple{background:var(--purple)}
+.card-head{padding:18px 20px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f2f5}
+.card-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.card-icon.blue{background:rgba(0,163,224,.1);color:var(--blue)}
+.card-icon.green{background:rgba(26,158,74,.1);color:var(--green)}
+.card-icon.orange{background:rgba(230,126,34,.1);color:var(--orange)}
+.card-icon.purple{background:rgba(124,77,255,.1);color:var(--purple)}
+.card-name{font-size:14px;font-weight:700;color:#1a1f2e}
+.card-sub{font-size:10px;color:#9ba5b4;margin-top:1px}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;flex:1}
+.kpi{background:#f7f8fa;border-radius:10px;padding:12px;text-align:center}
+.kpi-val{font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#1a1f2e;transition:color .3s}
+.kpi-val.red{color:var(--red)}
+.kpi-val.yellow{color:var(--yellow)}
+.kpi-val.green{color:var(--green)}
+.kpi-val.purple{color:var(--purple)}
+.kpi-lbl{font-size:9px;color:#9ba5b4;font-weight:700;margin-top:5px;text-transform:uppercase;letter-spacing:.06em;line-height:1.4}
+.kpi-wide{grid-column:span 2;display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f7f8fa;border-radius:10px;font-size:11px;color:#9ba5b4}
+
+/* ── CARD FOOTER ── */
+.card-foot{padding:12px 14px;border-top:1px solid #f0f2f5}
+.btn-mod{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:filter .15s,opacity .15s}
+.btn-mod.blue{background:var(--blue);color:#fff}
+.btn-mod.green{background:var(--green);color:#fff}
+.btn-mod.orange{background:var(--orange);color:#fff}
+.btn-mod.purple{background:var(--purple);color:#fff}
+.btn-mod.blue:hover,.btn-mod.green:hover,.btn-mod.orange:hover,.btn-mod.purple:hover{filter:brightness(1.08)}
+.btn-mod.off{background:#e8eaee;color:#9ba5b4;pointer-events:none}
+.btn-mod.off .no-url-txt{font-size:10px;font-weight:400}
+
+/* ── STATUS BAR ── */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:36px;background:rgba(5,12,20,.9);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:20px;padding:0 28px;font-size:10px;color:rgba(255,255,255,.28)}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 2px rgba(26,158,74,.3);flex-shrink:0}
+.sb-sep{width:1px;height:16px;background:rgba(255,255,255,.08)}
+
+/* ── MODAL CONFIG ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-bg.show{display:flex}
+.modal-box{background:#fff;border-radius:14px;padding:28px;width:520px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.modal-title{font-size:16px;font-weight:700;color:#1a1f2e;margin-bottom:4px}
+.modal-sub{font-size:12px;color:#9ba5b4;margin-bottom:22px}
+.f-group{margin-bottom:16px}
+.f-label{font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.f-label .chip{padding:2px 8px;border-radius:5px;font-size:10px}
+.chip.blue{background:rgba(0,163,224,.1);color:var(--blue)}
+.chip.green{background:rgba(26,158,74,.1);color:var(--green)}
+.chip.orange{background:rgba(230,126,34,.1);color:var(--orange)}
+.chip.purple{background:rgba(124,77,255,.1);color:var(--purple)}
+.f-inp{width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:12px;font-family:monospace;outline:none;transition:border-color .13s;color:#1a1f2e}
+.f-inp:focus{border-color:var(--blue)}
+.f-inp::placeholder{color:#bcc3cc}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.btn-cancel-m{padding:9px 18px;border:1px solid #e0e3e8;background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:#5e6778;transition:all .13s}
+.btn-cancel-m:hover{border-color:#bcc3cc}
+.btn-save-m{padding:9px 22px;background:var(--blue);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;transition:filter .13s}
+.btn-save-m:hover{filter:brightness(1.08)}
+
+/* ── HERRAMIENTAS ── */
+.tools-section{margin-bottom:22px}
+.tools-section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9ba5b4;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.tools-section-title::after{content:'';flex:1;height:1px;background:#f0f2f5}
+.tool-card{display:flex;align-items:flex-start;gap:14px;padding:14px;background:#f7f8fa;border-radius:10px;margin-bottom:8px;border:1px solid #edf0f4}
+.tool-card.running{border-color:var(--blue);background:#f0f9ff}
+.tool-card.done-ok{border-color:#8fd4a8;background:#f0fff5}
+.tool-card.done-err{border-color:#f5a5a5;background:#fff5f5}
+.tool-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.tool-icon.runnable{background:rgba(0,163,224,.12);color:var(--blue)}
+.tool-icon.editor{background:rgba(155,165,180,.12);color:#9ba5b4}
+.tool-body{flex:1;min-width:0}
+.tool-name{font-size:13px;font-weight:700;color:#1a1f2e;margin-bottom:2px}
+.tool-desc{font-size:11px;color:#7a8494;line-height:1.5}
+.tool-result{font-size:11px;margin-top:8px;padding:8px 10px;border-radius:6px;display:none;white-space:pre-wrap;line-height:1.6}
+.tool-result.ok{background:#e8f7ee;color:#166534;display:block}
+.tool-result.err{background:#fdecea;color:#7f1919;display:block}
+.tool-btn{padding:7px 14px;font-size:11px;font-weight:700;border:none;border-radius:7px;cursor:pointer;white-space:nowrap;transition:filter .13s;flex-shrink:0}
+.tool-btn.run{background:var(--blue);color:#fff}
+.tool-btn.run:hover{filter:brightness(1.08)}
+.tool-btn.run:disabled{background:#b0cfe8;cursor:not-allowed;filter:none}
+.tool-editor-note{font-size:10px;color:#9ba5b4;background:#f0f2f5;border-radius:6px;padding:5px 9px;font-family:monospace;margin-top:6px;display:inline-block}
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="overlay" id="overlay">
+  <i class="fa fa-circle-notch fa-3x spin" style="color:var(--blue)"></i>
+  <div class="ov-txt">Conectando con el sistema BIDCOMAGRO…</div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">BIDC</div>
+  <div class="hdr-title">
+    <h1>Sistema Central</h1>
+    <p>BIDCOMAGRO · DJI Service Center · Panel de acceso unificado</p>
+  </div>
+  <div class="hdr-right">
+    <span class="hdr-ts" id="ts"></span>
+    <button class="hdr-btn" onclick="load()"><i class="fa fa-sync-alt" id="ri"></i> Actualizar</button>
+    <button class="hdr-btn" onclick="openConfig()"><i class="fa fa-link"></i> URLs</button>
+    <button class="hdr-btn" onclick="openTools()"><i class="fa fa-wrench"></i> Herramientas</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="grid">
+
+    <!-- HUB PRO -->
+    <div class="card">
+      <div class="card-stripe blue"></div>
+      <div class="card-head">
+        <div class="card-icon blue"><i class="fa fa-tools"></i></div>
+        <div>
+          <div class="card-name">HUB PRO</div>
+          <div class="card-sub">Gestión de Órdenes de Trabajo</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-val" id="h-abiertas">—</div>
+          <div class="kpi-lbl">OTs abiertas</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val red" id="h-urgentes">—</div>
+          <div class="kpi-lbl">Urgentes</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val yellow" id="h-sintec">—</div>
+          <div class="kpi-lbl">Sin técnico</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val green" id="h-finmes">—</div>
+          <div class="kpi-lbl">Finalizadas este mes</div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <a id="btn-hub" class="btn-mod off" target="_blank">
+          <i class="fa fa-external-link-alt"></i>
+          <span>Abrir HUB PRO</span>
+          <span class="no-url-txt" id="hub-notcfg">· configurar URL</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- STOCK MANAGER -->
+    <div class="card">
+      <div class="card-stripe green"></div>
+      <div class="card-head">
+        <div class="card-icon green"><i class="fa fa-boxes"></i></div>
+        <div>
+          <div class="card-name">Stock Manager</div>
+          <div class="card-sub">WMS · Inventario y Despachos</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-val" id="s-total">—</div>
+          <div class="kpi-lbl">SKUs en stock</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val red" id="s-critico">—</div>
+          <div class="kpi-lbl">En quiebre</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val yellow" id="s-bajo">—</div>
+          <div class="kpi-lbl">Stock bajo</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val" id="s-despachos">—</div>
+          <div class="kpi-lbl">Despachos pendientes</div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <a id="btn-stock" class="btn-mod off" target="_blank">
+          <i class="fa fa-external-link-alt"></i>
+          <span>Abrir Stock Manager</span>
+          <span class="no-url-txt" id="stock-notcfg">· configurar URL</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- PORTAL RESELLER -->
+    <div class="card">
+      <div class="card-stripe orange"></div>
+      <div class="card-head">
+        <div class="card-icon orange"><i class="fa fa-store"></i></div>
+        <div>
+          <div class="card-name">Portal Reseller</div>
+          <div class="card-sub">Ingreso de solicitudes</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-val" id="p-resellers">—</div>
+          <div class="kpi-lbl">Resellers activos</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val green" id="p-otmes">—</div>
+          <div class="kpi-lbl">OTs este mes</div>
+        </div>
+        <div class="kpi-wide">
+          <i class="fa fa-shield-alt" style="color:var(--orange);flex-shrink:0"></i>
+          Acceso exclusivo para resellers autorizados DJI
+        </div>
+      </div>
+      <div class="card-foot">
+        <a id="btn-portal" class="btn-mod off" target="_blank">
+          <i class="fa fa-external-link-alt"></i>
+          <span>Abrir Portal</span>
+          <span class="no-url-txt" id="portal-notcfg">· configurar URL</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- WOS -->
+    <div class="card">
+      <div class="card-stripe purple"></div>
+      <div class="card-head">
+        <div class="card-icon purple"><i class="fa fa-shipping-fast"></i></div>
+        <div>
+          <div class="card-name">WOS</div>
+          <div class="card-sub">Warehouse · Pedidos y Despachos</div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-val" id="w-activos">—</div>
+          <div class="kpi-lbl">Pedidos activos</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val purple" id="w-adespachar">—</div>
+          <div class="kpi-lbl">A despachar</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val yellow" id="w-enespera">—</div>
+          <div class="kpi-lbl">En espera resp.</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-val green" id="w-despmes">—</div>
+          <div class="kpi-lbl">Despachados este mes</div>
+        </div>
+      </div>
+      <div class="card-foot">
+        <a id="btn-wos" class="btn-mod off" target="_blank">
+          <i class="fa fa-external-link-alt"></i>
+          <span>Abrir WOS</span>
+          <span class="no-url-txt" id="wos-notcfg">· configurar URL</span>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- AVISO PORTAL — fila compacta -->
+<div class="main" style="padding-top:0">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalAviso()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-bullhorn"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Aviso · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Comunicado post-login</div>
+    </div>
+    <span id="aviso-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVO</span>
+    <span id="aviso-vistas-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-eye" style="margin-right:4px"></i>0</span>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalWos()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,163,224,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-warehouse"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · WOS</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Email facturación · Email soporte · Carpeta PDFs</div>
+    </div>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCampana()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-seedling"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Campaña · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="camp-fila-sub">Estimado sin compromiso</div>
+    </div>
+    <span id="camp-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVA</span>
+    <span id="camp-resellers-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalPin()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-key"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">PIN · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Recordar o resetear credenciales de acceso</div>
+    </div>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+</div>
+
+<!-- MODAL AVISO -->
+<div class="modal-bg" id="modal-aviso">
+  <div class="modal-box" style="width:560px;max-height:85vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-bullhorn"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Aviso · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Comunicado que aparece al iniciar sesión</div>
+      </div>
+      <button onclick="cerrarModalAviso()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1a1f2e;cursor:pointer;width:fit-content">
+        <input type="checkbox" id="aviso-activo" onchange="avisoToggle()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--purple)">
+        Activo (visible para resellers al iniciar sesión)
+      </label>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Título</label>
+        <input id="aviso-titulo" type="text" placeholder="Ej: Campaña de Repuestos · Agosto 2026" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Mensaje</label>
+        <textarea id="aviso-cuerpo" placeholder="Escribí el mensaje completo aquí…" rows="6" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;resize:vertical;line-height:1.6"></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="aviso-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="avisoGuardar()" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar aviso
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em">
+          <i class="fa fa-eye" style="margin-right:5px;color:#9ba5b4"></i>Vieron el aviso — <span id="aviso-vistas-count">0</span>
+        </div>
+        <button onclick="avisoLimpiarVistas()" style="font-size:11px;color:#9ba5b4;background:none;border:1px solid #e0e3e8;border-radius:6px;padding:4px 10px;cursor:pointer">
+          <i class="fa fa-trash-alt"></i> Limpiar
+        </button>
+      </div>
+      <div id="aviso-vistas-lista" style="font-size:12px;color:#5e6778;line-height:2">
+        <span style="color:#c0c8d4;font-style:italic">Nadie ha visto el aviso aún.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL WOS CONFIG -->
+<div class="modal-bg" id="modal-wos">
+  <div class="modal-box" style="width:520px;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,163,224,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-warehouse"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Configuración · WOS</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Parámetros operativos del sistema de despachos</div>
+      </div>
+      <button onclick="cerrarModalWos()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Email de soporte (reply-to en notificaciones)</label>
+        <input id="wos-email-soporte" type="email" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Email de facturación (CC al despachar)</label>
+        <input id="wos-email-fact" type="email" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">ID carpeta Drive · Notas de Entrega (PDF)</label>
+        <input id="wos-pdf-folder" type="text" placeholder="Ej: 1yVefFM-vZ-Skmg2a_V9fsA..." style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;font-family:monospace">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">En Drive: clic derecho en la carpeta → Compartir → copiar el ID de la URL</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="wos-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="wosGuardar()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMPAÑA -->
+<div class="modal-bg" id="modal-campana">
+  <div class="modal-box" style="width:560px;max-height:85vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-seedling"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Campaña · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Estimado sin compromiso de compra</div>
+      </div>
+      <button onclick="cerrarModalCampana()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1a1f2e;cursor:pointer;width:fit-content">
+        <input type="checkbox" id="camp-activa" style="width:16px;height:16px;cursor:pointer;accent-color:var(--green)">
+        Campaña activa (visible para resellers)
+      </label>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nombre de la campaña</label>
+        <input id="camp-label" type="text" placeholder="Ej: Campaña Agosto 2026" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Fecha límite</label>
+        <input id="camp-vence" type="text" placeholder="Ej: 25/07/2026" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Formato DD/MM/YYYY · Los resellers pueden modificar su estimado hasta esta fecha.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="camp-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="campanaGuardar()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar campaña
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em">
+          <i class="fa fa-users" style="margin-right:5px;color:#9ba5b4"></i>Estimados cargados — <span id="camp-stats-count">0</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="campanaCargarStats()" style="font-size:11px;color:#9ba5b4;background:none;border:1px solid #e0e3e8;border-radius:6px;padding:4px 10px;cursor:pointer">
+            <i class="fa fa-sync-alt"></i> Actualizar
+          </button>
+          <button id="camp-recordatorio-btn" onclick="campanaEnviarRecordatorio()" style="font-size:11px;color:#fff;background:var(--blue);border:none;border-radius:6px;padding:4px 12px;cursor:pointer;display:flex;align-items:center;gap:5px">
+            <i class="fa fa-envelope"></i> Enviar recordatorio
+          </button>
+        </div>
+      </div>
+      <div id="camp-stats-lista" style="font-size:12px;color:#5e6778;line-height:2">
+        <span style="color:#c0c8d4;font-style:italic">Ningún reseller cargó su estimado aún.</span>
+      </div>
+      <div id="camp-recordatorio-result" style="display:none;margin-top:10px;padding:8px 12px;border-radius:7px;font-size:11px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PIN -->
+<div class="modal-bg" id="modal-pin">
+  <div class="modal-box" style="width:440px;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-key"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">PIN · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Credenciales de acceso de resellers</div>
+      </div>
+      <button onclick="cerrarModalPin()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Reseller</label>
+        <select id="pin-reseller" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+          <option value="">— Cargando resellers… —</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="pinRecordar()" style="flex:1;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+          <i class="fa fa-envelope"></i> Recordar PIN
+        </button>
+        <button onclick="pinReset()" style="flex:1;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+          <i class="fa fa-sync-alt"></i> Reset PIN
+        </button>
+      </div>
+      <div id="pin-status" style="font-size:12px;min-height:16px;color:#9ba5b4"></div>
+    </div>
+    <div style="padding:10px 18px;border-top:1px solid #f0f2f5;display:flex;justify-content:flex-end">
+      <button onclick="cerrarModalPin()" class="btn-cancel-m">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <span class="sb-dot"></span>
+  <span>Sistema operativo</span>
+  <span class="sb-sep"></span>
+  <span><i class="fa fa-database" style="font-size:9px;margin-right:4px"></i>Google Sheets · BIDCOMAGRO</span>
+  <span style="margin-left:auto"><i class="fa fa-clock" style="font-size:9px;margin-right:4px"></i>Auto-refresh: 2 min</span>
+</div>
+
+<!-- MODAL CONFIG URLs -->
+<div class="modal-bg" id="modal-cfg">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fa fa-link" style="color:var(--blue);margin-right:8px"></i>Configurar URLs de los módulos</div>
+    <div class="modal-sub">Pegá la URL de despliegue (<code>/exec</code>) de cada app de Google Apps Script.</div>
+    <div class="f-group">
+      <div class="f-label"><span class="chip blue"><i class="fa fa-tools"></i> HUB PRO</span></div>
+      <input id="cfg-hub" class="f-inp" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="f-group">
+      <div class="f-label"><span class="chip green"><i class="fa fa-boxes"></i> Stock Manager</span></div>
+      <input id="cfg-stock" class="f-inp" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="f-group">
+      <div class="f-label"><span class="chip orange"><i class="fa fa-store"></i> Portal Reseller</span></div>
+      <input id="cfg-portal" class="f-inp" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="f-group">
+      <div class="f-label"><span class="chip purple"><i class="fa fa-shipping-fast"></i> WOS</span></div>
+      <input id="cfg-wos" class="f-inp" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel-m" onclick="closeConfig()">Cancelar</button>
+      <button class="btn-save-m" onclick="saveConfig()"><i class="fa fa-save" style="margin-right:6px"></i>Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function load() {
+  var ri = document.getElementById('ri');
+  ri.classList.add('spin');
+  google.script.run
+    .withSuccessHandler(function(d) {
+      ri.classList.remove('spin');
+      document.getElementById('overlay').classList.add('gone');
+      if (!d || !d.ok) return;
+
+      // HUB
+      kpi('h-abiertas', d.hub.abiertas);
+      kpi('h-urgentes', d.hub.urgentes,  d.hub.urgentes  > 0 ? 'red'    : 'green');
+      kpi('h-sintec',   d.hub.sinTecnico,d.hub.sinTecnico > 0 ? 'yellow' : 'green');
+      kpi('h-finmes',   d.hub.finMes,    'green');
+
+      // STOCK
+      kpi('s-total',    d.stock.total);
+      kpi('s-critico',  d.stock.critico,  d.stock.critico  > 0 ? 'red'    : 'green');
+      kpi('s-bajo',     d.stock.bajo,     d.stock.bajo     > 0 ? 'yellow' : 'green');
+      kpi('s-despachos',d.stock.despachos,d.stock.despachos > 0 ? 'yellow' : 'green');
+
+      // PORTAL
+      kpi('p-resellers', d.portal.resellers);
+      kpi('p-otmes',     d.portal.otMes, 'green');
+
+      // WOS
+      kpi('w-activos',    d.wos.activos);
+      kpi('w-adespachar', d.wos.aDespachar, d.wos.aDespachar > 0 ? 'purple' : 'green');
+      kpi('w-enespera',   d.wos.enEspera,   d.wos.enEspera   > 0 ? 'yellow' : 'green');
+      kpi('w-despmes',    d.wos.despMes,    'green');
+
+      // URLs
+      setUrl('btn-hub',    'hub-notcfg',    d.urls.hub,    'blue');
+      setUrl('btn-stock',  'stock-notcfg',  d.urls.stock,  'green');
+      setUrl('btn-portal', 'portal-notcfg', d.urls.portal, 'orange');
+      setUrl('btn-wos',    'wos-notcfg',    d.urls.wos,    'purple');
+
+      document.getElementById('ts').textContent = 'Actualizado: ' + d.ts;
+    })
+    .withFailureHandler(function(e) {
+      ri.classList.remove('spin');
+      document.getElementById('overlay').classList.add('gone');
+    })
+    .obtenerKPIs();
+}
+
+function kpi(id, val, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val !== undefined ? val : '—';
+  el.className = 'kpi-val' + (cls ? ' ' + cls : '');
+}
+
+function setUrl(btnId, notCfgId, url, cls) {
+  var btn = document.getElementById(btnId);
+  var nc  = document.getElementById(notCfgId);
+  if (!btn) return;
+  if (url) {
+    btn.href = url;
+    btn.className = 'btn-mod ' + cls;
+    if (nc) nc.style.display = 'none';
+  } else {
+    btn.href = '#';
+    btn.className = 'btn-mod off';
+    if (nc) nc.style.display = '';
+  }
+}
+
+function openConfig() {
+  google.script.run
+    .withSuccessHandler(function(u) {
+      document.getElementById('cfg-hub').value    = u.hub    || '';
+      document.getElementById('cfg-stock').value  = u.stock  || '';
+      document.getElementById('cfg-portal').value = u.portal || '';
+      document.getElementById('cfg-wos').value    = u.wos    || '';
+      document.getElementById('modal-cfg').classList.add('show');
+    })
+    .obtenerUrls();
+}
+
+function closeConfig() {
+  document.getElementById('modal-cfg').classList.remove('show');
+}
+
+function saveConfig() {
+  var hub    = document.getElementById('cfg-hub').value.trim();
+  var stock  = document.getElementById('cfg-stock').value.trim();
+  var portal = document.getElementById('cfg-portal').value.trim();
+  var wos    = document.getElementById('cfg-wos').value.trim();
+  google.script.run
+    .withSuccessHandler(function() { closeConfig(); load(); })
+    .guardarUrls(hub, stock, portal, wos);
+}
+
+// ── Herramientas ──────────────────────────────────────────────
+function openTools() {
+  document.getElementById('modal-tools').classList.add('show');
+}
+function closeTools() {
+  document.getElementById('modal-tools').classList.remove('show');
+}
+
+function runTool(toolId, resultId, btn) {
+  var card = btn.closest ? btn.closest('.tool-card') : btn.parentNode;
+  card.className = 'tool-card running';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i>';
+  var resEl = document.getElementById(resultId);
+  resEl.className = 'tool-result';
+  resEl.textContent = '';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = 'Ejecutar';
+      if (r && r.ok) {
+        card.className = 'tool-card done-ok';
+        resEl.className = 'tool-result ok';
+        resEl.textContent = r.msg || 'Completado.';
+      } else {
+        card.className = 'tool-card done-err';
+        resEl.className = 'tool-result err';
+        resEl.textContent = (r && r.error) ? r.error : 'Error desconocido.';
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = 'Ejecutar';
+      card.className = 'tool-card done-err';
+      resEl.className = 'tool-result err';
+      resEl.textContent = 'Error de conexión: ' + (e.message || e);
+    })
+    .ejecutarHerramienta(toolId);
+}
+
+// Auto-refresh cada 2 minutos
+setInterval(load, 120000);
+load();
+
+// ── Aviso Portal ──────────────────────────────────────────────
+google.script.run
+  .withSuccessHandler(function(av) {
+    if (!av) return;
+    document.getElementById('aviso-activo').checked = av.activo;
+    document.getElementById('aviso-titulo').value   = av.titulo;
+    document.getElementById('aviso-cuerpo').value   = av.cuerpo;
+    _actualizarBadgeAviso(av.activo);
+  })
+  .LAUNCH_getAviso();
+avisoCargarVistas();
+
+google.script.run
+  .withSuccessHandler(function(w) {
+    if (!w) return;
+    document.getElementById('wos-email-soporte').value = w.emailSoporte;
+    document.getElementById('wos-email-fact').value    = w.emailFact;
+    document.getElementById('wos-pdf-folder').value    = w.pdfFolderId;
+  })
+  .LAUNCH_getWosConfig();
+
+google.script.run
+  .withSuccessHandler(function(c) {
+    if (!c) return;
+    document.getElementById('camp-activa').checked = !!c.activa;
+    document.getElementById('camp-label').value    = c.label;
+    document.getElementById('camp-vence').value    = c.vence;
+    _actualizarBadgeCampana(!!c.activa, c.label);
+  })
+  .LAUNCH_getCampana();
+campanaCargarStats();
+
+google.script.run
+  .withSuccessHandler(function(lista) {
+    var sel = document.getElementById('pin-reseller');
+    if (!sel || !lista) return;
+    sel.innerHTML = '<option value="">— Seleccionar reseller —</option>';
+    for (var i = 0; i < lista.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = lista[i];
+      opt.textContent = lista[i];
+      sel.appendChild(opt);
+    }
+  })
+  .withFailureHandler(function() {
+    var sel = document.getElementById('pin-reseller');
+    if (sel) sel.innerHTML = '<option value="">— Error al cargar —</option>';
+  })
+  .LAUNCH_getResellersLista();
+
+function abrirModalWos() {
+  document.getElementById('modal-wos').classList.add('show');
+}
+
+function cerrarModalWos() {
+  document.getElementById('modal-wos').classList.remove('show');
+}
+
+function wosGuardar() {
+  var st = document.getElementById('wos-status');
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ Error: ' + (res.error || '');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      setTimeout(function(){ st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + (e && (e.message || e)); st.style.color = 'var(--red)'; })
+    .LAUNCH_setWosConfig({
+      emailSoporte: document.getElementById('wos-email-soporte').value.trim(),
+      emailFact:    document.getElementById('wos-email-fact').value.trim(),
+      pdfFolderId:  document.getElementById('wos-pdf-folder').value.trim()
+    });
+}
+
+function abrirModalCampana() {
+  document.getElementById('modal-campana').classList.add('show');
+  campanaCargarStats();
+}
+
+function cerrarModalCampana() {
+  document.getElementById('modal-campana').classList.remove('show');
+}
+
+function _actualizarBadgeCampana(activa, label, total) {
+  var badge = document.getElementById('camp-estado-badge');
+  var mini  = document.getElementById('camp-resellers-mini');
+  var sub   = document.getElementById('camp-fila-sub');
+  if (badge) {
+    badge.textContent = activa ? 'ACTIVA' : 'INACTIVA';
+    badge.style.background = activa ? 'rgba(26,158,74,.12)' : '#f0f2f5';
+    badge.style.color      = activa ? 'var(--green)'        : '#9ba5b4';
+  }
+  if (sub && label) sub.textContent = activa ? label : 'Estimado sin compromiso';
+  if (mini && total !== undefined) mini.innerHTML = '<i class="fa fa-users" style="margin-right:4px"></i>' + total;
+}
+
+function campanaGuardar() {
+  var st = document.getElementById('camp-status');
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var data = {
+    activa: document.getElementById('camp-activa').checked,
+    label:  document.getElementById('camp-label').value.trim(),
+    vence:  document.getElementById('camp-vence').value.trim()
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ Error: ' + (res.error || '');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) _actualizarBadgeCampana(data.activa, data.label);
+      setTimeout(function(){ st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_setCampana(data);
+}
+
+function campanaEnviarRecordatorio() {
+  if (!confirm('¿Enviar recordatorio por email a los resellers que aún no completaron su estimado?')) return;
+  var btn = document.getElementById('camp-recordatorio-btn');
+  var res = document.getElementById('camp-recordatorio-result');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Enviando…';
+  res.style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-envelope"></i> Enviar recordatorio';
+      if (r.ok) {
+        res.style.display = 'block';
+        res.style.background = 'rgba(26,158,74,.08)';
+        res.style.border = '1px solid rgba(26,158,74,.2)';
+        res.style.color = '#1a5e35';
+        res.innerHTML =
+          '<i class="fa fa-check-circle" style="margin-right:5px;color:var(--green)"></i>' +
+          '<strong>' + r.enviados + '</strong> enviados · ' +
+          '<strong>' + r.yaCompletaron + '</strong> ya completaron · ' +
+          '<strong>' + r.sinEmail + '</strong> sin email registrado';
+      } else {
+        res.style.display = 'block';
+        res.style.background = 'rgba(214,48,49,.07)';
+        res.style.border = '1px solid rgba(214,48,49,.2)';
+        res.style.color = 'var(--red)';
+        res.innerHTML = '<i class="fa fa-exclamation-circle" style="margin-right:5px"></i>' + (r.error || 'Error desconocido');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-envelope"></i> Enviar recordatorio';
+      res.style.display = 'block';
+      res.style.background = 'rgba(214,48,49,.07)';
+      res.style.border = '1px solid rgba(214,48,49,.2)';
+      res.style.color = 'var(--red)';
+      res.innerHTML = '<i class="fa fa-exclamation-circle" style="margin-right:5px"></i>' + e.message;
+    })
+    .LAUNCH_enviarRecordatorioCampana();
+}
+
+function campanaCargarStats() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var count = document.getElementById('camp-stats-count');
+      var lista = document.getElementById('camp-stats-lista');
+      if (!res || !res.total) {
+        count.textContent = '0';
+        _actualizarBadgeCampana(document.getElementById('camp-activa').checked, document.getElementById('camp-label').value, 0);
+        lista.innerHTML = '<span style="color:#c0c8d4;font-style:italic">Ningún reseller cargó su estimado aún.</span>';
+        return;
+      }
+      count.textContent = res.total;
+      _actualizarBadgeCampana(document.getElementById('camp-activa').checked, document.getElementById('camp-label').value, res.total);
+      lista.innerHTML = res.resellers.map(function(r) {
+        return '<div><i class="fa fa-check-circle" style="color:var(--green);margin-right:6px"></i>' +
+               '<strong>' + r.nombre + '</strong>' +
+               '<span style="color:#9ba5b4;font-size:10px;margin-left:8px">' + r.items + ' ítem(s)</span>' +
+               '<span style="color:#c0c8d4;font-size:10px;margin-left:8px">' + r.fecha + '</span></div>';
+      }).join('');
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getCampanaStats();
+}
+
+function abrirModalAviso() {
+  document.getElementById('modal-aviso').classList.add('show');
+  avisoCargarVistas();
+}
+
+function cerrarModalAviso() {
+  document.getElementById('modal-aviso').classList.remove('show');
+}
+
+function _actualizarBadgeAviso(activo, vistas) {
+  var badge = document.getElementById('aviso-estado-badge');
+  var mini  = document.getElementById('aviso-vistas-mini');
+  if (badge) {
+    badge.textContent = activo ? 'ACTIVO' : 'INACTIVO';
+    badge.style.background = activo ? 'rgba(26,158,74,.12)' : '#f0f2f5';
+    badge.style.color      = activo ? '#1a9e4a'             : '#9ba5b4';
+  }
+  if (mini && vistas !== undefined) mini.innerHTML = '<i class="fa fa-eye" style="margin-right:4px"></i>' + vistas;
+}
+
+function avisoToggle() {
+  avisoGuardar();
+}
+
+function avisoCargarVistas() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      var count = document.getElementById('aviso-vistas-count');
+      var lista = document.getElementById('aviso-vistas-lista');
+      if (!res || !res.vistas || !res.vistas.length) {
+        count.textContent = '0';
+        _actualizarBadgeAviso(document.getElementById('aviso-activo').checked, 0);
+        lista.innerHTML = '<span style="color:#c0c8d4;font-style:italic">Nadie ha visto el aviso aún.</span>';
+        return;
+      }
+      count.textContent = res.vistas.length;
+      _actualizarBadgeAviso(document.getElementById('aviso-activo').checked, res.vistas.length);
+      lista.innerHTML = res.vistas.map(function(v) {
+        return '<div><i class="fa fa-check-circle" style="color:#1a9e4a;margin-right:6px"></i>' +
+               '<strong>' + v.nombre + '</strong><span style="color:#9ba5b4;font-size:10px;margin-left:8px">' + v.fecha + '</span></div>';
+      }).join('');
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getVistasAviso();
+}
+
+function avisoLimpiarVistas() {
+  if (!confirm('¿Limpiar la lista de vistas? Esto no afecta el aviso.')) return;
+  google.script.run
+    .withSuccessHandler(function(res) { if (res.ok) avisoCargarVistas(); })
+    .LAUNCH_limpiarVistasAviso();
+}
+
+function avisoGuardar() {
+  var st = document.getElementById('aviso-status');
+  st.textContent = 'Guardando…';
+  st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ Error: ' + (res.error || '');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) _actualizarBadgeAviso(document.getElementById('aviso-activo').checked);
+      setTimeout(function(){ st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) {
+      st.textContent = '✗ ' + e.message;
+      st.style.color = 'var(--red)';
+    })
+    .LAUNCH_setAviso({
+      activo: document.getElementById('aviso-activo').checked,
+      titulo: document.getElementById('aviso-titulo').value.trim(),
+      cuerpo: document.getElementById('aviso-cuerpo').value.trim()
+    });
+}
+
+// ── PIN Portal Reseller ───────────────────────────────────────
+function abrirModalPin() {
+  document.getElementById('modal-pin').classList.add('show');
+}
+
+function cerrarModalPin() {
+  document.getElementById('modal-pin').classList.remove('show');
+  document.getElementById('pin-status').textContent = '';
+}
+
+function pinRecordar() {
+  var nombre = document.getElementById('pin-reseller').value;
+  if (!nombre) return;
+  var st = document.getElementById('pin-status');
+  st.textContent = 'Enviando…';
+  st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Enviado a ' + res.email : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+    })
+    .withFailureHandler(function(e) {
+      st.textContent = '✗ ' + (e && (e.message || e));
+      st.style.color = 'var(--red)';
+    })
+    .LAUNCH_recordarPin(nombre);
+}
+
+function pinReset() {
+  var nombre = document.getElementById('pin-reseller').value;
+  if (!nombre) return;
+  if (!confirm('¿Generar un nuevo PIN para ' + nombre + '?\nEl PIN actual quedará inválido.')) return;
+  var st = document.getElementById('pin-status');
+  st.textContent = 'Reseteando…';
+  st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Nuevo PIN enviado a ' + res.email : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+    })
+    .withFailureHandler(function(e) {
+      st.textContent = '✗ ' + (e && (e.message || e));
+      st.style.color = 'var(--red)';
+    })
+    .LAUNCH_resetPin(nombre);
+}
+</script>
+
+<!-- MODAL: Herramientas del sistema -->
+<div class="modal-bg" id="modal-tools">
+  <div class="modal-box" style="width:620px;max-height:85vh;overflow-y:auto">
+    <div class="modal-title"><i class="fa fa-wrench" style="color:var(--blue);margin-right:8px"></i>Herramientas del sistema</div>
+    <div class="modal-sub">Funciones de mantenimiento y diagnóstico. Las marcadas con <i class="fa fa-play-circle" style="color:var(--blue)"></i> se ejecutan directamente desde acá.</div>
+
+    <!-- ── Diagnóstico general ── -->
+    <div class="tools-section">
+      <div class="tools-section-title"><i class="fa fa-heartbeat"></i> Sistema</div>
+
+      <div class="tool-card" id="tc-health">
+        <div class="tool-icon runnable"><i class="fa fa-heartbeat"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Health check</div>
+          <div class="tool-desc">Verifica que todas las hojas de cálculo sean accesibles y muestra la cuota de Gmail disponible.</div>
+          <div class="tool-result" id="res-health"></div>
+        </div>
+        <button class="tool-btn run" onclick="runTool('sys-health','res-health',this)">Ejecutar</button>
+      </div>
+
+      <div class="tool-card" id="tc-gmail">
+        <div class="tool-icon runnable"><i class="fa fa-envelope"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Cuota Gmail</div>
+          <div class="tool-desc">Muestra cuántos emails quedan disponibles en la cuota diaria de Gmail.</div>
+          <div class="tool-result" id="res-gmail"></div>
+        </div>
+        <button class="tool-btn run" onclick="runTool('wos-cuota-gmail','res-gmail',this)">Ejecutar</button>
+      </div>
+    </div>
+
+    <!-- ── WOS ── -->
+    <div class="tools-section">
+      <div class="tools-section-title"><i class="fa fa-shipping-fast" style="color:var(--purple)"></i> WOS · Pedidos y Despachos</div>
+
+      <div class="tool-card" id="tc-threads">
+        <div class="tool-icon runnable"><i class="fa fa-link"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Recuperar Thread IDs perdidos</div>
+          <div class="tool-desc">Busca en Gmail el hilo original de cada pedido que tenga col R vacía y restaura el Thread ID. Permite que los emails de despacho/faltante se envíen como respuesta en el hilo correcto.</div>
+          <div class="tool-result" id="res-threads"></div>
+        </div>
+        <button class="tool-btn run" onclick="runTool('wos-recuperar-threads','res-threads',this)">Ejecutar</button>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-icon editor"><i class="fa fa-robot"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Instalar detector automático</div>
+          <div class="tool-desc">Crea el trigger que escanea Gmail cada 10 minutos para detectar respuestas A/B de resellers. Debe ejecutarse una vez desde el editor del proyecto WOS.</div>
+          <div class="tool-editor-note">Apps Script → WOS → WOS_instalarTriggerDetector()</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HUB PRO ── -->
+    <div class="tools-section">
+      <div class="tools-section-title"><i class="fa fa-tools" style="color:var(--blue)"></i> HUB PRO · Órdenes de Trabajo</div>
+
+      <div class="tool-card">
+        <div class="tool-icon editor"><i class="fa fa-clock"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Instalar triggers SLA y reporte mensual</div>
+          <div class="tool-desc">Instala el trigger diario de verificación de SLAs (8 AM) y el trigger de reporte mensual. Ejecutar desde el editor del proyecto HUB PRO.</div>
+          <div class="tool-editor-note">Apps Script → HUB_PRO → instalarTodosTriggers()</div>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-icon editor"><i class="fa fa-stethoscope"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Diagnóstico del sistema HUB</div>
+          <div class="tool-desc">Verifica resellers con email configurado, cuota de mail y acceso a hojas. El resultado aparece en los logs del editor.</div>
+          <div class="tool-editor-note">Apps Script → HUB_PRO → diagnosticarSistema()</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel-m" onclick="closeTools()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

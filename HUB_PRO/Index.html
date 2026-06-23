@@ -1,0 +1,3320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js" defer></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+<style>
+/* ── DJI BRAND TOKENS ───────────────────── */
+:root {
+  --blue:   #00a3e0;
+  --blue-d: #0088bb;
+  --blue-a: rgba(0,163,224,.12);
+  --blue-b: rgba(0,163,224,.06);
+
+  --bg:     #141414;
+  --panel:  #1c1c1c;
+  --surf:   #232323;
+  --raise:  #2a2a2a;
+  --hov:    #2f2f2f;
+  --brd:    #303030;
+  --brd2:   #3d3d3d;
+
+  --tx:     #e8e8e8;
+  --tx-m:   #888;
+  --tx-d:   #555;
+
+  --titan:  #5e6262;
+  --silver: #a0a5a5;
+  --green:  #27ae60;
+  --yellow: #f39c12;
+  --red:    #e74c3c;
+  --indigo: #6366f1;
+
+  --f: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --r:4px; --rm:8px; --rl:12px;
+}
+
+/* ── LIGHT ──────────────────────────────── */
+body.light {
+  --bg:#f5f5f5; --panel:#fff; --surf:#f0f0f0; --raise:#e8e8e8; --hov:#ebebeb;
+  --brd:#e0e0e0; --brd2:#ccc; --tx:#141414; --tx-m:#5e6262; --tx-d:#a0a5a5;
+}
+body.light .kpi-n       {color:#141414!important}
+body.light .kpi-n.red   {color:var(--red)!important}
+body.light .ot-code     {color:#141414!important}
+body.light .f-ot-title  {color:#141414!important;font-weight:700!important}
+body.light .form-control,
+body.light .form-select {background:#fff!important;color:#141414!important}
+body.light #busc        {background:#fff!important;color:#141414!important}
+body.light .fl-sel      {color:#141414!important}
+body.light .sug-box     {background:#fff}
+body.light .sug-it      {color:#141414}
+body.light .sug-it:hover{background:var(--surf)}
+body.light .modal-content{background:#fff!important}
+body.light .modal-header {background:var(--surf)!important}
+body.light .modal-title  {color:#141414!important}
+body.light .st-step      {background:var(--surf);color:var(--tx-m)}
+body.light .st-step:hover{background:var(--hov);color:var(--tx)}
+body.light .st-step.done {background:var(--blue-b);border-color:rgba(0,163,224,.2);color:var(--blue)}
+body.light .st-step.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+body.light .p-row        {background:var(--surf)}
+body.light tbody tr:hover{background:var(--hov)!important}
+body.light #spin-bg      {background:rgba(245,245,245,.92)}
+body.light .sk-row       {background:linear-gradient(90deg,var(--surf) 25%,var(--hov) 50%,var(--surf) 75%)}
+body.light .tbl-bar,
+body.light .fc-head      {background:var(--surf)}
+body.light .spin-t       {color:var(--tx-m)}
+body.light .btn-save     {background:#141414;color:#fff}
+body.light .btn-save:hover{background:var(--blue)}
+body.light .toast-msg    {background:#fff}
+body.light .log-item     {background:var(--surf);border-color:var(--brd)}
+body.light .met-row      {border-color:var(--brd)}
+body.light .bar-bg       {background:var(--raise)}
+body.light .unsaved-bar  {background:#fff7e6}
+body.light .unsaved-bar  {color:#7a4f00;border-color:#f0c060}
+body.light ::-webkit-scrollbar-thumb{background:var(--brd2)}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--silver)}
+
+/* ── SKELETON ───────────────────────────── */
+.sk-row{height:16px;border-radius:3px;margin:10px 0;background:linear-gradient(90deg,var(--surf) 25%,var(--raise) 50%,var(--surf) 75%);background-size:400% 100%;animation:shimmer 1.5s ease infinite}
+.sk-row.w80{width:80%}.sk-row.w60{width:60%}.sk-row.w40{width:40%}
+@keyframes shimmer{to{background-position:-400% 0}}
+
+/* ── SIDEBAR ────────────────────────────── */
+.sb{width:240px;background:var(--panel);border-right:1px solid var(--brd);height:100vh;position:fixed;top:0;left:0;z-index:300;display:flex;flex-direction:column;overflow:hidden}
+.sb-inner{display:flex;flex-direction:column;height:100%;overflow-y:auto}
+.sb-brand{padding:20px 18px;border-bottom:1px solid var(--brd);flex-shrink:0}
+.sb-logo{display:flex;align-items:center;gap:10px}
+.dji-mark{width:36px;height:36px;background:var(--blue);display:flex;align-items:center;justify-content:center;border-radius:var(--r);flex-shrink:0}
+.dji-mark span{color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em}
+.brand-name{font-size:13px;font-weight:600;color:var(--tx);letter-spacing:.01em;line-height:1.2}
+.brand-sub{font-size:10px;color:var(--tx-m);margin-top:1px}
+.sb-nav{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.sb-lbl{font-size:10px;font-weight:600;color:var(--tx-d);text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin-bottom:4px}
+.sb-group{margin-bottom:2px}
+.sb-group-hd{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;cursor:pointer;border-radius:var(--r);transition:background .1s;user-select:none}
+.sb-group-hd:hover{background:var(--hov)}
+.sb-group-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);display:flex;align-items:center;gap:5px}
+.sb-group-chv{font-size:9px;color:var(--tx-d);transition:transform .2s}
+.sb-group-hd.open .sb-group-chv{transform:rotate(90deg)}
+.sb-group-body{overflow:hidden;transition:max-height .22s ease,opacity .18s;max-height:0;opacity:0}
+.sb-group-body.open{max-height:500px;opacity:1}
+.sb-divider{height:1px;background:var(--brd);margin:8px 0}
+.btn-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;margin-bottom:4px}
+.btn-new:hover{background:var(--blue-d)}
+.nb{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:var(--rm);font-size:13px;color:var(--tx-m);background:transparent;border:none;transition:all .12s;cursor:pointer;text-align:left}
+.nb:hover{background:var(--surf);color:var(--tx)}
+.nb.active{background:var(--blue-a);color:var(--blue)}
+.nb i{width:16px;text-align:center;font-size:13px}
+.btn-log{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:9px;background:var(--surf);color:var(--tx-m);border:1px solid var(--brd);border-radius:var(--rm);font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
+.btn-log:hover{border-color:var(--blue);color:var(--blue)}
+.sb-foot{padding:12px;border-top:1px solid var(--brd);flex-shrink:0;display:flex;flex-direction:column;gap:4px}
+.btn-tool{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 10px;background:transparent;border:1px solid var(--brd);border-radius:var(--r);font-size:11px;color:var(--tx-m);cursor:pointer;transition:all .12s}
+.btn-tool:hover{border-color:var(--brd2);color:var(--tx)}
+.t-track{width:28px;height:15px;background:var(--brd2);border-radius:20px;position:relative;transition:background .18s;flex-shrink:0}
+.t-track.on{background:var(--blue)}
+.t-thumb{width:9px;height:9px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:left .18s;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.t-track.on .t-thumb{left:16px}
+
+/* ── MAIN ───────────────────────────────── */
+.mc{margin-left:240px;padding:24px 28px;min-height:100vh}
+.top-bar{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.top-bar-title{font-size:18px;font-weight:600;color:var(--tx)}
+.top-bar-sub{font-size:12px;color:var(--tx-m);margin-top:2px}
+.btn-export{display:flex;align-items:center;gap:7px;padding:7px 14px;background:transparent;border:1px solid var(--brd);color:var(--tx-m);font-size:12px;border-radius:var(--rm);cursor:pointer;transition:all .12s}
+.btn-export:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── KPI ────────────────────────────────── */
+.kpi-row{display:grid;grid-template-columns:1fr 1fr 2.4fr;gap:12px;margin-bottom:16px}
+.kpi-c{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:18px 20px;transition:border-color .15s}
+.kpi-c:hover{border-color:var(--brd2)}
+.kpi-c.red{border-color:rgba(231,76,60,.25)}
+.kpi-lbl{font-size:11px;color:var(--tx-m);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.kpi-n{font-size:40px;line-height:1;color:#fff;font-weight:300;letter-spacing:-.02em}
+.kpi-c.red .kpi-n{color:var(--red)}
+.srch-c{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:0 16px;display:flex;align-items:center;gap:10px;transition:border-color .15s}
+.srch-c:focus-within{border-color:var(--blue)}
+.srch-c i{color:var(--tx-d);font-size:13px;flex-shrink:0}
+#busc{flex:1;background:transparent;border:none;color:var(--tx);font-family:var(--f);font-size:13px;padding:0;height:100%;outline:none}
+#busc::placeholder{color:var(--tx-d)}
+
+/* ── TABLA ──────────────────────────────── */
+.tbl-wrap{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden}
+.tbl-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--brd);background:var(--surf)}
+.tbl-cnt{font-size:11px;color:var(--tx-m)}.tbl-cnt b{color:var(--tx)}
+.tbl-ts{font-size:10px;color:var(--tx-d)}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:10px;font-weight:600;color:var(--tx-m);padding:10px 14px;background:var(--surf);border-bottom:1px solid var(--brd);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;text-align:left}
+thead th:first-child{padding-left:20px}
+tbody tr{border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--hov)}
+tbody tr.urg{background:rgba(231,76,60,.05)!important;border-left:2px solid var(--red)}
+tbody tr.urg:hover{background:rgba(231,76,60,.09)!important}
+td{padding:12px 14px;font-size:13px;vertical-align:middle;color:var(--tx)}
+td:first-child{padding-left:20px}
+.ot-code{font-size:12px;font-weight:600;color:#fff}
+.urg-dot{display:inline-block;width:5px;height:5px;background:var(--red);border-radius:50%;margin-left:6px;vertical-align:middle;animation:bk 1.2s infinite}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:.1}}
+.b-iw {font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;background:rgba(39,174,96,.12);color:#2ecc71;border:1px solid rgba(39,174,96,.2)}
+.b-oow{font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;background:rgba(231,76,60,.1);color:#e74c3c;border:1px solid rgba(231,76,60,.18)}
+.b-est{font-size:11px;padding:2px 10px;border-radius:3px;background:var(--surf);color:var(--tx-m);border:1px solid var(--brd);white-space:nowrap}
+.sv{font-size:12px;font-weight:600;color:var(--green)}
+.sa{font-size:12px;font-weight:600;color:var(--yellow)}
+.sr{font-size:12px;font-weight:600;color:var(--red)}
+.sc{font-size:12px;font-weight:600;color:#7b0000;background:rgba(123,0,0,.1);padding:2px 6px;border-radius:3px}
+.eq{font-size:12px;color:var(--tx-m)}
+.tec-pill{font-size:10px;color:var(--tx-d);background:var(--surf);border-radius:3px;padding:1px 6px;border:1px solid var(--brd)}
+.empty{text-align:center;padding:52px 20px;color:var(--tx-m)}
+.empty i{font-size:28px;margin-bottom:12px;display:block;color:var(--tx-d)}
+.empty p{font-size:13px}
+
+/* ── PANEL MENSAJES ─────────────────────── */
+#msg-view{display:none}
+.msg-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s}
+.msg-item:hover{background:var(--surf)}
+.msg-item:last-child{border-bottom:none}
+.msg-item.unread{background:var(--blue-b)}
+.msg-item.unread:hover{background:var(--blue-a)}
+.msg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.msg-dot.new{background:var(--blue)}
+.msg-dot.read{background:var(--brd2)}
+.msg-ot-code{font-size:11px;font-weight:700;color:var(--blue)}
+.msg-preview{font-size:12px;color:var(--tx-m);margin-top:3px;line-height:1.4;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:520px}
+.msg-nb-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:auto;flex-shrink:0}
+
+/* ── CHAT MENSAJES HUB ──────────────────── */
+.hub-msg-thread{padding:10px 14px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm) var(--rm) 0 0}
+.hub-msg-bubble{max-width:85%;padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.5}
+.hub-msg-bubble.hub-out{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:3px}
+.hub-msg-bubble.hub-in{align-self:flex-start;background:var(--raise);border:1px solid var(--brd2);color:var(--tx);border-bottom-left-radius:3px}
+.hub-msg-bubble-header{font-size:10px;font-weight:700;margin-bottom:4px;opacity:.75}
+.hub-msg-bubble.hub-out .hub-msg-bubble-header{color:rgba(255,255,255,.75)}
+.hub-msg-bubble.hub-in .hub-msg-bubble-header{color:var(--tx-m)}
+.hub-msg-bubble-body{white-space:pre-wrap;word-break:break-word}
+.hub-msg-empty{padding:12px 14px;font-size:12px;color:var(--tx-d);font-style:italic;background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm) var(--rm) 0 0}
+.hub-msg-send{display:flex;gap:8px;padding:8px 10px;border:1px solid var(--brd);border-top:none;border-radius:0 0 var(--rm) var(--rm);background:var(--panel)}
+.hub-msg-send input{flex:1;background:var(--surf);border:1px solid var(--brd2);border-radius:var(--r);padding:6px 10px;font-size:12px;color:var(--tx);font-family:var(--f);outline:none;transition:border-color .13s}
+.hub-msg-send input:focus{border-color:var(--blue)}
+.hub-msg-send button{background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .13s}
+.hub-msg-send button:hover{opacity:.85}
+
+/* ── MÉTRICAS TÉCNICOS ──────────────────── */
+#met-view{display:none}
+#met-view.show{display:block}
+.met-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px}
+.met-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:16px 18px}
+.met-name{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.met-name i{color:var(--blue);font-size:12px}
+.met-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--brd);font-size:12px;color:var(--tx-m)}
+.met-row:last-child{border-bottom:none}
+.met-row b{color:var(--tx);font-weight:600}
+.met-bar-wrap{margin-top:10px}
+.met-bar-lbl{font-size:10px;color:var(--tx-d);margin-bottom:4px}
+.bar-bg{height:4px;background:var(--surf);border-radius:2px;overflow:hidden}
+.bar-fill{height:4px;background:var(--blue);border-radius:2px;transition:width .4s ease}
+
+/* ── BARRA CAMBIOS SIN GUARDAR ──────────── */
+.unsaved-bar{
+  display:none;
+  background:rgba(243,156,18,.1);
+  border:1px solid rgba(243,156,18,.3);
+  border-radius:var(--rm);
+  padding:8px 14px;
+  margin-bottom:12px;
+  font-size:12px;
+  color:#f39c12;
+  align-items:center;
+  gap:8px;
+}
+.unsaved-bar.show{display:flex}
+
+/* ── FORM VIEW ──────────────────────────── */
+.f-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.btn-back{display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--brd);color:var(--tx-m);font-size:13px;padding:7px 14px;border-radius:var(--rm);cursor:pointer;transition:all .12s}
+.btn-back:hover{border-color:var(--brd2);color:var(--tx)}
+.btn-rem{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--blue);color:var(--blue);font-size:13px;padding:7px 14px;border-radius:var(--rm);cursor:pointer;transition:all .12s;margin-right:6px}
+.btn-rem:hover{background:var(--blue-a)}
+.btn-uo{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid rgba(231,76,60,.4);color:var(--red);font-size:13px;padding:7px 14px;border-radius:var(--rm);cursor:pointer;transition:all .12s}
+.btn-uo:hover{background:rgba(231,76,60,.07)}
+.btn-uon{display:inline-flex;align-items:center;gap:6px;background:var(--red);border:1px solid var(--red);color:#fff;font-size:13px;padding:7px 14px;border-radius:var(--rm);cursor:pointer;animation:pur .9s infinite alternate}
+@keyframes pur{to{box-shadow:0 0 16px rgba(231,76,60,.5)}}
+
+.f-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden}
+.fc-head{background:var(--surf);border-bottom:1px solid var(--brd);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.f-ot-title{font-size:20px;font-weight:300;color:#fff;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.c-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:3px;background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.2);letter-spacing:.04em}
+.fl-wrap{display:flex;align-items:center;gap:8px;background:var(--raise);border:1px solid var(--brd2);padding:6px 12px;border-radius:var(--rm)}
+.fl-wrap label{font-size:10px;color:var(--tx-d);white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+.fl-sel{background:transparent;border:none;color:var(--tx);font-size:13px;font-weight:500;outline:none;cursor:pointer}
+.fl-sel option{background:var(--surf)}
+
+.f-body{padding:20px 22px}
+.f-sep{border:none;border-top:1px solid var(--brd);margin:18px 0}
+.flbl{font-size:11px;font-weight:500;color:var(--tx-m);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.04em}
+.form-control,.form-select{background:var(--surf)!important;border:1px solid var(--brd)!important;color:var(--tx)!important;border-radius:var(--rm)!important;padding:8px 11px!important;font-family:var(--f)!important;font-size:13px!important;transition:border-color .12s!important;width:100%}
+.form-control:focus,.form-select:focus{outline:none!important;border-color:var(--blue)!important;box-shadow:0 0 0 2px var(--blue-a)!important;background:var(--raise)!important}
+.form-control::placeholder{color:var(--tx-d)!important}
+.form-select option{background:var(--surf)}
+#f-cas{color:var(--blue)!important;font-weight:600!important}
+textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
+.eq-drop-item{padding:8px 12px;font-size:12px;cursor:pointer;color:var(--tx,#333);border-bottom:1px solid var(--brd,#eee)}
+.eq-drop-item:last-child{border-bottom:none}
+.eq-drop-item strong{color:var(--blue,#00a3e0);font-weight:700}
+.eq-drop-item.eq-drop-active,.eq-drop-item:hover{background:var(--blue-a,#e8f6fc)}
+/* ── TIMELINE DE ESTADOS ── */
+.ot-timeline{display:flex;flex-direction:column;gap:0;padding:4px 0}
+.tl-item{display:flex;align-items:flex-start;gap:10px;position:relative;padding-bottom:14px}
+.tl-item:last-child{padding-bottom:0}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:11px;top:22px;width:2px;bottom:0;background:var(--brd)}
+.tl-dot{width:22px;height:22px;border-radius:50%;background:var(--blue);flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.tl-dot.tl-first{background:var(--green,#1a9e4a)}
+.tl-dot.tl-last{background:var(--titan,#ff5722)}
+.tl-dot i{font-size:9px;color:#fff}
+.tl-body{flex:1;min-width:0}
+.tl-estado{font-size:12px;font-weight:600;color:var(--tx)}
+.tl-meta{font-size:10px;color:var(--tx-d);margin-top:2px}
+/* ── PANEL SIMILAR CASOS ── */
+.diag-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 13px;cursor:pointer;transition:border-color .13s}
+.diag-card:hover{border-color:var(--blue)}
+.diag-ot{font-size:10px;font-weight:700;color:var(--blue);margin-bottom:3px}
+.diag-eq{font-size:11px;font-weight:600;color:var(--tx);margin-bottom:2px}
+.diag-desc{font-size:10px;color:var(--tx-d);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.diag-reps{font-size:10px;color:var(--green,#1a9e4a);margin-top:4px;font-weight:500}
+
+/* ── RESELLER SELECTOR ──────────────────── */
+.res-select-wrap { display:flex; flex-direction:column; gap:5px; }
+.res-email-ind {
+  display:flex; align-items:center; gap:7px;
+  padding:6px 10px;
+  background:var(--blue-a); border:1px solid rgba(0,163,224,.2);
+  border-radius:var(--r); font-size:11px; color:var(--blue);
+}
+.res-no-email {
+  display:flex; align-items:center; gap:7px;
+  padding:6px 10px;
+  background:rgba(243,156,18,.08); border:1px solid rgba(243,156,18,.25);
+  border-radius:var(--r); font-size:11px; color:var(--yellow);
+}
+.tec-wrap{display:flex;gap:8px;align-items:flex-end}
+.tec-wrap .form-select{flex:1}
+.tec-new-wrap{display:flex;gap:6px;margin-top:6px}
+.tec-new-wrap input{flex:1}
+.btn-tec-add{padding:8px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);border-radius:var(--rm);font-size:12px;cursor:pointer;white-space:nowrap;transition:all .12s}
+.btn-tec-add:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── PIPELINE ───────────────────────────── */
+.pip-lbl{font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+#est-cont{display:flex;align-items:stretch;gap:2px;flex-wrap:wrap;margin-bottom:22px}
+.st-step{flex:1;min-width:80px;text-align:center;padding:8px 6px;font-size:11px;font-weight:500;background:var(--surf);color:var(--tx-d);cursor:pointer;border:1px solid var(--brd);border-radius:var(--r);transition:all .12s;line-height:1.3}
+.st-step:hover{background:var(--raise);color:var(--tx-m);border-color:var(--brd2)}
+.st-step.done{background:var(--blue-b);border-color:rgba(0,163,224,.18);color:rgba(0,163,224,.6)}
+.st-step.active{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600}
+
+/* ── REPUESTOS ──────────────────────────── */
+.rp-head{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.rp-lbl{font-size:11px;font-weight:600;color:var(--tx-m);text-transform:uppercase;letter-spacing:.05em}
+.rp-cols{display:grid;grid-template-columns:1fr 2fr 62px 62px 28px;gap:4px;padding:0 2px;margin-bottom:4px}
+.rp-col{font-size:10px;font-weight:500;color:var(--tx-d);text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.rp-col:first-child,.rp-col:nth-child(2){text-align:left}
+.p-row{display:grid;grid-template-columns:1fr 2fr 62px 62px 28px;gap:4px;align-items:center;background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:6px 8px;margin-bottom:4px;transition:border-color .12s}
+.p-row:hover{border-color:var(--brd2)}
+.p-row:focus-within{border-color:var(--blue)}
+.in-c{font-size:11px!important;font-weight:600!important;color:var(--blue)!important;background:transparent!important;border-color:transparent!important;padding:4px 6px!important}
+.in-c:focus{border-color:var(--brd)!important;background:var(--raise)!important}
+.in-n{text-align:center!important;font-size:13px!important;padding:4px!important}
+.btn-del{width:24px;height:24px;background:transparent;border:1px solid rgba(231,76,60,.2);color:var(--red);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;transition:all .1s;flex-shrink:0}
+.btn-del:hover{background:rgba(231,76,60,.1);border-color:var(--red)}
+.sug-box{background:var(--panel);border:1px solid var(--blue);position:absolute;width:100%;z-index:3000;display:none;max-height:160px;overflow-y:auto;border-radius:0 0 var(--rm) var(--rm);top:100%;left:0;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.sug-it{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--brd);color:var(--tx);display:flex;gap:8px;align-items:baseline;transition:background .1s}
+.sug-it:last-child{border-bottom:none}
+.sug-it:hover{background:var(--surf)}
+.sug-c{font-size:11px;font-weight:600;color:var(--blue);white-space:nowrap}
+.sug-n{font-size:12px;color:var(--tx-m)}
+.btn-add{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:transparent;border:1px dashed var(--brd2);color:var(--tx-m);font-size:12px;border-radius:var(--rm);padding:9px;cursor:pointer;transition:all .12s;margin-bottom:20px}
+.btn-add:hover{border-color:var(--blue);color:var(--blue)}
+.btn-save{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--blue);color:#fff;border:none;font-size:14px;font-weight:600;padding:12px;border-radius:var(--rm);cursor:pointer;transition:background .15s;letter-spacing:.01em}
+.btn-save:hover{background:var(--blue-d)}
+.btn-danger{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:transparent;color:var(--red);border:1px solid rgba(231,76,60,.35);font-size:13px;font-weight:600;padding:10px;border-radius:var(--rm);cursor:pointer;transition:all .15s;letter-spacing:.01em;margin-top:8px}
+.btn-danger:hover{background:rgba(231,76,60,.12);border-color:var(--red)}
+.ot-cancelada{opacity:.55;pointer-events:none}
+.badge-cancelado{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:rgba(231,76,60,.12);color:var(--red);border:1px solid rgba(231,76,60,.25);letter-spacing:.04em}
+
+/* ── HISTORIAL ──────────────────────────── */
+.hist-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:transparent;border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:500;padding:8px 12px;border-radius:var(--rm);cursor:pointer;transition:all .12s;margin-top:20px}
+.hist-toggle:hover{border-color:var(--brd2);color:var(--tx)}
+.hist-toggle i{transition:transform .2s}
+.hist-toggle.open i.fa-chevron-down{transform:rotate(180deg)}
+.hist-body{display:none;margin-top:8px}
+.hist-body.show{display:block}
+.log-item{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 14px;margin-bottom:6px;font-size:12px}
+.log-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;flex-wrap:wrap;gap:6px}
+.log-fecha{font-size:10px;color:var(--tx-d)}
+.log-accion{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;background:var(--blue-a);color:var(--blue)}
+.log-estados{font-size:11px;color:var(--tx-m);margin-bottom:3px}
+.log-estados span{color:var(--tx);font-weight:500}
+.log-det{font-size:11px;color:var(--tx-d)}
+.log-tec{font-size:11px;color:var(--tx-m);margin-top:3px}
+.hist-loading{text-align:center;padding:20px;color:var(--tx-m);font-size:12px}
+
+/* ── MODAL ──────────────────────────────── */
+.modal-content{background:var(--panel)!important;border:1px solid var(--brd2)!important;border-radius:var(--rl)!important;box-shadow:0 16px 48px rgba(0,0,0,.5)!important}
+.modal-header{background:var(--surf)!important;border-bottom:1px solid var(--brd)!important;padding:14px 18px!important}
+.modal-title{font-size:13px!important;font-weight:600!important;color:var(--tx)!important;display:flex;align-items:center;gap:8px}
+.modal-body{padding:20px 18px!important}
+.btn-cm{background:transparent;border:none;color:var(--tx-m);font-size:14px;cursor:pointer;transition:color .12s}
+.btn-cm:hover{color:var(--tx)}
+.btn-dl{width:100%;background:var(--blue);color:#fff;border:none;font-size:13px;font-weight:600;padding:11px;border-radius:var(--rm);cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-dl:hover{background:var(--blue-d)}
+
+/* ── SPINNER ────────────────────────────── */
+#spin{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#spin.on{display:flex;pointer-events:all;cursor:wait}
+#spin-bg{position:absolute;inset:0;background:rgba(20,20,20,.85);pointer-events:all}
+.spin-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:12px}
+.spin-r{width:36px;height:36px;border:2px solid var(--brd2);border-top-color:var(--blue);border-radius:50%;animation:sp .65s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.spin-t{font-size:12px;color:var(--tx-m);letter-spacing:.05em}
+
+/* ── LOADING CARD (operaciones lentas) ───── */
+#hub-load-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9980;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+#hub-load-card{background:var(--panel);border:1px solid var(--brd2);border-radius:var(--rl);padding:32px 40px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.55);min-width:300px;max-width:360px}
+#hub-load-icon{font-size:30px;margin-bottom:14px;display:block;animation:hub-pulse 1.6s ease-in-out infinite;transition:opacity .2s}
+@keyframes hub-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.86);opacity:.5}}
+#hub-load-step{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:16px;min-height:22px;transition:opacity .22s}
+#hub-load-bar-wrap{width:100%;height:4px;background:var(--raise);border-radius:2px;overflow:hidden}
+#hub-load-bar{height:100%;background:var(--blue);border-radius:2px;width:0%;transition:width .55s cubic-bezier(.4,0,.2,1)}
+#hub-load-sub{font-size:11px;color:var(--tx-d);margin-top:11px}
+
+/* ── TOASTS ─────────────────────────────── */
+#toasts{position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:5px}
+.toast-msg{background:var(--raise);border:1px solid var(--brd2);border-radius:var(--rm);padding:10px 14px;font-size:12px;color:var(--tx);box-shadow:0 4px 18px rgba(0,0,0,.4);animation:tin .2s ease;display:flex;align-items:center;gap:8px;min-width:200px}
+.toast-msg.ok{border-left:3px solid var(--green)}
+.toast-msg.err{border-left:3px solid var(--red)}
+.toast-msg.ok i{color:var(--green)}
+.toast-msg.err i{color:var(--red)}
+@keyframes tin{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── MODAL CONFIRMACIÓN ─────────────────── */
+#modal-confirm .modal-dialog{max-width:380px}
+
+/* ── MOBILE TOP BAR ─────────────────────────── */
+.mob-bar{display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:200;flex-shrink:0}
+.mob-bar-title{font-size:14px;font-weight:600;color:var(--tx);flex:1}
+.btn-mob-menu{background:transparent;border:none;color:var(--tx-m);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:var(--r);line-height:1;transition:color .12s}
+.btn-mob-menu:hover{color:var(--tx)}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:290}
+.sb-overlay.show{display:block}
+
+/* ── AJUSTES ────────────────────────────────── */
+body.compact tbody td{padding:6px 14px!important}
+.set-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--brd)}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)}
+.set-row:last-child{border-bottom:none;padding-bottom:0}
+.set-lbl{font-size:13px;color:var(--tx);font-weight:500}
+.set-desc{font-size:11px;color:var(--tx-m);margin-top:2px}
+.set-ctrl{flex-shrink:0;margin-left:12px}
+
+@media(max-width:992px){
+  .mob-bar{display:flex}
+  .sb{transform:translateX(-100%);transition:transform .25s ease;z-index:400;height:100%;position:fixed}
+  .sb.open{transform:translateX(0)}
+  .mc{margin-left:0;padding:14px;padding-top:0}
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .kpi-row .srch-c{grid-column:1/-1;min-height:42px}
+  .rp-cols{display:none}
+  .p-row{grid-template-columns:1fr 2fr 52px 52px 26px}
+  .met-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- SPINNER -->
+<div id="spin">
+  <div id="spin-bg"></div>
+  <div class="spin-in"><div class="spin-r"></div><p class="spin-t">Cargando...</p></div>
+</div>
+
+<!-- Loading card (operaciones lentas) -->
+<div id="hub-load-ov">
+  <div id="hub-load-card">
+    <div id="hub-load-icon">🔧</div>
+    <div id="hub-load-step">Procesando…</div>
+    <div id="hub-load-bar-wrap"><div id="hub-load-bar"></div></div>
+    <div id="hub-load-sub">Esto puede tardar unos segundos</div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toasts"></div>
+
+<!-- MODAL PEDIDO DE REPUESTOS AL WOS -->
+<div class="modal fade" id="modal-rep-wos" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:560px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center" style="padding:14px 20px">
+        <div>
+          <h5 class="modal-title" style="font-size:15px;font-weight:700;margin:0">📦 Pedir Repuestos al WOS</h5>
+          <div id="rep-wos-subtitle" style="font-size:12px;color:var(--tx-d);margin-top:2px"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--surf);border-radius:6px;border:1px solid var(--brd)">
+          <input type="checkbox" id="rep-wos-aprobado" style="width:16px;height:16px;cursor:pointer">
+          <label for="rep-wos-aprobado" style="font-size:13px;font-weight:600;cursor:pointer;margin:0">Caso DJI aprobado</label>
+          <span style="font-size:11px;color:var(--tx-d);margin-left:auto">Desmarcá si el cliente aún no tiene aprobación</span>
+        </div>
+        <div id="rep-wos-items" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <input id="rep-wos-add-cod"  type="text" placeholder="Código" class="form-control" style="width:130px;font-size:12px;font-family:monospace">
+          <input id="rep-wos-add-desc" type="text" placeholder="Descripción" class="form-control" style="font-size:12px">
+          <input id="rep-wos-add-qty"  type="number" placeholder="Cant." class="form-control" style="width:70px;font-size:12px" value="1" min="1">
+          <button class="btn btn-outline-secondary" style="font-size:12px;white-space:nowrap" onclick="_repWosAgregarItem()">+ Agregar</button>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:12px 20px;gap:8px">
+        <span style="font-size:11px;color:var(--tx-d);flex:1">N° de pedido: <strong id="rep-wos-num-preview" style="font-family:monospace;color:var(--blue)"></strong></span>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btn-rep-wos-confirmar" class="btn btn-primary" onclick="_repWosConfirmar()">
+          <i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR SALIR SIN GUARDAR -->
+<div class="modal fade" id="modal-confirm" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-exclamation-triangle" style="color:var(--yellow)"></i> Cambios sin guardar</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:20px">Tenés cambios sin guardar en esta orden. Si salís ahora se van a perder.</p>
+        <div style="display:flex;gap:8px">
+          <button id="confirm-save" class="btn-dl" style="flex:1">
+            <i class="fa fa-save"></i> Guardar y salir
+          </button>
+          <button id="confirm-discard" style="flex:1;padding:11px;background:transparent;border:1px solid var(--brd);color:var(--tx-m);border-radius:var(--rm);font-size:13px;cursor:pointer">
+            Descartar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR CANCELACIÓN DE CASO -->
+<div class="modal fade" id="modal-cancelar-caso" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid rgba(231,76,60,.3)">
+      <div class="modal-header" style="background:rgba(231,76,60,.06);border-bottom:1px solid rgba(231,76,60,.2);padding:14px 18px">
+        <h5 class="modal-title" style="font-size:14px;font-weight:700;color:var(--red)">
+          <i class="fa fa-ban" style="margin-right:8px"></i>Cancelar caso
+        </h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 18px">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:6px">
+          ¿Estás seguro? Esto anulará el caso y liberará los repuestos solicitados.
+        </p>
+        <div id="cancel-ot-lbl" style="font-size:12px;font-weight:700;color:var(--tx);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:8px 12px;margin-top:12px"></div>
+        <p style="font-size:11px;color:var(--tx-d);margin-top:10px">
+          <i class="fa fa-info-circle" style="margin-right:4px"></i>
+          Las solicitudes de despacho <strong>Pendientes</strong> de esta OT pasarán a estado <strong>Cancelado</strong>.
+          Esta acción no se puede deshacer.
+        </p>
+      </div>
+      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px;gap:8px">
+        <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px">Volver</button>
+        <button onclick="cancelarCasoEjecutar()" style="flex:1;padding:10px;background:var(--red);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <i class="fa fa-ban"></i> Confirmar cancelación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RESERVAR DE IMPORTACIÓN -->
+<div class="modal fade" id="modal-res-import" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
+        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-bookmark" style="color:var(--indigo);margin-right:6px"></i>Reservar de Importación</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div id="res-imp-info" style="font-size:12px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px"></div>
+        <div>
+          <label style="font-size:11px;color:var(--tx-d);margin-bottom:4px;display:block">CAS en tránsito</label>
+          <select id="res-imp-cas" class="form-select" style="font-size:12px">
+            <option value="">Cargando...</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
+        <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn-s" style="background:var(--indigo);color:#fff" onclick="confirmarReservaImportacion()"><i class="fa fa-check"></i> Reservar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADEUDOS -->
+<div class="modal fade" id="modalAd" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-boxes" style="color:var(--blue)"></i> Reporte de Adeudos</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <label class="flbl">Filtrar por Reseller</label>
+        <select id="f-res-ad" class="form-select" style="margin-bottom:16px"><option value="TODOS">— Todos —</option></select>
+        <label class="flbl">Filtrar por Estado</label>
+        <select id="f-est-ad" class="form-select" style="margin-bottom:20px"><option value="TODOS">— Todos —</option></select>
+        <div style="display:flex;gap:8px">
+          <button class="btn-dl" style="flex:1" onclick="pdfAd()"><i class="fa fa-file-pdf"></i> PDF</button>
+          <button class="btn-dl" style="flex:1;background:var(--green)" onclick="xlsAd()"><i class="fa fa-file-excel"></i> Excel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE TOP BAR -->
+<div class="mob-bar" id="mob-bar">
+  <button class="btn-mob-menu" onclick="togSb()" aria-label="Menú"><i class="fa fa-bars"></i></button>
+  <div class="dji-mark" style="width:28px;height:28px;flex-shrink:0"><span style="font-size:9px">DJI</span></div>
+  <span class="mob-bar-title">HUB PRO</span>
+  <button class="btn-mob-menu" onclick="load()" aria-label="Actualizar"><i class="fa fa-sync-alt" style="font-size:14px"></i></button>
+</div>
+
+<!-- OVERLAY SIDEBAR -->
+<div class="sb-overlay" id="sb-overlay" onclick="togSb()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sb">
+  <div class="sb-inner">
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <div class="dji-mark"><span>DJI</span></div>
+        <div>
+          <div class="brand-name">HUB PRO</div>
+          <div class="brand-sub">Taller · BIDCOMAGRO</div>
+          <div id="usr-nombre" style="font-size:10px;color:var(--blue);margin-top:2px;display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-nav">
+      <button class="btn-new" onclick="crearCaso()"><i class="fa fa-plus"></i> Nueva Orden</button>
+
+      <!-- ── GRUPO: ÓRDENES ── -->
+      <div class="sb-group">
+        <div class="sb-group-hd" id="sbg-h-ots" onclick="togSbGroup('ots')">
+          <span class="sb-group-lbl"><i class="fa fa-inbox"></i> Órdenes</span>
+          <i class="fa fa-chevron-right sb-group-chv"></i>
+        </div>
+        <div class="sb-group-body" id="sbg-b-ots">
+          <button class="nb active" id="fb-p" onclick="setF('pendientes',this)"><i class="fa fa-inbox"></i> Pendientes</button>
+          <button class="nb" id="fb-u" onclick="setF('urgentes',this)"><i class="fa fa-exclamation-circle" style="color:var(--red)"></i> Urgentes</button>
+          <button class="nb" id="fb-msg" onclick="setF('mensajes',this)"><i class="fa fa-comments" style="color:var(--blue)"></i> Mensajes<span id="kpi-msg-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:auto">0</span></button>
+          <button class="nb" id="fb-tc" onclick="setF('taller',this)"><i class="fa fa-tools" style="color:var(--blue)"></i> Taller Central</button>
+          <button class="nb" id="fb-h" onclick="setF('todos',this)"><i class="fa fa-check-circle" style="color:var(--tx-d)"></i> Finalizados</button>
+        </div>
+      </div>
+
+      <!-- ── GRUPO: ANÁLISIS ── -->
+      <div class="sb-group">
+        <div class="sb-group-hd" id="sbg-h-analisis" onclick="togSbGroup('analisis')">
+          <span class="sb-group-lbl"><i class="fa fa-chart-bar"></i> Análisis</span>
+          <i class="fa fa-chevron-right sb-group-chv"></i>
+        </div>
+        <div class="sb-group-body" id="sbg-b-analisis">
+          <button class="nb" id="fb-m" onclick="setF('metricas',this)"><i class="fa fa-user-cog" style="color:var(--blue)"></i> Por técnico</button>
+          <button class="nb" id="fb-sup" onclick="setF('supervisor',this)"><i class="fa fa-chart-line" style="color:var(--indigo)"></i> Supervisor</button>
+          <button class="nb" id="fb-emails" onclick="setF('emails',this)"><i class="fa fa-envelope-open-text" style="color:var(--tx-d)"></i> Historial emails</button>
+        </div>
+      </div>
+
+      <!-- ── GRUPO: FILTROS ── -->
+      <div class="sb-group">
+        <div class="sb-group-hd" id="sbg-h-filtros" onclick="togSbGroup('filtros')">
+          <span class="sb-group-lbl"><i class="fa fa-filter"></i> Filtros</span>
+          <i class="fa fa-chevron-right sb-group-chv"></i>
+        </div>
+        <div class="sb-group-body" id="sbg-b-filtros" style="padding:4px 4px 0">
+          <div style="padding:0 4px 8px">
+            <div class="sb-lbl" style="margin-bottom:4px">Reseller</div>
+            <select id="fil-res" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%;" onchange="render()">
+              <option value="">— Todos —</option>
+            </select>
+            <div class="sb-lbl" style="margin-top:8px;margin-bottom:4px">Técnico</div>
+            <select id="fil-tec" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%" onchange="render()">
+              <option value="">— Todos —</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── GRUPO: LOGÍSTICA ── -->
+      <div class="sb-group">
+        <div class="sb-group-hd" id="sbg-h-log" onclick="togSbGroup('log')">
+          <span class="sb-group-lbl"><i class="fa fa-truck"></i> Logística</span>
+          <i class="fa fa-chevron-right sb-group-chv"></i>
+        </div>
+        <div class="sb-group-body" id="sbg-b-log">
+          <button class="btn-log" onclick="abrirAd()"><i class="fa fa-shipping-fast"></i> Ver Adeudados</button>
+        </div>
+      </div>
+    </div>
+    <div class="sb-foot">
+      <button class="btn-tool" onclick="openSettings()" style="border-color:rgba(0,163,224,.2);color:var(--blue)">
+        <span><i class="fa fa-cog" style="margin-right:6px"></i>Configuración</span>
+        <i class="fa fa-chevron-right" style="font-size:9px;opacity:.4"></i>
+      </button>
+      <button class="btn-tool" onclick="load()">
+        <span><i class="fa fa-sync-alt" style="margin-right:6px"></i>Actualizar</span>
+        <i class="fa fa-chevron-right" style="font-size:9px;opacity:.3"></i>
+      </button>
+      <button class="btn-tool" onclick="togTema()" id="btn-tema">
+        <span id="tema-lbl"><i class="fa fa-sun" style="margin-right:6px"></i>Modo claro</span>
+        <div class="t-track" id="t-track"><div class="t-thumb"></div></div>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="mc">
+
+  <!-- LIST VIEW -->
+  <div id="lv">
+    <div class="top-bar">
+      <div>
+        <div class="top-bar-title">Órdenes de trabajo</div>
+        <div class="top-bar-sub">Taller de reparación de drones agrícolas</div>
+      </div>
+      <button class="btn-export" onclick="exportCSV()">
+        <i class="fa fa-file-csv"></i> Exportar CSV
+      </button>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-c"><div class="kpi-lbl"><i class="fa fa-clock" style="color:var(--blue)"></i> Pendientes</div><div class="kpi-n" id="kpi-p">—</div></div>
+      <div class="kpi-c red"><div class="kpi-lbl"><i class="fa fa-exclamation-triangle" style="color:var(--red)"></i> Urgentes</div><div class="kpi-n red" id="kpi-u">—</div></div>
+      <div class="srch-c"><i class="fa fa-search"></i><input type="text" id="busc" placeholder="Buscar por OT, serie, reseller, CAS..." onkeyup="render()"></div>
+    </div>
+    <!-- Tabla normal -->
+    <div id="tbl-normal">
+      <div class="tbl-wrap">
+        <div class="tbl-bar">
+          <div class="tbl-cnt"><b id="cnt">0</b> registros</div>
+          <div class="tbl-ts" id="ts"></div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Orden de Trabajo</th><th>Gto.</th><th>Reseller</th><th>Equipo</th><th>Técnico</th><th>Estado</th><th title="Días totales · Días en estado actual">Días</th><th title="Fecha estimada entrega">Est.</th><th title="Backorder pendiente">Bck</th></tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8" style="padding:20px">
+              <div class="sk-row w80"></div><div class="sk-row w60"></div>
+              <div class="sk-row w80"></div><div class="sk-row w40"></div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Vista métricas técnicos -->
+    <div id="met-view">
+      <div class="tbl-wrap" style="padding:16px 18px 4px">
+        <div style="font-size:11px;color:var(--tx-m);margin-bottom:4px">PRODUCTIVIDAD POR TÉCNICO</div>
+      </div>
+      <div class="met-grid" id="met-grid"></div>
+    </div>
+
+    <!-- Vista historial emails -->
+    <div id="email-view" style="display:none">
+      <div class="tbl-wrap">
+        <div class="tbl-bar">
+          <div class="tbl-cnt">HISTORIAL DE <span id="email-cnt">0</span> EMAILS ENVIADOS</div>
+          <button onclick="cargarEmails()" style="background:transparent;border:1px solid var(--brd);color:var(--tx-m);font-size:11px;padding:4px 10px;border-radius:var(--r);cursor:pointer;">
+            <i class="fa fa-sync-alt" style="margin-right:4px"></i>Actualizar
+          </button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>OT</th><th>Destinatario</th><th>Rol</th><th>Asunto</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="email-tbody">
+            <tr><td colspan="6"><div class="empty"><i class="fa fa-inbox"></i><p>Cargando historial...</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Vista Mensajes resellers -->
+    <div id="msg-view" style="display:none">
+      <div class="tbl-wrap">
+        <div class="tbl-bar">
+          <div class="tbl-cnt"><b id="msg-view-unread">0</b> sin leer · <b id="msg-view-total">0</b> conversaciones</div>
+        </div>
+        <div id="msg-list"></div>
+      </div>
+    </div>
+
+    <!-- Vista Supervisor -->
+    <div id="sup-view" style="display:none">
+
+      <!-- KPI de reincidentes -->
+      <div class="tbl-wrap" style="margin-bottom:16px">
+        <div class="tbl-bar">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fa fa-barcode" style="color:var(--green)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">S/N reincidentes</span>
+          </div>
+          <span style="font-size:10px;color:var(--tx-d)">Equipos con más de una OT histórica</span>
+        </div>
+        <div id="sup-sn" style="padding:14px 18px">
+          <div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- Backorder predictivo -->
+      <div class="tbl-wrap" style="margin-bottom:16px">
+        <div class="tbl-bar">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fa fa-boxes" style="color:var(--yellow)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">Demanda de repuestos activa</span>
+          </div>
+          <span style="font-size:10px;color:var(--tx-d)">OTs activas en estados de pedido</span>
+        </div>
+        <div id="sup-back" style="padding:14px 18px">
+          <div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- SLA por estado -->
+      <div class="tbl-wrap" style="margin-bottom:16px">
+        <div class="tbl-bar">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fa fa-stopwatch" style="color:var(--blue)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">Tiempo promedio por estado</span>
+          </div>
+          <span style="font-size:10px;color:var(--tx-d)">Últimos 30 días</span>
+        </div>
+        <div id="sup-sla" style="padding:14px 18px">
+          <div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- Historial por S/N -->
+      <div class="tbl-wrap">
+        <div class="tbl-bar">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fa fa-history" style="color:var(--green)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">Historial por número de serie</span>
+          </div>
+        </div>
+        <div style="padding:14px 18px 10px">
+          <div style="display:flex;gap:8px">
+            <input type="text" id="sup-sn-inp" class="form-control" placeholder="Ingresá el S/N del equipo..." style="max-width:320px" onkeydown="if(event.key==='Enter')buscarSN()">
+            <button onclick="buscarSN()" style="background:var(--blue);color:#fff;border:none;border-radius:var(--rm);padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+              <i class="fa fa-search" style="margin-right:6px"></i>Buscar
+            </button>
+          </div>
+        </div>
+        <div id="sup-sn-result"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FORM VIEW -->
+  <div id="fv" class="d-none">
+    <div class="f-topbar">
+      <button class="btn-back" onclick="pedirVolver()"><i class="fa fa-arrow-left"></i> Volver</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn-rem" onclick="impRemito()"><i class="fa fa-file-alt"></i> Nota de Entrega</button>
+        <select id="sel-dest" class="form-select" style="display:none;width:auto;font-size:12px;padding:7px 10px;border-color:var(--green);color:var(--green);background:transparent">
+          <option value="reseller">Reseller (40% desc)</option>
+          <option value="cliente">Cliente final (25% desc)</option>
+        </select>
+        <button id="btn-ver-presup" class="btn-rem" onclick="verPresupuesto()" style="display:none;border-color:var(--blue);color:var(--blue)">
+          <i class="fa fa-file-alt"></i> Ver Presupuesto
+        </button>
+        <button id="btn-presup" class="btn-rem" onclick="enviarPresupuestoManual()" style="display:none;border-color:var(--green);color:var(--green)">
+          <i class="fa fa-paper-plane"></i> Enviar Presupuesto
+        </button>
+        <button id="btn-rep-wos" class="btn-rem" onclick="abrirModalRepWos()" style="display:none;border-color:var(--indigo);color:var(--indigo)">
+          <i class="fa fa-boxes-stacking"></i> Pedir Repuestos
+        </button>
+        <button id="btn-factura" class="btn-rem" onclick="solicitarFacturaManual()" style="display:none;border-color:var(--blue);color:var(--blue)">
+          <i class="fa fa-file-invoice-dollar"></i> Solicitar Factura
+        </button>
+        <button id="btn-prio" class="btn-uo" onclick="togPrio()">Urgente</button>
+      </div>
+    </div>
+
+    <!-- Barra de cambios sin guardar -->
+    <div class="unsaved-bar" id="unsaved-bar">
+      <i class="fa fa-circle" style="font-size:8px;animation:bk 1s infinite"></i>
+      Tenés cambios sin guardar
+    </div>
+
+    <div class="f-card">
+      <div class="fc-head">
+        <div class="f-ot-title">
+          <span id="f-ot">OT-00000</span>
+          <span class="c-badge" id="c-badge">TALLER</span>
+        </div>
+        <div class="fl-wrap">
+          <label>Flujo</label>
+          <select id="f-circ" class="fl-sel" onchange="renderEst();markDirty()">
+            <option value="Taller">Taller Central</option>
+            <option value="Reseller">Reseller Estándar</option>
+            <option value="Reseller Propio">Reseller Propio</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="f-body">
+        <div class="pip-lbl">Estado de la orden</div>
+        <div id="est-cont"></div>
+
+        <div class="row g-3 mb-1">
+          <div class="col-md-6" style="position:relative">
+            <label class="flbl">Equipo / Modelo</label>
+            <input type="text" id="f-equi" class="form-control" placeholder="Buscar modelo..." autocomplete="off"
+                   oninput="filtrarEquipos(this);markDirty()" onfocus="filtrarEquipos(this)"
+                   onblur="cerrarDropdownEquipo()" onkeydown="navEquipoDrop(event)">
+            <div id="equipo-drop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:2000;background:var(--surf,#fff);border:1px solid var(--brd,#ddd);border-top:none;border-radius:0 0 6px 6px;max-height:210px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)"></div>
+          </div>
+          <div class="col-md-3">
+            <label class="flbl">N° de Serie</label>
+            <input type="text" id="f-sn" class="form-control" placeholder="Serial number" oninput="markDirty()">
+          </div>
+          <div class="col-md-3">
+            <label class="flbl">CAS / FWR</label>
+            <input type="text" id="f-cas" class="form-control" placeholder="Caso DJI" oninput="markDirty()">
+          </div>
+
+          <!-- Fecha de activación col N — editable desde el HUB -->
+          <div class="col-md-4">
+            <label class="flbl" style="display:flex;align-items:center;gap:6px">
+              Fecha activación //
+              <span id="f-fecha-badge" style="display:none;font-size:9px;font-weight:700;background:rgba(212,137,10,.15);color:var(--yellow);border:1px solid rgba(212,137,10,.3);border-radius:3px;padding:1px 6px">SIN FECHA</span>
+            </label>
+            <input type="date" id="f-fecha-act" class="form-control" oninput="markDirty()">
+          </div>
+          <div class="col-md-4" id="f-gar-info" style="display:none">
+            <label class="flbl">Vencimiento de garantía</label>
+            <div id="f-gar-info-txt" style="font-size:12px;padding:9px 12px;border-radius:var(--rm);border:1px solid var(--brd);background:var(--surf)"></div>
+          </div>
+          <div class="col-md-8">
+            <label class="flbl">Reseller</label>
+            <div class="res-select-wrap">
+              <select id="f-res" class="form-select" onchange="onResellerChange();markDirty()">
+                <option value="">— Seleccionar reseller —</option>
+              </select>
+              <div id="res-email-indicator" class="res-email-ind" style="display:none">
+                <i class="fa fa-envelope" style="color:var(--blue);font-size:11px"></i>
+                <span id="res-email-text"></span>
+              </div>
+              <div id="res-no-email" class="res-no-email" style="display:none">
+                <i class="fa fa-exclamation-triangle" style="color:var(--yellow);font-size:11px"></i>
+                <span>Sin email registrado — no se enviarán notificaciones</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="flbl">Garantía</label>
+            <select id="f-gar" class="form-select" onchange="markDirty()">
+              <option value="IW">IW — In Warranty</option>
+              <option value="OOW">OOW — Out of Warranty</option>
+            </select>
+          </div>
+
+          <!-- NUEVO: Técnico asignable (solo visible en Taller) -->
+          <div class="col-md-12" id="tec-row">
+            <label class="flbl">Técnico asignado</label>
+            <div class="tec-wrap">
+              <select id="f-tec" class="form-select" onchange="markDirty()">
+                <option value="">— Sin asignar —</option>
+              </select>
+            </div>
+            <div class="tec-new-wrap">
+              <input type="text" id="f-tec-nuevo" class="form-control" placeholder="Agregar técnico nuevo..." style="font-size:12px">
+              <button class="btn-tec-add" onclick="agregarTecnico()"><i class="fa fa-plus" style="margin-right:4px"></i>Agregar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Solicitudes de despacho al Stock Manager -->
+        <div id="desp-section" style="display:none">
+          <hr class="f-sep">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span class="rp-lbl">Despacho de repuestos</span>
+            <button class="btn-log" id="btn-solicitar-desp" onclick="solicitarDespacho()" style="width:auto;padding:7px 14px;font-size:11px;background:var(--blue);color:#fff;border-color:var(--blue)">
+              <i class="fa fa-dolly" style="margin-right:6px"></i>Solicitar despacho al Stock Manager
+            </button>
+          </div>
+          <div id="desp-status"></div>
+        </div>
+
+        <hr class="f-sep">
+        <label class="flbl">Informe Técnico</label>
+        <textarea id="f-tra" class="form-control" rows="4" placeholder="Diagnóstico y trabajo realizado..." oninput="markDirty()"></textarea>
+
+        <hr class="f-sep">
+        <label class="flbl" style="display:flex;align-items:center;gap:6px">
+          <i class="fa fa-lock" style="color:var(--tx-d);font-size:10px"></i>
+          Notas internas
+          <span style="font-size:9px;background:var(--surf);border:1px solid var(--brd);border-radius:3px;padding:1px 6px;color:var(--tx-d)">NO VISIBLE PARA RESELLERS</span>
+        </label>
+        <textarea id="f-notas" class="form-control" rows="2" placeholder="Observaciones internas del equipo técnico..." oninput="markDirty()" style="border-left:3px solid var(--titan)"></textarea>
+
+        <hr class="f-sep">
+        <!-- Motor de diagnóstico: casos similares -->
+        <div id="diag-section" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span class="rp-lbl"><i class="fa fa-lightbulb" style="margin-right:5px;color:var(--yellow)"></i>Casos similares resueltos</span>
+            <button onclick="document.getElementById('diag-section').style.display='none'" style="background:none;border:none;color:var(--tx-d);font-size:11px;cursor:pointer">Ocultar</button>
+          </div>
+          <div id="diag-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+        </div>
+
+        <hr class="f-sep">
+        <!-- Timeline de ciclo de vida -->
+        <div id="timeline-section" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span class="rp-lbl"><i class="fa fa-history" style="margin-right:5px;opacity:.6"></i>Historial de estados</span>
+            <span style="font-size:10px;color:var(--tx-d)" id="tl-duracion"></span>
+          </div>
+          <div id="ot-timeline" class="ot-timeline"></div>
+          <hr class="f-sep">
+        </div>
+        <!-- Mensajes HUB ↔ Reseller — col L -->
+        <div id="msg-section">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+            <span class="rp-lbl">Mensajes</span>
+            <span id="msg-badge" style="display:none;background:var(--blue);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px">NUEVO</span>
+          </div>
+          <div id="msg-thread-hub" class="hub-msg-thread" style="display:none"></div>
+          <div id="msg-thread-hub-empty" class="hub-msg-empty">Sin mensajes — escribí para iniciar la conversación con el reseller.</div>
+          <div class="hub-msg-send">
+            <input type="text" id="inp-msg-hub" placeholder="Escribí un mensaje al reseller..." onkeydown="if(event.key==='Enter')enviarMsgHUB()">
+            <button onclick="enviarMsgHUB()"><i class="fa fa-paper-plane"></i> Enviar</button>
+          </div>
+        </div>
+
+        <hr class="f-sep">
+        <div class="rp-head">
+          <i class="fa fa-tools" style="color:var(--tx-m);font-size:12px"></i>
+          <span class="rp-lbl">Repuestos utilizados</span>
+        </div>
+        <div class="rp-cols">
+          <div class="rp-col">Código</div><div class="rp-col">Descripción</div>
+          <div class="rp-col">Ped.</div><div class="rp-col">Env.</div><div></div>
+        </div>
+        <div id="cont-r"></div>
+        <button class="btn-add" onclick="addR()"><i class="fa fa-plus"></i> Agregar repuesto</button>
+        <div id="mo-section" style="display:none">
+          <hr class="f-sep">
+          <div class="rp-head"><i class="fa fa-wrench" style="color:var(--tx-m);font-size:12px"></i><span class="rp-lbl">Mano de obra</span></div>
+          <div id="cont-mo" style="margin-bottom:6px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:20px">
+            <select id="mo-sel" class="form-select" style="flex:1"><option value="">— Seleccionar —</option></select>
+            <button class="btn-tec-add" onclick="agregarMO()"><i class="fa fa-plus" style="margin-right:4px"></i>Agregar</button>
+          </div>
+        </div>
+        <button class="btn-save" onclick="guardar()">Guardar cambios</button>
+        <button class="btn-danger" id="btn-cancelar-caso" onclick="pedirCancelarCaso()">🚫 Cancelar Caso</button>
+
+        <!-- NUEVO: Historial de cambios -->
+        <button class="hist-toggle" id="hist-btn" onclick="togHist()">
+          <span><i class="fa fa-history" style="margin-right:7px"></i>Historial de cambios</span>
+          <i class="fa fa-chevron-down" style="font-size:10px;color:var(--tx-d)"></i>
+        </button>
+        <div class="hist-body" id="hist-body">
+          <div class="hist-loading" id="hist-loading"><i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Cargando historial...</div>
+          <div id="hist-items"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /mc -->
+
+<script>
+// ── SIDEBAR MOBILE ────────────────────────────────────────────
+function togSb() {
+  var sb = document.querySelector('.sb');
+  var ov = document.getElementById('sb-overlay');
+  var open = sb.classList.contains('open');
+  sb.classList.toggle('open', !open);
+  ov.classList.toggle('show', !open);
+  document.body.style.overflow = open ? '' : 'hidden';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelector('.sb-nav').addEventListener('click', function(e) {
+    if (window.innerWidth > 992) return;
+    var target = e.target.closest('.nb,.btn-log,.btn-new');
+    if (target && document.querySelector('.sb').classList.contains('open')) togSb();
+  });
+});
+
+// ── ESTADO GLOBAL ─────────────────────────────────────────────
+var dataset=[], actual=null, urgente=false, filtro='pendientes';
+var _settings = { tema:'dark', density:'normal', vistaInicial:'pendientes', autoRefresh:0, displayName:'' };
+var _arTimer = null;
+var repCache=[], estadoAct='', adCache=[], tecCache=[], resCache=[], equiposCache=[];
+var esBateriaActual=false;
+var tecDisponibles=[];
+var manoObraCache=[], manoObraSeleccionada=[];
+var isDirty=false, histCargado=false;
+
+var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
+var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
+var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Recepcion piezas dañadas','Aprobacion DJI','Finalizado'];
+var EST_RP = ['Abierto','Pedido de repuesto para reparar','Reparado y aprobado en el aftersales','Partes dañadas scrapeadas','Finalizado'];
+var EST_RPB = ['Abierto','Aprobado por DJI','Finalizado'];
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
+
+// ── Loading card con barra de progreso ─────────────────────────
+var _hubLoadTimer = null;
+var STEPS_LOAD = [
+  { pct: 15, msg: 'Conectando con el sistema…',        icon: '📡' },
+  { pct: 50, msg: 'Cargando \xF3rdenes de trabajo…',   icon: '🔧' },
+  { pct: 82, msg: 'Calculando m\xE9tricas…',           icon: '📊' }
+];
+var STEPS_GUARDAR = [
+  { pct: 20, msg: 'Validando cambios…',     icon: '🔍' },
+  { pct: 62, msg: 'Guardando orden…',       icon: '💾' },
+  { pct: 88, msg: 'Actualizando estados…',  icon: '📋' }
+];
+var STEPS_CREAR = [
+  { pct: 30, msg: 'Creando nueva orden de trabajo…', icon: '📝' },
+  { pct: 78, msg: 'Registrando datos…',              icon: '💾' }
+];
+var STEPS_CANCELAR = [
+  { pct: 35, msg: 'Cancelando caso…',       icon: '❌' },
+  { pct: 80, msg: 'Liberando solicitudes…', icon: '🔓' }
+];
+
+function hubLoadStart(steps) {
+  var ov = document.getElementById('hub-load-ov');
+  if (!ov) return;
+  var bar = document.getElementById('hub-load-bar');
+  bar.style.transition = 'none'; bar.style.width = '0%';
+  ov.style.display = 'flex';
+  var idx = 0;
+  function _step(s) {
+    var b  = document.getElementById('hub-load-bar');
+    var m  = document.getElementById('hub-load-step');
+    var ic = document.getElementById('hub-load-icon');
+    if (!b) return;
+    b.style.transition = 'width .55s cubic-bezier(.4,0,.2,1)';
+    b.style.width = s.pct + '%';
+    if (m)  { m.style.opacity  = '0'; setTimeout(function(){ m.textContent  = s.msg;  m.style.opacity  = '1'; }, 160); }
+    if (ic) { ic.style.opacity = '0'; setTimeout(function(){ ic.textContent = s.icon; ic.style.opacity = '1'; }, 160); }
+  }
+  _step(steps[0]); idx = 1;
+  _hubLoadTimer = setInterval(function() {
+    if (idx >= steps.length) { clearInterval(_hubLoadTimer); return; }
+    _step(steps[idx++]);
+  }, 2200);
+}
+
+function hubLoadDone() {
+  clearInterval(_hubLoadTimer);
+  var bar = document.getElementById('hub-load-bar');
+  var msg = document.getElementById('hub-load-step');
+  var ic  = document.getElementById('hub-load-icon');
+  if (bar) { bar.style.transition = 'width .3s ease'; bar.style.width = '100%'; }
+  if (msg) { msg.style.opacity = '0'; setTimeout(function(){ msg.textContent = '\xA1Listo!'; msg.style.opacity = '1'; }, 160); }
+  if (ic)  { ic.style.opacity  = '0'; setTimeout(function(){ ic.textContent  = '✅';   ic.style.opacity  = '1'; }, 160); }
+  setTimeout(function() {
+    var ov = document.getElementById('hub-load-ov');
+    if (ov) ov.style.display = 'none';
+    if (bar) { bar.style.transition = 'none'; bar.style.width = '0%'; }
+  }, 700);
+}
+function toast(msg, t) {
+  t = t||'ok';
+  var w=document.getElementById('toasts'), el=document.createElement('div');
+  el.className='toast-msg '+t;
+  el.innerHTML='<i class="fa '+(t==='ok'?'fa-check-circle':'fa-exclamation-circle')+'"></i> '+msg;
+  w.appendChild(el);
+  setTimeout(function(){el.style.opacity='0';el.style.transition='.2s';setTimeout(function(){el.parentNode&&el.parentNode.removeChild(el);},220);},3000);
+}
+
+// ── DETECTAR BACKORDER (en el frontend) ───────────────────────
+// Misma lógica que el backend: circuito + estado + repuestos cargados
+function detectarBackorderLocal(rep, circuito, estado) {
+  if (!rep || rep === 'Sin consumo de repuestos' || rep.trim() === '') return false;
+
+  var esReseller       = (circuito === 'Reseller');
+  var esResellerPropio = (circuito === 'Reseller Propio');
+
+  if (esReseller) {
+    if (estado !== 'Aprobacion DJI' && estado !== 'Pedido de repuestos') return false;
+  } else if (esResellerPropio) {
+    if (estado !== 'Pedido de repuesto para reparar' && estado !== 'Reparado y aprobado en el aftersales') return false;
+  } else {
+    return false;
+  }
+
+  var ls = rep.split(' ; ');
+  for (var i=0; i<ls.length; i++) {
+    var p = ls[i].split(' | ');
+    if (p.length < 3) continue;
+    var ped = parseInt(p[2].split(' E:')[0].replace('P:',''))||0;
+    var env = parseInt(p[2].split(' E:')[1])||0;
+    if (ped > env) return true;
+  }
+  return false;
+}
+
+// ── CARGA ─────────────────────────────────────────────────────
+function load() {
+  hubLoadStart(STEPS_LOAD);
+  google.script.run
+    .withSuccessHandler(function(d) {
+      hubLoadDone();
+      if (!d||d.error) { toast('Error al cargar datos','err'); return; }
+      dataset  = d.ordenes;
+      tecCache = d.tecnicos || [];
+      tecDisponibles = d.tecnicosDisponibles || [];
+      // Caché de catálogo en sessionStorage (30 min)
+      var _catNuevo = { repuestos: d.repuestos||[], resellers: d.resellers||[], manoObra: d.manoObra||[], equipos: d.equipos||[] };
+      try {
+        var _catOld = JSON.parse(sessionStorage.getItem('hub_cat')||'null');
+        var _catOldTs = parseInt(sessionStorage.getItem('hub_cat_ts')||'0');
+        if (_catOld && Date.now() - _catOldTs < 30*60*1000) {
+          repCache = _catOld.repuestos; resCache = _catOld.resellers; manoObraCache = _catOld.manoObra; equiposCache = _catOld.equipos || [];
+        } else {
+          repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos;
+          sessionStorage.setItem('hub_cat', JSON.stringify(_catNuevo));
+          sessionStorage.setItem('hub_cat_ts', String(Date.now()));
+        }
+      } catch(ec) { repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos || []; }
+
+      // Poblar filtro de resellers
+      var selRes = document.getElementById('fil-res');
+      var valActual = selRes.value;
+      selRes.innerHTML = '<option value="">— Todos —</option>';
+      var resSet = {};
+      for (var k=0; k<dataset.length; k++) {
+        var rn = dataset[k].reseller;
+        resSet[rn] = (resSet[rn]||0) + (dataset[k].estado !== 'Finalizado' && dataset[k].estado !== 'Entregado' && dataset[k].estado !== 'CANCELADO' ? 1 : 0);
+      }
+      Object.keys(resSet).sort().forEach(function(r) {
+        var opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = resSet[r] > 0 ? r + ' (' + resSet[r] + ')' : r;
+        if (r === valActual) opt.selected = true;
+        selRes.appendChild(opt);
+      });
+
+      // Poblar filtro técnico
+      var filTecEl = document.getElementById('fil-tec');
+      if (filTecEl) {
+        var valTecAnt = filTecEl.value;
+        filTecEl.innerHTML = '<option value="">— Todos —</option>';
+        var tecSet2 = {};
+        for (var t2=0; t2<dataset.length; t2++) {
+          if (dataset[t2].tecnico) tecSet2[dataset[t2].tecnico] = 1;
+        }
+        Object.keys(tecSet2).sort().forEach(function(t) {
+          var o = document.createElement('option');
+          o.value = t; o.textContent = t;
+          if (t === valTecAnt) o.selected = true;
+          filTecEl.appendChild(o);
+        });
+      }
+      render(); kpis();
+      var t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      document.getElementById('ts').textContent = 'Actualizado '+t;
+    })
+    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
+    .cargarTodo();
+}
+
+// ── RENDER TABLA (CORREGIDA CON ÍNDICE SEGURO) ────────────────
+function render() {
+  var isMet    = (filtro === 'metricas');
+  var isEmails = (filtro === 'emails');
+  var isSup    = (filtro === 'supervisor');
+  var isMsg    = (filtro === 'mensajes');
+  document.getElementById('tbl-normal').style.display  = (!isMet && !isEmails && !isSup && !isMsg) ? 'block' : 'none';
+  document.getElementById('met-view').style.display    = isMet    ? 'block' : 'none';
+  document.getElementById('email-view').style.display  = isEmails ? 'block' : 'none';
+  document.getElementById('sup-view').style.display    = isSup    ? 'block' : 'none';
+  document.getElementById('msg-view').style.display    = isMsg    ? 'block' : 'none';
+  if (isMet)    { renderMetricas();   return; }
+  if (isEmails) { cargarEmails();     return; }
+  if (isSup)    { cargarSupervisor(); return; }
+  if (isMsg)    { renderMensajes();   return; }
+
+  var tb=document.getElementById('tbody');
+  var q=document.getElementById('busc').value.toLowerCase();
+  var filRes=document.getElementById('fil-res').value;
+  var f=dataset.slice();
+  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
+  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
+  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
+  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
+  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  document.getElementById('cnt').textContent=f.length;
+  if (!f.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fa fa-inbox"></i><p>Sin resultados</p></div></td></tr>';return;}
+  
+  var h='';
+  for (var i=0;i<f.length;i++){
+    var c=f[i];
+    // Semáforo 4 niveles — sobre días totales
+    var sem = c.dias<=3 ? 'sv' : (c.dias<=7 ? 'sa' : (c.dias<=30 ? 'sr' : 'sc'));
+    var tecHtml=c.tecnico?'<span class="tec-pill">'+c.tecnico+'</span>':'<span style="color:var(--tx-d);font-size:11px">—</span>';
+    // Marca de mensaje no leído
+    var msgDot = c.msgNoLeido
+      ? '<span title="Mensaje sin leer del reseller" style="display:inline-block;width:7px;height:7px;background:var(--blue);border-radius:50%;margin-left:6px;vertical-align:middle"></span>'
+      : '';
+    // Backorder
+    var tieneBack = detectarBackorderLocal(c.repuestos, c.circuito, c.estado);
+    var backHtml  = tieneBack
+      ? '<span title="Backorder pendiente" style="color:var(--yellow);font-size:13px"><i class="fa fa-exclamation-triangle"></i></span>'
+      : '<span style="color:var(--tx-d);font-size:11px">—</span>';
+    // Dos contadores: total · estado actual
+    var diasEstado = c.diasEstado !== undefined ? c.diasEstado : '?';
+    var diasHtml = '<span class="'+sem+'">'+c.dias+'d</span>'
+                 + '<span style="color:var(--tx-d);font-size:10px;margin-left:3px">·</span>'
+                 + '<span style="font-size:11px;color:var(--tx-m)">'+diasEstado+'d</span>';
+    
+    var esCancelado = c.estado === 'CANCELADO';
+    // 🟢 CAMBIO CLAVE: Llamamos a abrirDesdeTabla pasándole el índice "i"
+    h+='<tr class="'+(c.prioridad&&!esCancelado?'urg':'')+(esCancelado?' ot-cancelada':'')+'" onclick="abrirDesdeTabla('+i+')">';
+    h+='<td><span class="ot-code">'+c.ot+'</span>'+(c.prioridad&&!esCancelado?'<span class="urg-dot"></span>':'')+msgDot+'</td>';
+    h+='<td><span class="'+(c.garantia==='IW'?'b-iw':'b-oow')+'">'+c.garantia+'</span></td>';
+    h+='<td>'+c.reseller+'</td>';
+    h+='<td><span class="eq">'+c.equipo+'</span></td>';
+    h+='<td>'+tecHtml+'</td>';
+    h+='<td>'+(esCancelado?'<span class="badge-cancelado">CANCELADO</span>':'<span class="b-est">'+c.estado+'</span>')+'</td>';
+    h+='<td>'+diasHtml+'</td>';
+    // Fecha estimada calculada en frontend
+    var diasEst = {'Taller-IW':30,'Taller-OOW':30,'Reseller-IW':30,'Reseller-OOW':30,'Reseller Propio-IW':30,'Reseller Propio-OOW':30}; //Dias para calcular fecha estimada de finalizacion
+    var keyEst  = c.circuito + '-' + c.garantia;
+    var dEst    = diasEst[keyEst] || 10;
+    var fechaEstHTML = '';
+    var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado';
+    if (!esTerminal && c.dias <= dEst) {
+      var restante = dEst - c.dias;
+      fechaEstHTML = '<span style="font-size:10px;color:' + (restante<=2?'var(--red)':(restante<=5?'var(--yellow)':'var(--tx-d)')) + '">' + restante + 'd</span>';
+    } else if (!esTerminal) {
+      fechaEstHTML = '<span style="font-size:10px;color:var(--red);font-weight:700">venc.</span>';
+    } else {
+      fechaEstHTML = '<span style="color:var(--tx-d);font-size:10px">—</span>';
+    }
+    h+='<td>'+fechaEstHTML+'</td>';
+    h+='<td>'+backHtml+'</td></tr>';
+  }
+  tb.innerHTML=h;
+}
+
+function kpis(){
+  document.getElementById('kpi-p').textContent=dataset.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
+  document.getElementById('kpi-u').textContent=dataset.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
+  var noLeidos = dataset.filter(function(c){return c.msgNoLeido;}).length;
+  var badge = document.getElementById('kpi-msg-badge');
+  if (badge) { badge.textContent = noLeidos; badge.style.display = noLeidos > 0 ? 'inline' : 'none'; }
+}
+
+function abrirMensaje(fila) {
+  for (var i=0; i<dataset.length; i++) {
+    if (dataset[i].fila === fila) {
+      abrirLista(dataset[i]); // el marcado lo maneja abrirLista internamente
+      return;
+    }
+  }
+}
+
+function renderMensajes() {
+  var lista = dataset.filter(function(c){ return c.mensajes && c.mensajes.trim() !== ''; });
+  lista.sort(function(a,b){
+    if (a.msgNoLeido && !b.msgNoLeido) return -1;
+    if (!a.msgNoLeido && b.msgNoLeido) return 1;
+    return (a.diasEstado||0) - (b.diasEstado||0);
+  });
+  var noLeidos = lista.filter(function(c){ return c.msgNoLeido; }).length;
+  document.getElementById('msg-view-unread').textContent = noLeidos;
+  document.getElementById('msg-view-total').textContent  = lista.length;
+  if (!lista.length) {
+    document.getElementById('msg-list').innerHTML = '<div class="empty"><i class="fa fa-comments"></i><p>Sin conversaciones activas</p></div>';
+    return;
+  }
+  var h = '';
+  for (var i=0; i<lista.length; i++) {
+    var c = lista[i];
+    var preview = c.mensajes.replace(/💬/g,'').replace(/\n/g,' ').trim();
+    if (preview.length > 120) preview = preview.substring(0,120) + '…';
+    h += '<div class="msg-item' + (c.msgNoLeido ? ' unread' : '') + '" onclick="abrirMensaje(' + c.fila + ')">';
+    h += '<div class="msg-dot ' + (c.msgNoLeido ? 'new' : 'read') + '"></div>';
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
+    h += '<span class="msg-ot-code">' + c.ot + '</span>';
+    h += '<span class="b-est">' + c.estado + '</span>';
+    if (c.msgNoLeido) h += '<span style="font-size:9px;font-weight:700;color:var(--blue);background:var(--blue-a);padding:1px 6px;border-radius:8px;border:1px solid rgba(0,163,224,.2)">NUEVO</span>';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--tx-d)">' + c.reseller + '</span>';
+    h += '</div>';
+    h += '<div class="msg-preview">' + preview + '</div>';
+    h += '</div></div>';
+  }
+  document.getElementById('msg-list').innerHTML = h;
+}
+
+function _escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _renderThreadHUB(texto, msgNoLeido) {
+  var threadEl = document.getElementById('msg-thread-hub');
+  var emptyEl  = document.getElementById('msg-thread-hub-empty');
+  var badgeEl  = document.getElementById('msg-badge');
+  var html = parseMsgThreadHUB(texto);
+  if (html) {
+    threadEl.innerHTML = html;
+    threadEl.style.display = 'flex';
+    emptyEl.style.display = 'none';
+    setTimeout(function(){ threadEl.scrollTop = threadEl.scrollHeight; }, 80);
+  } else {
+    threadEl.innerHTML = '';
+    threadEl.style.display = 'none';
+    emptyEl.style.display = 'block';
+  }
+  if (badgeEl) badgeEl.style.display = msgNoLeido ? 'inline' : 'none';
+}
+
+function parseMsgThreadHUB(texto) {
+  if (!texto || !texto.trim()) return '';
+  var bloques = texto.split(/\n\n+/);
+  var html = '';
+  for (var i = 0; i < bloques.length; i++) {
+    var b = bloques[i].trim();
+    if (!b || b === '[LEIDO]') continue;
+    if (b.indexOf('💬') !== 0) continue;
+    var nl     = b.indexOf('\n');
+    var header = nl !== -1 ? b.substring(0, nl).replace('💬 ', '') : b.replace('💬 ', '');
+    var body   = nl !== -1 ? b.substring(nl + 1).trim() : '';
+    var esRS   = actual && actual.reseller && header.indexOf(actual.reseller) !== -1;
+    var dispHdr = header;
+    if (!esRS && _settings.displayName) {
+      dispHdr = header.replace(/— .+:/, '— ' + _settings.displayName + ':');
+    }
+    html += '<div class="hub-msg-bubble ' + (esRS ? 'hub-in' : 'hub-out') + '">';
+    html += '<div class="hub-msg-bubble-header">' + _escHtml(dispHdr) + '</div>';
+    if (body) html += '<div class="hub-msg-bubble-body">' + _escHtml(body) + '</div>';
+    html += '</div>';
+  }
+  return html;
+}
+
+function enviarMsgHUB() {
+  var inp  = document.getElementById('inp-msg-hub');
+  var text = inp ? inp.value.trim() : '';
+  if (!text) return toast('Escribí un mensaje', 'err');
+  if (!actual || !actual.fila) return toast('No hay OT seleccionada', 'err');
+  if (inp.disabled) return;
+  var btn = inp.nextElementSibling;
+  inp.disabled = true;
+  if (btn) btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      inp.disabled = false;
+      if (btn) btn.disabled = false;
+      if (res && res.ok) {
+        inp.value = '';
+        toast('Mensaje enviado al reseller', 'ok');
+        google.script.run
+          .withSuccessHandler(function(det) {
+            if (!det) return;
+            var threadEl = document.getElementById('msg-thread-hub');
+            var emptyEl  = document.getElementById('msg-thread-hub-empty');
+            var th = parseMsgThreadHUB(det.mensajes);
+            if (th) {
+              threadEl.innerHTML = th;
+              threadEl.style.display = 'flex';
+              emptyEl.style.display = 'none';
+              setTimeout(function(){ threadEl.scrollTop = threadEl.scrollHeight; }, 80);
+            }
+          })
+          .obtenerDetalleOT(actual.fila);
+      } else {
+        toast('Error al enviar: ' + (res && res.msg || 'desconocido'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) { inp.disabled = false; if (btn) btn.disabled = false; toast('Error: ' + e.message, 'err'); })
+    .enviarMensajeHUB(actual.fila, text);
+}
+
+function setF(f,btn){
+  filtro=f;
+  var btns=document.querySelectorAll('.nb');
+  for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
+  if(btn) btn.classList.add('active');
+  render();
+}
+
+// ── MÉTRICAS TÉCNICOS ─────────────────────────────────────────
+function renderMetricas() {
+  var grid = document.getElementById('met-grid');
+  grid.innerHTML = '<div style="color:var(--tx-m);font-size:12px;padding:20px;text-align:center"><i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Calculando...</div>';
+  google.script.run
+    .withSuccessHandler(function(mets) {
+      if (!mets || !mets.length) {
+        grid.innerHTML = '<div style="color:var(--tx-m);font-size:13px;padding:20px">Sin datos de técnicos asignados.</div>';
+        return;
+      }
+      var maxAb = 0, maxFin = 0;
+      for (var i = 0; i < mets.length; i++) {
+        if (mets[i].abiertas   > maxAb)  maxAb  = mets[i].abiertas;
+        if (mets[i].finalizadas > maxFin) maxFin = mets[i].finalizadas;
+      }
+      var h = '';
+      for (var j = 0; j < mets.length; j++) {
+        var m = mets[j];
+        var pctAb  = maxAb  > 0 ? Math.round((m.abiertas   / maxAb)  * 100) : 0;
+        var pctFin = maxFin > 0 ? Math.round((m.finalizadas / maxFin) * 100) : 0;
+        var semDias   = m.promDias   <= 3  ? 'var(--green)' : (m.promDias  <= 7 ? 'var(--yellow)' : 'var(--red)');
+        var semCierre = m.promCierre === null ? 'var(--tx-d)' : (m.promCierre <= 10 ? 'var(--green)' : (m.promCierre <= 18 ? 'var(--yellow)' : 'var(--red)'));
+        var cierreStr = m.promCierre !== null ? m.promCierre + 'd' : '—';
+        h += '<div class="met-card">';
+        h += '<div class="met-name">' +
+               '<i class="fa fa-user-circle" style="color:var(--blue)"></i>' + _esc(m.tecnico) +
+               (m.urgentes > 0 ? '<span style="margin-left:auto;font-size:9px;background:var(--red);color:#fff;border-radius:10px;padding:2px 6px;font-weight:700">'+m.urgentes+' URG</span>' : '') +
+             '</div>';
+        h += '<div class="met-row"><span>OTs abiertas</span><b>' + m.abiertas + '</b></div>';
+        h += '<div class="bar-bg" style="margin-bottom:10px"><div class="bar-fill" style="width:' + pctAb + '%;background:var(--blue)"></div></div>';
+        h += '<div class="met-row"><span>Finalizadas</span><b style="color:var(--green)">' + m.finalizadas + '</b></div>';
+        h += '<div class="bar-bg" style="margin-bottom:10px"><div class="bar-fill" style="width:' + pctFin + '%;background:var(--green)"></div></div>';
+        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">';
+        h += '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:8px;text-align:center">';
+        h += '<div style="font-size:10px;color:var(--tx-d);margin-bottom:3px">Prom. activas</div>';
+        h += '<div style="font-size:16px;font-weight:700;color:' + semDias + '">' + m.promDias + '<span style="font-size:10px">d</span></div></div>';
+        h += '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:8px;text-align:center">';
+        h += '<div style="font-size:10px;color:var(--tx-d);margin-bottom:3px">Prom. cierre</div>';
+        h += '<div style="font-size:16px;font-weight:700;color:' + semCierre + '">' + cierreStr + '</div></div>';
+        h += '</div>';
+        if (m.reincidentes > 0) {
+          h += '<div style="margin-top:8px;font-size:10px;color:var(--yellow);display:flex;align-items:center;gap:5px">' +
+               '<i class="fa fa-exclamation-triangle"></i>' + m.reincidentes + ' equipo' + (m.reincidentes > 1 ? 's' : '') + ' reincidente' + (m.reincidentes > 1 ? 's' : '') + '</div>';
+        }
+        h += '</div>';
+      }
+      grid.innerHTML = h;
+    })
+    .withFailureHandler(function() { grid.innerHTML = '<div style="color:var(--red);padding:20px;font-size:12px">Error al cargar métricas.</div>'; })
+    .obtenerMetricasTecnicos();
+}
+
+// ── FUNCIÓN PUENTE INDEPENDIENTE DE COMILLAS ──────────────────
+function abrirDesdeTabla(indice) {
+  var q = document.getElementById('busc').value.toLowerCase();
+  var filRes = document.getElementById('fil-res').value;
+  var f = dataset.slice();
+  
+  // Replicamos los filtros exactos de la tabla para dar con el índice correcto
+  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
+  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
+  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
+  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
+  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  
+  var ordenSeleccionada = f[indice];
+  if (ordenSeleccionada) {
+    abrirLista(ordenSeleccionada);
+  }
+}
+
+// ── ABRIR DESDE TABLA — carga campos pesados via obtenerDetalleOT ─
+function abrirLista(c) {
+  abrir(c);
+  // Seed del timestamp desde la lista para evitar falso CONFLICT si el usuario
+  // guarda antes de que obtenerDetalleOT retorne. Se sobreescribe con el valor
+  // exacto del sheet cuando retorna la llamada al servidor.
+  actual.ultimaModificacion = c.umMod || 0;
+
+  // Marcar mensajes como leídos si hay sin leer — desde cualquier flujo de entrada
+  if (c.msgNoLeido) {
+    c.msgNoLeido = false;
+    actual.msgNoLeido = false;
+    document.getElementById('msg-badge').style.display = 'none';
+    kpis();
+    renderMensajes();
+    google.script.run.marcarMensajesLeidos(c.fila);
+  }
+
+  // Render inmediato del thread desde datos ya disponibles (sin esperar async)
+  _renderThreadHUB(c.mensajes || '', false);
+
+  google.script.run
+    .withSuccessHandler(function(det) {
+      if (!det) return;
+      // Limpiar SIEMPRE (evita repuestos pegados de orden anterior)
+      document.getElementById('cont-r').innerHTML = '';
+      document.getElementById('f-tra').value = det.trabajo || '';
+      if (det.repuestos && det.repuestos !== 'Sin consumo de repuestos' && det.repuestos.trim() !== '') {
+        actual.repuestosCompletos = det.repuestos;
+        var stockMap = det.stockPorCodigo || {};
+        var ls = det.repuestos.split(' ; ');
+        for (var i = 0; i < ls.length; i++) {
+          var p = ls[i].split(' | ');
+          if (p.length < 3) continue;
+          var ped = p[2].indexOf('P:') !== -1 ? p[2].split(' E:')[0].replace('P:','') : 1;
+          var env = p[2].indexOf('E:') !== -1 ? p[2].split(' E:')[1] : 1;
+          var codUp = String(p[0]).trim().toUpperCase();
+          var stk = stockMap.hasOwnProperty(codUp) ? stockMap[codUp] : undefined;
+          addR(p[0], p[1], ped, env, stk);
+        }
+      } else {
+        document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Sin consumo de repuestos</div>';
+      }
+      // Refresh thread con datos frescos del sheet — mensajes ya marcados como leídos arriba
+      _renderThreadHUB(det.mensajes || '', false);
+      _renderTimeline(det.historialEstados || [], c);
+      cargarDiagnostico(c.equipo, det.trabajo, c.ot);
+      dispararLogicaDeFlujoAutomatico(); // re-evalúa flujo con todos los datos cargados
+      actual.ultimaModificacion = det.ultimaModificacion || 0;
+      isDirty = false;
+      document.getElementById('unsaved-bar').classList.remove('show');
+    })
+    .withFailureHandler(function(e) { console.log('obtenerDetalleOT err: ' + e.message); })
+    .obtenerDetalleOT(c.fila);
+}
+
+// ── MOTOR DE DIAGNÓSTICO — CASOS SIMILARES ────────────────────
+function cargarDiagnostico(modelo, falla, ot) {
+  var sec  = document.getElementById('diag-section');
+  var grid = document.getElementById('diag-grid');
+  if (!sec || !grid || !modelo) return;
+  grid.innerHTML = '<div style="font-size:11px;color:var(--tx-d);padding:6px 0"><i class="fa fa-circle-notch fa-spin"></i> Buscando casos similares...</div>';
+  sec.style.display = 'block';
+  google.script.run
+    .withSuccessHandler(function(items) {
+      if (!items || !items.length) {
+        sec.style.display = 'none';
+        return;
+      }
+      var h = '';
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        h += '<div class="diag-card">' +
+               '<div class="diag-ot">' + _esc(it.ot) + ' <span style="color:var(--tx-d);font-weight:400">' + _esc(it.fecha) + '</span></div>' +
+               '<div class="diag-eq">' + _esc(it.equipo) + ' · ' + _esc(it.garantia) + '</div>' +
+               '<div class="diag-desc">' + _esc(it.trabajo) + '</div>' +
+               (it.repuestos !== 'Sin repuestos'
+                 ? '<div class="diag-reps"><i class="fa fa-tools" style="margin-right:4px"></i>' + _esc(it.repuestos) + '</div>'
+                 : '') +
+             '</div>';
+      }
+      grid.innerHTML = h;
+    })
+    .withFailureHandler(function() { sec.style.display = 'none'; })
+    .buscarOTsSimilares(modelo, falla, ot);
+}
+
+// ── TIMELINE DE ESTADOS ───────────────────────────────────────
+function _renderTimeline(hist, c) {
+  var sec = document.getElementById('timeline-section');
+  var tl  = document.getElementById('ot-timeline');
+  var dur = document.getElementById('tl-duracion');
+  if (!sec || !tl) return;
+
+  // Armar lista completa: apertura + transiciones registradas
+  var items = [];
+  if (c && c.fila) {
+    items.push({ f: actual && actual.fechaIngreso ? new Date(actual.fechaIngreso).getTime() : null,
+                 nvo: 'Abierto', tec: c.reseller || '' });
+  }
+  for (var i = 0; i < hist.length; i++) items.push(hist[i]);
+
+  if (!hist.length && !c) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+
+  // Duración total si finalizado
+  if (hist.length && hist[hist.length-1].nvo === 'Finalizado' && items[0].f) {
+    var ms = hist[hist.length-1].f - items[0].f;
+    var dd = Math.floor(ms / 86400000);
+    dur.textContent = 'Duración total: ' + dd + ' día' + (dd===1?'':'s');
+  } else { dur.textContent = ''; }
+
+  var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var html = '';
+  for (var j = 0; j < items.length; j++) {
+    var it = items[j];
+    var dotClass = j === 0 ? 'tl-first' : (j === items.length-1 ? 'tl-last' : '');
+    var icon = j === 0 ? 'fa-play' : (it.nvo === 'Finalizado' ? 'fa-check' : 'fa-arrow-right');
+    var fechaTxt = '';
+    if (it.f) {
+      var d = new Date(it.f);
+      fechaTxt = d.getDate() + ' ' + meses[d.getMonth()] + ' ' + d.getFullYear() +
+                 ' ' + (d.getHours()<10?'0':'')+d.getHours() + ':' + (d.getMinutes()<10?'0':'')+d.getMinutes();
+    }
+    var tecTxt = it.tec ? ' · ' + it.tec : '';
+    html += '<div class="tl-item">' +
+              '<div class="tl-dot ' + dotClass + '"><i class="fa ' + icon + '"></i></div>' +
+              '<div class="tl-body">' +
+                '<div class="tl-estado">' + _esc(it.nvo) + '</div>' +
+                '<div class="tl-meta">' + (fechaTxt||'—') + _esc(tecTxt) + '</div>' +
+              '</div></div>';
+  }
+  tl.innerHTML = html || '<div style="font-size:11px;color:var(--tx-d);padding:4px 0">Sin transiciones registradas aún.</div>';
+}
+
+// ── COMBOBOX EQUIPO / MODELO ───────────────────────────────────
+var _equipoDropIdx = -1;
+
+function filtrarEquipos(inp) {
+  var val = inp.value.trim().toLowerCase();
+  var drop = document.getElementById('equipo-drop');
+  _equipoDropIdx = -1;
+  if (!val || !equiposCache.length) { drop.style.display = 'none'; return; }
+  var escaped = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var matches = [];
+  for (var i = 0; i < equiposCache.length; i++) {
+    if (equiposCache[i].toLowerCase().indexOf(val) !== -1) matches.push(equiposCache[i]);
+  }
+  if (!matches.length) { drop.style.display = 'none'; return; }
+  var html = '';
+  for (var j = 0; j < Math.min(matches.length, 30); j++) {
+    var hi = matches[j].replace(new RegExp('(' + escaped + ')', 'gi'), '<strong>$1</strong>');
+    html += '<div class="eq-drop-item" data-val="' + matches[j].replace(/"/g, '&quot;') + '" data-idx="' + j + '" ' +
+            'onmousedown="seleccionarEquipo(this)" onmouseover="resaltarEquipo(this)">' + hi + '</div>';
+  }
+  drop.innerHTML = html;
+  drop.style.display = 'block';
+}
+
+function seleccionarEquipo(el) {
+  document.getElementById('f-equi').value = el.getAttribute('data-val');
+  document.getElementById('equipo-drop').style.display = 'none';
+  _equipoDropIdx = -1;
+  markDirty();
+}
+
+function cerrarDropdownEquipo() {
+  setTimeout(function() {
+    var drop = document.getElementById('equipo-drop');
+    if (drop) drop.style.display = 'none';
+    _equipoDropIdx = -1;
+  }, 180);
+}
+
+function resaltarEquipo(el) {
+  var items = document.querySelectorAll('.eq-drop-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('eq-drop-active');
+  el.classList.add('eq-drop-active');
+  _equipoDropIdx = parseInt(el.getAttribute('data-idx'), 10);
+}
+
+function navEquipoDrop(e) {
+  var drop = document.getElementById('equipo-drop');
+  if (!drop || drop.style.display === 'none') return;
+  var items = drop.querySelectorAll('.eq-drop-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _equipoDropIdx = Math.min(_equipoDropIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _equipoDropIdx = Math.max(_equipoDropIdx - 1, 0);
+  } else if (e.key === 'Enter' && _equipoDropIdx >= 0) {
+    e.preventDefault();
+    seleccionarEquipo(items[_equipoDropIdx]);
+    return;
+  } else if (e.key === 'Escape') {
+    drop.style.display = 'none';
+    _equipoDropIdx = -1;
+    return;
+  } else { return; }
+  for (var k = 0; k < items.length; k++) items[k].classList.remove('eq-drop-active');
+  if (_equipoDropIdx >= 0) {
+    items[_equipoDropIdx].classList.add('eq-drop-active');
+    items[_equipoDropIdx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// ── LIMPIEZA DE FORMULARIO ────────────────────────────────────
+function limpiarFormulario() {
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) el.value = '';
+  }
+  var selRes = document.getElementById('f-res');
+  if (selRes) selRes.selectedIndex = 0;
+  var selTec = document.getElementById('f-tec');
+  if (selTec) selTec.selectedIndex = 0;
+  var selGar = document.getElementById('f-gar');
+  if (selGar) selGar.value = 'OOW';
+  var selCirc = document.getElementById('f-circ');
+  if (selCirc) selCirc.value = 'Taller';
+  var contR = document.getElementById('cont-r');
+  if (contR) contR.innerHTML = '';
+  var contMO = document.getElementById('cont-mo');
+  if (contMO) contMO.innerHTML = '';
+  var estCont = document.getElementById('est-cont');
+  if (estCont) estCont.innerHTML = '';
+  var msgThread = document.getElementById('msg-thread-hub');
+  if (msgThread) { msgThread.innerHTML = ''; msgThread.style.display = 'none'; }
+  var msgEmpty = document.getElementById('msg-thread-hub-empty');
+  if (msgEmpty) msgEmpty.style.display = 'block';
+  var msgBadge = document.getElementById('msg-badge');
+  if (msgBadge) msgBadge.style.display = 'none';
+  var msgInp = document.getElementById('inp-msg-hub');
+  if (msgInp) msgInp.value = '';
+  var otSpan = document.getElementById('f-ot');
+  if (otSpan) otSpan.textContent = '';
+}
+
+// ── ABRIR FORM (VERSIÓN SANEADA Y SIN DUPLICACIONES) ──────────
+function abrir(c){
+  limpiarFormulario();
+
+  // 1. Clonamos el objeto para aislar la memoria de la orden
+  actual = JSON.parse(JSON.stringify(c));
+  
+  urgente = actual.prioridad; 
+  estadoAct = actual.estado;
+  isDirty = false; 
+  histCargado = false;
+  
+  // 2. Limpieza estricta de la interfaz antes de rellenar
+  document.getElementById('cont-r').innerHTML = '';
+  document.getElementById('lv').classList.add('d-none');
+  document.getElementById('fv').classList.remove('d-none');
+  document.getElementById('unsaved-bar').classList.remove('show');
+  document.getElementById('hist-btn').classList.remove('open');
+  document.getElementById('hist-body').classList.remove('show');
+  document.getElementById('hist-items').innerHTML='';
+
+  // 3. Inyección limpia de campos (Una sola vez)
+  document.getElementById('f-ot').textContent  = actual.ot;
+  document.getElementById('f-cas').value       = actual.cas;
+  document.getElementById('f-equi').value      = actual.equipo;
+  document.getElementById('f-sn').value        = actual.sn;
+  renderResellerSelect(actual.reseller);
+  document.getElementById('f-tra').value       = actual.trabajo;
+  document.getElementById('f-gar').value       = actual.garantia;
+  // Normalizar circuito para que matchee las options del select
+  var circNorm = actual.circuito || 'Taller';
+  if (circNorm.toUpperCase() === 'RESELLER PROPIO') circNorm = 'Reseller Propio';
+  else if (circNorm.toUpperCase().indexOf('PROPIO') !== -1) circNorm = 'Reseller Propio';
+  else if (circNorm.toUpperCase() === 'RESELLER' || circNorm.toUpperCase() === 'SI') circNorm = 'Reseller';
+  else circNorm = 'Taller';
+  document.getElementById('f-circ').value = circNorm;
+  actual.circuito = circNorm; // sincronizar el objeto
+
+  // 4. Gestión de Fecha de Activación y Garantía
+  var fechaInp   = document.getElementById('f-fecha-act');
+  var fechaBadge = document.getElementById('f-fecha-badge');
+  var garInfoEl  = document.getElementById('f-gar-info');
+  var garInfoTxt = document.getElementById('f-gar-info-txt');
+  
+  if (actual.factura && actual.factura !== "") { 
+    if(fechaInp) fechaInp.value = actual.factura;
+    if(fechaBadge) fechaBadge.style.display = 'none';
+    if(garInfoEl) {
+      garInfoEl.style.display  = 'block';
+      garInfoTxt.textContent   = 'Vence: ' + (actual.vencimientoGar || 'calculando...');
+    }
+  } else {
+    if(fechaInp) fechaInp.value = '';
+    if(fechaBadge) fechaBadge.style.display = 'inline';
+    if(garInfoEl) garInfoEl.style.display  = 'none';
+  }
+
+  // 5. Mensajes HUB ↔ Reseller — siempre visible; _renderThreadHUB maneja el estado interno
+  var msgSec = document.getElementById('msg-section');
+  if (msgSec) msgSec.style.display = 'block';
+  document.getElementById('msg-badge').style.display = actual.msgNoLeido ? 'inline' : 'none';
+
+  // 6. Sección de despacho — deshabilitada (sin backend)
+  var despSection = document.getElementById('desp-section');
+  if (despSection) despSection.style.display = 'none';
+  
+  var esOOW = (actual.garantia === 'OOW');
+  dispararLogicaDeFlujoAutomatico(); // fija esBateriaActual ANTES de renderizar el stepper
+  togPrio(true);
+  // Mano de obra: solo OOW
+  var moSec = document.getElementById('mo-section');
+  if (moSec) moSec.style.display = esOOW ? 'block' : 'none';
+  // Botón Pedir Repuestos al WOS: OOW + orden activa
+  var btnRepWos = document.getElementById('btn-rep-wos');
+  var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO');
+  if (btnRepWos) btnRepWos.style.display = (esOOW && !_esTerminalHub) ? 'inline-flex' : 'none';
+
+  // Botones presupuesto: solo OOW + estado "En Revision" o "Presupuesto enviado"
+  var _mostrarPresup = esOOW && (actual.estado === 'En Revision' || actual.estado === 'Presupuesto enviado');
+  var btnVerPresup = document.getElementById('btn-ver-presup');
+  if (btnVerPresup) btnVerPresup.style.display = _mostrarPresup ? 'inline-flex' : 'none';
+  var btnPresup = document.getElementById('btn-presup');
+  if (btnPresup) btnPresup.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-flex' : 'none';
+  var selDest = document.getElementById('sel-dest');
+  if (selDest) selDest.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-block' : 'none';
+  // Botón Solicitar Factura: OOW + tiene repuestos despachados
+  var btnFactura = document.getElementById('btn-factura');
+  if (btnFactura) {
+    var _hayRepDesp = _tieneRepuestosDespachados(actual.repuestos);
+    var _factYaSolic = (actual.estado === 'ESPERANDO FACTURA');
+    btnFactura.style.display = (esOOW && _hayRepDesp) ? 'inline-flex' : 'none';
+    btnFactura.disabled      = _factYaSolic;
+    btnFactura.style.opacity = _factYaSolic ? '0.6' : '1';
+    btnFactura.innerHTML     = _factYaSolic
+      ? '<i class="fa fa-check" style="margin-right:6px"></i>Factura solicitada'
+      : '<i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Solicitar Factura';
+  }
+  // Poblar opciones de mano de obra
+  var moSel = document.getElementById('mo-sel');
+  moSel.innerHTML = '<option value="">— Seleccionar —</option>';
+  if (esOOW) {
+    for (var mi = 0; mi < manoObraCache.length; mi++) {
+      var mopt = document.createElement('option');
+      mopt.value = mi;
+      mopt.textContent = manoObraCache[mi].codigo + ' — ' + manoObraCache[mi].descripcion + ' — ' + manoObraCache[mi].precio;
+      moSel.appendChild(mopt);
+    }
+  }
+  // Cargar mano de obra guardada desde col W
+  manoObraSeleccionada = [];
+  if (actual.manoObraGuardada && actual.manoObraGuardada.trim() !== '') {
+    try { manoObraSeleccionada = JSON.parse(actual.manoObraGuardada); } catch(e) {}
+  }
+  renderMO();
+  renderTecnicoSelect(actual.tecnico, actual.circuito);
+
+  // 7. Repuestos — cargados por abrirLista via obtenerDetalleOT
+  document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Cargando repuestos...</div>';
+  document.getElementById('f-tra').value = '';
+  document.getElementById('f-notas').value = actual.notasInternas || '';
+
+  // Ocultar botón de cancelar si la OT ya está cancelada o finalizada
+  var btnCancelar = document.getElementById('btn-cancelar-caso');
+  if (btnCancelar) {
+    btnCancelar.style.display = (actual.estado === 'CANCELADO' || actual.estado === 'Finalizado') ? 'none' : 'flex';
+  }
+
+  window.scrollTo(0,0);
+}
+
+function updBadge(v){
+  var m={Taller:'TALLER',Reseller:'RESELLER','Reseller Propio':'RESELLER PROPIO'};
+  document.getElementById('c-badge').textContent=m[v]||v;
+}
+
+function renderEst(){
+  var v=document.getElementById('f-circ').value;
+  updBadge(v);
+  // Mostrar/ocultar campo técnico según circuito
+  document.getElementById('tec-row').style.display = (v==='Taller') ? '' : 'none';
+  var list=v==='Reseller'?EST_R:(v==='Reseller Propio'?(esBateriaActual?EST_RPB:EST_RP):(actual&&actual.garantia==='IW'?EST_T_IW:EST_T));
+  var ai=list.indexOf(estadoAct),h='';
+  for(var i=0;i<list.length;i++){
+    var cls='st-step'+(list[i]===estadoAct?' active':(i<ai?' done':''));
+    h+='<div class="'+cls+'" onclick="setE(this,\''+list[i].replace(/'/g,"\\'")+'\')">'+list[i]+'</div>';
+  }
+  document.getElementById('est-cont').innerHTML=h;
+}
+
+// ── DETECCIÓN DE FLUJO (Batería / Reseller / Taller) ─────────
+// Debe llamarse SIEMPRE que cambie circuito o esBateria,
+// y al final del SuccessHandler de obtenerDetalleOT.
+function dispararLogicaDeFlujoAutomatico() {
+  if (!actual) return;
+  var circ = document.getElementById('f-circ').value || actual.circuito || 'Taller';
+  esBateriaActual = (circ === 'Reseller Propio' && actual.esBateria === true);
+  renderEst(); // actualiza badge, visibilidad tec-row y stepper de estados
+}
+
+function setE(el,val){
+  var steps=document.querySelectorAll('.st-step'),idx=-1;
+  for(var i=0;i<steps.length;i++){steps[i].classList.remove('active','done');if(steps[i]===el) idx=i;}
+  for(var j=0;j<idx;j++) steps[j].classList.add('done');
+  el.classList.add('active'); estadoAct=val; 
+  if(val === 'Finalizado') {
+    urgente = false;
+    var b = document.getElementById('btn-prio');
+    if(b) {
+      b.className = 'btn-uo';
+      b.innerHTML = 'Urgente';
+    }
+  }
+  
+  markDirty();
+}
+
+function togPrio(only){
+
+  if(!only && estadoAct === 'Finalizado') {
+    toast('Una orden finalizada no puede marcarse como urgente', 'err');
+    return;
+  }
+  if(!only) urgente=!urgente;
+  var b=document.getElementById('btn-prio');
+  b.className=urgente?'btn-uon':'btn-uo';
+  b.innerHTML=urgente?'<i class="fa fa-exclamation-circle" style="margin-right:5px"></i>Urgente':'Urgente';
+  if(!only) markDirty();
+}
+
+// ── RESELLER SELECT ───────────────────────────────────────────
+function renderResellerSelect(nombreActual) {
+  var sel = document.getElementById('f-res');
+  sel.innerHTML = '<option value="">— Seleccionar reseller —</option>';
+
+  // Ordenar alfabéticamente
+  var sorted = resCache.slice().sort(function(a,b) {
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+  for (var i = 0; i < sorted.length; i++) {
+    var opt = document.createElement('option');
+    opt.value       = sorted[i].nombre;
+    opt.textContent = sorted[i].nombre;
+    // Guardamos el email en dataset del option para acceso rápido
+    opt.setAttribute('data-email', sorted[i].email || '');
+    if (sorted[i].nombre === nombreActual) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  // Si el nombre actual no está en la lista (dato antiguo), agregarlo igual
+  if (nombreActual && sel.value !== nombreActual) {
+    var fallback = document.createElement('option');
+    fallback.value       = nombreActual;
+    fallback.textContent = nombreActual + ' (manual)';
+    fallback.selected    = true;
+    sel.insertBefore(fallback, sel.options[1]);
+  }
+
+  onResellerChange();
+}
+
+function onResellerChange() {
+  var sel      = document.getElementById('f-res');
+  var opt      = sel.options[sel.selectedIndex];
+  var email    = opt ? opt.getAttribute('data-email') : '';
+  var ind      = document.getElementById('res-email-indicator');
+  var noEmail  = document.getElementById('res-no-email');
+  var emailTxt = document.getElementById('res-email-text');
+
+  if (!sel.value) {
+    ind.style.display     = 'none';
+    noEmail.style.display = 'none';
+    return;
+  }
+
+  if (email && email.indexOf('@') !== -1) {
+    emailTxt.textContent  = email;
+    ind.style.display     = 'flex';
+    noEmail.style.display = 'none';
+  } else {
+    ind.style.display     = 'none';
+    noEmail.style.display = 'flex';
+  }
+}
+function renderTecnicoSelect(tecActual, circuito){
+  var sel=document.getElementById('f-tec');
+  sel.innerHTML='<option value="">— Sin asignar —</option>';
+  var fuente = tecDisponibles.length ? tecDisponibles : tecCache.map(function(t){return {nombre:t};});
+  for(var i=0;i<fuente.length;i++){
+    var opt=document.createElement('option');
+    opt.value=fuente[i].nombre; opt.textContent=fuente[i].nombre;
+    if(fuente[i].nombre===tecActual) opt.selected=true;
+    sel.appendChild(opt);
+  }
+  document.getElementById('tec-row').style.display=(circuito==='Taller')?'':'none';
+}
+
+function agregarTecnico(){
+  var inp=document.getElementById('f-tec-nuevo');
+  var nombre=inp.value.trim();
+  if(!nombre) return;
+  if(tecCache.indexOf(nombre)===-1) tecCache.push(nombre);
+  var sel=document.getElementById('f-tec');
+  // Verificar si ya existe la opción
+  var existe=false;
+  for(var i=0;i<sel.options.length;i++) if(sel.options[i].value===nombre){existe=true;break;}
+  if(!existe){var opt=document.createElement('option');opt.value=nombre;opt.textContent=nombre;sel.appendChild(opt);}
+  sel.value=nombre;
+  inp.value='';
+  markDirty();
+}
+
+// ── GUARD: CAMBIOS SIN GUARDAR ────────────────────────────────
+function markDirty(){
+  isDirty=true;
+  document.getElementById('unsaved-bar').classList.add('show');
+}
+
+function pedirVolver(){
+  if(!isDirty){ cerrarV(); return; }
+  var modal=new bootstrap.Modal(document.getElementById('modal-confirm'));
+  modal.show();
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('confirm-save').addEventListener('click',function(){
+    bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+    guardar(); // guardar ya hace cerrarV() al finalizar
+  });
+  document.getElementById('confirm-discard').addEventListener('click',function(){
+    bootstrap.Modal.getInstance(document.getElementById('modal-confirm')).hide();
+    isDirty=false; cerrarV();
+  });
+});
+
+// ── HISTORIAL DE CAMBIOS ──────────────────────────────────────
+function togHist(){
+  var btn=document.getElementById('hist-btn');
+  var body=document.getElementById('hist-body');
+  var isOpen=body.classList.toggle('show');
+  btn.classList.toggle('open',isOpen);
+  if(isOpen&&!histCargado) cargarHistorial();
+}
+
+function cargarHistorial(){
+  if(!actual) return;
+  document.getElementById('hist-loading').style.display='block';
+  document.getElementById('hist-items').innerHTML='';
+  google.script.run
+    .withSuccessHandler(function(logs){
+      document.getElementById('hist-loading').style.display='none';
+      histCargado=true;
+      if(!logs||!logs.length){
+        document.getElementById('hist-items').innerHTML='<div style="color:var(--tx-d);font-size:12px;padding:8px 2px">Sin historial registrado.</div>';
+        return;
+      }
+      var h='';
+      for(var i=0;i<logs.length;i++){
+        var l=logs[i];
+        var mismoEst=(l.estAnt===l.estNvo);
+        h+='<div class="log-item">';
+        h+='<div class="log-top"><span class="log-fecha">'+l.fecha+'</span><span class="log-accion">'+l.accion+'</span></div>';
+        if(!mismoEst) h+='<div class="log-estados"><span>'+l.estAnt+'</span> → <span>'+l.estNvo+'</span></div>';
+        if(l.detalle&&l.detalle!=='—') h+='<div class="log-det">'+l.detalle+'</div>';
+        if(l.tecnico&&l.tecnico!=='—') h+='<div class="log-tec"><i class="fa fa-user" style="margin-right:4px;color:var(--tx-d)"></i>'+l.tecnico+'</div>';
+        h+='</div>';
+      }
+      document.getElementById('hist-items').innerHTML=h;
+    })
+    .withFailureHandler(function(){
+      document.getElementById('hist-loading').style.display='none';
+      document.getElementById('hist-items').innerHTML='<div style="color:var(--red);font-size:12px;padding:8px 2px">Error al cargar historial.</div>';
+    })
+    .obtenerLogs(actual.ot);
+}
+
+// ── REPUESTOS ─────────────────────────────────────────────────
+function addR(cod,desc,ped,env,stock){
+  cod=cod||''; desc=desc||''; ped=ped!==undefined?ped:1; env=env!==undefined?env:1;
+  var reservBtn='';
+  if(stock!==undefined && stock!==null && stock===0){
+    var codEsc=cod.replace(/'/g,"\\'"), descEsc=desc.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    reservBtn='<button type="button" class="btn-del" style="background:var(--indigo);color:#fff;font-size:10px;padding:0 7px;white-space:nowrap" title="Reservar este repuesto de una importación en tránsito" onclick="reservarDeImportacion(\''+codEsc+'\',\''+descEsc+'\','+ped+')"><i class="fa fa-bookmark"></i></button>';
+  }
+  var d=document.createElement('div'); d.className='p-row';
+  d.innerHTML=
+    '<input type="text" class="form-control in-c" value="'+cod+'" readonly placeholder="Código">'+
+    '<div class="position-relative"><input type="text" class="form-control in-desc" value="'+desc.replace(/"/g,'&quot;')+'" onkeyup="busPN(this)" onblur="blurD(this)" oninput="markDirty()" placeholder="Descripción..."><div class="sug-box"></div></div>'+
+    '<input type="number" class="form-control in-n in-p" value="'+ped+'" min="0" oninput="markDirty()">'+
+    '<input type="number" class="form-control in-n in-e" value="'+env+'" min="0" oninput="markDirty()">'+
+    reservBtn+
+    '<button class="btn-del" onclick="eliminarFilaRepuesto(this)">×</button>';
+  document.getElementById('cont-r').appendChild(d);
+}
+
+function eliminarFilaRepuesto(btn) {
+  btn.closest('.p-row').remove();
+  markDirty();
+  toast('Repuesto eliminado — su solicitud de despacho se cancelará al guardar', 'err');
+}
+
+function busPN(inp){
+  var q=inp.value.toLowerCase(),box=inp.nextElementSibling;
+  if(q.length<2){box.style.display='none';return;}
+  var res=[];
+  for(var i=0;i<repCache.length&&res.length<8;i++){
+    if(repCache[i].codigo.toLowerCase().indexOf(q)!==-1||repCache[i].nombre.toLowerCase().indexOf(q)!==-1) res.push(repCache[i]);
+  }
+  if(!res.length){box.style.display='none';return;}
+  box.innerHTML='';
+  for(var j=0;j<res.length;j++){
+    (function(r){
+      var el=document.createElement('div'); el.className='sug-it';
+      el.innerHTML='<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:baseline"><span class="sug-c">'+r.codigo+'</span><span class="sug-n">'+r.nombre+'</span></div>'+(r.modelos?'<div style="font-size:9px;color:var(--tx-d);margin-top:1px">'+r.modelos.split('/').join(' · ')+'</div>':'')+'</div>';
+      el.addEventListener('mousedown',function(e){e.preventDefault();selR(inp,r.codigo,r.nombre);});
+      el.addEventListener('touchstart',function(e){e.preventDefault();selR(inp,r.codigo,r.nombre);},{passive:false});
+      box.appendChild(el);
+    })(res[j]);
+  }
+  box.style.display='block';
+}
+
+function blurD(inp){setTimeout(function(){var b=inp.nextElementSibling;if(b) b.style.display='none';},150);}
+function selR(inp,cod,desc){
+  var f=inp.closest('.p-row');
+  f.querySelector('.in-c').value=cod;
+  f.querySelector('.in-desc').value=desc.replace('('+cod+')','').trim();
+  inp.nextElementSibling.style.display='none';
+  markDirty();
+}
+
+// ── RESET PARCIAL — limpia inputs antes de disparar google.script.run ──
+function resetUIPartial() {
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
+  for (var i = 0; i < ids.length; i++) {
+    var el = document.getElementById(ids[i]);
+    if (el) el.value = '';
+  }
+}
+
+// ── GUARDAR ───────────────────────────────────────────────────
+function guardar(){
+  var _eq = document.getElementById('f-equi').value.trim();
+  var _sn = document.getElementById('f-sn').value.trim();
+  var _tr = document.getElementById('f-tra').value.trim();
+  if (!_eq) { toast('Completá el equipo / modelo','err'); return; }
+  if (!_sn) { toast('Completá el número de serie','err'); return; }
+  if (estadoAct === 'Finalizado' && !_tr) { toast('Agregá el informe técnico antes de finalizar','err'); return; }
+
+  var rs = [], rows = document.querySelectorAll('#cont-r .p-row');
+  for (var i = 0; i < rows.length; i++) {
+    var cod = rows[i].querySelector('.in-c').value.trim();
+    var des = rows[i].querySelector('.in-desc').value.trim();
+    var ped = rows[i].querySelector('.in-p').value;
+    var env = rows[i].querySelector('.in-e').value;
+    if (cod && des) rs.push(cod+' | '+des+' | P:'+ped+' E:'+env);
+  }
+  var circ = document.getElementById('f-circ').value;
+  var tec  = (circ === 'Taller') ? document.getElementById('f-tec').value : '';
+
+  // Capturar todos los valores ANTES de limpiar el formulario
+  var payload = {
+    fila:               actual.fila,
+    ot:                 actual.ot,
+    tecnico:            tec,
+    cas:                document.getElementById('f-cas').value,
+    garantia:           document.getElementById('f-gar').value,
+    estado:             estadoAct,
+    equipo:             _eq,
+    reseller:           document.getElementById('f-res').value || actual.reseller,
+    sn:                 _sn,
+    trabajo:            _tr,
+    repuestos:          rs.length ? rs.join(' ; ') : 'Sin consumo de repuestos',
+    manoObraGuardada:   manoObraSeleccionada.length ? JSON.stringify(manoObraSeleccionada) : '',
+    notasInternas:      document.getElementById('f-notas').value || '',
+    prioridad:          urgente,
+    circuito:           circ,
+    factura:            document.getElementById('f-fecha-act').value || '',
+    ultimaModificacion: actual.ultimaModificacion !== undefined ? actual.ultimaModificacion : (actual.umMod || 0)
+  };
+  var otEsperada = actual.ot;
+
+  hubLoadStart(STEPS_GUARDAR);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      hubLoadDone();
+      if (!r || r.ot !== otEsperada) { toast('Respuesta inesperada del servidor','err'); return; }
+      if (r.resultado === 'OK') {
+        isDirty = false;
+        resetUIPartial();
+        toast('Orden guardada correctamente');
+        load();
+        cerrarV();
+      } else if (r.resultado === 'CONFLICT') {
+        // Recargar datos frescos del sheet para que el usuario vea el estado actual y pueda reintentar
+        toast('La orden fue modificada recientemente. Se recargaron los datos actuales — revisá y guardá de nuevo.', 'err');
+        google.script.run
+          .withSuccessHandler(function(det) {
+            if (!det || !actual) return;
+            actual.ultimaModificacion = det.ultimaModificacion || 0;
+            // Repoblar campos con datos frescos del sheet
+            if (det.trabajo    !== undefined) document.getElementById('f-tra').value   = det.trabajo   || '';
+            if (det.mensajes   !== undefined) document.getElementById('f-notas').value = actual.notasInternas || '';
+          })
+          .withFailureHandler(function(){})
+          .obtenerDetalleOT(payload.fila);
+      } else {
+        toast('Error: ' + r.resultado, 'err');
+      }
+    })
+    .withFailureHandler(function(e) { hubLoadDone(); toast('Error de conexi\xF3n','err'); })
+    .actualizarOrden(payload);
+}
+
+// ── CANCELAR CASO ─────────────────────────────────────────────
+function pedirCancelarCaso() {
+  if (!actual) return;
+  if (actual.estado === 'CANCELADO') { toast('Este caso ya está cancelado','err'); return; }
+  document.getElementById('cancel-ot-lbl').textContent = actual.ot + ' · ' + actual.equipo + ' · ' + actual.reseller;
+  var m = new bootstrap.Modal(document.getElementById('modal-cancelar-caso'));
+  m.show();
+}
+
+function cancelarCasoEjecutar() {
+  if (!actual) return;
+  bootstrap.Modal.getInstance(document.getElementById('modal-cancelar-caso')).hide();
+  hubLoadStart(STEPS_CANCELAR);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hubLoadDone();
+      if (res.ok) {
+        toast('Caso ' + actual.ot + ' cancelado \xB7 ' + res.solicitudesCanceladas + ' solicitud(es) liberada(s)', 'ok');
+        isDirty = false;
+        cerrarV();
+        load();
+      } else {
+        toast('Error: ' + res.msg, 'err');
+      }
+    })
+    .withFailureHandler(function(e) { hubLoadDone(); toast('Error de conexi\xF3n: ' + e.message, 'err'); })
+    .cancelarCaso(actual.ot);
+}
+
+function crearCaso(){
+  hubLoadStart(STEPS_CREAR);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      hubLoadDone();
+      if (!r || !r.resultado || r.resultado.indexOf('Error') === 0) {
+        toast('Error al crear OT','err');
+        return;
+      }
+      toast('Nueva OT creada: ' + r.resultado);
+      load();
+    })
+    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
+    .crearNuevaOT();
+}
+
+function cerrarV(){
+  document.getElementById('fv').classList.add('d-none');
+  document.getElementById('lv').classList.remove('d-none');
+  actual=null; isDirty=false;
+  document.getElementById('unsaved-bar').classList.remove('show');
+}
+
+// ── EXPORTAR CSV ──────────────────────────────────────────────
+// Genera el CSV del filtro activo directamente en el navegador, sin llamada al servidor
+function exportCSV(){
+  var q=document.getElementById('busc').value.toLowerCase();
+  var f=dataset.slice();
+  if(filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
+  else if(filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
+  else if(filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='CANCELADO';});
+  else if(filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
+  if(q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  if(!f.length){toast('No hay datos para exportar','err');return;}
+
+  var cols=['OT','Garantía','Reseller','Equipo','N° Serie','Técnico','CAS/FWR','Estado','Días total','Días en estado','Circuito','Prioridad','Backorder'];
+  var rows=[cols.join(';')];
+  for(var i=0;i<f.length;i++){
+    var c=f[i];
+    var row=[
+      c.ot, c.garantia, c.reseller, c.equipo, c.sn,
+      c.tecnico||'', c.cas, c.estado, c.dias,
+      c.diasEstado !== undefined ? c.diasEstado : '',
+      c.circuito, c.prioridad?'URGENTE':'Normal',
+      detectarBackorderLocal(c.repuestos)?'SI':'NO'
+    ].map(function(v){
+      var s=String(v).replace(/"/g,'""');
+      return (s.indexOf(';')!==-1||s.indexOf('"')!==-1)?'"'+s+'"':s;
+    });
+    rows.push(row.join(';'));
+  }
+  var csv='\uFEFF'+rows.join('\r\n'); // BOM para que Excel lo abra bien
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  var fecha=new Date().toISOString().slice(0,10);
+  a.download='OTs_'+filtro+'_'+fecha+'.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+  toast('CSV exportado ('+f.length+' registros)');
+}
+
+// ════════════════════════════════════════════════════════════
+//  GENERAR NOTA DE ENTREGA (CON SPINNER DE CARGA)
+// ════════════════════════════════════════════════════════════
+function impRemito(){
+  if(!actual) return;
+  
+  // 1. Encendemos el spinner visual
+  sp(true); 
+
+  google.script.run
+    .withSuccessHandler(function(info){
+      // 2. Apagamos el spinner porque ya tenemos los datos
+      sp(false); 
+      
+      var jsPDF=window.jspdf.jsPDF, doc=new jsPDF();
+      doc.setFillColor(0,163,224); doc.rect(0,0,210,42,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(22); doc.setFont(undefined,'bold'); doc.text('BIDCOMAGRO',15,18);
+      doc.setFontSize(8); doc.setFont(undefined,'normal');
+      doc.text('Agente Oficial DJI · Parque Industrial Carmen de Areco Lote 28',15,26);
+      doc.text('Whatsapp. 1130641898 · Pcia. de Buenos Aires, Argentina',15,31);
+      doc.setFontSize(14); doc.setFont(undefined,'bold'); doc.text('NOTA DE ENTREGA',135,18);
+      doc.setFontSize(10); doc.setFont(undefined,'normal');
+      doc.text('OT: '+actual.ot,135,27); doc.text('Fecha: '+new Date().toLocaleDateString('es-AR'),135,33);
+      doc.setTextColor(40,40,40); doc.setFontSize(9); doc.setFont(undefined,'bold'); doc.text('DESTINATARIO',15,52);
+      doc.setFont(undefined,'normal');
+      doc.text(actual.reseller.toUpperCase(),15,58);
+      doc.text('CUIT: '+(info&&info.cuit?info.cuit:'—'),15,64);
+      doc.text('Dirección: '+(info&&info.direccion?info.direccion:'—'),15,70);
+      if(info&&info.localidad) doc.text('Localidad: '+info.localidad+(info.cp?' — CP: '+info.cp:''),15,76);
+      if(info&&info.telefono)  doc.text('Teléfono: '+info.telefono,15,86);
+      doc.autoTable({startY:90,head:[['Equipo / Modelo','N° de Serie','Estado']],body:[[actual.equipo,actual.sn,actual.estado]],theme:'grid',headStyles:{fillColor:[0,163,224],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9}});
+      var fY=doc.lastAutoTable.finalY+10;
+      doc.setFont(undefined,'bold'); doc.setFontSize(9); doc.text('REPUESTOS UTILIZADOS',15,fY);
+      if(actual.repuestos&&actual.repuestos!=='Sin consumo de repuestos'){
+        var rows2=[],ls2=actual.repuestos.split(' ; ');
+        for(var i=0;i<ls2.length;i++){
+          var p2=ls2[i].split(' | '),cod2=p2[0].trim();
+          var des2=(p2[1]||'').replace('('+cod2+')','').replace(/\(\s*\)/g,'').replace(/ÿ/g,'').trim();
+          var cr=p2[2]?(p2[2].indexOf('E:')!==-1?p2[2].split('E:')[1]:p2[2]):'';
+          rows2.push([cod2,des2,cr.replace(/[^0-9]/g,'')]);
+        }
+        doc.autoTable({startY:fY+4,head:[['Código','Descripción','Cant.']],body:rows2,theme:'striped',headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{2:{halign:'center',cellWidth:18}}});
+      } else {doc.setFont(undefined,'normal');doc.text('Sin cambios de repuestos.',15,fY+8);doc.lastAutoTable={finalY:fY+14};}
+      var tY=doc.lastAutoTable.finalY+10;
+      doc.setFont(undefined,'bold');doc.setFontSize(9);doc.text('TRABAJO TÉCNICO REALIZADO',15,tY);
+      doc.setFont(undefined,'normal');doc.text(doc.splitTextToSize(actual.trabajo||'—',180),15,tY+6);
+      var pgH=doc.internal.pageSize.height;
+      doc.setDrawColor(200);doc.line(15,pgH-36,85,pgH-36);doc.line(125,pgH-36,195,pgH-36);
+      doc.setFontSize(8);doc.setTextColor(120);
+      doc.text('Firma Responsable BIDCOMAGRO',20,pgH-31);
+      doc.text('Firma y Aclaración Reseller',130,pgH-31);
+      doc.save('NotaEntrega_'+actual.ot+'.pdf');
+    })
+    .withFailureHandler(function(err){
+      // 3. Si hay error, también apagamos el spinner para que no se trabe la pantalla
+      sp(false); 
+      toast("Error al generar PDF: " + err, "err");
+    })
+    .obtenerInfoCliente(document.getElementById('f-res').value || actual.reseller);
+}
+
+// ── ADEUDOS ───────────────────────────────────────────────────
+function abrirAd(){
+  sp(true);
+  google.script.run
+    .withSuccessHandler(function(p){
+      sp(false);adCache=p;
+      if(!p||!p.length){toast('Sin adeudos pendientes');return;}
+      var rs={},es={};
+      for(var i=0;i<p.length;i++){rs[p[i].reseller]=1;es[p[i].estado]=1;}
+      document.getElementById('f-res-ad').innerHTML='<option value="TODOS">— Todos —</option>'+Object.keys(rs).sort().map(function(r){return'<option value="'+r+'">'+r+'</option>';}).join('');
+      document.getElementById('f-est-ad').innerHTML='<option value="TODOS">— Todos —</option>'+Object.keys(es).sort().map(function(e){return'<option value="'+e+'">'+e+'</option>';}).join('');
+      new bootstrap.Modal(document.getElementById('modalAd')).show();
+    })
+    .withFailureHandler(function(e){sp(false);toast('Error: '+e.message,'err');})
+    .obtenerPendientesEnvio();
+}
+
+function pdfAd(){
+  var res=document.getElementById('f-res-ad').value,est=document.getElementById('f-est-ad').value;
+  var f=adCache.slice();
+  if(res!=='TODOS') f=f.filter(function(p){return p.reseller===res;});
+  if(est!=='TODOS') f=f.filter(function(p){return p.estado===est;});
+  if(!f.length){toast('Sin datos para ese filtro','err');return;}
+  var jsPDF=window.jspdf.jsPDF,doc=new jsPDF();
+  doc.setFillColor(0,163,224);doc.rect(0,0,210,30,'F');
+  doc.setTextColor(255);doc.setFontSize(14);doc.setFont(undefined,'bold');
+  doc.text('REPORTE DE ADEUDOS — BIDCOMAGRO',15,13);
+  doc.setFontSize(8);doc.setFont(undefined,'normal');
+  doc.text('Generado: '+new Date().toLocaleString('es-AR')+'   Reseller: '+res+'   Estado: '+est,15,22);
+  doc.autoTable({startY:36,head:[['OT','Reseller','Estado','Código','Repuesto','Pend.']],body:f.map(function(p){return[p.ot,p.reseller,p.estado,p.codigo,p.repuesto,p.falta];}),theme:'grid',headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{5:{halign:'center'}},alternateRowStyles:{fillColor:[248,248,248]}});
+  doc.save('Adeudos_'+(res!=='TODOS'?res+'_':'')+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+function xlsAd(){
+  var res=document.getElementById('f-res-ad').value,est=document.getElementById('f-est-ad').value;
+  var f=adCache.slice();
+  if(res!=='TODOS') f=f.filter(function(p){return p.reseller===res;});
+  if(est!=='TODOS') f=f.filter(function(p){return p.estado===est;});
+  if(!f.length){toast('Sin datos para ese filtro','err');return;}
+  var rows=[['OT','Reseller','Estado','Código','Repuesto','Pendiente']];
+  for(var i=0;i<f.length;i++){
+    var p=f[i];
+    rows.push([p.ot,p.reseller,p.estado,p.codigo,p.repuesto,p.falta]);
+  }
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:22},{wch:14},{wch:14},{wch:36},{wch:10}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Adeudos');
+  XLSX.writeFile(wb,'Adeudos_'+(res!=='TODOS'?res+'_':'')+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+// ── CONFIGURACIÓN ─────────────────────────────────────────────
+function loadSettings() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('hub-settings') || '{}');
+    for (var k in _settings) {
+      if (saved.hasOwnProperty(k)) _settings[k] = saved[k];
+    }
+    var oldTema = localStorage.getItem('hub-tema');
+    if (oldTema && !saved.tema) _settings.tema = oldTema;
+  } catch(e) {}
+}
+
+function saveSettings() {
+  try { localStorage.setItem('hub-settings', JSON.stringify(_settings)); } catch(e) {}
+}
+
+function applySettings() {
+  var esLight = _settings.tema === 'light';
+  document.body.classList.toggle('light', esLight);
+  var track = document.getElementById('t-track');
+  if (track) track.classList.toggle('on', esLight);
+  var temaLbl = document.getElementById('tema-lbl');
+  if (temaLbl) temaLbl.innerHTML = esLight
+    ? '<i class="fa fa-moon" style="margin-right:6px"></i>Modo oscuro'
+    : '<i class="fa fa-sun"  style="margin-right:6px"></i>Modo claro';
+  try { localStorage.setItem('hub-tema', _settings.tema); } catch(e) {}
+
+  document.body.classList.toggle('compact', _settings.density === 'compact');
+
+  var vistaMap = { pendientes:'fb-p', urgentes:'fb-u', mensajes:'fb-msg', todos:'fb-h' };
+  filtro = _settings.vistaInicial || 'pendientes';
+  var allNbs = document.querySelectorAll('.nb');
+  for (var i = 0; i < allNbs.length; i++) allNbs[i].classList.remove('active');
+  var activeBtn = document.getElementById(vistaMap[filtro] || 'fb-p');
+  if (activeBtn) activeBtn.classList.add('active');
+
+  if (_arTimer) { clearInterval(_arTimer); _arTimer = null; }
+  var mins = parseInt(_settings.autoRefresh) || 0;
+  if (mins > 0) _arTimer = setInterval(function() { load(); }, mins * 60000);
+}
+
+function openSettings() {
+  document.getElementById('set-tema').value    = _settings.tema;
+  document.getElementById('set-density').value = _settings.density;
+  document.getElementById('set-vista').value   = _settings.vistaInicial;
+  document.getElementById('set-autoref').value = String(_settings.autoRefresh);
+  document.getElementById('set-nombre').value  = _settings.displayName || '';
+  new bootstrap.Modal(document.getElementById('modal-settings')).show();
+}
+
+function saveSettingsModal() {
+  var prevVista = _settings.vistaInicial;
+  _settings.tema         = document.getElementById('set-tema').value;
+  _settings.density      = document.getElementById('set-density').value;
+  _settings.vistaInicial = document.getElementById('set-vista').value;
+  _settings.autoRefresh  = parseInt(document.getElementById('set-autoref').value) || 0;
+  _settings.displayName  = document.getElementById('set-nombre').value.trim();
+  saveSettings();
+  applySettings();
+  if (_settings.vistaInicial !== prevVista) {
+    var vistaMap = { pendientes:'fb-p', urgentes:'fb-u', mensajes:'fb-msg', todos:'fb-h' };
+    var btn = document.getElementById(vistaMap[_settings.vistaInicial] || 'fb-p');
+    if (btn) btn.click();
+  }
+  var m = bootstrap.Modal.getInstance(document.getElementById('modal-settings'));
+  if (m) m.hide();
+  toast('Configuración guardada', 'ok');
+}
+
+// ── TEMA ──────────────────────────────────────────────────────
+function togTema(){
+  _settings.tema = _settings.tema === 'dark' ? 'light' : 'dark';
+  saveSettings();
+  applySettings();
+}
+
+// ── HISTORIAL EMAILS ──────────────────────────────────────────
+function cargarEmails() {
+  var tb = document.getElementById('email-tbody');
+  tb.innerHTML = '<tr><td colspan="6"><div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div></td></tr>';
+  google.script.run
+    .withSuccessHandler(function(logs) {
+      document.getElementById('email-cnt').textContent = logs.length;
+      if (!logs.length) {
+        tb.innerHTML = '<tr><td colspan="6"><div class="empty"><i class="fa fa-inbox"></i><p>Sin emails registrados. La hoja EMAIL_LOGS se crea automáticamente al enviar el primer email.</p></div></td></tr>';
+        return;
+      }
+      var h = '';
+      for (var i=0; i<logs.length; i++) {
+        var l = logs[i];
+        var esOk  = l.estado === 'OK';
+        var esSin = l.estado.indexOf('SIN') !== -1;
+        var estCol = esOk ? 'var(--green)' : (esSin ? 'var(--yellow)' : 'var(--red)');
+        var estIcon = esOk ? 'fa-check-circle' : (esSin ? 'fa-exclamation-triangle' : 'fa-times-circle');
+        var rolColors = { Reseller:'var(--blue)', Técnico:'var(--green)', Supervisor:'var(--yellow)' };
+        var rolColor = rolColors[l.rol] || 'var(--tx-m)';
+        h += '<tr>';
+        h += '<td style="font-size:11px;white-space:nowrap">' + l.fecha + '</td>';
+        h += '<td><span class="ot-code" style="font-size:11px">' + (l.ot||'—') + '</span></td>';
+        h += '<td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + l.destinatario + '">' + l.destinatario + '</td>';
+        h += '<td><span style="font-size:10px;font-weight:600;color:' + rolColor + '">' + l.rol + '</span></td>';
+        h += '<td style="font-size:11px;color:var(--tx-m);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + l.asunto + '">' + l.asunto + '</td>';
+        h += '<td><i class="fa ' + estIcon + '" style="color:' + estCol + ';font-size:13px" title="' + l.estado + '"></i></td>';
+        h += '</tr>';
+      }
+      tb.innerHTML = h;
+    })
+    .withFailureHandler(function(e) {
+      tb.innerHTML = '<tr><td colspan="6"><div class="empty"><i class="fa fa-exclamation-triangle" style="color:var(--red)"></i><p>Error: ' + e.message + '</p></div></td></tr>';
+    })
+    .obtenerEmailLogs(150);
+}
+
+// ── VISTA SUPERVISOR ──────────────────────────────────────────
+var supCargado = false;
+
+function cargarSupervisor() {
+  if (supCargado) return; // cache: no recargar si ya está cargado
+  supCargado = false; // siempre recargar al entrar
+  document.getElementById('sup-back').innerHTML = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
+  document.getElementById('sup-sla').innerHTML  = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
+
+  google.script.run
+    .withSuccessHandler(function(d) {
+      renderBackorderPred(d.backorderPred || []);
+      renderSLA(d.slaData || {}, d.tiempoDespacho || null);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('sup-back').innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
+      document.getElementById('sup-sla').innerHTML  = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
+    })
+    .obtenerDatosSupervisor();
+}
+
+function renderBackorderPred(lista) {
+  var el = document.getElementById('sup-back');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin demanda concentrada actualmente</p></div>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse">';
+  h += '<thead><tr style="border-bottom:1px solid var(--brd)">';
+  h += '<th style="padding:8px 14px;font-size:10px;font-weight:600;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Código</th>';
+  h += '<th style="padding:8px 14px;font-size:10px;font-weight:600;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Repuesto</th>';
+  h += '<th style="padding:8px 14px;font-size:10px;font-weight:600;color:var(--tx-m);text-align:center;text-transform:uppercase;letter-spacing:.06em">OTs</th>';
+  h += '<th style="padding:8px 14px;font-size:10px;font-weight:600;color:var(--tx-m);text-align:center;text-transform:uppercase;letter-spacing:.06em">Pend.</th>';
+  h += '<th style="padding:8px 14px;font-size:10px;font-weight:600;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Órdenes</th>';
+  h += '</tr></thead><tbody>';
+  for (var i=0; i<lista.length; i++) {
+    var b = lista[i];
+    var urgColor = b.cantOTs >= 3 ? 'var(--red)' : (b.cantOTs >= 2 ? 'var(--yellow)' : 'var(--tx-m)');
+    var otsHtml  = b.ots.map(function(ot) {
+      return '<span onclick="abrirOTPorNombre(\''+ot+'\')" style="cursor:pointer;color:var(--blue);font-size:10px;font-weight:600;margin-right:6px;text-decoration:underline">'+ot+'</span>';
+    }).join('');
+    h += '<tr style="border-bottom:1px solid var(--brd);transition:background .1s" onmouseover="this.style.background=\'var(--hov)\'" onmouseout="this.style.background=\'\'">';
+    h += '<td style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--blue)">'+b.codigo+'</td>';
+    h += '<td style="padding:10px 14px;font-size:12px;color:var(--tx)">'+b.nombre+'</td>';
+    h += '<td style="padding:10px 14px;text-align:center"><span style="font-size:14px;font-weight:700;color:'+urgColor+'">'+b.cantOTs+'</span></td>';
+    h += '<td style="padding:10px 14px;text-align:center;font-size:12px;color:var(--tx-m)">'+b.pendiente+'</td>';
+    h += '<td style="padding:10px 14px">'+otsHtml+'</td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  el.innerHTML = h;
+}
+
+function renderSLA(slaData, tiempoDespacho) {
+  var el = document.getElementById('sup-sla');
+  var banner = '';
+  if (tiempoDespacho && tiempoDespacho.count > 0) {
+    var dias = tiempoDespacho.promedio;
+    var col  = dias <= 3 ? 'var(--green)' : (dias <= 7 ? 'var(--yellow)' : 'var(--red)');
+    var icon = dias <= 3 ? 'fa-check-circle' : (dias <= 7 ? 'fa-exclamation-circle' : 'fa-times-circle');
+    banner = '<div style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:12px 16px;margin-bottom:16px">'
+           + '<i class="fa '+icon+'" style="color:'+col+';font-size:18px"></i>'
+           + '<div>'
+           + '<div style="font-size:11px;color:var(--tx-d);margin-bottom:2px">Tiempo promedio solicitud → despacho</div>'
+           + '<div style="font-size:15px;font-weight:700;color:'+col+'">'
+           +   dias+' días <span style="font-size:11px;font-weight:400;color:var(--tx-d)">('+tiempoDespacho.count+' despachos)</span>'
+           + '</div>'
+           + '</div>'
+           + '</div>';
+  }
+  var circuitos = [
+    { key:'Taller',          label:'Taller Central',   color:'var(--blue)' },
+    { key:'Reseller',        label:'Reseller Estándar', color:'var(--indigo)' },
+    { key:'Reseller Propio', label:'Reseller Propio',   color:'var(--green)' }
+  ];
+
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
+  for (var c=0; c<circuitos.length; c++) {
+    var circ   = circuitos[c];
+    var datos  = slaData[circ.key] || [];
+    var maxProm = 0;
+    for (var d=0; d<datos.length; d++) if(datos[d].promedio>maxProm) maxProm=datos[d].promedio;
+
+    h += '<div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden">';
+    h += '<div style="background:var(--surf);border-bottom:1px solid var(--brd);padding:10px 14px;font-size:11px;font-weight:600;color:'+circ.color+';display:flex;align-items:center;gap:7px">';
+    h += '<i class="fa fa-circle" style="font-size:7px"></i>'+circ.label+'</div>';
+
+    if (!datos.length) {
+      h += '<div style="padding:16px;font-size:12px;color:var(--tx-d)">Sin datos en los últimos 30 días</div>';
+    } else {
+      h += '<div style="padding:10px 14px">';
+      for (var e=0; e<datos.length; e++) {
+        var item  = datos[e];
+        var pct   = maxProm > 0 ? Math.round((item.promedio/maxProm)*100) : 0;
+        var col   = item.promedio<=3?'var(--green)':(item.promedio<=7?'var(--yellow)':'var(--red)');
+        h += '<div style="margin-bottom:10px">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+        h += '<span style="font-size:11px;color:var(--tx-m)">'+item.estado+'</span>';
+        h += '<span style="font-size:11px;font-weight:700;color:'+col+'">'+item.promedio+'d</span></div>';
+        h += '<div style="height:4px;background:var(--surf);border-radius:2px;overflow:hidden">';
+        h += '<div style="height:4px;background:'+col+';width:'+pct+'%;border-radius:2px;transition:width .4s"></div></div>';
+        h += '</div>';
+      }
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  el.innerHTML = banner + h;
+}
+
+function abrirOTPorNombre(otNombre) {
+  // Busca la OT en el dataset y la abre
+  for (var i=0; i<dataset.length; i++) {
+    if (dataset[i].ot === otNombre) {
+      // Volver a la vista de lista primero
+      setF('pendientes', document.getElementById('fb-p'));
+      abrirLista(dataset[i]);
+      return;
+    }
+  }
+  toast('OT no encontrada en la vista actual — cambiá el filtro a "Pendientes"','err');
+}
+
+// ── RESERVAS DE IMPORTACIÓN ───────────────────────────────────
+var _resImpSku = ''; var _resImpDesc = ''; var _resImpQty = 1;
+
+function reservarDeImportacion(sku, desc, qty) {
+  _resImpSku  = sku;
+  _resImpDesc = desc;
+  _resImpQty  = parseInt(qty) || 1;
+  var infoEl = document.getElementById('res-imp-info');
+  var selEl  = document.getElementById('res-imp-cas');
+  infoEl.innerHTML =
+    '<strong>' + sku + '</strong> — ' + (desc || '') +
+    ' <span style="color:var(--red);font-weight:700">· Sin stock ·</span> ' +
+    'OT: <strong>' + (actual && actual.ot ? actual.ot : '—') + '</strong>';
+  selEl.innerHTML = '<option value="">Cargando CAS en tránsito...</option>';
+  var m = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-res-import'));
+  m.show();
+  google.script.run
+    .withSuccessHandler(function(lista) {
+      if (!lista.length) {
+        selEl.innerHTML = '<option value="">Sin CAS en tránsito — no hay importaciones activas</option>';
+        return;
+      }
+      var h = '<option value="">Seleccioná el CAS...</option>';
+      for (var i = 0; i < lista.length; i++) {
+        h += '<option value="' + lista[i].cas + '">' + lista[i].cas + ' — ' + lista[i].estado + '</option>';
+      }
+      selEl.innerHTML = h;
+    })
+    .withFailureHandler(function() { selEl.innerHTML = '<option value="">Error al cargar CAS</option>'; })
+    .obtenerCASEnTransito();
+}
+
+function confirmarReservaImportacion() {
+  var cas = document.getElementById('res-imp-cas').value.trim();
+  if (!cas) { toast('Seleccioná un CAS', 'err'); return; }
+  var otNombre = actual && actual.ot ? actual.ot : '';
+  var operador = document.getElementById('f-tec') ? document.getElementById('f-tec').value : '';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast('Error: ' + r.msg, 'err'); return; }
+      toast('Reserva creada (' + r.id + ') para OT ' + otNombre, 'ok');
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-res-import')).hide();
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); })
+    .crearReservaDesdeHUB(_resImpSku, _resImpDesc, _resImpQty, otNombre, cas, operador);
+}
+
+// ── HISTORIAL POR S/N ─────────────────────────────────────────
+function buscarSN() {
+  var sn = document.getElementById('sup-sn-inp').value.trim().toUpperCase();
+  if (!sn) return toast('Ingresá un S/N','err');
+  var el = document.getElementById('sup-sn-result');
+  el.innerHTML = '<div style="padding:16px;text-align:center"><i class="fa fa-circle-notch fa-spin" style="color:var(--blue)"></i></div>';
+
+  google.script.run
+    .withSuccessHandler(function(lista) {
+      if (!lista || !lista.length) {
+        el.innerHTML = '<div style="padding:16px;font-size:13px;color:var(--tx-m)">No se encontraron órdenes para ese S/N.</div>';
+        return;
+      }
+      // Badge de reincidente
+      var reincidente = lista.length > 1;
+      var h = '';
+      if (reincidente) {
+        h += '<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:var(--rm);padding:10px 14px;margin:10px 18px;font-size:12px;color:var(--red);display:flex;align-items:center;gap:8px">';
+        h += '<i class="fa fa-exclamation-triangle"></i>';
+        h += '<strong>Equipo reincidente</strong> — este S/N tiene '+lista.length+' órdenes históricas';
+        if (lista.length > 0 && lista[0].reseller !== lista[lista.length-1].reseller) {
+          h += ' · <span style="color:var(--yellow)">⚠ Cambió de reseller</span>';
+        }
+        h += '</div>';
+      }
+      h += '<table style="width:100%;border-collapse:collapse">';
+      h += '<thead><tr style="border-bottom:1px solid var(--brd)">';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">OT</th>';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Fecha</th>';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Reseller</th>';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Estado</th>';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:center;text-transform:uppercase;letter-spacing:.06em">Días</th>';
+      h += '<th style="padding:8px 14px;font-size:10px;color:var(--tx-m);text-align:left;text-transform:uppercase;letter-spacing:.06em">Trabajo realizado</th>';
+      h += '</tr></thead><tbody>';
+      for (var i=0; i<lista.length; i++) {
+        var r = lista[i];
+        var sem = r.dias<=3?'var(--green)':(r.dias<=7?'var(--yellow)':(r.dias<=30?'var(--red)':'#7b0000'));
+        var trabResumen = r.trabajo ? r.trabajo.substring(0,80)+(r.trabajo.length>80?'…':'') : '—';
+        // Link clickeable si la OT está en el dataset
+        var otHtml = '<span onclick="abrirOTPorNombre(\''+r.ot+'\')" style="cursor:pointer;color:var(--blue);font-weight:700;font-size:11px;text-decoration:underline">'+r.ot+'</span>';
+        h += '<tr style="border-bottom:1px solid var(--brd);transition:background .1s" onmouseover="this.style.background=\'var(--hov)\'" onmouseout="this.style.background=\'\'">';
+        h += '<td style="padding:10px 14px">'+otHtml+'</td>';
+        h += '<td style="padding:10px 14px;font-size:11px;color:var(--tx-m)">'+r.fechaAp+'</td>';
+        h += '<td style="padding:10px 14px;font-size:12px;color:var(--tx)">'+r.reseller+'</td>';
+        h += '<td style="padding:10px 14px"><span class="b-est">'+r.estado+'</span></td>';
+        h += '<td style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;color:'+sem+'">'+r.dias+'d</td>';
+        h += '<td style="padding:10px 14px;font-size:11px;color:var(--tx-m)" title="'+r.trabajo+'">'+trabResumen+'</td>';
+        h += '</tr>';
+      }
+      h += '</tbody></table>';
+      el.innerHTML = h;
+    })
+    .withFailureHandler(function(e) {
+      el.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
+    })
+    .buscarHistorialSN(sn);
+}
+
+
+
+
+
+// ════════════════════════════════════════════════════════════
+//  MÓDULO DE SINCRONIZACIÓN SILENCIOSA (AUTO-REFRESH)
+// ════════════════════════════════════════════════════════════
+function iniciarSincronizacionSilenciosa() {
+  // Configuramos el temporizador para que corra cada 60.000 milisegundos (1 minuto)
+  setInterval(function() {
+    
+    // 1. SEGURO ANTI-INTERRUPCIONES
+    // Verificamos si el usuario tiene un panel abierto (Offcanvas/Modal) o tiene una OT seleccionada ('actual')
+    var ventanaAbierta = document.querySelector('.offcanvas.show') || document.querySelector('.modal.show');
+    
+    // Si el técnico está interactuando con el sistema, abortamos el refresh silencioso para no borrarle el trabajo
+    if (ventanaAbierta || actual) {
+      console.log("↻ Auto-Refresh pausado: El usuario está editando una orden.");
+      return; 
+    }
+
+    // 2. LLAMADA INVISIBLE AL SERVIDOR
+    // Pedimos los datos sin activar el spinner visual (sp(true)) para que nadie se dé cuenta
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || res.error) return; // Si hay micro-corte de internet, abortamos en silencio
+        
+        // 3. ACTUALIZACIÓN EN MEMORIA
+        // Pisamos la memoria local (dOT) con la lista de órdenes frescas que acaba de mandar el servidor
+        if (res.ordenes) dOT = res.ordenes;
+        
+        // 4. REDIBUJADO DE PANTALLA
+        if (typeof renOT === 'function') renOT(); // Vuelve a dibujar las tarjetas
+        
+        // 5. RESTAURAR BUSCADOR
+        // Si el usuario justo estaba leyendo y tenía la palabra "motor" escrita en el buscador, volvemos a filtrar
+        var inputBuscador = document.getElementById('q'); 
+        if (inputBuscador && inputBuscador.value.trim() !== "" && typeof fil === 'function') {
+          fil();
+        }
+        
+        console.log("↻ Sincronización silenciosa completada: " + new Date().toLocaleTimeString());
+      })
+      .withFailureHandler(function(err) {
+        // Fallo silencioso absoluto. No mostramos alertas rojas para no asustar si se cortó el WiFi 2 segundos.
+        console.log("↻ Error en auto-refresh: " + err);
+      })
+      .cargarTodo(); // Usamos tu función maestra para traer la info validada
+      
+  }, 60000); 
+}
+
+// Usamos addEventListener en lugar de onload para no pisar el arranque original de tu sistema
+window.addEventListener('load', iniciarSincronizacionSilenciosa);// ════════════════════════════════════════════════════════════
+
+
+// ── INIT ──────────────────────────────────────────────────────
+
+function agregarMO(){
+  var sel=document.getElementById('mo-sel');
+  var idx=parseInt(sel.value);
+  if(isNaN(idx)||!manoObraCache[idx]) return;
+  var mo=manoObraCache[idx];
+  for(var i=0;i<manoObraSeleccionada.length;i++){if(manoObraSeleccionada[i].codigo===mo.codigo){toast('Ya agregada','err');return;}}
+  manoObraSeleccionada.push({codigo:mo.codigo,descripcion:mo.descripcion,precio:mo.precio});
+  renderMO();markDirty();
+}
+function renderMO(){
+  var el=document.getElementById('cont-mo');
+  if(!manoObraSeleccionada.length){el.innerHTML='';return;}
+  var h='';
+  for(var i=0;i<manoObraSeleccionada.length;i++){
+    var mo=manoObraSeleccionada[i];
+    h+='<div class="p-row" style="grid-template-columns:100px 1fr 100px 28px">'+
+      '<input class="form-control in-c" value="'+mo.codigo+'" readonly>'+
+      '<input class="form-control" value="'+mo.descripcion+'" readonly>'+
+      '<input class="form-control" value="'+mo.precio+'" readonly>'+
+      '<button class="btn-del" onclick="quitarMO('+i+')">×</button></div>';
+  }
+  el.innerHTML=h;
+}
+function quitarMO(i){manoObraSeleccionada.splice(i,1);renderMO();markDirty();}
+
+// ── PEDIDO DE REPUESTOS AL WOS ─────────────────────────────────
+var _repWosItems = [];
+
+function abrirModalRepWos() {
+  if (!actual) return;
+  _repWosItems = [];
+
+  // Pre-cargar desde repuestos de la OT
+  var repStr = actual.repuestos || '';
+  if (repStr && repStr !== 'Sin consumo de repuestos') {
+    var ls = repStr.split(' ; ');
+    for (var i = 0; i < ls.length; i++) {
+      var p = ls[i].split(' | ');
+      if (p.length < 3) continue;
+      var cod  = p[0].trim();
+      var desc = p[1].trim();
+      var ped  = parseInt((p[2].split(' E:')[0] || '').replace('P:','')) || 1;
+      if (cod && desc) _repWosItems.push({ cod: cod, desc: desc, qty: ped });
+    }
+  }
+  // También tomar los que están en el DOM si están más actualizados
+  var rows = document.querySelectorAll('#cont-r .p-row');
+  if (rows.length) {
+    _repWosItems = [];
+    for (var ri = 0; ri < rows.length; ri++) {
+      var inC = rows[ri].querySelector('.in-c');
+      var inD = rows[ri].querySelector('.in-desc');
+      var inP = rows[ri].querySelector('.in-p');
+      if (inC && inD && inC.value.trim() && inD.value.trim()) {
+        _repWosItems.push({ cod: inC.value.trim(), desc: inD.value.trim(), qty: parseInt(inP ? inP.value : 1) || 1 });
+      }
+    }
+  }
+
+  document.getElementById('rep-wos-subtitle').textContent = 'OT: ' + actual.ot + ' · ' + actual.reseller;
+  document.getElementById('rep-wos-num-preview').textContent = 'REP-OT-' + actual.ot;
+  document.getElementById('rep-wos-aprobado').checked = !!actual.cas;
+  _repWosRenderItems();
+  new bootstrap.Modal(document.getElementById('modal-rep-wos')).show();
+}
+
+function _repWosRenderItems() {
+  var el = document.getElementById('rep-wos-items');
+  if (!_repWosItems.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--tx-d);padding:6px 2px">Sin ítems — agregá repuestos abajo.</div>';
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < _repWosItems.length; i++) {
+    var it = _repWosItems[i];
+    h += '<div style="display:grid;grid-template-columns:120px 1fr 60px 28px;gap:4px;align-items:center">' +
+      '<span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--blue)">' + it.cod + '</span>' +
+      '<span style="font-size:12px;color:var(--tx-m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + it.desc + '">' + it.desc + '</span>' +
+      '<input type="number" value="' + it.qty + '" min="1" style="width:100%;font-size:12px;padding:2px 4px;border:1px solid var(--brd);border-radius:4px;text-align:center" oninput="_repWosItems[' + i + '].qty=parseInt(this.value)||1">' +
+      '<button style="background:none;border:none;color:var(--tx-d);cursor:pointer;font-size:13px;padding:0" onclick="_repWosQuitarItem(' + i + ')">✕</button>' +
+    '</div>';
+  }
+  el.innerHTML = h;
+}
+
+function _repWosQuitarItem(i) { _repWosItems.splice(i, 1); _repWosRenderItems(); }
+
+function _repWosAgregarItem() {
+  var cod  = (document.getElementById('rep-wos-add-cod').value  || '').trim().toUpperCase();
+  var desc = (document.getElementById('rep-wos-add-desc').value || '').trim();
+  var qty  = parseInt(document.getElementById('rep-wos-add-qty').value) || 1;
+  if (!cod || !desc) { toast('Completá código y descripción', 'err'); return; }
+  for (var i = 0; i < _repWosItems.length; i++) {
+    if (_repWosItems[i].cod === cod) { toast('Ya está en la lista', 'err'); return; }
+  }
+  _repWosItems.push({ cod: cod, desc: desc, qty: qty });
+  _repWosRenderItems();
+  document.getElementById('rep-wos-add-cod').value  = '';
+  document.getElementById('rep-wos-add-desc').value = '';
+  document.getElementById('rep-wos-add-qty').value  = '1';
+  document.getElementById('rep-wos-add-cod').focus();
+}
+
+function _repWosConfirmar() {
+  if (!actual) return;
+  if (!_repWosItems.length) { toast('Agregá al menos un ítem', 'err'); return; }
+  var btn = document.getElementById('btn-rep-wos-confirmar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Enviando…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS';
+      bootstrap.Modal.getInstance(document.getElementById('modal-rep-wos')).hide();
+      if (r.ok) {
+        toast('Pedido creado en WOS: ' + r.numero, 'ok');
+      } else {
+        toast('Error: ' + r.error, 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS';
+      toast('Error: ' + e.message, 'err');
+    })
+    .HUB_generarPedidoRepuestos({
+      ot:           actual.ot,
+      reseller:     actual.reseller,
+      garantia:     actual.garantia,
+      cas:          actual.cas || '',
+      estado:       actual.estado || '',
+      aprobadoDJI:  document.getElementById('rep-wos-aprobado').checked,
+      items:        _repWosItems
+    });
+}
+
+function verPresupuesto(){
+  if(!actual) return;
+  var rs=[],rows=document.querySelectorAll('#cont-r .p-row');
+  for(var i=0;i<rows.length;i++){
+    var inC=rows[i].querySelector('.in-c'),inD=rows[i].querySelector('.in-desc');
+    var inP=rows[i].querySelector('.in-p'),inE=rows[i].querySelector('.in-e');
+    if(inC&&inD&&inC.value.trim()&&inD.value.trim())
+      rs.push(inC.value.trim()+' | '+inD.value.trim()+' | P:'+(inP?inP.value:'0')+' E:'+(inE?inE.value:'0'));
+  }
+  var selDest=document.getElementById('sel-dest');
+  var data={
+    ot:actual.ot, equipo:document.getElementById('f-equi').value,
+    sn:document.getElementById('f-sn').value, cas:document.getElementById('f-cas').value,
+    reseller:document.getElementById('f-res').value||actual.reseller,
+    trabajo:document.getElementById('f-tra').value,
+    repuestos:rs.length?rs.join(' ; '):(actual.repuestos||'Sin consumo de repuestos'),
+    manoObra:manoObraSeleccionada,
+    tipoDestinatario:selDest?selDest.value:'reseller',
+    tecnico:document.getElementById('f-tec')?document.getElementById('f-tec').value:'',
+    modoPreview:true
+  };
+  var btn=document.getElementById('btn-ver-presup');
+  btn.disabled=true;
+  btn.innerHTML='<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Generando...';
+  google.script.run
+    .withSuccessHandler(function(res){
+      btn.disabled=false;
+      btn.innerHTML='<i class="fa fa-file-alt" style="margin-right:6px"></i>Ver Presupuesto';
+      if(!res.ok){toast('Error: '+res.msg,'err');return;}
+      var win=window.open('','_blank','width=900,height=700');
+      win.document.write(
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Presupuesto '+actual.ot+'</title>'+
+        '<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}'+
+        '.print-bar{display:flex;gap:10px;margin-bottom:16px;padding:10px;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.1)}'+
+        '@media print{.print-bar{display:none}body{background:#fff;padding:0}}'+
+        '</style></head><body>'+
+        '<div class="print-bar">'+
+          '<button onclick="window.print()" style="padding:8px 18px;background:#00a3e0;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700"><i>🖨</i> Imprimir / Guardar PDF</button>'+
+          '<button onclick="window.close()" style="padding:8px 18px;background:#eee;border:none;border-radius:5px;cursor:pointer">Cerrar</button>'+
+        '</div>'+
+        res.html+
+        '</body></html>'
+      );
+      win.document.close();
+    })
+    .withFailureHandler(function(e){
+      btn.disabled=false;
+      btn.innerHTML='<i class="fa fa-file-alt" style="margin-right:6px"></i>Ver Presupuesto';
+      toast('Error: '+e.message,'err');
+    })
+    .obtenerPresupuestoHTML(data);
+}
+
+function enviarPresupuestoManual(){
+  if(!actual) return;
+  var btn=document.getElementById('btn-presup');
+  btn.disabled=true;
+  btn.innerHTML='<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Enviando...';
+  var rs=[],rows=document.querySelectorAll('#cont-r .p-row');
+  for(var i=0;i<rows.length;i++){
+    var inC=rows[i].querySelector('.in-c'),inD=rows[i].querySelector('.in-desc');
+    var inP=rows[i].querySelector('.in-p'),inE=rows[i].querySelector('.in-e');
+    if(inC&&inD&&inC.value.trim()&&inD.value.trim())
+      rs.push(inC.value.trim()+' | '+inD.value.trim()+' | P:'+(inP?inP.value:'0')+' E:'+(inE?inE.value:'0'));
+  }
+  google.script.run
+    .withSuccessHandler(function(res){
+      btn.disabled=false;
+      btn.innerHTML='<i class="fa fa-paper-plane" style="margin-right:6px"></i>Enviar Presupuesto';
+      if(res.ok){
+        toast('Presupuesto enviado a '+res.emailEnviado,'ok');
+        isDirty=false;
+        load();
+        cerrarV();
+      } else toast('Error: '+res.msg,'err');
+    })
+    .withFailureHandler(function(e){
+      btn.disabled=false;
+      btn.innerHTML='<i class="fa fa-paper-plane" style="margin-right:6px"></i>Enviar Presupuesto';
+      toast('Error: '+e.message,'err');
+    })
+    .enviarPresupuesto({
+      ot:actual.ot, equipo:document.getElementById('f-equi').value,
+      sn:document.getElementById('f-sn').value, cas:document.getElementById('f-cas').value,
+      garantia:document.getElementById('f-gar').value,
+      reseller:document.getElementById('f-res').value||actual.reseller,
+      trabajo:document.getElementById('f-tra').value,
+      repuestos:rs.length?rs.join(' ; '):(actual.repuestos||'Sin consumo de repuestos'),
+      manoObra:manoObraSeleccionada,
+      tipoDestinatario: document.getElementById('sel-dest') ? document.getElementById('sel-dest').value : 'reseller',
+      tecnico: document.getElementById('f-tec') ? document.getElementById('f-tec').value : ''
+    });
+}
+
+// ── SOLICITAR FACTURA ────────────────────────────────────────
+function _tieneRepuestosDespachados(repStr) {
+  if (!repStr || repStr === 'Sin consumo de repuestos') return false;
+  var ls = repStr.split(' ; ');
+  for (var i = 0; i < ls.length; i++) {
+    var p = ls[i].split(' | ');
+    if (p.length < 3) continue;
+    if ((parseInt(p[2].split('E:')[1]) || 0) > 0) return true;
+  }
+  return false;
+}
+
+function solicitarFacturaManual() {
+  if (!actual) return;
+  var btn = document.getElementById('btn-factura');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Enviando...';
+
+  // Leer repuestos actuales del formulario
+  var rs = [], rows = document.querySelectorAll('#cont-r .p-row');
+  for (var i = 0; i < rows.length; i++) {
+    var inC = rows[i].querySelector('.in-c'), inD = rows[i].querySelector('.in-desc');
+    var inP = rows[i].querySelector('.in-p'), inE = rows[i].querySelector('.in-e');
+    if (inC && inD && inC.value.trim() && inD.value.trim())
+      rs.push(inC.value.trim() + ' | ' + inD.value.trim() + ' | P:' + (inP ? inP.value : '0') + ' E:' + (inE ? inE.value : '0'));
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        toast('Solicitud de factura enviada a Administración · ' + res.mailEnviado, 'ok');
+        // Bloquear botón permanentemente
+        btn.disabled  = true;
+        btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Factura solicitada';
+        btn.style.opacity = '0.6';
+        // Actualizar estado local para que guardarOrden no lo sobreescriba
+        actual.estado = 'ESPERANDO FACTURA';
+        estadoAct     = 'ESPERANDO FACTURA';
+        // Reflejar en el stepper: agregar "ESPERANDO FACTURA" como nodo activo
+        var estCont = document.getElementById('est-cont');
+        if (estCont) {
+          var nodo = document.createElement('div');
+          nodo.className   = 'st-step active';
+          nodo.textContent = 'ESPERANDO FACTURA';
+          estCont.querySelectorAll('.st-step').forEach(function(s){ s.classList.remove('active'); s.classList.add('done'); });
+          estCont.appendChild(nodo);
+        }
+      } else {
+        btn.disabled  = false;
+        btn.innerHTML = '<i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Solicitar Factura';
+        toast('Error: ' + ((res && res.msg) || 'intentá de nuevo'), 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled  = false;
+      btn.innerHTML = '<i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Solicitar Factura';
+      toast('Error de conexión: ' + (e.message || ''), 'err');
+    })
+    .solicitarFactura({
+      fila:      actual.fila,
+      ot:        actual.ot,
+      reseller:  document.getElementById('f-res').value || actual.reseller,
+      equipo:    document.getElementById('f-equi') ? document.getElementById('f-equi').value : actual.equipo,
+      sn:        document.getElementById('f-sn')   ? document.getElementById('f-sn').value   : actual.sn,
+      cas:       document.getElementById('f-cas')  ? document.getElementById('f-cas').value  : actual.cas,
+      garantia:  actual.garantia,
+      estado:    actual.estado,
+      repuestos: rs.length ? rs.join(' ; ') : actual.repuestos
+    });
+}
+
+// ── SSO ──────────────────────────────────────────────────────
+function cargarUsuario() {
+  google.script.run
+    .withSuccessHandler(function(u) {
+      if (!u) return;
+      var el = document.getElementById('usr-nombre');
+      if (el) { el.textContent = u.nombre; el.style.display = 'block'; }
+      if (u.rol !== 'admin') {
+        var btnSup = document.getElementById('fb-sup');
+        if (btnSup) btnSup.style.display = 'none';
+      }
+    })
+    .withFailureHandler(function(){})
+    .identificarUsuario();
+}
+
+function togSbGroup(id) {
+  var hd   = document.getElementById('sbg-h-' + id);
+  var body = document.getElementById('sbg-b-' + id);
+  if (!hd || !body) return;
+  var isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    hd.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    hd.classList.add('open');
+  }
+  try {
+    var state = JSON.parse(localStorage.getItem('hub-sb-groups') || '{}');
+    state[id] = !isOpen;
+    localStorage.setItem('hub-sb-groups', JSON.stringify(state));
+  } catch(e) {}
+}
+
+function initSbGroups() {
+  var defaults = { ots: true, analisis: false, filtros: false, log: false };
+  try {
+    var saved = JSON.parse(localStorage.getItem('hub-sb-groups') || '{}');
+    for (var id in defaults) {
+      var open = saved.hasOwnProperty(id) ? saved[id] : defaults[id];
+      var hd   = document.getElementById('sbg-h-' + id);
+      var body = document.getElementById('sbg-b-' + id);
+      if (open) {
+        if (hd)   hd.classList.add('open');
+        if (body) body.classList.add('open');
+      } else {
+        if (hd)   hd.classList.remove('open');
+        if (body) body.classList.remove('open');
+      }
+    }
+  } catch(e) {}
+}
+
+window.onload=function(){
+  try { loadSettings(); applySettings(); } catch(e) {}
+  initSbGroups();
+  cargarUsuario();
+  load();
+};
+</script>
+
+<!-- MODAL CONFIGURACIÓN HUB -->
+<div class="modal fade" id="modal-settings" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-cog" style="color:var(--blue);margin-right:8px"></i>Configuración del HUB</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+
+        <div class="set-section">Apariencia</div>
+        <div class="set-row">
+          <div><div class="set-lbl">Tema</div><div class="set-desc">Modo oscuro o claro</div></div>
+          <div class="set-ctrl">
+            <select id="set-tema" class="form-select" style="font-size:12px;width:130px;padding:6px 10px">
+              <option value="dark">Oscuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div><div class="set-lbl">Densidad de tabla</div><div class="set-desc">Tamaño de filas en la lista de órdenes</div></div>
+          <div class="set-ctrl">
+            <select id="set-density" class="form-select" style="font-size:12px;width:130px;padding:6px 10px">
+              <option value="normal">Normal</option>
+              <option value="compact">Compacta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="set-section">Comportamiento</div>
+        <div class="set-row">
+          <div><div class="set-lbl">Vista al iniciar</div><div class="set-desc">Filtro activo al abrir el HUB</div></div>
+          <div class="set-ctrl">
+            <select id="set-vista" class="form-select" style="font-size:12px;width:140px;padding:6px 10px">
+              <option value="pendientes">Pendientes</option>
+              <option value="urgentes">Urgentes</option>
+              <option value="mensajes">Mensajes</option>
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div><div class="set-lbl">Auto-actualización</div><div class="set-desc">Refresca los datos automáticamente</div></div>
+          <div class="set-ctrl">
+            <select id="set-autoref" class="form-select" style="font-size:12px;width:140px;padding:6px 10px">
+              <option value="0">Desactivado</option>
+              <option value="1">Cada 1 min</option>
+              <option value="2">Cada 2 min</option>
+              <option value="5">Cada 5 min</option>
+              <option value="10">Cada 10 min</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="set-section">Mensajes</div>
+        <div class="set-row">
+          <div><div class="set-lbl">Tu nombre en mensajes</div><div class="set-desc">Reemplaza el email en las burbujas del HUB</div></div>
+          <div class="set-ctrl">
+            <input type="text" id="set-nombre" class="form-control" placeholder="Ej: Soporte Técnico" style="font-size:12px;width:160px;padding:6px 10px">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px;gap:8px;justify-content:flex-end">
+        <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px;border:1px solid var(--brd);border-radius:var(--rm)">Cancelar</button>
+        <button onclick="saveSettingsModal()" style="padding:9px 22px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <i class="fa fa-check" style="margin-right:6px"></i>Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

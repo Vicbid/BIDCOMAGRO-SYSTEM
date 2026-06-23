@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WOS · Manual de Operación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#0052CC;--blue-d:#003E99;--blue-l:#EBF3FF;
+  --bg:#EEF2F7;--panel:#FFFFFF;--surf:#F4F7FB;--raise:#E8EDF4;
+  --tx:#091E42;--tx-m:#44546F;--tx-d:#8896A7;
+  --brd:#D5DBE8;--brd2:#B3BAC9;
+  --green:#006644;--green-m:#00875A;--green-l:#E3FCEF;
+  --red:#BF2600;--red-m:#DE350B;--red-l:#FFEBE6;
+  --yellow:#974F0C;--yellow-m:#FF8B00;--yellow-l:#FFF4E5;
+  --purple:#403294;--purple-m:#6554C0;--purple-l:#EAE6FF;
+  --teal:#006972;--teal-m:#00B8D9;--teal-l:#E6FCFF;
+  --orange-m:#FF5630;--orange-l:#FFF0E6;
+  --r:6px;--rm:8px;--rl:12px;
+  --shd:0 1px 3px rgba(9,30,66,.10),0 0 1px rgba(9,30,66,.06);
+  --shd-h:0 8px 24px rgba(9,30,66,.13),0 0 1px rgba(9,30,66,.08);
+  --f:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:3px}
+
+/* ── LAYOUT ── */
+.page{max-width:960px;margin:0 auto;padding:32px 24px}
+h1{font-size:28px;font-weight:800;letter-spacing:-.03em;color:var(--tx);margin-bottom:6px}
+h2{font-size:18px;font-weight:700;letter-spacing:-.02em;color:var(--tx);margin:40px 0 16px;padding-bottom:10px;border-bottom:2px solid var(--brd)}
+h3{font-size:14px;font-weight:700;color:var(--tx);margin:24px 0 10px}
+h4{font-size:12px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
+p{color:var(--tx-m);margin-bottom:10px}
+ul,ol{padding-left:20px;color:var(--tx-m);margin-bottom:10px}
+li{margin-bottom:5px}
+strong{color:var(--tx);font-weight:700}
+code{font-family:'Courier New',monospace;background:var(--raise);border:1px solid var(--brd);border-radius:4px;padding:1px 6px;font-size:12px;color:var(--blue)}
+
+/* ── HEADER DEL MANUAL ── */
+.manual-header{background:var(--tx);color:#fff;padding:28px 32px;border-radius:var(--rl);margin-bottom:32px;display:flex;align-items:flex-start;gap:20px;box-shadow:var(--shd-h)}
+.manual-logo{width:52px;height:52px;background:var(--blue);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:800;color:#fff;letter-spacing:.06em;box-shadow:0 2px 8px rgba(0,82,204,.4)}
+.manual-title{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1.2}
+.manual-sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:4px}
+.manual-version{margin-left:auto;font-size:10px;color:rgba(255,255,255,.4);font-weight:600;text-transform:uppercase;letter-spacing:.1em;white-space:nowrap}
+
+/* ── TOC ── */
+.toc{background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);padding:20px 24px;margin-bottom:32px;box-shadow:var(--shd)}
+.toc-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx-d);margin-bottom:12px}
+.toc-list{columns:2;gap:24px;list-style:none;padding:0}
+.toc-list li{margin-bottom:6px;break-inside:avoid}
+.toc-list a{color:var(--blue);text-decoration:none;font-size:13px;font-weight:500}
+.toc-list a:hover{text-decoration:underline}
+.toc-num{font-size:10px;font-weight:700;color:var(--tx-d);margin-right:6px}
+
+/* ── SECTIONS ── */
+.section{background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);padding:24px 28px;margin-bottom:24px;box-shadow:var(--shd)}
+.section-anchor{scroll-margin-top:20px}
+
+/* ── STATES ── */
+.estado-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--rm);font-size:12px;font-weight:700;white-space:nowrap;vertical-align:middle}
+.est-pend   {background:#FFF4E5;color:#974F0C;border:1px solid #FF8B00}
+.est-conf   {background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.3)}
+.est-prep   {background:var(--blue-l);color:var(--blue);border:1px solid rgba(0,82,204,.3)}
+.est-prep-p {background:var(--blue-l);color:var(--blue);border:1px solid rgba(0,82,204,.3)}
+.est-espera {background:var(--purple-l);color:var(--purple);border:1px solid rgba(64,50,148,.3)}
+.est-back   {background:#FFF0E6;color:#7A3D00;border:1px solid #FF5630}
+.est-cancel {background:var(--red-l);color:var(--red);border:1px solid rgba(222,53,11,.3)}
+.est-entregado{background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.3)}
+.est-retiro {background:var(--teal-l);color:var(--teal);border:1px solid rgba(0,185,217,.3)}
+.est-conf-e {background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.3)}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+
+/* ── ESTADO TABLE ── */
+.estado-table{width:100%;border-collapse:collapse;font-size:13px}
+.estado-table th{background:var(--surf);padding:10px 14px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);border-bottom:1.5px solid var(--brd)}
+.estado-table td{padding:13px 14px;border-bottom:1px solid var(--surf);vertical-align:top}
+.estado-table tr:last-child td{border-bottom:none}
+.estado-table tr:hover td{background:var(--surf)}
+
+/* ── FLOW DIAGRAM ── */
+.flow{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;margin:16px 0}
+.flow-step{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}
+.flow-box{padding:8px 14px;border-radius:var(--rm);font-size:11px;font-weight:700;text-align:center;min-width:110px}
+.flow-arrow{display:flex;align-items:center;padding:0 6px;font-size:18px;color:var(--tx-d);margin-top:14px}
+.flow-label{font-size:9px;color:var(--tx-d);text-align:center;max-width:100px;font-weight:500}
+
+/* ── BUTTONS DOC ── */
+.btn-doc{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--rm);font-size:12px;font-weight:700;white-space:nowrap;vertical-align:middle;border:none;cursor:default}
+.btn-teal  {background:#00B8D9;color:#fff}
+.btn-amber {background:#FF8B00;color:#fff}
+.btn-blue  {background:#0052CC;color:#fff}
+.btn-green {background:#00875A;color:#fff}
+.btn-red   {background:#DE350B;color:#fff}
+.btn-ghost {background:#fff;color:#44546F;border:1.5px solid #D5DBE8}
+.btn-gray  {background:#F4F7FB;color:#44546F;border:1.5px solid #D5DBE8}
+
+/* ── CALLOUTS ── */
+.callout{display:flex;gap:12px;padding:14px 18px;border-radius:var(--rm);margin:14px 0;font-size:13px}
+.callout-ico{font-size:18px;flex-shrink:0;line-height:1.4}
+.callout-body strong{display:block;font-size:12px;font-weight:700;margin-bottom:3px}
+.callout-body p{margin:0;font-size:12px}
+.callout.warn{background:var(--yellow-l);border:1px solid rgba(255,139,0,.35);color:var(--yellow)}
+.callout.info{background:var(--blue-l);border:1px solid rgba(0,82,204,.2);color:var(--blue-d)}
+.callout.danger{background:var(--red-l);border:1px solid rgba(222,53,11,.3);color:var(--red)}
+.callout.ok{background:var(--green-l);border:1px solid rgba(0,135,90,.25);color:var(--green)}
+
+/* ── STEPS ── */
+.steps{counter-reset:step;list-style:none;padding:0}
+.steps li{counter-increment:step;display:flex;gap:14px;margin-bottom:16px;align-items:flex-start}
+.steps li::before{content:counter(step);min-width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.steps li p{margin:0;color:var(--tx-m);font-size:13px;padding-top:4px}
+
+/* ── SCREEN REFERENCE ── */
+.screen-ref{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 16px;font-size:12px;color:var(--tx-m);margin:10px 0}
+.screen-ref strong{color:var(--tx);display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+
+/* ── KPI STRIP ── */
+.kpi-strip-doc{display:flex;gap:0;border:1.5px solid var(--brd);border-radius:var(--rm);overflow:hidden;margin:12px 0}
+.kpi-doc{flex:1;padding:10px 14px;border-right:1px solid var(--brd);background:var(--panel)}
+.kpi-doc:last-child{border-right:none}
+.kpi-doc-val{font-size:18px;font-weight:800;color:var(--tx);font-variant-numeric:tabular-nums}
+.kpi-doc-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);font-weight:600;margin-top:2px}
+.kpi-doc.alert .kpi-doc-val{color:var(--red-m)}
+.kpi-doc.usd .kpi-doc-val{color:var(--blue);font-size:13px}
+
+/* ── COL TABLE ── */
+.col-table{width:100%;border-collapse:collapse;font-size:12px}
+.col-table th{background:var(--surf);padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);border-bottom:1.5px solid var(--brd)}
+.col-table td{padding:9px 12px;border-bottom:1px solid var(--surf);vertical-align:top;font-size:12px}
+.col-table tr:last-child td{border-bottom:none}
+.col-letter{font-family:'Courier New',monospace;font-weight:800;color:var(--blue);font-size:13px}
+
+/* ── PRINT ── */
+@media print{
+  body{background:#fff}
+  .section{box-shadow:none;border-color:#ddd;page-break-inside:avoid}
+  .manual-header{background:#091E42}
+  a{color:var(--blue)!important;text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══ HEADER ══ -->
+<div class="manual-header">
+  <div class="manual-logo">DJI</div>
+  <div>
+    <div class="manual-title">WOS · Warehouse Operation System</div>
+    <div class="manual-sub">Manual de Operación — BIDCOMAGRO · Portal Resellers</div>
+  </div>
+  <div class="manual-version">V 1.0 · Jun 2026</div>
+</div>
+
+<!-- ══ TOC ══ -->
+<div class="toc">
+  <div class="toc-title">Contenido</div>
+  <ul class="toc-list">
+    <li><a href="#s1"><span class="toc-num">1</span> ¿Qué es el WOS?</a></li>
+    <li><a href="#s2"><span class="toc-num">2</span> Pantalla principal</a></li>
+    <li><a href="#s3"><span class="toc-num">3</span> Estados de un pedido</a></li>
+    <li><a href="#s4"><span class="toc-num">4</span> Flujo normal (sin faltante)</a></li>
+    <li><a href="#s5"><span class="toc-num">5</span> Flujo con faltante de stock</a></li>
+    <li><a href="#s6"><span class="toc-num">6</span> Flujo con Backorder</a></li>
+    <li><a href="#s7"><span class="toc-num">7</span> Respuesta telefónica</a></li>
+    <li><a href="#s8"><span class="toc-num">8</span> Registrar despacho</a></li>
+    <li><a href="#s9"><span class="toc-num">9</span> Despacho en lote (Batch)</a></li>
+    <li><a href="#s10"><span class="toc-num">10</span> Cola de Picking</a></li>
+    <li><a href="#s11"><span class="toc-num">11</span> Lista de Compras</a></li>
+    <li><a href="#s12"><span class="toc-num">12</span> Consulta de Stock</a></li>
+    <li><a href="#s13"><span class="toc-num">13</span> Resumen de Envíos</a></li>
+    <li><a href="#s14"><span class="toc-num">14</span> Acciones por estado</a></li>
+    <li><a href="#s15"><span class="toc-num">15</span> Columnas de la planilla</a></li>
+    <li><a href="#s16"><span class="toc-num">16</span> Errores comunes</a></li>
+  </ul>
+</div>
+
+
+<!-- ══ 1. QUÉ ES ══ -->
+<div class="section section-anchor" id="s1">
+  <h2>1. ¿Qué es el WOS?</h2>
+  <p>El <strong>WOS (Warehouse Operation System)</strong> es el panel interno de BIDCOMAGRO para gestionar pedidos de repuestos DJI de los resellers. Desde acá el operario ve todos los pedidos activos, los prepara, los despacha, y el sistema automáticamente:</p>
+  <ul>
+    <li>Envía emails al reseller en el hilo original de su pedido</li>
+    <li>Genera la Nota de Entrega en PDF y la sube a Google Drive</li>
+    <li>Registra el número de tracking y el transportista</li>
+    <li>Actualiza el estado en la planilla de Google Sheets</li>
+    <li>Registra costos de envío para el resumen mensual de facturación</li>
+  </ul>
+  <div class="callout info">
+    <div class="callout-ico">ℹ️</div>
+    <div class="callout-body">
+      <strong>Quién lo usa</strong>
+      <p>El operario de depósito y el equipo de ventas/soporte. No se necesita acceso a la planilla ni a Gmail — todo se hace desde acá.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 2. PANTALLA ══ -->
+<div class="section section-anchor" id="s2">
+  <h2>2. Pantalla principal</h2>
+
+  <h3>2.1 Header (barra superior fija)</h3>
+  <p>Muestra los KPIs en tiempo real. Se actualizan cada vez que se carga la pantalla.</p>
+  <div class="kpi-strip-doc">
+    <div class="kpi-doc alert"><div class="kpi-doc-val">3</div><div class="kpi-doc-lbl">SLA &gt;96h háb.</div></div>
+    <div class="kpi-doc"><div class="kpi-doc-val">2</div><div class="kpi-doc-lbl">En espera</div></div>
+    <div class="kpi-doc"><div class="kpi-doc-val">1</div><div class="kpi-doc-lbl">Backorder</div></div>
+    <div class="kpi-doc usd"><div class="kpi-doc-val">USD 4.280</div><div class="kpi-doc-lbl">USD pendiente</div></div>
+  </div>
+  <table class="estado-table" style="margin-top:12px">
+    <thead><tr><th>KPI</th><th>Qué significa</th><th>Cuándo actuar</th></tr></thead>
+    <tbody>
+      <tr><td><strong>SLA &gt;96h</strong> <span style="color:var(--red-m)">(rojo)</span></td><td>Pedidos activos que superaron 96 horas hábiles (4 días L–V) desde que el reseller lo hizo. Los fines de semana no cuentan.</td><td>Siempre que sea &gt; 0 — atender esos pedidos primero</td></tr>
+      <tr><td><strong>En espera</strong></td><td>Pedidos en estado En_Espera_Reseller aguardando decisión del cliente</td><td>Llamar al reseller si lleva más de 1 día sin responder</td></tr>
+      <tr><td><strong>Backorder</strong></td><td>Pedidos esperando reposición de stock</td><td>Ver "Lista de Compras" para saber qué hay que comprar</td></tr>
+      <tr><td><strong>USD pendiente</strong></td><td>Valor total en dólares de todos los pedidos no terminados</td><td>Referencia comercial solamente</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Botones del header</h3>
+  <table class="estado-table" style="margin-top:4px">
+    <thead><tr><th>Botón</th><th>Para qué sirve</th></tr></thead>
+    <tbody>
+      <tr><td><span class="btn-doc btn-gray">📄 Envíos</span></td><td>Abre el Resumen de Envíos mensual para facturarle al reseller los costos de envío</td></tr>
+      <tr><td><span class="btn-doc btn-gray">📦 Stock</span></td><td>Consulta el stock actual de todos los repuestos con alertas de crítico/bajo/OK</td></tr>
+      <tr><td><span class="btn-doc btn-gray">🛒 Compras</span></td><td>Lista de compras consolidada — muestra todos los SKUs en Backorder y cuánto hay que comprar</td></tr>
+      <tr><td><span class="btn-doc btn-gray">✅ Picking</span></td><td>Cola de picking ordenada por SKU para hacer un solo recorrido por el depósito</td></tr>
+      <tr><td><span class="btn-doc btn-gray">🔄 Actualizar</span></td><td>Recarga todos los pedidos desde la planilla</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.3 Barra de filtros (tabs)</h3>
+  <p>Permite ver solo los pedidos de un determinado estado. El número entre paréntesis indica cuántos hay. Al hacer clic en <strong>"Todos"</strong> se ven todos los estados juntos, ordenados de más urgente a menos urgente.</p>
+  <p>También hay una caja de <strong>búsqueda</strong> a la derecha: filtra por número de pedido, nombre de reseller o código SKU en tiempo real.</p>
+
+  <h3>2.4 Cards de pedido</h3>
+  <p>Cada pedido se muestra como una tarjeta. La barra de color a la izquierda indica el estado. Al hacer clic en el encabezado de la card, se expande mostrando el detalle.</p>
+  <div class="screen-ref">
+    <strong>En el encabezado de cada card verás:</strong>
+    Número de pedido · Nombre del reseller · Barra de progreso (unidades despachadas / solicitadas) · Badge de estado · Tiempo desde el último cambio de estado · Flecha para expandir
+  </div>
+  <div class="screen-ref">
+    <strong>Al expandir una card verás:</strong>
+    Barra de pasos del workflow · Metadatos (envío, pago, tracking, totales) · Tabla de ítems con SKU, cantidades y stock actual · Botones de acción
+  </div>
+
+  <h3>2.5 Tabla de ítems dentro de la card</h3>
+  <table class="col-table" style="margin-top:4px">
+    <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td><span class="col-letter">SKU</span></td><td>Código del repuesto</td></tr>
+      <tr><td><span class="col-letter">Descripción</span></td><td>Nombre del repuesto</td></tr>
+      <tr><td><span class="col-letter">Sol.</span></td><td>Cantidad solicitada por el reseller</td></tr>
+      <tr><td><span class="col-letter">Pend.</span></td><td>Cantidad pendiente de despachar (Sol − Desp)</td></tr>
+      <tr><td><span class="col-letter">Desp.</span></td><td>Cantidad ya despachada</td></tr>
+      <tr><td><span class="col-letter">Stock</span></td><td>Stock actual en depósito según CARMEN. En rojo = stock insuficiente. "—" = SKU no encontrado en la base de stock</td></tr>
+      <tr><td><span class="col-letter">Precio</span></td><td>Precio unitario en USD pactado en el pedido</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══ 3. ESTADOS ══ -->
+<div class="section section-anchor" id="s3">
+  <h2>3. Estados de un pedido</h2>
+  <p>El estado de un pedido vive en la <strong>columna J</strong> de la planilla. El WOS lo lee y muestra el badge de color correspondiente.</p>
+
+  <table class="estado-table">
+    <thead><tr><th>Estado</th><th>Qué significa</th><th>Qué debe hacer el operario</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="estado-chip est-pend">⏰ Pendiente_Revision</span></td>
+        <td>El reseller hizo el pedido desde el portal. Todavía no fue atendido.</td>
+        <td>Verificar stock. Si hay stock suficiente → <strong>Marcar preparado</strong>. Si falta stock → <strong>Notificar Faltante</strong>.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-conf">✓ Confirmado</span></td>
+        <td>Estado intermedio heredado de flujos anteriores. Tiene los mismos botones que Pendiente_Revision.</td>
+        <td>Igual que Pendiente_Revision: preparar o notificar faltante.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-espera">⏳ En_Espera_Reseller</span></td>
+        <td>Se notificó al reseller que hay faltante. El sistema espera que responda qué quiere hacer (opciones A/B/C).</td>
+        <td>Esperar email de respuesta. Si no responde en tiempo razonable → usar <strong>Gestionar respuesta</strong> para llamarlo y registrar su decisión.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-prep">📦 Preparado</span></td>
+        <td>El pedido está listo para despachar — todos los ítems en stock y preparados físicamente.</td>
+        <td>Embalar el pedido y registrar el despacho con transportista y tracking.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-prep-p">📦 Preparado Parcial</span></td>
+        <td>
+          El reseller decidió recibir lo disponible ahora. Hay <strong>dos variantes</strong> — la card te lo indica con un aviso de color:<br><br>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#EBF3FF;border:1px solid rgba(0,82,204,.2);border-radius:6px;font-size:11px;font-weight:600;color:#003E99">⏳ Faltante pendiente</span>
+          — El reseller eligió <strong>Opción A</strong>: cuando llegue el stock faltante se genera un segundo despacho.<br><br>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#E3FCEF;border:1px solid rgba(0,135,90,.2);border-radius:6px;font-size:11px;font-weight:600;color:#006644">✓ Faltante cancelado</span>
+          — El reseller eligió <strong>Opción B</strong>: los ítems que no había están cancelados, no hay segundo envío.
+        </td>
+        <td>Registrar el despacho de lo disponible. Si el aviso dice "faltante pendiente", recordar reponer el stock y reactivar el pedido cuando llegue.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-back">🔄 Backorder</span></td>
+        <td>El primer despacho parcial se realizó (Opción A). El pedido tiene ítems con pendiente &gt; 0 esperando el segundo envío. En la tabla de ítems, los ya enviados aparecen atenuados con <strong style="color:var(--green-m)">Desp.✓</strong>; los pendientes se resaltan en naranja.</td>
+        <td>Cuando llegue el stock faltante, hacer clic en <strong>Reactivar pedido</strong>. El sistema pasa a Preparado y el modal de despacho muestra <strong>solo los ítems que faltan</strong>.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-retiro">📍 Listo_Retiro</span></td>
+        <td>El pedido fue despachado para retiro en mostrador. El reseller debe pasar a retirarlo.</td>
+        <td>Esperar al reseller. Cuando retira, el estado final lo cierra el sistema.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-entregado">✅ Entregado_Cerrado</span></td>
+        <td>El paquete fue enviado por correo/transporte. El ciclo de despacho está cerrado.</td>
+        <td>Nada — estado terminal. Solo lectura.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-conf-e">🎉 Entregado_Confirmado</span></td>
+        <td>El reseller confirmó desde su portal que recibió el pedido correctamente.</td>
+        <td>Nada — estado terminal. Solo lectura.</td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-cancel">✕ Cancelado</span></td>
+        <td>El pedido fue cancelado. El reseller ya recibió un email de notificación.</td>
+        <td>Nada — estado terminal. Solo lectura.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn" style="margin-top:16px">
+    <div class="callout-ico">⚠️</div>
+    <div class="callout-body">
+      <strong>Nunca edites la columna J de la planilla directamente</strong>
+      <p>Siempre usá los botones del WOS para cambiar estados. Si editás la planilla a mano podés romper el flujo de emails y perder el historial.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 4. FLUJO NORMAL ══ -->
+<div class="section section-anchor" id="s4">
+  <h2>4. Flujo normal (sin faltante de stock)</h2>
+  <p>Este es el caso más común: el reseller pide repuestos y hay stock suficiente para todo.</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-box est-pend">Pendiente_Revision</div>
+      <div class="flow-label">Pedido nuevo del portal</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-box est-prep">Preparado</div>
+      <div class="flow-label">Operario marca preparado</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-box est-entregado">Entregado_Cerrado</div>
+      <div class="flow-label">Despacho registrado</div>
+    </div>
+  </div>
+
+  <h3>Paso a paso:</h3>
+  <ol class="steps">
+    <li><p>Abrí el WOS y hacé clic en <strong>"Actualizar"</strong> para ver los pedidos más recientes.</p></li>
+    <li><p>Los pedidos nuevos aparecen con el badge <span class="estado-chip est-pend" style="font-size:10px;padding:3px 8px">Pendiente</span>. Hacé clic en el encabezado de la card para expandirla.</p></li>
+    <li><p>Revisá la columna <strong>Stock</strong> en la tabla de ítems. Si todos los ítems tienen stock suficiente (número en azul o verde), podés continuar.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-teal">📦 Marcar preparado</span>. Si el stock alcanza para todo, el estado cambia a <span class="estado-chip est-prep" style="font-size:10px;padding:3px 8px">Preparado</span> inmediatamente.</p></li>
+    <li><p>Juntá los repuestos físicamente en el depósito. Podés imprimir el <strong>Pick Ticket</strong> (botón de impresora 🖨) como guía para la búsqueda.</p></li>
+    <li><p>Embalá el pedido. Cuando esté listo, hacé clic en <span class="btn-doc btn-green">✅ Registrar despacho</span>.</p></li>
+    <li><p>En el modal de despacho: elegí el transportista, ingresá el número de tracking y el peso. Si hay varios bultos, hacé clic en <strong>"+ Agregar bulto"</strong> para cada caja adicional.</p></li>
+    <li><p>Opcionalmente ingresá el costo del envío (para el resumen mensual). Hacé clic en <span class="btn-doc btn-green">✅ Confirmar despacho</span>.</p></li>
+    <li><p>El sistema: genera y guarda el PDF de Nota de Entrega en Drive, envía el email al reseller con número de tracking, y cambia el estado a <span class="estado-chip est-entregado" style="font-size:10px;padding:3px 8px">Entregado_Cerrado</span>.</p></li>
+  </ol>
+
+  <div class="callout ok">
+    <div class="callout-ico">✅</div>
+    <div class="callout-body">
+      <strong>El sistema hace todo automático al confirmar el despacho</strong>
+      <p>No hace falta enviar ningún email manualmente ni subir ningún PDF. Solo registrá el despacho y listo.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 5. FLUJO CON FALTANTE ══ -->
+<div class="section section-anchor" id="s5">
+  <h2>5. Flujo con faltante de stock</h2>
+  <p>Cuando el reseller pide algo que no tenemos en stock suficiente. En este caso debemos notificarle las opciones.</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-box est-pend">Pendiente_Revision</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-box est-espera">En_Espera_Reseller</div>
+      <div class="flow-label">Esperando que el reseller elija</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="gap:4px">
+      <div class="flow-box est-back" style="margin-bottom:4px">Backorder</div>
+      <div class="flow-box est-prep-p">Preparado Parcial</div>
+      <div class="flow-box est-cancel">Cancelado</div>
+      <div class="flow-label">Según lo que elija el reseller</div>
+    </div>
+  </div>
+
+  <h3>Paso a paso:</h3>
+  <ol class="steps">
+    <li><p>Expandí la card del pedido. Verificá la columna <strong>Stock</strong> — si algún ítem tiene stock en <strong style="color:var(--red-m)">rojo</strong>, hay faltante.</p></li>
+    <li><p>Si intentás hacer clic en <span class="btn-doc btn-teal">📦 Marcar preparado</span> con stock insuficiente, el sistema te <strong>bloquea</strong> con un mensaje indicando exactamente qué ítems faltan y cuánto hay. Esto es correcto — no podés marcarlo como preparado si no hay stock.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-amber">⚠ Notificar Faltante</span>. Se abre un modal con la lista de ítems.</p></li>
+    <li><p>Para cada ítem con faltante: <strong>tildá el checkbox</strong> y escribí la cantidad disponible en el campo numérico. Los ítems sin tildar se consideran completos.</p></li>
+    <li><p>Hacé clic en <strong>"Notificar al reseller"</strong>. El sistema manda un email al reseller avisando que vamos a despachar lo disponible, y le pregunta qué hacer con el faltante:<br>
+      <strong>A</strong> — Esperar el faltante y recibirlo en un segundo envío cuando llegue el stock (→ Backorder)<br>
+      <strong>B</strong> — Cancelar definitivamente los ítems faltantes (→ Cancelado)</p></li>
+    <li><p>El pedido pasa a <span class="estado-chip est-espera" style="font-size:10px;padding:3px 8px">En_Espera_Reseller</span>. Hay que esperar la respuesta por email.</p></li>
+    <li><p>Cuando el reseller responde desde el portal, el estado cambia automáticamente según su elección.</p></li>
+  </ol>
+
+  <div class="callout warn">
+    <div class="callout-ico">⚠️</div>
+    <div class="callout-body">
+      <strong>Importante con la opción B (Preparado Parcial)</strong>
+      <p>Cuando el reseller elige B, el pedido pasa a Preparado Parcial. Despachar normalmente solo los ítems disponibles — los cancelados ya quedan marcados en la planilla.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 6. FLUJO BACKORDER ══ -->
+<div class="section section-anchor" id="s6">
+  <h2>6. Flujo con Backorder</h2>
+  <p>El reseller eligió esperar a que llegue el stock. El pedido queda "pausado" en Backorder hasta que compremos y recibamos el repuesto.</p>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-box est-back">Backorder</div>
+      <div class="flow-label">Esperando reposición</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-box est-prep">Preparado</div>
+      <div class="flow-label">Stock llegó — reactivar</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-box est-entregado">Entregado_Cerrado</div>
+      <div class="flow-label">Despacho registrado</div>
+    </div>
+  </div>
+
+  <h3>Cuándo usar el botón 🛒 Compras</h3>
+  <p>Este botón (en el header) muestra una lista consolidada de <strong>todos los SKUs en Backorder</strong>, agrupados por código, con:</p>
+  <ul>
+    <li><strong>Qty BO</strong>: total de unidades que los resellers están esperando</li>
+    <li><strong>En camino</strong>: unidades ya pedidas a DJI que vienen en camino</li>
+    <li><strong>A comprar</strong>: la diferencia — lo que realmente hay que salir a comprar</li>
+    <li><strong>Resellers</strong>: quiénes están esperando ese repuesto</li>
+  </ul>
+
+  <h3>Cuando llegó el stock:</h3>
+  <ol class="steps">
+    <li><p>Ingresá el stock recibido en la planilla CARMEN (columna C de la hoja STOCK).</p></li>
+    <li><p>Volvé al WOS y hacé clic en <strong>"Actualizar"</strong> para que los números de stock se refresquen.</p></li>
+    <li><p>Encontrá los pedidos en Backorder usando el filtro de tabs → <strong>"Backorder"</strong>.</p></li>
+    <li><p>Para cada pedido en Backorder, hacé clic en <span class="btn-doc btn-blue">🔄 Reactivar pedido</span>. Esto lo pasa directamente a <span class="estado-chip est-prep" style="font-size:10px;padding:3px 8px">Preparado</span>.</p></li>
+    <li><p>Procedé con el despacho normal (sección 4, desde el paso 5).</p></li>
+  </ol>
+
+  <div class="callout info">
+    <div class="callout-ico">💡</div>
+    <div class="callout-body">
+      <strong>Tip: Reactivar activa la verificación de stock</strong>
+      <p>Si el stock todavía no alcanza para todos los ítems del pedido, el sistema no dejará reactivarlo hasta que haya suficiente. Verificá primero en "Stock" que los números cuadran.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 7. RESPUESTA TELEFÓNICA ══ -->
+<div class="section section-anchor" id="s7">
+  <h2>7. Respuesta telefónica del reseller</h2>
+  <p>Cuando un pedido está en <span class="estado-chip est-espera" style="font-size:10px;padding:3px 8px">En_Espera_Reseller</span> y el reseller no responde el email, podés llamarlo por teléfono y registrar su decisión directamente en el WOS.</p>
+
+  <ol class="steps">
+    <li><p>Expandí la card del pedido en estado En_Espera_Reseller.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-blue">📞 Gestionar respuesta</span>.</p></li>
+    <li><p>Se abre un modal que muestra la tabla de ítems con las cantidades disponibles.</p></li>
+    <li><p>Llamá al reseller por teléfono. Siempre vamos a despachar lo disponible. La pregunta para el reseller es solo qué hacer con el <em>faltante</em>. Elegí una de las dos opciones:</p>
+      <ul>
+        <li><strong>A — Esperar el faltante</strong>: los ítems que faltan quedan en Backorder y se despachan en un segundo envío cuando llegue el stock.</li>
+        <li><strong>B — Cancelar el faltante</strong>: los ítems que no hay en stock se cancelan definitivamente. Solo se factura lo que se despacha.</li>
+      </ul>
+    </li>
+    <li><p>Hacé clic en <strong>"Confirmar decisión"</strong>. El sistema manda automáticamente un email al reseller diciendo <em>"Según lo conversado telefónicamente, tu pedido fue confirmado con la opción X"</em>.</p></li>
+  </ol>
+
+  <div class="callout ok">
+    <div class="callout-ico">📞</div>
+    <div class="callout-body">
+      <strong>El email se envía aunque la decisión fue telefónica</strong>
+      <p>Esto genera un registro escrito de la conversación. El reseller recibe confirmación y queda documentado para cualquier reclamo futuro.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 8. REGISTRAR DESPACHO ══ -->
+<div class="section section-anchor" id="s8">
+  <h2>8. Registrar despacho</h2>
+  <p>Solo disponible para pedidos en <span class="estado-chip est-prep" style="font-size:10px;padding:3px 8px">Preparado</span> o <span class="estado-chip est-prep-p" style="font-size:10px;padding:3px 8px">Preparado Parcial</span>.</p>
+
+  <h3>8.1 Despacho con un solo bulto</h3>
+  <ol class="steps">
+    <li><p>Hacé clic en <span class="btn-doc btn-green">✅ Registrar despacho</span> en la card del pedido.</p></li>
+    <li><p>Elegí el <strong>transportista</strong>: Correo Argentino (predeterminado), Credifin, o Via Cargo.</p></li>
+    <li><p>Ingresá el <strong>número de tracking</strong> del bulto (el código de seguimiento que te da el correo).</p></li>
+    <li><p>Ingresá el <strong>peso en kg</strong> del bulto.</p></li>
+    <li><p>Opcionalmente, ingresá el <strong>costo del envío en ARS</strong>. Esto se suma al resumen mensual del reseller.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-green">✅ Confirmar despacho</span>.</p></li>
+  </ol>
+
+  <h3>8.2 Despacho con múltiples bultos</h3>
+  <p>Si el pedido entra en más de una caja, podés registrar varios bultos con diferentes trackings.</p>
+  <ol class="steps">
+    <li><p>Seguí los pasos 1 y 2 del despacho simple.</p></li>
+    <li><p>Para el primer bulto, ingresá tracking y peso en la fila que ya aparece.</p></li>
+    <li><p>Hacé clic en <strong>"+ Agregar bulto"</strong> para agregar más filas. Cada fila tiene su propio tracking y peso.</p></li>
+    <li><p>Si metiste de más, usá el botón <strong>✕</strong> a la derecha de cada fila para quitarla. Siempre tiene que quedar al menos un bulto.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-green">✅ Confirmar despacho</span>. El email al reseller va a mostrar cada bulto con su tracking individual.</p></li>
+  </ol>
+
+  <div class="callout info">
+    <div class="callout-ico">📦</div>
+    <div class="callout-body">
+      <strong>¿Cuántas cantidades se despachan?</strong>
+      <p>El sistema despacha automáticamente la cantidad pendiente de cada ítem. No tenés que ingresar cantidades en el modal de despacho — solo el tracking, peso y transportista.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 9. BATCH ══ -->
+<div class="section section-anchor" id="s9">
+  <h2>9. Despacho en lote (Batch)</h2>
+  <p>Cuando el mismo reseller tiene <strong>varios pedidos</strong> que van en la misma caja, se pueden despachar juntos compartiendo el mismo tracking. El costo del envío se divide en partes iguales entre todos los pedidos.</p>
+
+  <div class="callout danger">
+    <div class="callout-ico">🚫</div>
+    <div class="callout-body">
+      <strong>Solo se puede hacer batch con el MISMO reseller</strong>
+      <p>No se puede despachar juntos pedidos de resellers distintos. El sistema lo bloquea automáticamente si intentás mezclarlos.</p>
+    </div>
+  </div>
+
+  <h3>Paso a paso:</h3>
+  <ol class="steps">
+    <li><p>Asegurate de que los pedidos a despachar juntos están en estado <span class="estado-chip est-prep" style="font-size:10px;padding:3px 8px">Preparado</span> o <span class="estado-chip est-prep-p" style="font-size:10px;padding:3px 8px">Preparado Parcial</span>.</p></li>
+    <li><p>En el encabezado de cada card que querés incluir, hacé clic en el <strong>checkbox</strong> que aparece a la izquierda del número de pedido (solo aparece en estados Preparado / Preparado Parcial).</p></li>
+    <li><p>Al seleccionar el primer pedido, aparece una <strong>barra negra en la parte inferior</strong> de la pantalla indicando cuántos pedidos están seleccionados.</p></li>
+    <li><p>Seleccioná todos los pedidos del mismo reseller que van en la misma caja.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-green">📦 Despachar juntos</span> en la barra inferior.</p></li>
+    <li><p>Se abre el modal de despacho mostrando todos los ítems combinados. El flujo es igual al despacho simple (transportista, bultos, costo).</p></li>
+    <li><p>Al confirmar: cada pedido recibe su propia Nota de Entrega y su propio email, pero comparten el mismo número de tracking.</p></li>
+  </ol>
+</div>
+
+
+<!-- ══ 10. PICKING ══ -->
+<div class="section section-anchor" id="s10">
+  <h2>10. Cola de Picking</h2>
+  <p>Herramienta para hacer el recorrido por el depósito de forma eficiente. En vez de ir pedido por pedido, muestra <strong>todos los ítems de todos los pedidos pendientes ordenados por SKU</strong>. Así se recogen todos los "DJI-001" de una vez, luego todos los "DJI-002", etc.</p>
+
+  <h3>Cómo usar:</h3>
+  <ol class="steps">
+    <li><p>Hacé clic en <span class="btn-doc btn-gray">✅ Picking</span> en el header del WOS.</p></li>
+    <li><p>Se abre el overlay de Cola de Picking. En el encabezado verás: cuántos pedidos están en cola, cuántos ítems, y cuántas unidades totales.</p></li>
+    <li><p>La tabla muestra todos los ítems a pickear, agrupados por SKU. El subencabezado gris de cada grupo indica el SKU y la descripción del repuesto.</p></li>
+    <li><p>Recorré el depósito SKU por SKU. Cuando agarrás un ítem, tildá su <strong>checkbox</strong> en la columna "Pick".</p></li>
+    <li><p>La barra de progreso en la parte superior se actualiza con cada check. Muestra cuántos ítems llevan pickeados sobre el total.</p></li>
+    <li><p>Cuando todos los ítems de un pedido están tildados, aparece ese pedido en el panel <strong>"Listos para preparar"</strong> al pie de la tabla.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-green">✅ Marcar preparado</span> para ese pedido. El sistema lo registra como Preparado (con verificación de stock incluida).</p></li>
+    <li><p>Cerrá el overlay cuando terminés. El número de pedido en cada fila es un link — si hacés clic, te lleva directo a esa card.</p></li>
+  </ol>
+
+  <div class="callout info">
+    <div class="callout-ico">💡</div>
+    <div class="callout-body">
+      <strong>Los checks no se guardan si recargás la página</strong>
+      <p>El estado de los checkboxes de picking es temporal (solo para la sesión actual). Si cerrás el browser o recargás el WOS, los checks se pierden. Completá el picking en una sola sesión.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 11. LISTA COMPRAS ══ -->
+<div class="section section-anchor" id="s11">
+  <h2>11. Lista de Compras (Backorder)</h2>
+  <p>Resumen de todo lo que hay que salir a comprar para cubrir los pedidos en Backorder. Crucifica los backorders con las órdenes de compra ya activas en COMPRAS_DJI para calcular el delta real.</p>
+
+  <h3>Cómo leerla:</h3>
+  <ol class="steps">
+    <li><p>Hacé clic en <span class="btn-doc btn-gray">🛒 Compras</span> en el header del WOS.</p></li>
+    <li><p>El sistema carga los datos de en-camino desde COMPRAS_DJI. Puede tardar unos segundos.</p></li>
+    <li><p>La tabla muestra un SKU por fila, ordenado de mayor a menor urgencia (primero los que más hay que comprar).</p></li>
+  </ol>
+
+  <table class="estado-table" style="margin-top:12px">
+    <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Qty BO</strong></td><td>Total de unidades en Backorder entre todos los resellers</td></tr>
+      <tr><td><strong>En camino ✈</strong></td><td>Unidades ya pedidas a DJI en órdenes de compra activas. Al pasar el mouse aparece el número de las OCs.</td></tr>
+      <tr><td><strong style="color:var(--red-m)">A comprar</strong></td><td>Qty BO − En camino. Lo que falta comprar. En rojo si hay que comprar; en verde si las OCs ya lo cubren.</td></tr>
+      <tr><td><strong>Resellers</strong></td><td>Resellers afectados. Al pasar el mouse se ve la lista completa.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-ico">⚠️</div>
+    <div class="callout-body">
+      <strong>La lista se recalcula cada vez que la abrís</strong>
+      <p>Si acabás de reactivar un pedido de Backorder o actualizar el WOS, cerrá y volvé a abrir la Lista de Compras para que los números sean frescos.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 12. STOCK ══ -->
+<div class="section section-anchor" id="s12">
+  <h2>12. Consulta de Stock</h2>
+  <p>El overlay de stock muestra el inventario completo leído en tiempo real desde la planilla CARMEN.</p>
+
+  <ol class="steps">
+    <li><p>Hacé clic en <span class="btn-doc btn-gray">📦 Stock</span> en el header.</p></li>
+    <li><p>Usá el <strong>buscador</strong> para filtrar por SKU o descripción.</p></li>
+    <li><p>Usá los filtros rápidos: <strong>Crítico</strong> (stock 0 o negativo), <strong>Bajo</strong> (entre 0 y el mínimo configurado), <strong>OK</strong> (por encima del mínimo).</p></li>
+  </ol>
+
+  <table class="estado-table" style="margin-top:8px">
+    <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Estado</strong></td><td><span style="background:var(--red-l);color:var(--red);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">CRITICO</span> stock 0 o negativo · <span style="background:var(--yellow-l);color:var(--yellow);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">BAJO</span> stock por debajo del mínimo · <span style="background:var(--green-l);color:var(--green);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">OK</span> stock suficiente</td></tr>
+      <tr><td><strong>Stock</strong></td><td>Unidades físicas en depósito. Un número negativo indica error de inventario o ventas sin reposición.</td></tr>
+      <tr><td><strong>Mín.</strong></td><td>Stock mínimo configurado para ese repuesto (punto de reorden)</td></tr>
+      <tr><td><strong>En camino ✈</strong></td><td>Unidades pedidas a DJI todavía en tránsito. Al pasar el mouse se ven los números de las OCs.</td></tr>
+      <tr><td><strong>Ubicación</strong></td><td>Código de ubicación física en el depósito (si está configurado)</td></tr>
+      <tr><td><strong>Modelos</strong></td><td>Modelos DJI compatibles con ese repuesto</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══ 13. RESUMEN ENVÍOS ══ -->
+<div class="section section-anchor" id="s13">
+  <h2>13. Resumen de Envíos</h2>
+  <p>A fin de mes, BIDCOMAGRO le cobra a cada reseller los costos de envío acumulados. Este overlay genera el resumen para imprimir o enviar por email.</p>
+
+  <ol class="steps">
+    <li><p>Hacé clic en <span class="btn-doc btn-gray">📄 Envíos</span> en el header.</p></li>
+    <li><p>Elegí el <strong>reseller</strong> del dropdown y el <strong>mes</strong> en el campo de mes.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-blue">Cargar</span>.</p></li>
+    <li><p>El resumen muestra: cada despacho del mes con fecha, Nota de Entrega, transportista, número de tracking, peso y costo.</p></li>
+    <li><p>Al pie aparece el total del mes en pesos.</p></li>
+    <li><p>Hacé clic en <span class="btn-doc btn-gray">🖨 Imprimir</span> para imprimirlo, o en <span class="btn-doc btn-blue">📧 Enviar por email</span> para mandárselo al reseller directamente.</p></li>
+  </ol>
+
+  <div class="callout info">
+    <div class="callout-ico">💡</div>
+    <div class="callout-body">
+      <strong>El costo se acumula cuando registrás el despacho</strong>
+      <p>Solo aparecen en el resumen los despachos donde se ingresó un Costo de Envío (ARS) al registrar. Si el campo quedó vacío al despachar, ese envío aparece sin costo.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ 14. ACCIONES POR ESTADO ══ -->
+<div class="section section-anchor" id="s14">
+  <h2>14. Acciones disponibles por estado</h2>
+  <p>Referencia rápida: qué botones aparecen según el estado del pedido.</p>
+
+  <table class="estado-table">
+    <thead>
+      <tr>
+        <th>Estado</th>
+        <th>Botones disponibles</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="estado-chip est-pend" style="font-size:10px;padding:3px 8px">Pendiente_Revision</span></td>
+        <td>
+          <span class="btn-doc btn-teal" style="margin:2px">📦 Marcar preparado</span>
+          <span class="btn-doc btn-amber" style="margin:2px">⚠ Notificar Faltante</span>
+          <span class="btn-doc btn-red" style="margin:2px">Cancelar</span>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-conf" style="font-size:10px;padding:3px 8px">Confirmado</span></td>
+        <td>
+          <span class="btn-doc btn-teal" style="margin:2px">📦 Marcar preparado</span>
+          <span class="btn-doc btn-amber" style="margin:2px">⚠ Notificar Faltante</span>
+          <span class="btn-doc btn-ghost" style="margin:2px">🖨 Pick Ticket</span>
+          <span class="btn-doc btn-red" style="margin:2px">Cancelar</span>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-espera" style="font-size:10px;padding:3px 8px">En_Espera_Reseller</span></td>
+        <td>
+          <span class="btn-doc btn-blue" style="margin:2px">📞 Gestionar respuesta</span>
+          <em style="font-size:11px;color:var(--tx-d)">⏳ Esperando respuesta del reseller…</em>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-prep" style="font-size:10px;padding:3px 8px">Preparado</span></td>
+        <td>
+          <span class="btn-doc btn-green" style="margin:2px">✅ Registrar despacho</span>
+          <span class="btn-doc btn-ghost" style="margin:2px">🖨 Pick Ticket</span>
+          <span class="btn-doc btn-red" style="margin:2px">Cancelar</span>
+          <span class="btn-doc btn-ghost" style="font-size:10px;margin:2px">☑ Checkbox batch</span>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-prep-p" style="font-size:10px;padding:3px 8px">Preparado Parcial</span></td>
+        <td>
+          <span class="btn-doc btn-green" style="margin:2px">✅ Registrar despacho</span>
+          <span class="btn-doc btn-ghost" style="margin:2px">🖨 Pick Ticket</span>
+          <span class="btn-doc btn-red" style="margin:2px">Cancelar</span>
+          <span class="btn-doc btn-ghost" style="font-size:10px;margin:2px">☑ Checkbox batch</span>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-back" style="font-size:10px;padding:3px 8px">Backorder</span></td>
+        <td>
+          <span class="btn-doc btn-blue" style="margin:2px">🔄 Reactivar pedido</span>
+          <span class="btn-doc btn-red" style="margin:2px">Cancelar</span>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-entregado" style="font-size:10px;padding:3px 8px">Entregado_Cerrado</span></td>
+        <td><em style="font-size:11px;color:var(--tx-d)">Sin acciones — estado terminal</em></td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-retiro" style="font-size:10px;padding:3px 8px">Listo_Retiro</span></td>
+        <td><em style="font-size:11px;color:var(--tx-d)">Sin acciones — estado terminal</em></td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-conf-e" style="font-size:10px;padding:3px 8px">Entregado_Confirmado</span></td>
+        <td><em style="font-size:11px;color:var(--tx-d)">Sin acciones — estado terminal</em></td>
+      </tr>
+      <tr>
+        <td><span class="estado-chip est-cancel" style="font-size:10px;padding:3px 8px">Cancelado</span></td>
+        <td><em style="font-size:11px;color:var(--tx-d)">Sin acciones — estado terminal</em></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══ 15. COLUMNAS PLANILLA ══ -->
+<div class="section section-anchor" id="s15">
+  <h2>15. Columnas de la planilla (referencia)</h2>
+  <p>La planilla <code>Pedidos_resellers</code> en Google Sheets tiene una fila por cada <strong>ítem</strong> de cada pedido. Un pedido con 3 ítems ocupa 3 filas (todas con el mismo número de pedido en col A).</p>
+
+  <div class="callout danger">
+    <div class="callout-ico">🚫</div>
+    <div class="callout-body">
+      <strong>No edites las columnas J, O, P, Q, R, S, T, U, V a mano</strong>
+      <p>Estas columnas las gestiona el WOS automáticamente. Editarlas manualmente puede desinformar al sistema y romper los emails y PDFs.</p>
+    </div>
+  </div>
+
+  <table class="col-table" style="margin-top:12px">
+    <thead><tr><th>Col</th><th>Nombre</th><th>Descripción</th><th>¿Quién la escribe?</th></tr></thead>
+    <tbody>
+      <tr><td><span class="col-letter">A</span></td><td>NUMERO</td><td>Número del pedido. Ej: <code>PR-00028</code></td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">B</span></td><td>RESELLER</td><td>Nombre del reseller</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">C</span></td><td>SKU</td><td>Código del repuesto</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">D</span></td><td>DESC</td><td>Descripción del repuesto</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">E</span></td><td>CANT_SOL</td><td>Cantidad solicitada por el reseller</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">F</span></td><td>CANT_DESP</td><td>Cantidad ya despachada</td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">G</span></td><td>CANT_PEND</td><td>Fórmula: =E−F (cantidad pendiente)</td><td>Fórmula automática</td></tr>
+      <tr><td><span class="col-letter">H</span></td><td>PRECIO</td><td>Precio unitario en USD</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">I</span></td><td>STOCK_ORI</td><td>Stock al momento de hacer el pedido (referencia histórica)</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">J</span></td><td><strong>ESTADO</strong></td><td>Estado actual del pedido (ver sección 3). <strong>No editar a mano.</strong></td><td>WOS (automático)</td></tr>
+      <tr><td><span class="col-letter">K</span></td><td>FECHA</td><td>Fecha y hora en que el reseller hizo el pedido</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">L</span></td><td>ENVIO</td><td>Modalidad de envío elegida por el reseller (ej: "Correo Argentino")</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">M</span></td><td>PAGO</td><td>Método de pago del reseller</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">N</span></td><td>OBS</td><td>Observaciones del reseller o del operario</td><td>Portal / operario</td></tr>
+      <tr><td><span class="col-letter">O</span></td><td>FECHA_DESPACHO</td><td>Fecha y hora del despacho</td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">P</span></td><td>NOTA_ENTREGA</td><td>Código de la Nota de Entrega. Ej: <code>NE_PR-00028-01</code></td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">Q</span></td><td>TRACKING</td><td>Número(s) de seguimiento del envío</td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">R</span></td><td>THREAD_ID</td><td>ID del hilo de Gmail (para responder en el mismo hilo)</td><td>Portal Reseller</td></tr>
+      <tr><td><span class="col-letter">S</span></td><td>FECHA_ESTADO</td><td>Timestamp del último cambio de estado</td><td>WOS (automático)</td></tr>
+      <tr><td><span class="col-letter">T</span></td><td>TRANSPORTISTA_DESP</td><td>Transportista usado al despachar</td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">U</span></td><td>COSTO_ENVIO</td><td>Costo del envío en ARS (para resumen mensual)</td><td>WOS al despachar</td></tr>
+      <tr><td><span class="col-letter">V</span></td><td>PESO_ENVIO</td><td>Peso total del envío en kg</td><td>WOS al despachar</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══ 16. ERRORES COMUNES ══ -->
+<div class="section section-anchor" id="s16">
+  <h2>16. Errores comunes y soluciones</h2>
+
+  <h3>❌ "No se puede preparar — N ítem(s) sin stock suficiente"</h3>
+  <p><strong>Causa:</strong> El sistema detectó que el stock en CARMEN es menor a la cantidad solicitada en al menos un ítem.</p>
+  <p><strong>Solución:</strong> Si realmente hay stock en el depósito pero el número está desactualizado, pedile a quien administra CARMEN que corrija el número. Si no hay stock, usá <strong>"⚠ Notificar Faltante"</strong> para gestionar el faltante con el reseller.</p>
+
+  <h3>❌ El stock muestra "—" en vez de un número</h3>
+  <p><strong>Causa:</strong> El SKU del pedido no se encontró en la planilla CARMEN (hoja STOCK, columna A). Puede ser un SKU nuevo o escrito diferente.</p>
+  <p><strong>Solución:</strong> Verificar en CARMEN que el SKU exista y esté escrito idéntico (mayúsculas, guiones). El WOS no puede bloquear el despacho si no encuentra el SKU — en ese caso el botón "Marcar preparado" funciona igual.</p>
+
+  <h3>❌ El pedido no aparece en el WOS</h3>
+  <p><strong>Causa 1:</strong> El reseller hizo el pedido pero el portal todavía no lo confirmó.<br>
+  <strong>Causa 2:</strong> La pantalla no se actualizó.</p>
+  <p><strong>Solución:</strong> Hacé clic en <strong>"Actualizar"</strong> en el header. Si sigue sin aparecer, revisar directamente la planilla Pedidos_resellers.</p>
+
+  <h3>❌ El email no llegó al reseller</h3>
+  <p><strong>Causa:</strong> El email del reseller no está cargado en la hoja <code>Resellers</code> de la planilla MASTER, o está escrito con errores.</p>
+  <p><strong>Solución:</strong> Verificar el email en la hoja Resellers (columna J). El WOS no puede enviar si no encuentra la dirección.</p>
+
+  <h3>❌ Error al registrar el despacho / "Error de conexión"</h3>
+  <p><strong>Causa:</strong> Problema temporal de Google Apps Script o la sesión expiró.</p>
+  <p><strong>Solución:</strong> Hacé clic en "Actualizar" para recargar la sesión y volver a intentar el despacho. Si el error persiste, revisar los logs en el editor de Apps Script.</p>
+
+  <h3>❌ La Nota de Entrega no se generó en Drive</h3>
+  <p><strong>Causa:</strong> El ID de la carpeta de Drive en la configuración (<code>WOS_PDF_FOLDER_ID</code>) puede ser incorrecto o sin permisos.</p>
+  <p><strong>Solución:</strong> Verificar que la carpeta en Drive existe, que el ID en <code>Despacho_Env.js</code> es el correcto, y que el script tiene permiso para escribir en esa carpeta.</p>
+
+  <h3>❌ El resumen de envíos no muestra costos</h3>
+  <p><strong>Causa:</strong> El Costo de Envío (ARS) se dejó vacío al registrar el despacho.</p>
+  <p><strong>Solución:</strong> Los despachos pasados no se pueden editar desde el WOS. Si es necesario corregir, actualizar el valor directamente en la columna U de la planilla.</p>
+
+  <div class="callout warn" style="margin-top:24px">
+    <div class="callout-ico">⚠️</div>
+    <div class="callout-body">
+      <strong>Ante cualquier error grave</strong>
+      <p>No intentes "arreglarlo" editando la planilla a mano sin saber exactamente qué columna modificar. Avisá al equipo técnico con el número de pedido y el mensaje de error exacto.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<div style="text-align:center;padding:32px 0;color:var(--tx-d);font-size:11px">
+  WOS · BIDCOMAGRO — Manual de Operación V1.0 · Junio 2026<br>
+  Uso interno — no distribuir fuera de la empresa
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

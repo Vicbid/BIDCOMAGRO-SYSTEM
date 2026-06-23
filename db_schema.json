@@ -1,0 +1,183 @@
+{
+  "_meta": {
+    "sheet_id": "1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc",
+    "nota": "Todos los índices son base-0. Fuente: Env.js + asegurarHojas() + accesos directos en código.",
+    "generado": "2026-05-11"
+  },
+
+  "OT": {
+    "_sheet": "Ordenes de trabajo",
+    "FECHA_INGRESO":    0,
+    "FECHA_CIERRE":     1,
+    "OT":               2,
+    "GARANTIA":         3,
+    "ESTADO":           4,
+    "EQUIPO":           5,
+    "SN":               6,
+    "RESELLER":         7,
+    "TECNICO":          9,
+    "MENSAJES":         11,
+    "TRABAJO":          12,
+    "FECHA_ACTIVACION": 13,
+    "CAS":              14,
+    "REPUESTOS":        16,
+    "PRIORIDAD":        17,
+    "CIRCUITO":         18,
+    "FECHA_ESTADO":     20,
+    "MANO_OBRA":        22,
+    "NOTAS_INTERNAS":   23
+  },
+
+  "STOCK_REPUESTOS": {
+    "_sheet": "STOCK_REPUESTOS",
+    "CODIGO":         0,
+    "DESCRIPCION":    1,
+    "STOCK_ACTUAL":   2,
+    "STOCK_MINIMO":   3,
+    "CATEGORIA":      4,
+    "UBICACION":      5,
+    "MODELOS":        6,
+    "ULTIMA_ENTRADA": 7,
+    "ULTIMA_SALIDA":  8
+  },
+
+  "RESELLERS": {
+    "_sheet": "Resellers",
+    "NOMBRE":    0,
+    "CUIT":      1,
+    "DIRECCION": 2,
+    "CP":        3,
+    "LOCALIDAD": 4,
+    "TELEFONO":  6,
+    "EMAIL":     9,
+    "PIN":       10
+  },
+
+  "SOLICITUDES_DESPACHO": {
+    "_sheet": "SOLICITUDES_DESPACHO",
+    "ID":              0,
+    "FECHA":           1,
+    "OT":              2,
+    "RESELLER":        3,
+    "CODIGO":          4,
+    "DESCRIPCION":     5,
+    "CANT_SOLICITADA": 6,
+    "CANT_DESPACHADA": 7,
+    "ESTADO":          8,
+    "URGENCIA":        9,
+    "FECHA_DESPACHO":  10,
+    "OPERADOR":        11,
+    "OBSERVACIONES":   12
+  },
+
+  "MOVIMIENTOS_STOCK": {
+    "_sheet": "MOVIMIENTOS_STOCK",
+    "FECHA":            0,
+    "TIPO":             1,
+    "CODIGO":           2,
+    "DESCRIPCION":      3,
+    "CANTIDAD":         4,
+    "STOCK_RESULTANTE": 5,
+    "REFERENCIA":       6,
+    "OPERADOR":         7,
+    "OBSERVACIONES":    8
+  },
+
+  "COMPRAS_DJI": {
+    "_sheet": "COMPRAS_DJI",
+    "CAS":                 0,
+    "FECHA_PEDIDO":        1,
+    "ESTADO":              2,
+    "METODO_PAGO":         3,
+    "FECHA_COMPRADO":      4,
+    "FECHA_PAGADO":        5,
+    "FECHA_CONF_ENVIO":    6,
+    "FECHA_FORWARDER_HK":  7,
+    "FECHA_VUELO":         8,
+    "FECHA_ADUANA":        9,
+    "FECHA_DEPOSITO":      10,
+    "OPERADOR":            11,
+    "OBSERVACIONES":       12
+  },
+
+  "VENTAS_DIRECTAS": {
+    "_sheet": "VENTAS_DIRECTAS",
+    "FECHA":        0,
+    "N_ORDEN":      1,
+    "N_FACTURA":    2,
+    "RESELLER":     3,
+    "CODIGO":       4,
+    "DESCRIPCION":  5,
+    "CANTIDAD":     6,
+    "PRECIO_USD":   7,
+    "OBSERVACIONES": 8
+  },
+
+  "DB_REPUESTOS": {
+    "_sheet": "DB_REPUESTOS",
+    "CODIGO":       1,
+    "DESCRIPCION":  2,
+    "MODELOS":      3,
+    "PRECIO_PVP":   5,
+    "PRECIO_FOB":   6
+  },
+
+  "EQUIPOS": {
+    "_sheet": "EQUIPOS",
+    "NOMBRE":   0,
+    "TIPO":     1,
+    "PREFIJO":  2,
+    "MESES":    3
+  },
+
+  "LOGS": {
+    "_sheet": "LOGS",
+    "FECHA":       0,
+    "OT":          1,
+    "TECNICO":     2,
+    "EMAIL":       3,
+    "ACCION":      4,
+    "ESTADO_ANT":  5,
+    "ESTADO_NVO":  6,
+    "DETALLE":     7
+  },
+
+  "EMAIL_LOGS": {
+    "_sheet": "EMAIL_LOGS",
+    "FECHA":        0,
+    "OT":           1,
+    "DESTINATARIO": 2,
+    "ROL":          3,
+    "ASUNTO":       4,
+    "ESTADO":       5
+  },
+
+  "USUARIOS": {
+    "_sheet": "Usuarios_Internos",
+    "NOMBRE":      0,
+    "EMAIL":       1,
+    "ROL":         2,
+    "ES_TECNICO":  3
+  },
+
+  "DEUDA_RESELLERS": {
+    "_sheet": "DEUDA_RESELLERS",
+    "FECHA":          0,
+    "OT":             1,
+    "RESELLER":       2,
+    "CODIGO":         3,
+    "DESCRIPCION":    4,
+    "CANT_PEDIDA":    5,
+    "CANT_ENVIADA":   6,
+    "CANT_PENDIENTE": 7,
+    "ESTADO_DEUDA":   8,
+    "ESTADO_OT":      9
+  },
+
+  "PRECIOS_MANO_OBRA": {
+    "_sheet": "Precios_mano_obra",
+    "CODIGO":      0,
+    "DESCRIPCION": 1,
+    "PRECIO":      2
+  }
+}

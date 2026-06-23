@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guía del Portal de Servicio — Resellers DJI · BIDCOMAGRO</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --blue:   #00a3e0;
+  --blue-d: #0088bb;
+  --blue-a: rgba(0,163,224,.10);
+  --green:  #1a9e4a;
+  --yellow: #d4890a;
+  --red:    #d63031;
+  --bg:     #f0f2f5;
+  --panel:  #ffffff;
+  --surf:   #f7f8fa;
+  --brd:    #e0e3e8;
+  --tx:     #1a1f2e;
+  --tx-m:   #5e6778;
+  --tx-d:   #9ba5b4;
+  --f: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --r:4px; --rm:8px; --rl:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;line-height:1.6;padding-bottom:60px}
+
+/* ── HEADER ── */
+.site-header{background:var(--blue);padding:28px 0;text-align:center;color:#fff}
+.header-logo{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px}
+.dji-mark{width:48px;height:48px;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.4);border-radius:var(--rm);display:flex;align-items:center;justify-content:center}
+.dji-mark span{font-size:13px;font-weight:800;letter-spacing:.05em;color:#fff}
+.header-title{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.header-sub{font-size:13px;opacity:.8;margin-top:3px}
+.header-badge{display:inline-block;margin-top:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:40px;padding:4px 16px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+
+/* ── LAYOUT ── */
+.wrap{max-width:820px;margin:0 auto;padding:32px 20px}
+
+/* ── TOC ── */
+.toc{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:20px 24px;margin-bottom:32px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.toc-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx-d);margin-bottom:12px}
+.toc-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
+.toc-list a{font-size:13px;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:7px;padding:3px 0}
+.toc-list a:hover{text-decoration:underline}
+.toc-list a i{width:14px;text-align:center;font-size:11px;color:var(--tx-d)}
+
+/* ── SECCIONES ── */
+.sec{margin-bottom:36px}
+.sec-title{font-size:19px;font-weight:700;color:var(--tx);margin-bottom:16px;display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:2px solid var(--blue)}
+.sec-num{width:30px;height:30px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+
+/* ── CARDS ── */
+.card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden}
+.card-head{background:var(--surf);border-bottom:1px solid var(--brd);padding:11px 18px;font-size:12px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.card-head i{color:var(--blue);font-size:13px}
+.card-body{padding:18px}
+
+/* ── PASOS ── */
+.steps{display:flex;flex-direction:column;gap:16px}
+.step{display:flex;align-items:flex-start;gap:14px}
+.step-num{width:32px;height:32px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;margin-top:1px}
+.step-content{flex:1}
+.step-title{font-size:14px;font-weight:700;color:var(--tx);margin-bottom:5px}
+.step-body{font-size:13px;color:var(--tx-m);line-height:1.7}
+.step-body strong{color:var(--tx)}
+
+/* ── TIPO CARDS ── */
+.tipo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.tipo-c{background:var(--surf);border:2px solid var(--brd);border-radius:var(--rm);padding:14px 12px;text-align:center}
+.tipo-c i{font-size:22px;margin-bottom:8px;display:block;color:var(--blue)}
+.tipo-name{font-size:12px;font-weight:700;color:var(--tx);margin-bottom:3px}
+.tipo-desc{font-size:11px;color:var(--tx-m)}
+.tipo-c.rec{border-color:rgba(26,158,74,.4);background:rgba(26,158,74,.04)}
+.tipo-c.rec i{color:var(--green)}
+
+/* ── NOTICE BOXES ── */
+.box-info{background:var(--blue-a);border:1px solid rgba(0,163,224,.25);border-left:4px solid var(--blue);border-radius:0 var(--rm) var(--rm) 0;padding:12px 15px;font-size:13px;color:var(--tx);margin:12px 0;line-height:1.7}
+.box-info i{color:var(--blue);margin-right:7px}
+.box-warn{background:rgba(212,137,10,.07);border:1px solid rgba(212,137,10,.25);border-left:4px solid var(--yellow);border-radius:0 var(--rm) var(--rm) 0;padding:12px 15px;font-size:13px;color:var(--tx);margin:12px 0;line-height:1.7}
+.box-warn i{color:var(--yellow);margin-right:7px}
+.box-ok{background:rgba(26,158,74,.07);border:1px solid rgba(26,158,74,.25);border-left:4px solid var(--green);border-radius:0 var(--rm) var(--rm) 0;padding:12px 15px;font-size:13px;color:var(--tx);margin:12px 0;line-height:1.7}
+.box-ok i{color:var(--green);margin-right:7px}
+
+/* ── UI BADGES ── */
+.ui-tag{display:inline-flex;align-items:center;gap:5px;background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;color:var(--tx-m);vertical-align:middle}
+.ui-tag.blue{background:var(--blue-a);border-color:rgba(0,163,224,.25);color:var(--blue)}
+.ui-tag.green{background:rgba(26,158,74,.07);border-color:rgba(26,158,74,.2);color:var(--green)}
+
+/* ── CAMPO ETIQUETA ── */
+.field-demo{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:9px 13px;font-size:13px;color:var(--tx-d);font-style:italic;margin-top:6px}
+.field-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-m);margin-bottom:4px;display:block}
+
+/* ── TABLA ── */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+.tbl th{background:var(--surf);border-bottom:2px solid var(--brd);padding:9px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-m)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--brd);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-weight:600;color:var(--tx);white-space:nowrap}
+
+/* ── FAQ ── */
+.faq-item{margin-bottom:12px}
+.faq-q{font-weight:700;color:var(--tx);margin-bottom:4px;display:flex;align-items:flex-start;gap:8px}
+.faq-q i{color:var(--blue);flex-shrink:0;margin-top:3px;font-size:12px}
+.faq-a{font-size:13px;color:var(--tx-m);padding-left:22px;line-height:1.7}
+
+/* ── FOOTER ── */
+.guide-footer{text-align:center;margin-top:40px;padding:20px;border-top:1px solid var(--brd);font-size:12px;color:var(--tx-d)}
+
+/* ── PRINT ── */
+@media print {
+  body{background:#fff;padding:0}
+  .site-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sec-num{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .step-num{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card{box-shadow:none}
+  .wrap{padding:16px 10px}
+  .sec{page-break-inside:avoid}
+}
+
+/* ── MOBILE ── */
+@media(max-width:600px){
+  .toc-list{grid-template-columns:1fr}
+  .tipo-grid{grid-template-columns:1fr}
+  .header-title{font-size:18px}
+  .sec-title{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="site-header">
+  <div class="header-logo">
+    <div class="dji-mark"><span>DJI</span></div>
+    <div>
+      <div class="header-title">Guía del Portal de Servicio</div>
+      <div class="header-sub">BIDCOMAGRO · Aftersales Agro</div>
+    </div>
+  </div>
+  <div class="header-badge">Para distribuidores y resellers autorizados</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ÍNDICE -->
+  <div class="toc">
+    <div class="toc-title">Contenido de esta guía</div>
+    <ul class="toc-list">
+      <li><a href="#acceso"><i class="fa fa-globe"></i> Acceso al portal</a></li>
+      <li><a href="#nuevo-caso"><i class="fa fa-plus-circle"></i> Cargar un caso nuevo</a></li>
+      <li><a href="#tipos"><i class="fa fa-sitemap"></i> Tipos de gestión</a></li>
+      <li><a href="#seguimiento"><i class="fa fa-search"></i> Seguimiento de casos</a></li>
+      <li><a href="#pedidos"><i class="fa fa-shopping-cart"></i> Pedido de repuestos</a></li>
+      <li><a href="#mensajes"><i class="fa fa-comments"></i> Mensajes con el taller</a></li>
+      <li><a href="#faq"><i class="fa fa-question-circle"></i> Preguntas frecuentes</a></li>
+    </ul>
+  </div>
+
+  <!-- ══ 1. ACCESO ══ -->
+  <div class="sec" id="acceso">
+    <div class="sec-title">
+      <div class="sec-num">1</div>
+      Acceso al portal
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-globe"></i> URL del portal</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:10px">
+          El portal está disponible desde cualquier navegador, tanto en computadora como en celular.
+          Pedile el link a tu contacto en BIDCOMAGRO.
+        </p>
+        <div class="box-info">
+          <i class="fa fa-lock"></i>
+          Al ingresar al portal se te pide identificación: seleccionás tu empresa de la lista y escribís tu PIN de 4 dígitos. Todas las funciones del portal requieren este login.
+        </div>
+        <div class="box-ok" style="margin-top:0">
+          <i class="fa fa-lightbulb"></i>
+          Tu PIN te lo asignamos cuando te damos de alta como reseller. Si aún no lo tenés, usá el botón <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en la pantalla de ingreso.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-user-plus"></i> Primera vez — solicitá tu acceso</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:14px">
+          Si tu empresa aún no está registrada, podés solicitarlo directamente desde la pantalla de login del portal.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Ingresar al portal</div>
+              <div class="step-body">Al abrir el portal aparece la pantalla de identificación. Hacé clic en <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> debajo del botón Ingresar.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Completar el formulario</div>
+              <div class="step-body">Ingresá el nombre de tu empresa, email, teléfono y CUIT. Podés dejarnos una nota adicional si querés.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Esperar la aprobación</div>
+              <div class="step-body">Te avisamos por email cuando tu cuenta esté activa. En el mismo email recibís tu PIN de acceso.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 2. NUEVO CASO ══ -->
+  <div class="sec" id="nuevo-caso">
+    <div class="sec-title">
+      <div class="sec-num">2</div>
+      Cargar un caso nuevo
+    </div>
+
+    <div class="box-ok">
+      <i class="fa fa-check-circle"></i>
+      Al ingresar al portal ya estás en la pestaña <strong>Nueva Solicitud</strong>. Seguí estos pasos de arriba hacia abajo y al final hacé clic en <strong>Registrar solicitud</strong>.
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-building"></i> Paso 1 — Identificación</div>
+      <div class="card-body">
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">A</div>
+            <div class="step-content">
+              <div class="step-title">Seleccioná tu empresa (Reseller)</div>
+              <div class="step-body">
+                Elegí tu razón social en el desplegable. Si no aparece, contactanos para darte de alta.
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">B</div>
+            <div class="step-content">
+              <div class="step-title">Indicá el estado de garantía</div>
+              <div class="step-body">
+                <strong>IW (In Warranty)</strong> — el equipo está dentro del período de garantía.<br>
+                <strong>OOW (Out of Warranty)</strong> — el equipo está fuera de garantía.
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">C</div>
+            <div class="step-content">
+              <div class="step-title">Elegí el tipo de gestión</div>
+              <div class="step-body">Ver detalle en la <a href="#tipos" style="color:var(--blue)">Sección 3</a>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-helicopter"></i> Paso 2 — Datos del equipo</div>
+      <div class="card-body">
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">A</div>
+            <div class="step-content">
+              <div class="step-title">Modelo del equipo</div>
+              <div class="step-body">Seleccioná el modelo en el desplegable (ej: Agras T50, T30, etc.).</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">B</div>
+            <div class="step-content">
+              <div class="step-title">Número de Serie (S/N) <span style="color:var(--red)">*</span></div>
+              <div class="step-body">
+                Ingresá el S/N exacto del equipo en mayúsculas. El portal lo valida automáticamente contra el modelo seleccionado.
+                <div class="box-warn" style="margin-top:8px">
+                  <i class="fa fa-exclamation-triangle"></i>
+                  El S/N <strong>no puede estar repetido</strong> en un caso activo. Si ya existe un caso abierto para ese S/N, el sistema te lo indicará.
+                </div>
+                <span style="font-size:11px;color:var(--tx-d)">El S/N se encuentra en la etiqueta del equipo o en la app DJI Agras.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-file-alt"></i> Paso 3 — Descripción del problema</div>
+      <div class="card-body">
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">A</div>
+            <div class="step-content">
+              <div class="step-title">Descripción de la falla <span style="color:var(--red)">*</span></div>
+              <div class="step-body">
+                Describí el problema con la mayor precisión posible: síntomas, cuándo ocurre, qué error muestra la app, condiciones de operación, etc.
+                <div class="field-demo">
+                  Ej: "El motor 3 produce un ruido inusual durante el despegue. La app muestra error ESC-03. El equipo fue usado normalmente, sin golpes ni humedad."
+                </div>
+                <div class="box-info" style="margin-top:10px">
+                  <i class="fa fa-lightbulb"></i>
+                  Cuanto más detallada sea la descripción, más rápido puede el técnico diagnosticar el problema y preparar los repuestos necesarios.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">B</div>
+            <div class="step-content">
+              <div class="step-title">Referencia / Cliente Final <span style="color:var(--tx-d);font-size:12px;font-weight:400">(opcional)</span></div>
+              <div class="step-body">
+                Si el equipo pertenece a un cliente tuyo, podés poner su nombre acá. Sirve solo como referencia interna y no es visible públicamente.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-calendar-check"></i> Paso 4 — Fecha de activación <span style="font-size:10px;font-weight:400;color:var(--tx-d);margin-left:6px">(opcional)</span></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m)">
+          Si conocés la fecha de compra o activación del equipo, ingresala. Se utiliza para calcular el vencimiento de garantía.
+        </p>
+        <div class="box-warn">
+          <i class="fa fa-exclamation-triangle"></i>
+          Una vez guardada, <strong>esta fecha no puede modificarse desde el Portal</strong>. Si cometés un error, contactate con nosotros.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-paper-plane"></i> Paso 5 — Enviar la solicitud</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
+          Hacé clic en el botón azul <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Registrar solicitud</span> al pie del formulario.
+        </p>
+        <div class="box-ok">
+          <i class="fa fa-check-circle"></i>
+          Al registrarse correctamente, el sistema muestra tu número de caso <strong>WH/REP/XXXXX</strong>.
+          Guardalo para hacer seguimiento. También recibís un email de confirmación automático.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:rgba(0,163,224,.3)">
+      <div class="card-head" style="background:var(--blue-a)"><i class="fa fa-file-excel"></i> Carga masiva — múltiples equipos</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:10px">
+          Si necesitás ingresar varios equipos de una vez, usá la opción
+          <span class="ui-tag blue"><i class="fa fa-file-excel"></i> Carga Masiva de Reparaciones (Excel)</span>
+          disponible en la parte superior de la pestaña Nueva Solicitud.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content"><div class="step-body">Descargá la plantilla Excel desde el portal.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content"><div class="step-body">Completá una fila por equipo: <strong>Modelo, S/N, Falla, Garantía, Tipo de gestión</strong>.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content"><div class="step-body">Subí el archivo al portal. Se registran todos los casos de una vez.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3. TIPOS DE GESTIÓN ══ -->
+  <div class="sec" id="tipos">
+    <div class="sec-title">
+      <div class="sec-num">3</div>
+      Tipos de gestión
+    </div>
+
+    <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
+      Al cargar un caso tenés que indicar cómo se va a gestionar la reparación. Elegí según corresponda:
+    </p>
+
+    <div class="tipo-grid">
+      <div class="tipo-c">
+        <i class="fa fa-tools"></i>
+        <div class="tipo-name">Taller Central</div>
+        <div class="tipo-desc">Envío a Carmen de Areco</div>
+      </div>
+      <div class="tipo-c">
+        <i class="fa fa-box-open"></i>
+        <div class="tipo-name">Reparación en mi taller</div>
+        <div class="tipo-desc">Reparación propia</div>
+      </div>
+      <div class="tipo-c">
+        <i class="fa fa-cog"></i>
+        <div class="tipo-name">Aftersales propio</div>
+        <div class="tipo-desc">Gestión local DJI</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-tools"></i> Taller Central — Envío a Carmen de Areco</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
+          El equipo <strong>se envía físicamente</strong> al taller de BIDCOMAGRO en Carmen de Areco.
+          Nuestro equipo técnico realiza el diagnóstico y la reparación completa.
+          Es el circuito más común para reparaciones bajo garantía o fuera de garantía que requieren mano de obra especializada.
+        </p>
+        <div class="box-info" style="margin-top:12px">
+          <i class="fa fa-truck"></i>
+          Coordiná el envío con nuestro equipo. Una vez que el equipo llega al taller, creamos la Orden de Trabajo y comenzamos el diagnóstico.
+        </div>
+        <table class="tbl" style="margin-top:14px">
+          <thead><tr><th>Etapa</th><th>¿Qué pasa?</th></tr></thead>
+          <tbody>
+            <tr><td>Abierto</td><td>Caso registrado, equipo en camino al taller</td></tr>
+            <tr><td>En Revisión</td><td>Técnico realizando diagnóstico</td></tr>
+            <tr><td>Presupuesto enviado</td><td>Te llega el detalle por email (solo OOW)</td></tr>
+            <tr><td>En reparación</td><td>Reparación en curso</td></tr>
+            <tr><td>Finalizado</td><td>Listo para retirar / despachar</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-box-open"></i> Reparación en mi taller</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
+          Vos realizás la reparación en tu propio taller. Registrás el caso para solicitar repuestos o para dejar constancia de la gestión.
+          El equipo <strong>no se envía</strong> a Carmen de Areco.
+        </p>
+        <div class="box-info">
+          <i class="fa fa-shopping-cart"></i>
+          Podés solicitar los repuestos necesarios desde la pestaña <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Pedidos</span> del portal.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-cog"></i> Aftersales propio — Gestión local DJI</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
+          Para resellers con autorización de Aftersales DJI. Gestionás la garantía directamente con DJI a través del portal de aftersales.
+          Al cargar el caso necesitás tener el número <strong>CAS/FWRC</strong> de DJI.
+        </p>
+        <div class="box-warn">
+          <i class="fa fa-exclamation-triangle"></i>
+          Este tipo requiere campos adicionales obligatorios: <strong>N° CAS o FWRC</strong> y el <strong>estado de la reparación</strong>
+          ("Ya reparé" para reposición de stock / "Pendiente" para solicitar repuestos antes de reparar).
+        </div>
+        <div class="box-info" style="margin-top:0">
+          <i class="fa fa-search"></i>
+          El N° CAS se encuentra en el portal de Aftersales de DJI, en el detalle del caso aprobado.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4. SEGUIMIENTO ══ -->
+  <div class="sec" id="seguimiento">
+    <div class="sec-title">
+      <div class="sec-num">4</div>
+      Seguimiento de casos
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-th-large"></i> Mis Órdenes — panel completo</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
+          Para ver todos tus casos con estado actualizado, hacé clic en <span class="ui-tag blue"><i class="fa fa-th-large"></i> Mis Órdenes</span>. Esta sección requiere tu <strong>PIN</strong>.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content"><div class="step-body">Clic en <span class="ui-tag blue">Mis Órdenes</span> → ingresá tu PIN de 4 dígitos.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content"><div class="step-body">Ves el listado de todos tus casos con estado, modelo, S/N y fecha de ingreso.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content"><div class="step-body">Hacé clic en un caso para ver el detalle completo e historial de estados.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-search"></i> Consulta rápida por S/N o número de caso</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
+          Sin PIN podés consultar el estado de un caso puntual usando el número de OT o el S/N del equipo.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content"><div class="step-body">En la pestaña <span class="ui-tag">Recursos</span>, usá el buscador de estado de OT.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content"><div class="step-body">Ingresá el número de caso (<strong>WH/REP/XXXXX</strong>) o el S/N del equipo.</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content"><div class="step-body">Se muestra el estado actual, historial de movimientos y datos técnicos disponibles.</div></div>
+          </div>
+        </div>
+        <div class="box-info" style="margin-top:14px">
+          <i class="fa fa-lightbulb"></i>
+          Podés buscar <strong>solo por S/N</strong> sin necesitar el número de caso.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-list-alt"></i> Significado de los estados</div>
+      <div class="card-body">
+        <table class="tbl">
+          <thead><tr><th>Estado</th><th>¿Qué significa?</th></tr></thead>
+          <tbody>
+            <tr><td>Abierto</td><td>Caso registrado, pendiente de revisión técnica</td></tr>
+            <tr><td>En Revisión</td><td>El técnico está diagnosticando el equipo</td></tr>
+            <tr><td>Presupuesto enviado</td><td>Te enviamos el presupuesto por email (casos OOW)</td></tr>
+            <tr><td>Presupuesto aceptado</td><td>Aprobaste el presupuesto, comenzamos la reparación</td></tr>
+            <tr><td>Espera de repuestos</td><td>Esperamos llegada de piezas para continuar</td></tr>
+            <tr><td>En reparación</td><td>Reparación en curso</td></tr>
+            <tr><td>Finalizado</td><td>Reparación completada, listo para entrega</td></tr>
+            <tr><td>Entregado</td><td>Equipo devuelto al reseller</td></tr>
+            <tr><td>CANCELADO</td><td>Caso cerrado / anulado</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 5. PEDIDOS ══ -->
+  <div class="sec" id="pedidos">
+    <div class="sec-title">
+      <div class="sec-num">5</div>
+      Pedido de repuestos
+    </div>
+
+    <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
+      Podés solicitar repuestos directamente desde el portal con precio reseller. La sección <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Pedidos</span> requiere tu <strong>PIN</strong>.
+    </p>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-shopping-cart"></i> Cómo hacer un pedido</div>
+      <div class="card-body">
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Acceder a Pedidos</div>
+              <div class="step-body">Clic en <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Pedidos</span> e ingresá tu PIN.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Buscar repuestos</div>
+              <div class="step-body">
+                Usá el buscador por código SKU o por nombre del repuesto.
+                Cada ítem muestra el <strong>precio PVP</strong> (tachado) y el <strong>precio reseller con 40% de descuento</strong>.
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Agregar al carrito</div>
+              <div class="step-body">Seleccioná los repuestos y las cantidades. Podés seguir buscando y acumulando ítems en el carrito.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Revisar y confirmar</div>
+              <div class="step-body">
+                Revisá el resumen con precios y cantidades. Podés agregar una nota al pedido.
+                Hacé clic en <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Confirmar pedido</span>.
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-title">Confirmación</div>
+              <div class="step-body">Recibís un email con el detalle del pedido y los precios. El equipo de BIDCOMAGRO lo procesa y te avisa sobre disponibilidad y despacho.</div>
+            </div>
+          </div>
+        </div>
+        <div class="box-warn" style="margin-top:14px">
+          <i class="fa fa-info-circle"></i>
+          Los precios mostrados <strong>no incluyen impuestos</strong>. El total final puede variar según la condición impositiva de tu empresa.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6. MENSAJES ══ -->
+  <div class="sec" id="mensajes">
+    <div class="sec-title">
+      <div class="sec-num">6</div>
+      Mensajes con el taller
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-comments"></i> Canal de mensajes</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
+          Desde la pestaña <span class="ui-tag blue"><i class="fa fa-comments"></i> Mensajes</span> podés comunicarte directamente con nuestro equipo técnico sobre cualquier caso.
+          También podés enviar mensajes desde el detalle de cada OT en <strong>Mis Órdenes</strong>.
+        </p>
+        <div class="box-info">
+          <i class="fa fa-bell"></i>
+          Cuando recibís un mensaje nuevo, aparece un indicador en la pestaña Mensajes. También podés recibir notificaciones por email según la configuración de tu cuenta.
+        </div>
+        <div class="box-warn" style="margin-top:0">
+          <i class="fa fa-exclamation-triangle"></i>
+          Los mensajes son de uso interno entre vos y el taller. <strong>No son públicos</strong> y no los ve el cliente final del equipo.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 7. FAQ ══ -->
+  <div class="sec" id="faq">
+    <div class="sec-title">
+      <div class="sec-num">7</div>
+      Preguntas frecuentes
+    </div>
+
+    <div class="card">
+      <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Puedo cargar un caso sin saber si está en garantía?</div>
+          <div class="faq-a">Sí. Podés seleccionar IW como opción por defecto y aclarar la situación en la descripción del problema. El técnico lo evaluará al recibirlo.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué pasa si el S/N no pasa la validación?</div>
+          <div class="faq-a">Verificá que el modelo seleccionado coincida con el equipo. Si el S/N sigue dando error, contactanos: puede ser que el modelo tenga variantes o que el S/N esté mal impreso en la etiqueta.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Con qué frecuencia se actualiza el estado de mi caso?</div>
+          <div class="faq-a">Los estados se actualizan en tiempo real cuando el técnico registra un cambio en el sistema. También recibís emails automáticos en los cambios más importantes (diagnóstico, presupuesto, finalización).</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Puedo modificar o cancelar un caso una vez enviado?</div>
+          <div class="faq-a">No podés modificar el caso desde el portal una vez enviado. Si necesitás hacer algún cambio o cancelarlo, envianos un mensaje desde la sección Mensajes o contactate directamente.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Cómo obtengo mi PIN?</div>
+          <div class="faq-a">El PIN te lo enviamos por email al darte de alta. Si aún no tenés acceso, usá el botón <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en la pantalla de login del portal. Si ya tenés cuenta pero olvidaste el PIN, contactanos por email o WhatsApp.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿El portal funciona en celular?</div>
+          <div class="faq-a">Sí, está optimizado para mobile. Podés cargar casos, consultar estados y enviar mensajes desde tu teléfono sin ningún problema.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué incluyen los impuestos en los precios de repuestos?</div>
+          <div class="faq-a">Los precios mostrados en el portal son <strong>sin impuestos</strong>. El precio final con impuestos se detalla en la factura según la condición impositiva de tu empresa.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="guide-footer">
+    <strong>BIDCOMAGRO — Aftersales DJI Agro</strong><br>
+    Esta guía está sujeta a actualizaciones. Ante cualquier duda, contactate con tu referente comercial.
+  </div>
+
+</div><!-- /wrap -->
+</body>
+</html>

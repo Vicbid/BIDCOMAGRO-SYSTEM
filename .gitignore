@@ -1,0 +1,16 @@
+# Claude Code
+.claude/
+
+# Apps Script deploy metadata (no son código fuente)
+**/.clasp.json
+**/.claspignore
+**/.deploy-hash
+
+# Agentes IA
+.ai_agents/
+
+# Node / misc
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
