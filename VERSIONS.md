@@ -35,7 +35,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.2 | XLS backorder adjunto al email: codigo, desc, modelos, FOB, cantidad (editable), formula P*Q |
+| Despacho_Código.js | 2.4 | Backorder en hilo persistente: Thread ID en WOS_CONFIG, reply a destinatarios actuales |
 | Despacho_Index.html | 2.1 | Revierte botón re-enviar confirmación (cancelado) |
 | WOS_GmailFlow.js | 1.1 | Fix: elimina bloqueo duro por Thread_ID ausente; fallback a email nuevo ya existía |
 | Despacho_Env.js | 1.0 | |

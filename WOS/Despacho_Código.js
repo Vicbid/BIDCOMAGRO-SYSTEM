@@ -1,4 +1,4 @@
-// @version 2.2
+// @version 2.4
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1185,10 +1185,9 @@ function WOS_reporteBackorder() {
       }
     } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
 
-    // 5. Generar XLS (solo ítems sin cobertura) y enviar email
+    // 5. Generar XLS (solo ítems sin cobertura) y enviar en hilo persistente
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
-    var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' item' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
 
     var xlsBlob = null;
     if (sinCubrir.length > 0) {
@@ -1198,10 +1197,44 @@ function WOS_reporteBackorder() {
     var mailOpts = { htmlBody: html, name: 'WOS · BidcomAgro' };
     if (xlsBlob) mailOpts.attachments = [xlsBlob];
 
-    for (var r = 0; r < destinatarios.length; r++) {
-      GmailApp.sendEmail(destinatarios[r], asunto, '', mailOpts);
+    var toField = destinatarios[0];
+    var ccField = destinatarios.slice(1).join(', ');
+
+    var threadId = _wosGetBackorderThreadId();
+    var enviado  = false;
+
+    if (threadId) {
+      try {
+        var thread = GmailApp.getThreadById(threadId);
+        var msgs   = thread.getMessages();
+        var replyOpts = { to: toField, cc: ccField, htmlBody: html, name: 'WOS · BidcomAgro' };
+        if (xlsBlob) replyOpts.attachments = [xlsBlob];
+        msgs[msgs.length - 1].reply('', replyOpts);
+        enviado = true;
+        Logger.log('WOS_reporteBackorder: reply en hilo ' + threadId + ' → ' + destinatarios.join(', '));
+      } catch(eT) {
+        Logger.log('WOS_reporteBackorder: hilo ' + threadId + ' invalido (' + eT + '), creando nuevo');
+        threadId = '';
+      }
     }
-    Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length + ' | xls: ' + (xlsBlob ? 'OK' : 'no generado'));
+
+    if (!enviado) {
+      // Primer envío o hilo perdido: nueva cadena, capturar Thread ID
+      var asuntoHilo = '[WOS] Reporte Backorder — Logistica Internacional';
+      var newOpts = { htmlBody: html, name: 'WOS · BidcomAgro', cc: ccField };
+      if (xlsBlob) newOpts.attachments = [xlsBlob];
+      try {
+        var draft   = GmailApp.createDraft(toField, asuntoHilo, '', newOpts);
+        var sentMsg = draft.send();
+        var newId   = sentMsg.getThread().getId();
+        _wosSetBackorderThreadId(newId);
+        Logger.log('WOS_reporteBackorder: nuevo hilo creado → ' + newId + ' → ' + destinatarios.join(', '));
+      } catch(eD) {
+        GmailApp.sendEmail(toField, asuntoHilo, '', newOpts);
+        Logger.log('WOS_reporteBackorder: fallback sendEmail sin capturar threadId (' + eD + ')');
+      }
+    }
+    Logger.log('WOS_reporteBackorder OK | sinCubrir: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length + ' | xls: ' + (xlsBlob ? 'OK' : 'no generado'));
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }
@@ -1284,12 +1317,11 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
 
     SpreadsheetApp.flush();
 
-    // Exportar como XLSX
-    var ssId    = ss.getId();
-    var token   = ScriptApp.getOAuthToken();
-    var url     = 'https://docs.google.com/spreadsheets/d/' + ssId + '/export?format=xlsx';
-    var resp    = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
-    var blob    = resp.getBlob().setName('WOS_Backorder_' + fechaTag + '.xlsx');
+    // Exportar como XLSX via DriveApp (sin UrlFetchApp)
+    var ssId = ss.getId();
+    var blob = DriveApp.getFileById(ssId)
+                 .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                 .setName('WOS_Backorder_' + fechaTag + '.xlsx');
     return blob;
 
   } catch(e) {
@@ -1369,6 +1401,40 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
     '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 28px;font-size:11px;color:#94a3b8;text-align:center">' +
     'WOS · BidcomAgro · Reporte automático — Lunes, Miércoles y Viernes a las 10 hs' +
     '</div></div></body></html>';
+}
+
+// ── Thread ID del hilo de backorder (guardado en WOS_CONFIG de MASTER) ──
+function _wosGetBackorderThreadId() {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('WOS_CONFIG');
+    if (!hoja) return '';
+    var data = hoja.getDataRange().getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0] || '').trim() === 'BACKORDER_THREAD_ID') {
+        return String(data[i][1] || '').trim();
+      }
+    }
+  } catch(e) { Logger.log('_wosGetBackorderThreadId: ' + e); }
+  return '';
+}
+
+function _wosSetBackorderThreadId(threadId) {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('WOS_CONFIG');
+    if (!hoja) return;
+    var data = hoja.getDataRange().getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0] || '').trim() === 'BACKORDER_THREAD_ID') {
+        hoja.getRange(i + 1, 2).setValue(threadId);
+        _wosConfigCache = null;
+        try { CacheService.getScriptCache().remove('wos_config_v1'); } catch(eC) {}
+        return;
+      }
+    }
+    hoja.appendRow(['BACKORDER_THREAD_ID', threadId]);
+    _wosConfigCache = null;
+    try { CacheService.getScriptCache().remove('wos_config_v1'); } catch(eC) {}
+  } catch(e) { Logger.log('_wosSetBackorderThreadId: ' + e); }
 }
 
 // Correr UNA VEZ desde el editor para instalar los 3 triggers
