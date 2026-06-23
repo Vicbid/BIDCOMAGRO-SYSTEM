@@ -18,7 +18,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
-| RS_Pedidos.js | 1.0 | |
+| RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
@@ -35,9 +35,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 1.1 | Agrega WOS_reporteBackorder + trigger |
-| Despacho_Index.html | 1.1 | Botón enviar reporte en overlay Lista de Compras |
-| WOS_GmailFlow.js | 1.0 | |
+| Despacho_Código.js | 2.2 | XLS backorder adjunto al email: codigo, desc, modelos, FOB, cantidad (editable), formula P*Q |
+| Despacho_Index.html | 2.1 | Revierte botón re-enviar confirmación (cancelado) |
+| WOS_GmailFlow.js | 1.1 | Fix: elimina bloqueo duro por Thread_ID ausente; fallback a email nuevo ya existía |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER

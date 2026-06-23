@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 2.2
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1160,16 +1160,143 @@ function WOS_reporteBackorder() {
       return;
     }
 
-    // 5. Enviar email
+    // 4b. Lookups para XLS: modelos (CARMEN) y FOB (LISTA_REPUESTOS)
+    var modelosMap = {};
+    var fobMap     = {};
+    try {
+      var carmenSheet = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK');
+      if (carmenSheet) {
+        var carmenData = carmenSheet.getDataRange().getValues();
+        for (var cm = 1; cm < carmenData.length; cm++) {
+          var cmSku = String(carmenData[cm][0] || '').trim().toUpperCase();
+          if (cmSku) modelosMap[cmSku] = String(carmenData[cm][4] || '').trim();
+        }
+      }
+    } catch(eCM) { Logger.log('WOS_reporteBackorder modelosMap: ' + eCM); }
+
+    try {
+      var listaSheet = masterSS.getSheetByName('LISTA_REPUESTOS');
+      if (listaSheet) {
+        var listaData = listaSheet.getDataRange().getValues();
+        for (var lr = 1; lr < listaData.length; lr++) {
+          var lrSku = String(listaData[lr][0] || '').trim().toUpperCase();
+          if (lrSku) fobMap[lrSku] = Number(listaData[lr][4]) || 0;
+        }
+      }
+    } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
+
+    // 5. Generar XLS (solo ítems sin cobertura) y enviar email
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
-    var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
-    for (var r = 0; r < destinatarios.length; r++) {
-      GmailApp.sendEmail(destinatarios[r], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro' });
+    var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' item' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
+
+    var xlsBlob = null;
+    if (sinCubrir.length > 0) {
+      xlsBlob = _wosBackorderGenerarXLS(sinCubrir, modelosMap, fobMap);
     }
-    Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
+
+    var mailOpts = { htmlBody: html, name: 'WOS · BidcomAgro' };
+    if (xlsBlob) mailOpts.attachments = [xlsBlob];
+
+    for (var r = 0; r < destinatarios.length; r++) {
+      GmailApp.sendEmail(destinatarios[r], asunto, '', mailOpts);
+    }
+    Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length + ' | xls: ' + (xlsBlob ? 'OK' : 'no generado'));
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
+  }
+}
+
+// items: array de { sku, desc, gap }  (solo sinCubrir)
+// modelosMap: { SKU: 'modelos string' }
+// fobMap:     { SKU: precioUSD }
+function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
+  var ss = null;
+  try {
+    var fechaTag = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd');
+    ss = SpreadsheetApp.create('WOS_Backorder_' + fechaTag + '_tmp');
+    var sheet = ss.getActiveSheet();
+    sheet.setName('Backorder');
+
+    // Col A: vacía (para que el comprador agregue el código largo)
+    // Cabecera en fila 4, datos desde fila 5
+    // B=Codigo  C=Descripcion  D=Equipo/Modelos  E=FOB  F=Cantidad  G=Total
+    var HDR_ROW  = 4;
+    var DATA_ROW = 5;
+
+    // G3: total de la columna G
+    var lastDataRow = DATA_ROW + items.length - 1;
+    sheet.getRange(3, 7)
+      .setFormula('=SUM(G' + DATA_ROW + ':G' + lastDataRow + ')')
+      .setNumberFormat('#,##0.00')
+      .setFontWeight('bold')
+      .setFontSize(12)
+      .setBackground('#1e3a8a')
+      .setFontColor('#ffffff')
+      .setHorizontalAlignment('right');
+
+    // Cabeceras fila 4: B-G propias + H, I, J extras
+    var headers = [['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Cantidad a comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']];
+    var hdrRange = sheet.getRange(HDR_ROW, 2, 1, 9);
+    hdrRange.setValues(headers);
+    hdrRange.setBackground('#1e3a8a');
+    hdrRange.setFontColor('#ffffff');
+    hdrRange.setFontWeight('bold');
+    hdrRange.setFontSize(11);
+    hdrRange.setHorizontalAlignment('center');
+    sheet.setFrozenRows(HDR_ROW);
+
+    // Filas de datos
+    for (var i = 0; i < items.length; i++) {
+      var it  = items[i];
+      var row = DATA_ROW + i;
+      var modelos = modelosMap[it.sku] || '';
+      var fob     = fobMap[it.sku]     || 0;
+
+      // Col A vacía
+      sheet.getRange(row, 2).setValue(it.sku);
+      sheet.getRange(row, 3).setValue(it.desc);
+      sheet.getRange(row, 4).setValue(modelos);
+      sheet.getRange(row, 5).setValue(fob).setNumberFormat('#,##0.00');
+      sheet.getRange(row, 6).setValue(it.gap).setNumberFormat('#,##0');
+      sheet.getRange(row, 7).setFormula('=E' + row + '*F' + row).setNumberFormat('#,##0.00');
+
+      // Fila alternada
+      if (i % 2 === 1) sheet.getRange(row, 1, 1, 7).setBackground('#f0f4ff');
+    }
+
+    // Anchos de columna
+    sheet.setColumnWidth(1, 140); // A: vacía para codigo largo
+    sheet.setColumnWidth(2, 120); // B: Codigo corto
+    sheet.setColumnWidth(3, 280); // C: Descripcion
+    sheet.setColumnWidth(4, 220); // D: Modelos
+    sheet.setColumnWidth(5, 140); // E: FOB
+    sheet.setColumnWidth(6, 140); // F: Cantidad
+    sheet.setColumnWidth(7, 140); // G: Total
+    sheet.setColumnWidth(8, 140); // H: PN Bidcom
+    sheet.setColumnWidth(9, 100); // I: PA
+    sheet.setColumnWidth(10, 200); // J: Link de referencia
+
+    // Negrita en col Cantidad para que sea obvio que se puede editar
+    if (items.length > 0) {
+      sheet.getRange(DATA_ROW, 6, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a');
+    }
+
+    SpreadsheetApp.flush();
+
+    // Exportar como XLSX
+    var ssId    = ss.getId();
+    var token   = ScriptApp.getOAuthToken();
+    var url     = 'https://docs.google.com/spreadsheets/d/' + ssId + '/export?format=xlsx';
+    var resp    = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+    var blob    = resp.getBlob().setName('WOS_Backorder_' + fechaTag + '.xlsx');
+    return blob;
+
+  } catch(e) {
+    Logger.log('_wosBackorderGenerarXLS ERROR: ' + e);
+    return null;
+  } finally {
+    if (ss) { try { DriveApp.getFileById(ss.getId()).setTrashed(true); } catch(eD) {} }
   }
 }
 

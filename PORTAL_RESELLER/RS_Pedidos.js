@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -414,7 +414,7 @@ function confirmarPedidoPortal(params) {
     var NOTAS_SS_ID = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
     var notasHoja = null;
     try {
-      notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getActiveSheet();
+      notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
     } catch(eNS) { Logger.log('confirmarPedidoPortal openNotasSS: ' + eNS); }
 
     var hojaDesc = getSheet(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);

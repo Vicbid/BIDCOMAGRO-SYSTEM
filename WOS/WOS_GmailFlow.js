@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -383,7 +383,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var ped = _wosLeerPedido(numero);
     if (!ped.reseller) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     var esRetiroDesp = String(ped.envio || '').toLowerCase().indexOf('retiro') >= 0;
-    if (!ped.threadId && !esRetiroDesp) return { ok: false, error: 'Sin Thread_ID en col R. Verificar que el Portal guardó el hilo al crear el pedido.' };
+    // Sin threadId: el bloque try/catch de más abajo ya envía email nuevo como fallback.
 
     var email = _wosGetEmailReseller(ped.reseller);
     if (!email) return { ok: false, error: 'Email no encontrado para: ' + ped.reseller };
@@ -768,7 +768,7 @@ function WOS_notificarFaltante(numero, faltantes, operario) {
     operario = String(operario || '');
     var ped = _wosLeerPedido(numero);
     if (!ped.reseller) return { ok: false, error: 'Pedido no encontrado: ' + numero };
-    if (!ped.threadId)  return { ok: false, error: 'Sin Thread_ID en col R. Verificar Hito 1 del Portal.' };
+    // Sin threadId: el bloque try/catch de más abajo ya envía email nuevo como fallback.
 
     var email = _wosGetEmailReseller(ped.reseller);
     if (!email) return { ok: false, error: 'Email no encontrado para reseller: ' + ped.reseller };
