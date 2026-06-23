@@ -35,8 +35,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.4 | Backorder en hilo persistente: Thread ID en WOS_CONFIG, reply a destinatarios actuales |
-| Despacho_Index.html | 2.1 | Revierte botón re-enviar confirmación (cancelado) |
+| Despacho_Código.js | 2.6 | Fix XLS: getBytes() fuerza carga en memoria antes de trashar el archivo Drive |
+| Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
 | WOS_GmailFlow.js | 1.1 | Fix: elimina bloqueo duro por Thread_ID ausente; fallback a email nuevo ya existía |
 | Despacho_Env.js | 1.0 | |
 

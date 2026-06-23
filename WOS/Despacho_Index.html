@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.1 -->
+<!-- @version 2.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -936,7 +936,7 @@ var _pendingAccion   = null; // { timer, interval, toastEl, execute, revert }
 var _vistaCompacta   = false;
 var _modalDesp = null;
 var _modalFalt = null;
-var _usuario   = { email: '', nombre: '', tipo: '' };
+var _usuario   = { email: '', nombre: '', tipo: '', esAdmin: false };
 
 var SLA_HORAS_HABILES = 96; // 4 días hábiles (lunes–viernes)
 
@@ -1973,16 +1973,25 @@ function renderAcciones(p) {
 
   if (est === 'Listo_Retiro') {
     btns += '<button class="btn btn-success" onclick="accion(\'' + n + '\',\'confirmarRetiro\')">✅ El reseller retiró el pedido</button>';
+    if (_usuario.esAdmin) btns += _btnAdminCancelar(n);
     return btns;
   }
   if (est === 'Entregado_Cerrado') {
     btns += '<button class="btn btn-ghost" style="color:var(--amber-m);border-color:var(--amber-m)" onclick="_revertirAPreparado(\'' + n + '\')" title="Revertir a Preparado si se despachó por error">↩ Revertir a Preparado</button>';
+    if (_usuario.esAdmin) btns += _btnAdminCancelar(n);
     return btns;
   }
   if (!EST_TERMINAL[est] && est !== 'En_Espera_Reseller') {
     btns += '<button class="btn btn-ghost" onclick="abrirModalCancelar(\'' + n + '\')" style="color:var(--red);border-color:var(--red)">✕ Cancelar pedido</button>';
   }
+  if (_usuario.esAdmin && (EST_TERMINAL[est] || est === 'En_Espera_Reseller') && est !== 'Cancelado') {
+    btns += _btnAdminCancelar(n);
+  }
   return btns;
+}
+
+function _btnAdminCancelar(n) {
+  return '<button class="btn btn-ghost" onclick="abrirModalCancelar(\'' + n + '\')" style="color:var(--red);border-color:var(--red);opacity:.75" title="Cancelacion administrativa — solo admins">⚠ Cancelar (Admin)</button>';
 }
 
 // ── Toggle expand ─────────────────────────────────────────────

@@ -1,4 +1,4 @@
-// @version 2.4
+// @version 2.6
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -96,11 +96,11 @@ function WOS_getUsuario() {
                     .getSheetByName('Usuarios_Internos').getDataRange().getValues();
       for (var i = 1; i < datos.length; i++) {
         if (String(datos[i][1] || '').trim().toLowerCase() === emailL) {
-          return { email: email, nombre: String(datos[i][0] || email), tipo: String(datos[i][2] || '') };
+          return { email: email, nombre: String(datos[i][0] || email), tipo: String(datos[i][2] || ''), esAdmin: String(datos[i][2] || '').trim() === 'Admin' };
         }
       }
     }
-    return { email: email, nombre: email || 'Desconocido', tipo: '' };
+    return { email: email, nombre: email || 'Desconocido', tipo: '', esAdmin: false };
   } catch(e) {
     Logger.log('WOS_getUsuario: ' + e);
     return { email: '', nombre: 'Desconocido', tipo: '' };
@@ -1316,19 +1316,28 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
     }
 
     SpreadsheetApp.flush();
+    Utilities.sleep(2000); // esperar que Drive procese el archivo antes de convertir
 
-    // Exportar como XLSX via DriveApp (sin UrlFetchApp)
-    var ssId = ss.getId();
-    var blob = DriveApp.getFileById(ssId)
-                 .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                 .setName('WOS_Backorder_' + fechaTag + '.xlsx');
+    // Exportar como XLSX: forzar lectura de bytes en memoria ANTES de borrar el archivo
+    var ssId    = ss.getId();
+    var rawBlob = DriveApp.getFileById(ssId)
+                    .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    var blob    = Utilities.newBlob(
+                    rawBlob.getBytes(),
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'WOS_Backorder_' + fechaTag + '.xlsx'
+                  );
+
+    // Borrar el temp solo después de tener los bytes en memoria
+    try { DriveApp.getFileById(ssId).setTrashed(true); } catch(eD) { Logger.log('trash: ' + eD); }
+
+    Logger.log('_wosBackorderGenerarXLS OK: ' + blob.getBytes().length + ' bytes');
     return blob;
 
   } catch(e) {
     Logger.log('_wosBackorderGenerarXLS ERROR: ' + e);
-    return null;
-  } finally {
     if (ss) { try { DriveApp.getFileById(ss.getId()).setTrashed(true); } catch(eD) {} }
+    return null;
   }
 }
 
