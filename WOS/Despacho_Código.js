@@ -1,4 +1,4 @@
-// @version 3.3
+// @version 3.4
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1118,12 +1118,12 @@ function WOS_reporteBackorder() {
     } catch(eCM) { Logger.log('WOS_reporteBackorder modelosMap: ' + eCM); }
 
     try {
-      var listaSheet = masterSS.getSheetByName('LISTA_REPUESTOS');
-      if (listaSheet) {
-        var listaData = listaSheet.getDataRange().getValues();
-        for (var lr = 1; lr < listaData.length; lr++) {
-          var lrSku = String(listaData[lr][0] || '').trim().toUpperCase();
-          if (lrSku) fobMap[lrSku] = Number(listaData[lr][4]) || 0;
+      var dbRepSheet = masterSS.getSheetByName('DB_REPUESTOS');
+      if (dbRepSheet) {
+        var dbRepData = dbRepSheet.getDataRange().getValues();
+        for (var lr = 1; lr < dbRepData.length; lr++) {
+          var lrSku = String(dbRepData[lr][1] || '').trim().toUpperCase(); // col B = SKU
+          if (lrSku) fobMap[lrSku] = parseFloat(String(dbRepData[lr][6] || '0').replace(',', '.')) || 0; // col G = FOB
         }
       }
     } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
