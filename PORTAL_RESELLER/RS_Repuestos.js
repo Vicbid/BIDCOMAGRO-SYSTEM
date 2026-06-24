@@ -207,9 +207,13 @@ function RS_getListaPrecios() {
     try { return JSON.parse(cached); } catch(e) {}
   }
   try {
-    var ss    = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID);
-    var sheet = ss.getSheetByName('TODO');
-    if (!sheet) return { ok: false, msg: 'Hoja TODO no encontrada' };
+    var ss     = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID);
+    var sheet  = ss.getSheetByName('TODO');
+    if (!sheet) {
+      var nombres = ss.getSheets().map(function(s) { return s.getName(); }).join(', ');
+      Logger.log('RS_getListaPrecios: hoja TODO no encontrada. Hojas disponibles: ' + nombres);
+      return { ok: false, msg: 'Hoja "TODO" no encontrada. Hojas disponibles: ' + nombres };
+    }
     var rows  = sheet.getDataRange().getValues();
     var items = [];
     for (var i = 1; i < rows.length; i++) {
