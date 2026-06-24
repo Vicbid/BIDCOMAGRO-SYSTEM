@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.7 -->
+<!-- @version 2.8 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -711,13 +711,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
   <!-- TABS: Nueva Solicitud | Mis Órdenes | Recursos | Gestión DJI -->
   <div class="tab-bar mt-3">
-    <button class="tab-btn active" id="tb-nueva" onclick="showTab('nueva','tb-nueva')">
+    <button class="tab-btn" id="tb-nueva" onclick="showTab('nueva','tb-nueva')">
       <i class="fa fa-plus-circle"></i> Nueva Reparación
     </button>
     <button class="tab-btn" id="tb-dash" onclick="pedirPin()">
       <i class="fa fa-clipboard-list"></i> Mis Reparaciones
     </button>
-    <button class="tab-btn" id="tb-rec" onclick="showTab('rec','tb-rec')">
+    <button class="tab-btn active" id="tb-rec" onclick="showTab('rec','tb-rec')">
       <i class="fa fa-book"></i> Recursos
     </button>
     <button class="tab-btn" id="tb-ped" onclick="pedirPinPedidos()">
@@ -737,7 +737,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   </div>
 
   <!-- ══ TAB: NUEVA SOLICITUD ═══════════════ -->
-  <div class="tab-panel show" id="tab-nueva">
+  <div class="tab-panel" id="tab-nueva">
 
     <div class="help-bar">
       <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Solicitud de Servicio</span>
@@ -1280,7 +1280,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   </div><!-- /tab-msg -->
 
   <!-- ══ TAB: RECURSOS ════════════════════════ -->
-  <div class="tab-panel" id="tab-rec">
+  <div class="tab-panel show" id="tab-rec">
 
     <!-- Guía del portal -->
     <div class="dji-card" style="border-color:rgba(0,163,224,.3)">
@@ -1937,7 +1937,7 @@ window.onload = function() {
   document.getElementById('modal-pin').addEventListener('hidden.bs.modal', function() {
     var ov = document.getElementById('login-overlay');
     if (ov) { ov.remove(); }
-    if (!resellerActual && !_rtvEmail) showTab('nueva', 'tb-nueva');
+    if (!resellerActual && !_rtvEmail) showTab('rec', 'tb-rec');
   });
 
   // Restaurar sesión PIN desde sessionStorage (persiste mientras la pestaña esté abierta)
@@ -2213,7 +2213,7 @@ function cerrarSesion() {
   document.getElementById('dash-kpis').style.display = 'none';
   document.getElementById('dash-grid').style.display = 'none';
   document.getElementById('dash-empty').style.display = 'none';
-  showTab('nueva', 'tb-nueva');
+  showTab('rec', 'tb-rec');
 }
 
 // ══════════════════════════════════════════
