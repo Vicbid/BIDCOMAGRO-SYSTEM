@@ -1,4 +1,4 @@
-// @version 3.1
+// @version 3.2
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1138,42 +1138,18 @@ function WOS_reporteBackorder() {
     var ccField = destinatarios.slice(1).join(', ');
     console.log('WOS paso5: to=' + toField + ' xls=' + (xlsBlob ? 'OK' : 'null') + ' sinCubrir=' + sinCubrir.length);
 
-    // Buscar hilo existente en Enviados por asunto
-    var enviado = false;
+    var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
+    if (ccField) mailOpts.cc = ccField;
+    if (xlsBlob) mailOpts.attachments = [xlsBlob];
+
     try {
-      var hilos = GmailApp.search('subject:"Reporte Backorder Logistica" in:sent', 0, 3);
-      console.log('WOS search: hilos=' + hilos.length);
-      if (hilos.length > 0) {
-        var msgs = hilos[0].getMessages();
-        var replyOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
-        if (ccField) replyOpts.cc = ccField;
-        if (xlsBlob) replyOpts.attachments = [xlsBlob];
-        try {
-          msgs[msgs.length - 1].reply('', replyOpts);
-          enviado = true;
-          console.log('WOS reply OK: hilo=' + hilos[0].getId());
-        } catch(eReply) {
-          console.log('WOS reply FALLO: ' + eReply);
-        }
-      }
-    } catch(eSearch) {
-      console.log('WOS search FALLO: ' + eSearch);
+      GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
+      console.log('WOS sendEmail OK: ' + toField + ' | xls=' + (xlsBlob ? 'OK' : 'null'));
+    } catch(eSend) {
+      console.log('WOS sendEmail FALLO: ' + eSend);
     }
 
-    if (!enviado) {
-      var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
-      if (ccField) mailOpts.cc = ccField;
-      if (xlsBlob) mailOpts.attachments = [xlsBlob];
-      try {
-        GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
-        enviado = true;
-        console.log('WOS sendEmail OK: ' + toField);
-      } catch(eSend) {
-        console.log('WOS sendEmail FALLO: ' + eSend);
-      }
-    }
-
-    console.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO') + ' enviado:' + enviado);
+    console.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO'));
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }

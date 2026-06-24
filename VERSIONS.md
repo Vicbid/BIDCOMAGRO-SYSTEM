@@ -36,7 +36,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 3.1 | Diagnóstico email: console.log + try/catch explícito por paso; simplificado asunto y query de búsqueda |
+| Despacho_Código.js | 3.2 | Email backorder: siempre sendEmail directo (reply en Sent era impredecible); XLS adjunto como HTML blob |
 | Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
 | WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
 | Despacho_Env.js | 1.0 | |
