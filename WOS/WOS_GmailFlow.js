@@ -1,9 +1,5 @@
 // ============================================================
-<<<<<<< HEAD
-// @version 1.1
-=======
 // @version 1.2
->>>>>>> dev
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
