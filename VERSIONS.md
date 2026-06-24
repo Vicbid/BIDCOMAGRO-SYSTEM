@@ -17,7 +17,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 1.9 | Catalogo: foto del repuesto en tarjeta (col H), onerror oculta contenedor si URL falla |
+| Index.html | 2.0 | Catalogo: foto en tarjetas; tab movida al 4to lugar para evitar scroll-out-of-view |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
