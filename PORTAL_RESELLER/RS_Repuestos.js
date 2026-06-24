@@ -1,7 +1,33 @@
 // ============================================================
-// @version 1.6
+// @version 1.7
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
+
+function _getAccesoriosCache() {
+  var CKEY = 'accesorios_v1';
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(CKEY);
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+  try {
+    var sheet = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID).getSheetByName('ACCESORIOS');
+    if (!sheet) return [];
+    var rows = sheet.getDataRange().getValues();
+    var items = [];
+    for (var i = 1; i < rows.length; i++) {
+      var sku = String(rows[i][0] || '').trim();
+      if (!sku) continue;
+      var pvRaw = rows[i][3];
+      items.push({
+        codigo:  sku,
+        nombre:  String(rows[i][1] || '').trim(),
+        modelos: String(rows[i][2] || '').trim(),
+        pvp:     (pvRaw === '' || pvRaw == null) ? null : Number(pvRaw) || null
+      });
+    }
+    try { cache.put(CKEY, JSON.stringify(items), 3600); } catch(e) {}
+    return items;
+  } catch(e) { Logger.log('_getAccesoriosCache: ' + e); return []; }
+}
 
 function buscarRepuesto(busqueda) {
   try {
@@ -25,8 +51,24 @@ function buscarRepuesto(busqueda) {
       else                                                       score = 1;
       matches.push({ codigo: cod, nombre: nom, descripcionEs: descEs, modelos: String(d[i][D.MODELOS] || ''), reemplazadoPor: remplz, _score: score });
     }
+
+    // También buscar en ACCESORIOS (misma spreadsheet que LISTA_PRECIOS)
+    var accs = _getAccesoriosCache();
+    for (var ai = 0; ai < accs.length; ai++) {
+      var ac   = accs[ai];
+      var nAco = _normText(ac.codigo);
+      var nAno = _normText(ac.nombre);
+      if (nAco.indexOf(q) === -1 && nAno.indexOf(q) === -1) continue;
+      var aScore;
+      if (nAco === q)              aScore = 10;
+      else if (nAco.indexOf(q) === 0) aScore = 6;
+      else if (nAno.indexOf(q) === 0) aScore = 4;
+      else                            aScore = 1;
+      matches.push({ codigo: ac.codigo, nombre: ac.nombre, descripcionEs: '', modelos: ac.modelos, reemplazadoPor: '', fuente: 'ACC', _score: aScore });
+    }
+
     matches.sort(function(a, b) { return b._score - a._score; });
-    var res = matches.slice(0, 15);
+    var res = matches.slice(0, 20);
     for (var k = 0; k < res.length; k++) { delete res[k]._score; }
     return res;
   } catch(e) { return []; }
@@ -282,6 +324,29 @@ function RS_getListaPrecios() {
         foto:      fotoUrl
       });
     }
+    // Agregar ítems de hoja ACCESORIOS (misma spreadsheet)
+    try {
+      var accSheet = ss.getSheetByName('ACCESORIOS');
+      if (accSheet) {
+        var accRows = accSheet.getDataRange().getValues();
+        for (var ai = 1; ai < accRows.length; ai++) {
+          var aSku = String(accRows[ai][0] || '').trim();
+          if (!aSku) continue;
+          var aPvRaw = accRows[ai][3];
+          items.push({
+            sku:       aSku,
+            desc:      String(accRows[ai][1] || '').trim(),
+            modelos:   String(accRows[ai][2] || '').trim(),
+            cantUsada: '',
+            pvp:       (aPvRaw === '' || aPvRaw == null) ? null : Number(aPvRaw) || null,
+            foto:      '',
+            fuente:    'ACCESORIOS'
+          });
+        }
+        Logger.log('RS_getListaPrecios: ACCESORIOS agregados: ' + (accRows.length - 1));
+      }
+    } catch(eAcc) { Logger.log('RS_getListaPrecios ACCESORIOS: ' + eAcc); }
+
     Logger.log('RS_getListaPrecios: muestra fotos: ' + fotoLog.join(' | '));
     Logger.log('RS_getListaPrecios: ' + items.length + ' items procesados. Retornando.');
     var resultado = { ok: true, items: items };

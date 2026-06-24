@@ -24,7 +24,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
 | RS_Auth.js | 1.0 | |
-| RS_Repuestos.js | 1.6 | getRichTextValues solo col H (no rango completo); plain URL tiene prioridad sobre rich text |
+| RS_Repuestos.js | 1.7 | ACCESORIOS: buscarRepuesto y RS_getListaPrecios incluyen hoja ACCESORIOS del mismo spreadsheet |
 | RS_Código.js | 1.0 | |
 | RS_CuentaCorriente.js | 1.0 | |
 | RS_Registro.js | 1.0 | |
