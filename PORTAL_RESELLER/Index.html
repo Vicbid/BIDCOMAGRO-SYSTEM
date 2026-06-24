@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.6 -->
+<!-- @version 1.7 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -354,12 +354,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .ped-chip.consultar_Backorder{background:rgba(212,137,10,.12);color:#d4890a;border:1px solid rgba(212,137,10,.22)}
 .ped-chip.sin_catalogo {background:rgba(214,48,49,.1); color:#d63031;border:1px solid rgba(214,48,49,.2)}
 
-/* ── CHIPS DE MODELO (catálogo precios) ── */
-.mod-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--brd2);background:var(--surf);color:var(--tx-m);transition:all .13s;white-space:nowrap;user-select:none}
-.mod-chip:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-b)}
-.mod-chip.activo{background:var(--blue);border-color:var(--blue);color:#fff}
-.mod-chip.todos{border-style:dashed}
-.mod-chip.todos.activo{background:var(--surf);border-color:var(--brd2);color:var(--tx-m);border-style:dashed}
+/* ── DROPDOWN MODELO (catálogo precios) ── */
+.mod-dd-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--tx);transition:background .1s;border-bottom:1px solid var(--brd)}
+.mod-dd-item:last-child{border-bottom:none}
+.mod-dd-item:hover{background:var(--surf)}
+.mod-dd-item input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;flex-shrink:0;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1800,30 +1799,56 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   <!-- ══ TAB: LISTA DE PRECIOS ════════════════ -->
   <div class="tab-panel" id="tab-precios">
 
-    <!-- barra búsqueda + orden -->
-    <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px;position:relative">
-          <i class="fa fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:13px;pointer-events:none"></i>
+    <!-- barra búsqueda + filtros -->
+    <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+
+        <!-- búsqueda texto -->
+        <div style="flex:1;min-width:180px;position:relative">
+          <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:12px;pointer-events:none"></i>
           <input id="precios-busq" class="form-control" type="text"
-                 placeholder="Buscar por SKU, descripcion o modelo..."
+                 placeholder="Buscar SKU, descripcion..."
                  oninput="_preciosFiltrar()"
-                 style="padding-left:34px!important">
+                 style="padding-left:30px!important;font-size:12px!important">
         </div>
-        <select id="precios-orden" class="form-select" onchange="_preciosFiltrar()" style="width:auto;min-width:180px">
+
+        <!-- filtro modelos (dropdown) -->
+        <div style="position:relative" id="mod-dd-wrap">
+          <button id="btn-mod-filter" onclick="_preciosDDToggle(event)"
+            style="display:flex;align-items:center;gap:6px;padding:9px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;white-space:nowrap;transition:all .13s"
+            onmouseover="this.style.borderColor='var(--brd2)';this.style.color='var(--tx)'"
+            onmouseout="this.style.borderColor='var(--brd)';this.style.color='var(--tx-m)'">
+            <i class="fa fa-filter" style="font-size:11px"></i>
+            <span id="btn-mod-label">Todos los modelos</span>
+            <i class="fa fa-chevron-down" id="btn-mod-caret" style="font-size:9px;transition:transform .15s"></i>
+          </button>
+          <!-- dropdown panel -->
+          <div id="mod-dropdown"
+            style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1px solid var(--brd2);border-radius:var(--rm);box-shadow:0 6px 24px rgba(0,0,0,.12);width:250px;overflow:hidden">
+            <div style="padding:8px;border-bottom:1px solid var(--brd)">
+              <input id="mod-search-inp" class="form-control" type="text" placeholder="Buscar modelo..."
+                     oninput="_preciosDDFiltrar()" style="font-size:11px!important">
+            </div>
+            <div id="mod-dd-list" style="max-height:240px;overflow-y:auto"></div>
+            <div style="padding:8px 10px;border-top:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;background:var(--surf)">
+              <button onclick="_preciosLimpiarModelos()" style="background:none;border:none;color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;padding:2px 0">Limpiar</button>
+              <span id="mod-sel-count" style="font-size:11px;color:var(--tx-d)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- orden -->
+        <select id="precios-orden" class="form-select" onchange="_preciosFiltrar()" style="width:auto;min-width:160px;font-size:12px!important">
           <option value="az">A — Z</option>
-          <option value="precio-asc">Precio: menor a mayor</option>
-          <option value="precio-desc">Precio: mayor a menor</option>
+          <option value="precio-asc">Precio: menor → mayor</option>
+          <option value="precio-desc">Precio: mayor → menor</option>
         </select>
-        <button class="btn-out" onclick="_preciosCargar(true)" style="white-space:nowrap">
+
+        <button class="btn-out" onclick="_preciosCargar(true)" style="white-space:nowrap;font-size:12px">
           <i class="fa fa-arrows-rotate"></i> Actualizar
         </button>
       </div>
-      <div id="precios-filtros-mod" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd)">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);font-weight:600;margin-bottom:7px">Filtrar por modelo</div>
-        <div id="precios-chips-wrap" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      </div>
-      <div id="precios-count" style="font-size:11px;color:var(--tx-d);margin-top:8px"></div>
+      <div id="precios-count" style="font-size:11px;color:var(--tx-d);margin-top:6px"></div>
     </div>
 
     <div id="precios-wrap">
@@ -6168,7 +6193,8 @@ function _preciosCargar(forzar) {
       }
       _preciosData = res.items;
       _preciosModelosSel = [];
-      _preciosRenderizarChips();
+      _preciosTodosModelos = _preciosExtraerModelos(res.items);
+      _preciosDDActualizarBoton();
       _preciosFiltrar();
     })
     .withFailureHandler(function(e) {
@@ -6203,33 +6229,73 @@ function _preciosExtraerModelos(items) {
   return mods;
 }
 
-function _preciosRenderizarChips() {
-  var modelos = _preciosExtraerModelos(_preciosData);
-  var wrap    = document.getElementById('precios-chips-wrap');
-  var sec     = document.getElementById('precios-filtros-mod');
-  if (!modelos.length) { sec.style.display = 'none'; return; }
-  sec.style.display = 'block';
+// ── Dropdown de modelos ──────────────────
+var _preciosTodosModelos = [];
 
-  var html = '<button class="mod-chip todos' + (_preciosModelosSel.length === 0 ? '' : '') + '" onclick="_preciosLimpiarModelos()">Todos</button>';
-  for (var i = 0; i < modelos.length; i++) {
-    var m   = modelos[i];
+function _preciosDDToggle(e) {
+  e.stopPropagation();
+  var dd = document.getElementById('mod-dropdown');
+  var open = dd.style.display !== 'none';
+  if (open) { _preciosDDCerrar(); return; }
+  dd.style.display = 'block';
+  document.getElementById('btn-mod-caret').style.transform = 'rotate(180deg)';
+  document.getElementById('mod-search-inp').value = '';
+  _preciosDDFiltrar();
+  setTimeout(function() { document.getElementById('mod-search-inp').focus(); }, 50);
+}
+
+function _preciosDDCerrar() {
+  document.getElementById('mod-dropdown').style.display = 'none';
+  document.getElementById('btn-mod-caret').style.transform = '';
+}
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('mod-dd-wrap');
+  if (wrap && !wrap.contains(e.target)) _preciosDDCerrar();
+});
+
+function _preciosDDFiltrar() {
+  var q    = _normP(document.getElementById('mod-search-inp').value);
+  var list = document.getElementById('mod-dd-list');
+  var html = '';
+  for (var i = 0; i < _preciosTodosModelos.length; i++) {
+    var m = _preciosTodosModelos[i];
+    if (q && _normP(m).indexOf(q) === -1) continue;
     var sel = _preciosModelosSel.indexOf(m) !== -1;
-    html += '<button class="mod-chip' + (sel ? ' activo' : '') + '" onclick="_preciosToggleModelo(\'' + m.replace(/'/g, "\\'") + '\')">' + _escHtml(m) + '</button>';
+    html += '<label class="mod-dd-item"><input type="checkbox"' + (sel ? ' checked' : '') +
+            ' onchange="_preciosToggleModelo(\'' + m.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">' +
+            _escHtml(m) + '</label>';
   }
-  wrap.innerHTML = html;
+  list.innerHTML = html || '<div style="padding:12px;text-align:center;color:var(--tx-d);font-size:12px">Sin resultados</div>';
+}
+
+function _preciosDDActualizarBoton() {
+  var n   = _preciosModelosSel.length;
+  var lbl = document.getElementById('btn-mod-label');
+  var cnt = document.getElementById('mod-sel-count');
+  if (lbl) lbl.textContent = n === 0 ? 'Todos los modelos' : n === 1 ? _preciosModelosSel[0] : n + ' modelos';
+  if (cnt) cnt.textContent = n > 0 ? n + ' seleccionado' + (n > 1 ? 's' : '') : '';
+  var btn = document.getElementById('btn-mod-filter');
+  if (btn) {
+    btn.style.borderColor  = n > 0 ? 'rgba(0,163,224,.5)' : '';
+    btn.style.color        = n > 0 ? 'var(--blue)' : '';
+    btn.style.background   = n > 0 ? 'var(--blue-a)' : '';
+  }
 }
 
 function _preciosToggleModelo(modelo) {
   var idx = _preciosModelosSel.indexOf(modelo);
   if (idx === -1) _preciosModelosSel.push(modelo);
   else _preciosModelosSel.splice(idx, 1);
-  _preciosRenderizarChips();
+  _preciosDDActualizarBoton();
+  _preciosDDFiltrar();
   _preciosFiltrar();
 }
 
 function _preciosLimpiarModelos() {
   _preciosModelosSel = [];
-  _preciosRenderizarChips();
+  _preciosDDActualizarBoton();
+  _preciosDDFiltrar();
   _preciosFiltrar();
 }
 
@@ -6299,53 +6365,42 @@ function _preciosRenderizar(items) {
 
   var cards = '';
   for (var i = 0; i < items.length; i++) {
-    var it  = items[i];
-    var pvp = it.pvp !== null && it.pvp !== '' && !isNaN(Number(it.pvp));
-    var pvpStr = pvp ? 'USD ' + Number(it.pvp).toFixed(2) : null;
-
-    var modelosTags = '';
-    if (it.modelos) {
-      var mods = it.modelos.split(/[,;\/]+/);
-      for (var m = 0; m < mods.length && m < 4; m++) {
-        var mod = mods[m].trim();
-        if (mod) modelosTags += '<span style="display:inline-block;background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.2);border-radius:4px;font-size:10px;font-weight:600;padding:1px 7px;margin:2px 2px 2px 0;white-space:nowrap">' + _escHtml(mod) + '</span>';
-      }
-      if (mods.length > 4) modelosTags += '<span style="font-size:10px;color:var(--tx-d);margin-left:2px">+' + (mods.length - 4) + ' más</span>';
-    }
+    var it     = items[i];
+    var hasPvp = it.pvp !== null && it.pvp !== '' && !isNaN(Number(it.pvp));
+    var pvpStr = hasPvp ? 'USD ' + Number(it.pvp).toFixed(2) : null;
+    var modsStr = it.modelos ? _escHtml(it.modelos) : '';
 
     cards +=
-      '<div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:box-shadow .15s,border-color .15s;display:flex;flex-direction:column" ' +
-      'onmouseover="this.style.boxShadow=\'0 4px 18px rgba(0,163,224,.13)\';this.style.borderColor=\'rgba(0,163,224,.35)\'" ' +
-      'onmouseout="this.style.boxShadow=\'0 1px 4px rgba(0,0,0,.05)\';this.style.borderColor=\'var(--brd)\'">' +
+      '<div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .13s,border-color .13s" ' +
+      'onmouseover="this.style.boxShadow=\'0 3px 12px rgba(0,163,224,.12)\';this.style.borderColor=\'rgba(0,163,224,.3)\'" ' +
+      'onmouseout="this.style.boxShadow=\'\';this.style.borderColor=\'var(--brd)\'">' +
 
-      // cabecera SKU
-      '<div style="background:var(--surf);border-bottom:1px solid var(--brd);padding:10px 14px;display:flex;align-items:center;justify-content:space-between">' +
-        '<span style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.04em;font-family:monospace">' + _escHtml(it.sku) + '</span>' +
-        (pvp ? '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.2);border-radius:4px;padding:2px 7px">PVP</span>' :
-               '<span style="font-size:9px;color:var(--tx-d)">Sin precio</span>') +
+      // header: SKU
+      '<div style="background:var(--surf);border-bottom:1px solid var(--brd);padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px">' +
+        '<span style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.03em;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(it.sku) + '</span>' +
+        (hasPvp ? '<span style="font-size:8px;font-weight:700;color:var(--green);background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.2);border-radius:3px;padding:1px 5px;white-space:nowrap;flex-shrink:0">PVP</span>'
+                : '<span style="font-size:8px;color:var(--tx-d);flex-shrink:0">S/P</span>') +
       '</div>' +
 
       // cuerpo
-      '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:8px">' +
-        '<div style="font-size:13px;font-weight:600;color:var(--tx);line-height:1.4;min-height:38px">' + _escHtml(it.desc) + '</div>' +
-
-        (modelosTags ? '<div><div style="font-size:10px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Modelos compatibles</div>' + modelosTags + '</div>' : '') +
-
-        (it.cantUsada ? '<div style="font-size:11px;color:var(--tx-m);display:flex;align-items:center;gap:5px"><i class="fa fa-wrench" style="color:var(--tx-d);font-size:10px"></i>Cant. por equipo: <strong>' + _escHtml(String(it.cantUsada)) + '</strong></div>' : '') +
+      '<div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:5px">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--tx);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">' + _escHtml(it.desc) + '</div>' +
+        (modsStr ? '<div style="font-size:10px;color:var(--tx-d);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + modsStr + '">' + modsStr + '</div>' : '') +
+        (it.cantUsada ? '<div style="font-size:10px;color:var(--tx-m)">x<strong>' + _escHtml(String(it.cantUsada)) + '</strong> por equipo</div>' : '') +
       '</div>' +
 
       // pie: precio
-      '<div style="padding:12px 14px;border-top:1px solid var(--brd);background:var(--surf);text-align:right">' +
-        (pvp
-          ? '<span style="font-size:20px;font-weight:800;color:var(--tx);letter-spacing:-.5px">' + pvpStr + '</span>'
-          : '<span style="font-size:13px;color:var(--tx-d);font-style:italic">Precio a consultar</span>') +
+      '<div style="padding:6px 10px;border-top:1px solid var(--brd);background:var(--surf);text-align:right">' +
+        (hasPvp
+          ? '<span style="font-size:14px;font-weight:800;color:var(--tx);letter-spacing:-.3px">' + pvpStr + '</span>'
+          : '<span style="font-size:10px;color:var(--tx-d);font-style:italic">A consultar</span>') +
       '</div>' +
 
       '</div>';
   }
 
   wrap.innerHTML =
-    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding-bottom:8px">' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding-bottom:8px">' +
     cards + '</div>';
 }
 

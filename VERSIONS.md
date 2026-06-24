@@ -17,7 +17,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 1.6 | Catalogo: filtro multi-modelo con chips seleccionables (OR), combina con busqueda de texto |
+| Index.html | 1.7 | Catalogo: dropdown buscable para filtro de modelos; tarjetas compactas 160px |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
