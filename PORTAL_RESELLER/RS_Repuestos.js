@@ -200,39 +200,52 @@ function enviarGestionRepuestos(data) {
 }
 
 function RS_getListaPrecios() {
+  Logger.log('RS_getListaPrecios: inicio. LISTA_PRECIOS_SS_ID=' + LISTA_PRECIOS_SS_ID);
   var CKEY = 'lista_precios_v1';
   var cache = CacheService.getScriptCache();
   var cached = cache.get(CKEY);
   if (cached) {
-    try { return JSON.parse(cached); } catch(e) {}
+    Logger.log('RS_getListaPrecios: devolviendo cache');
+    try { return JSON.parse(cached); } catch(e) {
+      Logger.log('RS_getListaPrecios: cache parse error: ' + e);
+    }
   }
   try {
+    Logger.log('RS_getListaPrecios: abriendo spreadsheet...');
     var ss     = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID);
+    Logger.log('RS_getListaPrecios: spreadsheet abierto. Buscando hoja TODO...');
     var sheet  = ss.getSheetByName('TODO');
     if (!sheet) {
       var nombres = ss.getSheets().map(function(s) { return s.getName(); }).join(', ');
-      Logger.log('RS_getListaPrecios: hoja TODO no encontrada. Hojas disponibles: ' + nombres);
-      return { ok: false, msg: 'Hoja "TODO" no encontrada. Hojas disponibles: ' + nombres };
+      Logger.log('RS_getListaPrecios: hoja TODO no encontrada. Disponibles: ' + nombres);
+      return { ok: false, msg: 'Hoja TODO no encontrada. Disponibles: ' + nombres };
     }
+    Logger.log('RS_getListaPrecios: hoja encontrada, leyendo filas...');
     var rows  = sheet.getDataRange().getValues();
+    Logger.log('RS_getListaPrecios: ' + rows.length + ' filas');
     var items = [];
     for (var i = 1; i < rows.length; i++) {
       var sku = String(rows[i][1] || '').trim();
       if (!sku) continue;
-      var pvpRaw = rows[i][5];
+      var pvpRaw   = rows[i][5];
+      var cantRaw  = rows[i][4];
       items.push({
         sku:       sku,
         desc:      String(rows[i][2] || '').trim(),
         modelos:   String(rows[i][3] || '').trim(),
-        cantUsada: rows[i][4] === '' || rows[i][4] === null ? '' : Number(rows[i][4]),
-        pvp:       pvpRaw === '' || pvpRaw === null ? null : Number(pvpRaw)
+        cantUsada: (cantRaw === '' || cantRaw === null || cantRaw === undefined) ? '' : String(cantRaw),
+        pvp:       (pvpRaw === '' || pvpRaw === null || pvpRaw === undefined) ? null : Number(pvpRaw) || null
       });
     }
-    var res = { ok: true, items: items };
-    try { cache.put(CKEY, JSON.stringify(res), 3600); } catch(e) {}
-    return res;
+    Logger.log('RS_getListaPrecios: ' + items.length + ' items procesados. Retornando.');
+    var resultado = { ok: true, items: items };
+    try {
+      var payload = JSON.stringify(resultado);
+      if (payload.length < 90000) cache.put(CKEY, payload, 3600);
+    } catch(eCa) { Logger.log('RS_getListaPrecios: cache write error: ' + eCa); }
+    return resultado;
   } catch(e) {
-    Logger.log('RS_getListaPrecios ERROR: ' + e);
+    Logger.log('RS_getListaPrecios ERROR: ' + e + ' | stack: ' + e.stack);
     return { ok: false, msg: String(e) };
   }
 }
