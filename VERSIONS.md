@@ -17,7 +17,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 2.3 | Catálogo movido al último lugar de la barra |
+| Index.html | 2.4 | Catálogo desactivado (tab, panel y JS en comentarios); backend RS_Repuestos intacto |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |

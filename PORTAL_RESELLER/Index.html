@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.3 -->
+<!-- @version 2.4 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -355,11 +355,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .ped-chip.consultar_Backorder{background:rgba(212,137,10,.12);color:#d4890a;border:1px solid rgba(212,137,10,.22)}
 .ped-chip.sin_catalogo {background:rgba(214,48,49,.1); color:#d63031;border:1px solid rgba(214,48,49,.2)}
 
-/* ── DROPDOWN MODELO (catálogo precios) ── */
-.mod-dd-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--tx);transition:background .1s;border-bottom:1px solid var(--brd)}
-.mod-dd-item:last-child{border-bottom:none}
-.mod-dd-item:hover{background:var(--surf)}
-.mod-dd-item input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;flex-shrink:0;cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -734,9 +730,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn" id="tb-msg" onclick="pedirPinMensajes()">
       <i class="fa fa-comments"></i> Mensajes
       <span class="tab-badge" id="badge-msg" style="background:var(--yellow);color:#000">0</span>
-    </button>
-    <button class="tab-btn" id="tb-precios" onclick="showTab('precios','tb-precios');_preciosCargar()">
-      <i class="fa fa-tag"></i> Catálogo de Precios
     </button>
     <button class="tab-btn" id="tb-rtv" style="display:none;color:#7c3aed" onclick="showTab('rtv','tb-rtv')">
       <i class="fa fa-user-tie"></i> Mis Resellers
@@ -1797,7 +1790,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </div>
   </div><!-- /tab-rtv -->
 
-  <!-- ══ TAB: LISTA DE PRECIOS ════════════════ -->
+  <!-- TAB PRECIOS: desactivado temporalmente
   <div class="tab-panel" id="tab-precios">
 
     <!-- barra búsqueda + filtros -->
@@ -1858,7 +1851,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         Haga clic en la tab para cargar precios
       </div>
     </div>
-  </div><!-- /tab-precios -->
+  </div> tab-precios desactivado -->
 
 </div><!-- /wrap -->
 
@@ -6164,13 +6157,8 @@ function _campEditarEstimado() {
   }, 80);
 }
 
-// ══════════════════════════════════════════
-//  LISTA DE PRECIOS
-// ══════════════════════════════════════════
-var _preciosData      = null;
-var _preciosCargando  = false;
-var _preciosModelosSel = [];   // modelos seleccionados para filtrar
-
+// ══ LISTA DE PRECIOS: desactivada temporalmente ══
+/*
 function _preciosCargar(forzar) {
   if (_preciosCargando) return;
   if (_preciosData && !forzar) return;
@@ -6430,6 +6418,7 @@ function _preciosRenderizar(items) {
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px;padding-bottom:8px">' +
     cards + '</div>';
 }
+*/
 
 </script>
 </body>
