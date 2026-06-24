@@ -17,7 +17,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 1.3 | Lista de Precios: grilla de tarjetas shopping con busqueda y orden |
+| Index.html | 1.4 | Renombra tabs: Nueva Orden de Reparacion, Mis Ordenes de Reparacion, Carrito de Repuestos, Catalogo de Precios |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
