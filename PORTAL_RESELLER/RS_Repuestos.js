@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.3
+// @version 1.4
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -201,7 +201,7 @@ function enviarGestionRepuestos(data) {
 
 function RS_getListaPrecios() {
   Logger.log('RS_getListaPrecios: inicio. LISTA_PRECIOS_SS_ID=' + LISTA_PRECIOS_SS_ID);
-  var CKEY = 'lista_precios_v1';
+  var CKEY = 'lista_precios_v2';
   var cache = CacheService.getScriptCache();
   var cached = cache.get(CKEY);
   if (cached) {

@@ -17,13 +17,13 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 2.2 | Tabs renombrados: Nueva Reparación / Mis Reparaciones; barra scroll horizontal 1 fila |
+| Index.html | 2.3 | Catálogo movido al último lugar de la barra |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
 | RS_Auth.js | 1.0 | |
-| RS_Repuestos.js | 1.3 | Foto col H: getRichTextValues()+getLinkUrl() para leer URL de chips |
+| RS_Repuestos.js | 1.4 | Cache key v2 para invalidar cache viejo post-push |
 | RS_Código.js | 1.0 | |
 | RS_CuentaCorriente.js | 1.0 | |
 | RS_Registro.js | 1.0 | |

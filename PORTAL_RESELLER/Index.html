@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.2 -->
+<!-- @version 2.3 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -724,9 +724,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn" id="tb-rec" onclick="showTab('rec','tb-rec')">
       <i class="fa fa-book"></i> Recursos
     </button>
-    <button class="tab-btn" id="tb-precios" onclick="showTab('precios','tb-precios');_preciosCargar()">
-      <i class="fa fa-tag"></i> Catálogo de Precios
-    </button>
     <button class="tab-btn" id="tb-ped" onclick="pedirPinPedidos()">
       <i class="fa fa-shopping-cart"></i> Carrito de Repuestos
       <span class="tab-badge" id="badge-ped">0</span>
@@ -737,6 +734,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn" id="tb-msg" onclick="pedirPinMensajes()">
       <i class="fa fa-comments"></i> Mensajes
       <span class="tab-badge" id="badge-msg" style="background:var(--yellow);color:#000">0</span>
+    </button>
+    <button class="tab-btn" id="tb-precios" onclick="showTab('precios','tb-precios');_preciosCargar()">
+      <i class="fa fa-tag"></i> Catálogo de Precios
     </button>
     <button class="tab-btn" id="tb-rtv" style="display:none;color:#7c3aed" onclick="showTab('rtv','tb-rtv')">
       <i class="fa fa-user-tie"></i> Mis Resellers
