@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.0 -->
+<!-- @version 2.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -40,7 +40,8 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .wrap{max-width:880px;margin:0 auto;padding:24px 16px 60px}
 
 /* ── TABS ───────────────────────────────── */
-.tab-bar{display:flex;gap:2px;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:4px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tab-bar{display:flex;gap:2px;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:4px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{flex-shrink:0;padding:9px 14px;background:transparent;border:none;color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
 .tab-btn:hover{background:var(--surf);color:var(--tx)}
@@ -715,10 +716,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   <!-- TABS: Nueva Solicitud | Mis Órdenes | Recursos | Gestión DJI -->
   <div class="tab-bar mt-3">
     <button class="tab-btn active" id="tb-nueva" onclick="showTab('nueva','tb-nueva')">
-      <i class="fa fa-plus-circle"></i> Nueva Orden de Reparación
+      <i class="fa fa-plus-circle"></i> Nueva Reparación
     </button>
     <button class="tab-btn" id="tb-dash" onclick="pedirPin()">
-      <i class="fa fa-clipboard-list"></i> Mis Órdenes de Reparación
+      <i class="fa fa-clipboard-list"></i> Mis Reparaciones
     </button>
     <button class="tab-btn" id="tb-rec" onclick="showTab('rec','tb-rec')">
       <i class="fa fa-book"></i> Recursos

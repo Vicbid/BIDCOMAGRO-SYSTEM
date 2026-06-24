@@ -17,13 +17,13 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 2.0 | Catalogo: foto en tarjetas; tab movida al 4to lugar para evitar scroll-out-of-view |
+| Index.html | 2.2 | Tabs renombrados: Nueva Reparación / Mis Reparaciones; barra scroll horizontal 1 fila |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
 | RS_Auth.js | 1.0 | |
-| RS_Repuestos.js | 1.2 | RS_getListaPrecios lee col H (foto) y filtra solo URLs http válidas |
+| RS_Repuestos.js | 1.3 | Foto col H: getRichTextValues()+getLinkUrl() para leer URL de chips |
 | RS_Código.js | 1.0 | |
 | RS_CuentaCorriente.js | 1.0 | |
 | RS_Registro.js | 1.0 | |

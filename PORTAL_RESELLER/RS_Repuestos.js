@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -221,17 +221,36 @@ function RS_getListaPrecios() {
       return { ok: false, msg: 'Hoja TODO no encontrada. Disponibles: ' + nombres };
     }
     Logger.log('RS_getListaPrecios: hoja encontrada, leyendo filas...');
-    var rows  = sheet.getDataRange().getValues();
+    var dataRange = sheet.getDataRange();
+    var rows      = dataRange.getValues();
+    var richVals  = dataRange.getRichTextValues();
     Logger.log('RS_getListaPrecios: ' + rows.length + ' filas');
     var items = [];
     for (var i = 1; i < rows.length; i++) {
       var sku = String(rows[i][1] || '').trim();
       if (!sku) continue;
-      var pvpRaw   = rows[i][5];
-      var cantRaw  = rows[i][4];
-      var fotoRaw  = String(rows[i][7] || '').trim();
-      // Los chips de Google Sheets se devuelven como la URL completa; la limpiamos por si acaso
-      var fotoUrl  = (fotoRaw.indexOf('http') === 0) ? fotoRaw : '';
+      var pvpRaw  = rows[i][5];
+      var cantRaw = rows[i][4];
+
+      // Col H (índice 7) almacenada como chip → extraer URL real con getRichTextValues
+      var fotoUrl = '';
+      try {
+        var richCell = richVals[i] && richVals[i][7];
+        if (richCell) {
+          // Intentar URL directa de la celda completa
+          fotoUrl = richCell.getLinkUrl() || '';
+          // Si no, buscar en los runs del rich text
+          if (!fotoUrl) {
+            var runs = richCell.getRuns();
+            for (var r = 0; r < runs.length; r++) {
+              var ru = runs[r].getLinkUrl();
+              if (ru) { fotoUrl = ru; break; }
+            }
+          }
+        }
+      } catch(eFoto) { fotoUrl = ''; }
+      if (!fotoUrl || fotoUrl.indexOf('http') !== 0) fotoUrl = '';
+
       items.push({
         sku:       sku,
         desc:      String(rows[i][2] || '').trim(),
