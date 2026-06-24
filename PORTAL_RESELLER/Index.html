@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.5 -->
+<!-- @version 2.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -40,7 +40,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .wrap{max-width:880px;margin:0 auto;padding:24px 16px 60px}
 
 /* ── TABS ───────────────────────────────── */
-.tab-bar{display:flex;gap:2px;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:4px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.tab-bar{display:flex;gap:2px;justify-content:center;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:4px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{flex-shrink:0;padding:6px 12px;background:transparent;border:none;color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
@@ -1790,14 +1790,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </div>
   </div><!-- /tab-rtv -->
 
-  <!-- TAB PRECIOS: desactivado temporalmente
+  <!-- TAB PRECIOS: desactivado temporalmente -->
+  <div style="display:none" id="tab-precios-disabled">
   <div class="tab-panel" id="tab-precios">
-
-    <!-- barra búsqueda + filtros -->
     <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-
-        <!-- búsqueda texto -->
         <div style="flex:1;min-width:180px;position:relative">
           <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:12px;pointer-events:none"></i>
           <input id="precios-busq" class="form-control" type="text"
@@ -1805,8 +1802,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
                  oninput="_preciosFiltrar()"
                  style="padding-left:30px!important;font-size:12px!important">
         </div>
-
-        <!-- filtro modelos (dropdown) -->
         <div style="position:relative" id="mod-dd-wrap">
           <button id="btn-mod-filter" onclick="_preciosDDToggle(event)"
             style="display:flex;align-items:center;gap:6px;padding:9px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;white-space:nowrap;transition:all .13s"
@@ -1816,7 +1811,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <span id="btn-mod-label">Todos los modelos</span>
             <i class="fa fa-chevron-down" id="btn-mod-caret" style="font-size:9px;transition:transform .15s"></i>
           </button>
-          <!-- dropdown panel -->
           <div id="mod-dropdown"
             style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:#fff;border:1px solid var(--brd2);border-radius:var(--rm);box-shadow:0 6px 24px rgba(0,0,0,.12);width:250px;overflow:hidden">
             <div style="padding:8px;border-bottom:1px solid var(--brd)">
@@ -1830,28 +1824,25 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             </div>
           </div>
         </div>
-
-        <!-- orden -->
         <select id="precios-orden" class="form-select" onchange="_preciosFiltrar()" style="width:auto;min-width:160px;font-size:12px!important">
           <option value="az">A — Z</option>
           <option value="precio-asc">Precio: menor → mayor</option>
           <option value="precio-desc">Precio: mayor → menor</option>
         </select>
-
         <button class="btn-out" onclick="_preciosCargar(true)" style="white-space:nowrap;font-size:12px">
           <i class="fa fa-arrows-rotate"></i> Actualizar
         </button>
       </div>
       <div id="precios-count" style="font-size:11px;color:var(--tx-d);margin-top:6px"></div>
     </div>
-
     <div id="precios-wrap">
       <div style="text-align:center;padding:40px;color:var(--tx-d)">
         <i class="fa fa-tag" style="font-size:28px;opacity:.25;display:block;margin-bottom:10px"></i>
         Haga clic en la tab para cargar precios
       </div>
     </div>
-  </div> tab-precios desactivado -->
+  </div>
+  </div>
 
 </div><!-- /wrap -->
 
