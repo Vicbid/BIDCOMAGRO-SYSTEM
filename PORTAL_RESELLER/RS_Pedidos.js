@@ -1,6 +1,9 @@
 // ============================================================
+// @version 1.2
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
+
+var _ACCESORIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
 
 function _asegurarHojasPedidos() {
   var ss = getDb();
@@ -100,8 +103,42 @@ function buscarRepuestoConStockPortal(query) {
       });
     }
 
+    // Buscar también en ACCESORIOS
+    try {
+      var accSheet2 = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
+      if (accSheet2) {
+        var accRows2 = accSheet2.getDataRange().getValues();
+        for (var ai2 = 1; ai2 < accRows2.length; ai2++) {
+          var aSku2  = String(accRows2[ai2][0] || '').trim();
+          var aDesc2 = String(accRows2[ai2][1] || '').trim();
+          if (!aSku2 && !aDesc2) continue;
+          var nASku2  = _normText(aSku2);
+          var nADesc2 = _normText(aDesc2);
+          if (nASku2.indexOf(q) === -1 && nADesc2.indexOf(q) === -1) continue;
+          var aScore2;
+          if (nASku2 === q)               aScore2 = 10;
+          else if (nASku2.indexOf(q) === 0)   aScore2 = 6;
+          else if (nADesc2.indexOf(q) === 0)  aScore2 = 4;
+          else                                aScore2 = 1;
+          var aSkuUp2 = aSku2.toUpperCase();
+          var aEst2 = stockMap[aSkuUp2] !== undefined ? (stockMap[aSkuUp2] > 0 ? 'disponible' : 'backorder') : 'consultar_Backorder';
+          matches.push({
+            sku:            aSku2,
+            descripcion:    aDesc2,
+            descripcionEs:  '',
+            modelos:        String(accRows2[ai2][2] || '').trim(),
+            estado:         aEst2,
+            precio:         Number(accRows2[ai2][3]) || 0,
+            stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
+            reemplazadoPor: '',
+            _score:         aScore2
+          });
+        }
+      }
+    } catch(eAcc2) { Logger.log('buscarRepuestoConStockPortal ACCESORIOS: ' + eAcc2); }
+
     matches.sort(function(a, b) { return b._score - a._score; });
-    var items = matches.slice(0, 15);
+    var items = matches.slice(0, 20);
     for (var k = 0; k < items.length; k++) { delete items[k]._score; }
 
     return { ok: true, items: items };
@@ -789,6 +826,31 @@ function obtenerIndiceRepuestosPortal() {
         _normText(sku), _normText(desc), _normText(descEs)
       ]);
     }
+
+    // Agregar ítems de hoja ACCESORIOS
+    try {
+      var accSheet = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
+      if (accSheet) {
+        var accRows = accSheet.getDataRange().getValues();
+        for (var ai = 1; ai < accRows.length; ai++) {
+          var aSku  = String(accRows[ai][0] || '').trim();
+          var aDesc = String(accRows[ai][1] || '').trim();
+          if (!aSku && !aDesc) continue;
+          var aSkuUp = aSku.toUpperCase();
+          var aMod   = String(accRows[ai][2] || '').trim();
+          var aPvp   = Number(accRows[ai][3]) || 0;
+          var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
+          items.push([
+            aSku, aDesc, aMod, aE,
+            aPvp,
+            stockMap[aSkuUp] !== undefined ? stockMap[aSkuUp] : -1,
+            '', '',
+            _normText(aSku), _normText(aDesc), ''
+          ]);
+        }
+      }
+    } catch(eAcc) { Logger.log('obtenerIndiceRepuestosPortal ACCESORIOS: ' + eAcc); }
+
     return { ok: true, items: items };
   } catch(ex) {
     Logger.log('obtenerIndiceRepuestosPortal: ' + ex);
