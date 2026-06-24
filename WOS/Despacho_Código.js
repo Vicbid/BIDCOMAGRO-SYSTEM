@@ -1,4 +1,4 @@
-// @version 3.4
+// @version 3.5
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1103,9 +1103,8 @@ function WOS_reporteBackorder() {
       return;
     }
 
-    // 4b. Lookups para XLS: modelos (CARMEN) y FOB (LISTA_REPUESTOS)
+    // 4b. Lookup modelos (CARMEN) para XLS
     var modelosMap = {};
-    var fobMap     = {};
     try {
       var carmenSheet = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK');
       if (carmenSheet) {
@@ -1117,24 +1116,13 @@ function WOS_reporteBackorder() {
       }
     } catch(eCM) { Logger.log('WOS_reporteBackorder modelosMap: ' + eCM); }
 
-    try {
-      var dbRepSheet = masterSS.getSheetByName('DB_REPUESTOS');
-      if (dbRepSheet) {
-        var dbRepData = dbRepSheet.getDataRange().getValues();
-        for (var lr = 1; lr < dbRepData.length; lr++) {
-          var lrSku = String(dbRepData[lr][1] || '').trim().toUpperCase(); // col B = SKU
-          if (lrSku) fobMap[lrSku] = parseFloat(String(dbRepData[lr][6] || '0').replace(',', '.')) || 0; // col G = FOB
-        }
-      }
-    } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
-
     // 5. Generar XLS con todos los ítems y enviar manteniendo hilo
     var fechaStr   = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var emailHtml  = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
     var asuntoHilo = '[WOS] Reporte Backorder Logistica Internacional';
 
     var todosItems = sinCubrir.concat(cubiertos);
-    var xlsBlob    = todosItems.length > 0 ? _wosBackorderGenerarXLS(todosItems, modelosMap, fobMap) : null;
+    var xlsBlob    = todosItems.length > 0 ? _wosBackorderGenerarXLS(todosItems, modelosMap) : null;
 
     var toField = destinatarios[0];
     var ccField = destinatarios.slice(1).join(', ');
@@ -1158,12 +1146,13 @@ function WOS_reporteBackorder() {
 }
 
 // Genera el XLS como HTML tabla (no usa Drive ni SpreadsheetApp.create — sin timeouts)
-function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
+// Columnas FOB vacías: se completan a mano por logística
+function _wosBackorderGenerarXLS(items, modelosMap) {
   try {
     var fechaTag = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd');
 
-    var HDR_BG  = '#1e3a8a';
-    var HDR_FG  = '#ffffff';
+    var HDR_BG = '#1e3a8a';
+    var HDR_FG = '#ffffff';
     var html =
       '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
              'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
@@ -1176,39 +1165,28 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
       '<table border="1" cellspacing="0" cellpadding="5" ' +
              'style="font-family:Arial,sans-serif;font-size:11px;border-collapse:collapse">';
 
-    // Cabecera
     html += '<tr style="background:' + HDR_BG + ';color:' + HDR_FG + ';font-weight:bold;text-align:center">' +
       '<td>Codigo</td><td>Descripcion</td><td>Equipo / Modelos</td>' +
       '<td>FOB Unitario (USD)</td><td>Nec. total</td><td>En camino</td>' +
       '<td>A comprar</td><td>Total FOB (USD)</td>' +
       '<td>PN Bidcom</td><td>PA</td><td>Link de referencia</td></tr>';
 
-    var totalFob = 0;
     for (var i = 0; i < items.length; i++) {
       var it       = items[i];
-      var fob      = fobMap[it.sku] || 0;
       var aComprar = it.gap || 0;
-      var rowTotal = fob * aComprar;
-      totalFob    += rowTotal;
       var bg       = it.gap === 0 ? '#f0fdf4' : (i % 2 === 0 ? '#fff5f5' : '#fee2e2');
 
       html += '<tr style="background:' + bg + '">' +
-        '<td style="font-family:monospace">'  + _xlsEsc(it.sku)                    + '</td>' +
-        '<td>'                                + _xlsEsc(it.desc)                   + '</td>' +
-        '<td>'                                + _xlsEsc(modelosMap[it.sku] || '')   + '</td>' +
-        '<td style="text-align:right">'       + fob.toFixed(2)                     + '</td>' +
-        '<td style="text-align:center">'      + (it.nec    || 0)                   + '</td>' +
-        '<td style="text-align:center">'      + (it.camino || 0)                   + '</td>' +
-        '<td style="text-align:center;font-weight:bold;color:#1e3a8a">' + aComprar + '</td>' +
-        '<td style="text-align:right">'       + rowTotal.toFixed(2)                + '</td>' +
+        '<td style="font-family:monospace">'                              + _xlsEsc(it.sku)                  + '</td>' +
+        '<td>'                                                            + _xlsEsc(it.desc)                 + '</td>' +
+        '<td>'                                                            + _xlsEsc(modelosMap[it.sku] || '') + '</td>' +
+        '<td></td>' +
+        '<td style="text-align:center">'                                  + (it.nec    || 0)                 + '</td>' +
+        '<td style="text-align:center">'                                  + (it.camino || 0)                 + '</td>' +
+        '<td style="text-align:center;font-weight:bold;color:#1e3a8a">'  + aComprar                         + '</td>' +
+        '<td></td>' +
         '<td></td><td></td><td></td></tr>';
     }
-
-    // Fila total
-    html += '<tr style="background:' + HDR_BG + ';color:' + HDR_FG + ';font-weight:bold">' +
-      '<td colspan="7" style="text-align:right">TOTAL FOB</td>' +
-      '<td style="text-align:right">' + totalFob.toFixed(2) + '</td>' +
-      '<td colspan="3"></td></tr>';
 
     html += '</table></body></html>';
 
