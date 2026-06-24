@@ -18,7 +18,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
-| RS_Pedidos.js | 1.2 | ACCESORIOS: agrega ítems de hoja ACCESORIOS a obtenerIndiceRepuestosPortal + buscarRepuestoConStockPortal (carrito) |
+| RS_Pedidos.js | 1.3 | ACCESORIOS: aplica descuento reseller (* 0.60) al PVP de ACCESORIOS igual que _buildPriceMap |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |

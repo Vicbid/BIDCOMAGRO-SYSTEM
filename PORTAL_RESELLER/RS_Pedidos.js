@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -128,7 +128,7 @@ function buscarRepuestoConStockPortal(query) {
             descripcionEs:  '',
             modelos:        String(accRows2[ai2][2] || '').trim(),
             estado:         aEst2,
-            precio:         Number(accRows2[ai2][3]) || 0,
+            precio:         Math.round((Number(accRows2[ai2][3]) || 0) * 0.60 * 100) / 100,
             stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
             reemplazadoPor: '',
             _score:         aScore2
@@ -838,7 +838,7 @@ function obtenerIndiceRepuestosPortal() {
           if (!aSku && !aDesc) continue;
           var aSkuUp = aSku.toUpperCase();
           var aMod   = String(accRows[ai][2] || '').trim();
-          var aPvp   = Number(accRows[ai][3]) || 0;
+          var aPvp   = Math.round((Number(accRows[ai][3]) || 0) * 0.60 * 100) / 100;
           var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
           items.push([
             aSku, aDesc, aMod, aE,
