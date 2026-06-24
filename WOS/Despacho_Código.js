@@ -1,4 +1,4 @@
-// @version 2.7
+// @version 2.8
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1126,13 +1126,15 @@ function WOS_reporteBackorder() {
       }
     } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
 
-    // 5. Generar XLS (solo ítems sin cobertura) y enviar en hilo persistente
+    // 5. Generar XLS con todos los ítems en backorder y enviar en hilo persistente
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
 
+    // sinCubrir primero (necesitan compra), luego cubiertos (ya en camino, cant=0)
+    var todosItems = sinCubrir.concat(cubiertos);
     var xlsBlob = null;
-    if (sinCubrir.length > 0) {
-      xlsBlob = _wosBackorderGenerarXLS(sinCubrir, modelosMap, fobMap);
+    if (todosItems.length > 0) {
+      xlsBlob = _wosBackorderGenerarXLS(todosItems, modelosMap, fobMap);
     }
 
     var mailOpts = { htmlBody: html, name: 'WOS · BidcomAgro' };
@@ -1181,7 +1183,7 @@ function WOS_reporteBackorder() {
   }
 }
 
-// items: array de { sku, desc, gap }  (solo sinCubrir)
+// items: array de { sku, desc, nec, camino, gap, pedidos } — sinCubrir primero, cubiertos al final (gap=0)
 // modelosMap: { SKU: 'modelos string' }
 // fobMap:     { SKU: precioUSD }
 function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
@@ -1194,14 +1196,14 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
 
     // Col A: vacía (para que el comprador agregue el código largo)
     // Cabecera en fila 4, datos desde fila 5
-    // B=Codigo  C=Descripcion  D=Equipo/Modelos  E=FOB  F=Cantidad  G=Total
+    // A=vacía  B=Codigo  C=Descripcion  D=Equipo/Modelos  E=FOB  F=NecTotal  G=EnCamino  H=AComprar  I=TotalFOB
     var HDR_ROW  = 4;
     var DATA_ROW = 5;
 
-    // G3: total de la columna G
+    // I3: total de la columna I (Total FOB)
     var lastDataRow = DATA_ROW + items.length - 1;
-    sheet.getRange(3, 7)
-      .setFormula('=SUM(G' + DATA_ROW + ':G' + lastDataRow + ')')
+    sheet.getRange(3, 9)
+      .setFormula('=SUM(I' + DATA_ROW + ':I' + lastDataRow + ')')
       .setNumberFormat('#,##0.00')
       .setFontWeight('bold')
       .setFontSize(12)
@@ -1209,9 +1211,9 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
       .setFontColor('#ffffff')
       .setHorizontalAlignment('right');
 
-    // Cabeceras fila 4: B-G propias + H, I, J extras
-    var headers = [['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Cantidad a comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']];
-    var hdrRange = sheet.getRange(HDR_ROW, 2, 1, 9);
+    // Cabeceras fila 4: B-I propias + J, K, L extras
+    var headers = [['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Nec. total', 'En camino', 'A comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']];
+    var hdrRange = sheet.getRange(HDR_ROW, 2, 1, 11);
     hdrRange.setValues(headers);
     hdrRange.setBackground('#1e3a8a');
     hdrRange.setFontColor('#ffffff');
@@ -1222,21 +1224,24 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
 
     // Filas de datos
     for (var i = 0; i < items.length; i++) {
-      var it  = items[i];
-      var row = DATA_ROW + i;
+      var it      = items[i];
+      var row     = DATA_ROW + i;
       var modelos = modelosMap[it.sku] || '';
       var fob     = fobMap[it.sku]     || 0;
+      var cubierto = it.gap === 0;
 
-      // Col A vacía
       sheet.getRange(row, 2).setValue(it.sku);
       sheet.getRange(row, 3).setValue(it.desc);
       sheet.getRange(row, 4).setValue(modelos);
       sheet.getRange(row, 5).setValue(fob).setNumberFormat('#,##0.00');
-      sheet.getRange(row, 6).setValue(it.gap).setNumberFormat('#,##0');
-      sheet.getRange(row, 7).setFormula('=E' + row + '*F' + row).setNumberFormat('#,##0.00');
+      sheet.getRange(row, 6).setValue(it.nec || 0).setNumberFormat('#,##0');
+      sheet.getRange(row, 7).setValue(it.camino || 0).setNumberFormat('#,##0');
+      sheet.getRange(row, 8).setValue(it.gap).setNumberFormat('#,##0');
+      sheet.getRange(row, 9).setFormula('=E' + row + '*H' + row).setNumberFormat('#,##0.00');
 
-      // Fila alternada
-      if (i % 2 === 1) sheet.getRange(row, 1, 1, 7).setBackground('#f0f4ff');
+      // Color por cobertura: verde si cubierto, rojo claro si falta comprar
+      var rowBg = cubierto ? '#f0fdf4' : (i % 2 === 0 ? '#fff5f5' : '#fee2e2');
+      sheet.getRange(row, 1, 1, 9).setBackground(rowBg);
     }
 
     // Anchos de columna
@@ -1244,16 +1249,18 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
     sheet.setColumnWidth(2, 120); // B: Codigo corto
     sheet.setColumnWidth(3, 280); // C: Descripcion
     sheet.setColumnWidth(4, 220); // D: Modelos
-    sheet.setColumnWidth(5, 140); // E: FOB
-    sheet.setColumnWidth(6, 140); // F: Cantidad
-    sheet.setColumnWidth(7, 140); // G: Total
-    sheet.setColumnWidth(8, 140); // H: PN Bidcom
-    sheet.setColumnWidth(9, 100); // I: PA
-    sheet.setColumnWidth(10, 200); // J: Link de referencia
+    sheet.setColumnWidth(5, 130); // E: FOB unitario
+    sheet.setColumnWidth(6, 110); // F: Nec. total
+    sheet.setColumnWidth(7, 110); // G: En camino
+    sheet.setColumnWidth(8, 120); // H: A comprar
+    sheet.setColumnWidth(9, 140); // I: Total FOB
+    sheet.setColumnWidth(10, 140); // J: PN Bidcom
+    sheet.setColumnWidth(11, 100); // K: PA
+    sheet.setColumnWidth(12, 200); // L: Link de referencia
 
-    // Negrita en col Cantidad para que sea obvio que se puede editar
+    // Negrita en col "A comprar" para que sea obvio que se puede editar
     if (items.length > 0) {
-      sheet.getRange(DATA_ROW, 6, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a');
+      sheet.getRange(DATA_ROW, 8, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a');
     }
 
     SpreadsheetApp.flush();

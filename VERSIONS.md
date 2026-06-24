@@ -18,7 +18,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 2.8 | Tab inicial cambiada a Recursos (era Nueva Reparación) |
-| Guia_Reseller.html | 1.1 | Nombres de tabs actualizados; tab por defecto Recursos; eliminada sección de búsqueda inexistente |
+| Guia_Reseller.html | 1.2 | Agrega estado inicial "Pendiente de Aprobación" en tablas de estados |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
@@ -36,7 +36,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.7 | Fix XLS: getBytes() materializa blob en memoria antes de borrar Drive; optimizaciones batch |
+| Despacho_Código.js | 2.8 | XLS backorder: siempre adjunto (antes solo si sinCubrir>0); agrega cols Nec.total y En camino; color verde/rojo por cobertura |
 | Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
 | WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
 | Despacho_Env.js | 1.0 | |
