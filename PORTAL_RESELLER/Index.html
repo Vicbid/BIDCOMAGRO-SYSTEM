@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.2 -->
+<!-- @version 1.3 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1793,20 +1793,27 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
   <!-- ══ TAB: LISTA DE PRECIOS ════════════════ -->
   <div class="tab-panel" id="tab-precios">
-    <div class="help-bar" style="margin-bottom:12px">
-      <span class="help-bar-title"><i class="fa fa-tag" style="color:var(--blue)"></i> Lista de Precios de Repuestos</span>
-      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_preciosCargar(true)">
-        <i class="fa fa-arrows-rotate"></i> Actualizar
-      </button>
-    </div>
 
-    <div class="dji-card" style="margin-bottom:12px">
-      <div class="dji-card-body" style="padding:12px 14px">
-        <input id="precios-busq" class="form-control" type="text"
-               placeholder="Buscar por SKU, descripcion o modelo..."
-               oninput="_preciosFiltrar()"
-               style="max-width:480px">
+    <!-- barra búsqueda + orden -->
+    <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px;position:relative">
+          <i class="fa fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:13px;pointer-events:none"></i>
+          <input id="precios-busq" class="form-control" type="text"
+                 placeholder="Buscar por SKU, descripcion o modelo..."
+                 oninput="_preciosFiltrar()"
+                 style="padding-left:34px!important">
+        </div>
+        <select id="precios-orden" class="form-select" onchange="_preciosFiltrar()" style="width:auto;min-width:180px">
+          <option value="az">A — Z</option>
+          <option value="precio-asc">Precio: menor a mayor</option>
+          <option value="precio-desc">Precio: mayor a menor</option>
+        </select>
+        <button class="btn-out" onclick="_preciosCargar(true)" style="white-space:nowrap">
+          <i class="fa fa-arrows-rotate"></i> Actualizar
+        </button>
       </div>
+      <div id="precios-count" style="font-size:11px;color:var(--tx-d);margin-top:8px"></div>
     </div>
 
     <div id="precios-wrap">
@@ -6131,94 +6138,139 @@ function _preciosCargar(forzar) {
   if (_preciosCargando) return;
   if (_preciosData && !forzar) return;
   _preciosCargando = true;
+  document.getElementById('precios-count').textContent = '';
   document.getElementById('precios-wrap').innerHTML =
-    '<div style="text-align:center;padding:40px;color:var(--tx-d)">' +
-    '<i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:10px;opacity:.5"></i>' +
-    'Cargando precios...</div>';
+    '<div style="text-align:center;padding:60px;color:var(--tx-d)">' +
+    '<i class="fa fa-spinner fa-spin" style="font-size:28px;display:block;margin-bottom:12px;opacity:.5;color:var(--blue)"></i>' +
+    '<span style="font-size:13px">Cargando catalogo de precios...</span></div>';
   google.script.run
     .withSuccessHandler(function(res) {
       _preciosCargando = false;
       if (!res || !res.ok) {
         document.getElementById('precios-wrap').innerHTML =
-          '<div style="text-align:center;padding:40px;color:var(--red)">' +
-          '<i class="fa fa-exclamation-circle" style="display:block;font-size:24px;margin-bottom:10px"></i>' +
-          'Error al cargar precios' + (res && res.msg ? ': ' + res.msg : '') + '</div>';
+          '<div style="text-align:center;padding:60px;color:var(--red)">' +
+          '<i class="fa fa-exclamation-circle" style="font-size:32px;display:block;margin-bottom:12px;opacity:.7"></i>' +
+          '<span style="font-size:13px;font-weight:600">Error al cargar precios</span>' +
+          (res && res.msg ? '<br><span style="font-size:11px;color:var(--tx-m);margin-top:6px;display:block">' + _escHtml(res.msg) + '</span>' : '') +
+          '</div>';
         return;
       }
       _preciosData = res.items;
-      _preciosRenderizar(_preciosData);
+      _preciosFiltrar();
     })
     .withFailureHandler(function(e) {
       _preciosCargando = false;
       document.getElementById('precios-wrap').innerHTML =
-        '<div style="text-align:center;padding:40px;color:var(--red)">Error: ' + e.message + '</div>';
+        '<div style="text-align:center;padding:60px;color:var(--red)">' +
+        '<i class="fa fa-exclamation-circle" style="font-size:32px;display:block;margin-bottom:12px;opacity:.7"></i>' +
+        '<span style="font-size:13px;font-weight:600">Error de conexion</span>' +
+        '<br><span style="font-size:11px;color:var(--tx-m);margin-top:6px;display:block">' + _escHtml(e.message) + '</span></div>';
     })
     .RS_getListaPrecios();
 }
 
-function _preciosFiltrar() {
-  if (!_preciosData) return;
-  var q = (document.getElementById('precios-busq').value || '').toLowerCase()
+function _normP(s) {
+  return String(s || '').toLowerCase()
     .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e')
     .replace(/[íìïî]/g,'i').replace(/[óòöôõ]/g,'o')
     .replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
-  if (!q) { _preciosRenderizar(_preciosData); return; }
+}
+
+function _preciosFiltrar() {
+  if (!_preciosData) return;
+  var q      = _normP(document.getElementById('precios-busq').value);
+  var orden  = (document.getElementById('precios-orden') || {}).value || 'az';
   var fil = [];
   for (var i = 0; i < _preciosData.length; i++) {
     var it = _preciosData[i];
-    var haystack = (it.sku + ' ' + it.desc + ' ' + it.modelos).toLowerCase()
-      .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e')
-      .replace(/[íìïî]/g,'i').replace(/[óòöôõ]/g,'o')
-      .replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
-    if (haystack.indexOf(q) !== -1) fil.push(it);
+    if (q) {
+      var hay = _normP(it.sku + ' ' + it.desc + ' ' + it.modelos);
+      if (hay.indexOf(q) === -1) continue;
+    }
+    fil.push(it);
   }
+  fil.sort(function(a, b) {
+    if (orden === 'precio-asc') {
+      var pa = a.pvp === null ? Infinity : Number(a.pvp);
+      var pb = b.pvp === null ? Infinity : Number(b.pvp);
+      return pa - pb;
+    }
+    if (orden === 'precio-desc') {
+      var pa = a.pvp === null ? -1 : Number(a.pvp);
+      var pb = b.pvp === null ? -1 : Number(b.pvp);
+      return pb - pa;
+    }
+    return _normP(a.desc).localeCompare(_normP(b.desc));
+  });
   _preciosRenderizar(fil);
 }
 
 function _preciosRenderizar(items) {
-  var wrap = document.getElementById('precios-wrap');
+  var countEl = document.getElementById('precios-count');
+  var wrap    = document.getElementById('precios-wrap');
+
   if (!items || items.length === 0) {
-    wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--tx-d)">Sin resultados</div>';
+    countEl.textContent = '';
+    wrap.innerHTML =
+      '<div style="text-align:center;padding:60px;color:var(--tx-d)">' +
+      '<i class="fa fa-box-open" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3"></i>' +
+      '<span style="font-size:13px">Sin resultados</span></div>';
     return;
   }
-  var rows = '';
+
+  countEl.innerHTML = '<i class="fa fa-box" style="margin-right:5px;color:var(--blue)"></i>' +
+    '<strong>' + items.length + '</strong> repuesto' + (items.length !== 1 ? 's' : '') + ' encontrado' + (items.length !== 1 ? 's' : '');
+
+  var cards = '';
   for (var i = 0; i < items.length; i++) {
     var it  = items[i];
-    var pvp = it.pvp !== null && it.pvp !== '' ? 'USD ' + Number(it.pvp).toFixed(2) : '<span style="color:var(--tx-d)">—</span>';
-    var cu  = it.cantUsada !== '' && it.cantUsada !== null ? it.cantUsada : '—';
-    rows += '<tr>' +
-      '<td style="font-weight:700;color:var(--blue);white-space:nowrap">' + _escHtml(it.sku) + '</td>' +
-      '<td>' + _escHtml(it.desc) + '</td>' +
-      '<td style="font-size:11px;color:var(--tx-m)">' + _escHtml(it.modelos) + '</td>' +
-      '<td style="text-align:center;color:var(--tx-m)">' + cu + '</td>' +
-      '<td style="text-align:right;font-weight:600;white-space:nowrap">' + pvp + '</td>' +
-      '</tr>';
+    var pvp = it.pvp !== null && it.pvp !== '' && !isNaN(Number(it.pvp));
+    var pvpStr = pvp ? 'USD ' + Number(it.pvp).toFixed(2) : null;
+
+    var modelosTags = '';
+    if (it.modelos) {
+      var mods = it.modelos.split(/[,;\/]+/);
+      for (var m = 0; m < mods.length && m < 4; m++) {
+        var mod = mods[m].trim();
+        if (mod) modelosTags += '<span style="display:inline-block;background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.2);border-radius:4px;font-size:10px;font-weight:600;padding:1px 7px;margin:2px 2px 2px 0;white-space:nowrap">' + _escHtml(mod) + '</span>';
+      }
+      if (mods.length > 4) modelosTags += '<span style="font-size:10px;color:var(--tx-d);margin-left:2px">+' + (mods.length - 4) + ' más</span>';
+    }
+
+    cards +=
+      '<div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:box-shadow .15s,border-color .15s;display:flex;flex-direction:column" ' +
+      'onmouseover="this.style.boxShadow=\'0 4px 18px rgba(0,163,224,.13)\';this.style.borderColor=\'rgba(0,163,224,.35)\'" ' +
+      'onmouseout="this.style.boxShadow=\'0 1px 4px rgba(0,0,0,.05)\';this.style.borderColor=\'var(--brd)\'">' +
+
+      // cabecera SKU
+      '<div style="background:var(--surf);border-bottom:1px solid var(--brd);padding:10px 14px;display:flex;align-items:center;justify-content:space-between">' +
+        '<span style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.04em;font-family:monospace">' + _escHtml(it.sku) + '</span>' +
+        (pvp ? '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.2);border-radius:4px;padding:2px 7px">PVP</span>' :
+               '<span style="font-size:9px;color:var(--tx-d)">Sin precio</span>') +
+      '</div>' +
+
+      // cuerpo
+      '<div style="padding:14px;flex:1;display:flex;flex-direction:column;gap:8px">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--tx);line-height:1.4;min-height:38px">' + _escHtml(it.desc) + '</div>' +
+
+        (modelosTags ? '<div><div style="font-size:10px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Modelos compatibles</div>' + modelosTags + '</div>' : '') +
+
+        (it.cantUsada ? '<div style="font-size:11px;color:var(--tx-m);display:flex;align-items:center;gap:5px"><i class="fa fa-wrench" style="color:var(--tx-d);font-size:10px"></i>Cant. por equipo: <strong>' + _escHtml(String(it.cantUsada)) + '</strong></div>' : '') +
+      '</div>' +
+
+      // pie: precio
+      '<div style="padding:12px 14px;border-top:1px solid var(--brd);background:var(--surf);text-align:right">' +
+        (pvp
+          ? '<span style="font-size:20px;font-weight:800;color:var(--tx);letter-spacing:-.5px">' + pvpStr + '</span>'
+          : '<span style="font-size:13px;color:var(--tx-d);font-style:italic">Precio a consultar</span>') +
+      '</div>' +
+
+      '</div>';
   }
+
   wrap.innerHTML =
-    '<div style="overflow-x:auto">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-    '<thead><tr style="background:var(--surf);position:sticky;top:0">' +
-    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">SKU</th>' +
-    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m)">Descripcion</th>' +
-    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m)">Modelos Compatibles</th>' +
-    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">Cant. por equipo</th>' +
-    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">Precio PVP</th>' +
-    '</tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></div>' +
-    '<div style="font-size:11px;color:var(--tx-d);padding:10px 12px;text-align:right">' + items.length + ' repuestos</div>';
-
-  var trs = wrap.querySelectorAll('tbody tr');
-  for (var j = 0; j < trs.length; j++) {
-    trs[j].style.background = j % 2 === 1 ? 'var(--surf)' : '#fff';
-    trs[j].querySelectorAll('td').forEach(function(td) {
-      td.style.padding = '9px 12px';
-      td.style.borderBottom = '1px solid var(--brd)';
-    });
-  }
-}
-
-function _escHtml(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;padding-bottom:8px">' +
+    cards + '</div>';
 }
 
 </script>
