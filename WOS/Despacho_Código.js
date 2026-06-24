@@ -1,4 +1,4 @@
-// @version 2.9
+// @version 3.0
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1126,163 +1126,114 @@ function WOS_reporteBackorder() {
       }
     } catch(eLR) { Logger.log('WOS_reporteBackorder fobMap: ' + eLR); }
 
-    // 5. Generar XLS con todos los ítems en backorder y enviar en hilo persistente
-    var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
-    var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
+    // 5. Generar XLS con todos los ítems y enviar manteniendo hilo
+    var fechaStr   = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
+    var emailHtml  = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
+    var asuntoHilo = '[WOS] Reporte Backorder — Logistica Internacional';
 
-    // sinCubrir primero (necesitan compra), luego cubiertos (ya en camino, cant=0)
     var todosItems = sinCubrir.concat(cubiertos);
-    var xlsBlob = null;
-    if (todosItems.length > 0) {
-      xlsBlob = _wosBackorderGenerarXLS(todosItems, modelosMap, fobMap);
-    }
+    var xlsBlob    = todosItems.length > 0 ? _wosBackorderGenerarXLS(todosItems, modelosMap, fobMap) : null;
 
-    var mailOpts = { htmlBody: html, name: 'WOS · BidcomAgro' };
+    var toField  = destinatarios[0];
+    var ccField  = destinatarios.slice(1).join(', ');
+    var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro', cc: ccField };
     if (xlsBlob) mailOpts.attachments = [xlsBlob];
 
-    var toField = destinatarios[0];
-    var ccField = destinatarios.slice(1).join(', ');
-
-    var threadId = _wosGetBackorderThreadId();
+    // Buscar hilo existente en Enviados por asunto (evita depender de WOS_CONFIG)
     var enviado  = false;
-
-    if (threadId) {
-      try {
-        var thread = GmailApp.getThreadById(threadId);
-        var msgs   = thread.getMessages();
-        var replyOpts = { to: toField, cc: ccField, htmlBody: html, name: 'WOS · BidcomAgro' };
+    try {
+      var hilos = GmailApp.search('subject:"' + asuntoHilo + '" in:sent', 0, 1);
+      if (hilos.length > 0) {
+        var msgs      = hilos[0].getMessages();
+        var replyOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
+        if (ccField) replyOpts.cc = ccField;
         if (xlsBlob) replyOpts.attachments = [xlsBlob];
         msgs[msgs.length - 1].reply('', replyOpts);
         enviado = true;
-        Logger.log('WOS_reporteBackorder: reply en hilo ' + threadId + ' → ' + destinatarios.join(', '));
-      } catch(eT) {
-        Logger.log('WOS_reporteBackorder: hilo ' + threadId + ' invalido (' + eT + '), creando nuevo');
-        threadId = '';
+        Logger.log('WOS_reporteBackorder: reply en hilo existente → ' + destinatarios.join(', '));
       }
+    } catch(eR) {
+      Logger.log('WOS_reporteBackorder: error buscando hilo (' + eR + '), enviando nuevo');
     }
 
     if (!enviado) {
-      // Primer envío o hilo perdido: nueva cadena, capturar Thread ID
-      var asuntoHilo = '[WOS] Reporte Backorder — Logistica Internacional';
-      var newOpts = { htmlBody: html, name: 'WOS · BidcomAgro', cc: ccField };
-      if (xlsBlob) newOpts.attachments = [xlsBlob];
-      try {
-        var draft   = GmailApp.createDraft(toField, asuntoHilo, '', newOpts);
-        var sentMsg = draft.send();
-        var newId   = sentMsg.getThread().getId();
-        _wosSetBackorderThreadId(newId);
-        Logger.log('WOS_reporteBackorder: nuevo hilo creado → ' + newId + ' → ' + destinatarios.join(', '));
-      } catch(eD) {
-        GmailApp.sendEmail(toField, asuntoHilo, '', newOpts);
-        Logger.log('WOS_reporteBackorder: fallback sendEmail sin capturar threadId (' + eD + ')');
-      }
+      GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
+      Logger.log('WOS_reporteBackorder: nuevo hilo enviado → ' + destinatarios.join(', '));
     }
-    Logger.log('WOS_reporteBackorder OK | sinCubrir: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length + ' | xls: ' + (xlsBlob ? 'OK' : 'no generado'));
+
+    Logger.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO'));
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }
 }
 
-// items: array de { sku, desc, nec, camino, gap, pedidos } — sinCubrir primero, cubiertos al final (gap=0)
-// modelosMap: { SKU: 'modelos string' }
-// fobMap:     { SKU: precioUSD }
+// Genera el XLS como HTML tabla (no usa Drive ni SpreadsheetApp.create — sin timeouts)
 function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
-  var ss = null;
   try {
     var fechaTag = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd');
-    ss = SpreadsheetApp.create('WOS_Backorder_' + fechaTag + '_tmp');
-    var sheet = ss.getActiveSheet();
-    sheet.setName('Backorder');
 
-    // A=vacía  B=Codigo  C=Descripcion  D=Equipo/Modelos  E=FOB  F=NecTotal  G=EnCamino  H=AComprar  I=TotalFOB
-    var HDR_ROW  = 4;
-    var DATA_ROW = 5;
-    var lastDataRow = DATA_ROW + items.length - 1;
+    var HDR_BG  = '#1e3a8a';
+    var HDR_FG  = '#ffffff';
+    var html =
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+             'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+             'xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="UTF-8">' +
+      '<xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>Backorder</x:Name>' +
+      '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>' +
+      '</head><body>' +
+      '<table border="1" cellspacing="0" cellpadding="5" ' +
+             'style="font-family:Arial,sans-serif;font-size:11px;border-collapse:collapse">';
 
-    // Cabeceras — 1 sola llamada
-    var hdrRange = sheet.getRange(HDR_ROW, 2, 1, 11);
-    hdrRange.setValues([['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Nec. total', 'En camino', 'A comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']]);
-    hdrRange.setBackground('#1e3a8a').setFontColor('#ffffff').setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
-    sheet.setFrozenRows(HDR_ROW);
+    // Cabecera
+    html += '<tr style="background:' + HDR_BG + ';color:' + HDR_FG + ';font-weight:bold;text-align:center">' +
+      '<td>Codigo</td><td>Descripcion</td><td>Equipo / Modelos</td>' +
+      '<td>FOB Unitario (USD)</td><td>Nec. total</td><td>En camino</td>' +
+      '<td>A comprar</td><td>Total FOB (USD)</td>' +
+      '<td>PN Bidcom</td><td>PA</td><td>Link de referencia</td></tr>';
 
-    // Total I3
-    sheet.getRange(3, 9)
-      .setFormula('=SUM(I' + DATA_ROW + ':I' + lastDataRow + ')')
-      .setNumberFormat('#,##0.00').setFontWeight('bold').setFontSize(12)
-      .setBackground('#1e3a8a').setFontColor('#ffffff').setHorizontalAlignment('right');
-
-    // Armar arrays batch para datos y fórmulas
-    var dataValues = [];
-    var totalFormulas = [];
+    var totalFob = 0;
     for (var i = 0; i < items.length; i++) {
-      var it  = items[i];
-      var row = DATA_ROW + i;
-      dataValues.push([
-        it.sku,
-        it.desc,
-        modelosMap[it.sku] || '',
-        fobMap[it.sku] || 0,
-        it.nec    || 0,
-        it.camino || 0,
-        it.gap    || 0
-      ]);
-      totalFormulas.push(['=E' + row + '*H' + row]);
+      var it       = items[i];
+      var fob      = fobMap[it.sku] || 0;
+      var aComprar = it.gap || 0;
+      var rowTotal = fob * aComprar;
+      totalFob    += rowTotal;
+      var bg       = it.gap === 0 ? '#f0fdf4' : (i % 2 === 0 ? '#fff5f5' : '#fee2e2');
+
+      html += '<tr style="background:' + bg + '">' +
+        '<td style="font-family:monospace">'  + _xlsEsc(it.sku)                    + '</td>' +
+        '<td>'                                + _xlsEsc(it.desc)                   + '</td>' +
+        '<td>'                                + _xlsEsc(modelosMap[it.sku] || '')   + '</td>' +
+        '<td style="text-align:right">'       + fob.toFixed(2)                     + '</td>' +
+        '<td style="text-align:center">'      + (it.nec    || 0)                   + '</td>' +
+        '<td style="text-align:center">'      + (it.camino || 0)                   + '</td>' +
+        '<td style="text-align:center;font-weight:bold;color:#1e3a8a">' + aComprar + '</td>' +
+        '<td style="text-align:right">'       + rowTotal.toFixed(2)                + '</td>' +
+        '<td></td><td></td><td></td></tr>';
     }
 
-    // Escritura batch: datos B:H + fórmula I
-    sheet.getRange(DATA_ROW, 2, items.length, 7).setValues(dataValues);
-    sheet.getRange(DATA_ROW, 9, items.length, 1).setFormulas(totalFormulas);
+    // Fila total
+    html += '<tr style="background:' + HDR_BG + ';color:' + HDR_FG + ';font-weight:bold">' +
+      '<td colspan="7" style="text-align:right">TOTAL FOB</td>' +
+      '<td style="text-align:right">' + totalFob.toFixed(2) + '</td>' +
+      '<td colspan="3"></td></tr>';
 
-    // Formatos numéricos — rangos completos, no por fila
-    sheet.getRange(DATA_ROW, 5, items.length, 1).setNumberFormat('#,##0.00'); // FOB
-    sheet.getRange(DATA_ROW, 6, items.length, 3).setNumberFormat('#,##0');    // Nec/EnCamino/AComprar
-    sheet.getRange(DATA_ROW, 9, items.length, 1).setNumberFormat('#,##0.00'); // Total
-    sheet.getRange(DATA_ROW, 8, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a'); // A comprar
+    html += '</table></body></html>';
 
-    // Colores por cobertura: dos pasadas de batch en vez de una por fila
-    var bgValues = [];
-    for (var j = 0; j < items.length; j++) {
-      var bg = items[j].gap === 0 ? '#f0fdf4' : (j % 2 === 0 ? '#fff5f5' : '#fee2e2');
-      bgValues.push([bg, bg, bg, bg, bg, bg, bg, bg, bg]);
-    }
-    sheet.getRange(DATA_ROW, 1, items.length, 9).setBackgrounds(bgValues);
-
-    // Anchos de columna
-    sheet.setColumnWidth(1, 140);
-    sheet.setColumnWidth(2, 120);
-    sheet.setColumnWidth(3, 280);
-    sheet.setColumnWidth(4, 220);
-    sheet.setColumnWidth(5, 130);
-    sheet.setColumnWidth(6, 110);
-    sheet.setColumnWidth(7, 110);
-    sheet.setColumnWidth(8, 120);
-    sheet.setColumnWidth(9, 140);
-    sheet.setColumnWidth(10, 140);
-    sheet.setColumnWidth(11, 100);
-    sheet.setColumnWidth(12, 200);
-
-    SpreadsheetApp.flush();
-
-    // Exportar como XLSX: getBytes() materializa en memoria antes de borrar
-    var ssId    = ss.getId();
-    var rawBlob = DriveApp.getFileById(ssId)
-                    .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    var blob    = Utilities.newBlob(
-                    rawBlob.getBytes(),
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'WOS_Backorder_' + fechaTag + '.xlsx'
-                  );
-
-    try { DriveApp.getFileById(ssId).setTrashed(true); } catch(eD) { Logger.log('trash: ' + eD); }
-
-    Logger.log('_wosBackorderGenerarXLS OK: ' + items.length + ' items, ' + blob.getBytes().length + ' bytes');
+    var blob = Utilities.newBlob(html, 'application/vnd.ms-excel', 'WOS_Backorder_' + fechaTag + '.xls');
+    Logger.log('_wosBackorderGenerarXLS OK: ' + items.length + ' items');
     return blob;
 
   } catch(e) {
     Logger.log('_wosBackorderGenerarXLS ERROR: ' + e);
-    if (ss) { try { DriveApp.getFileById(ss.getId()).setTrashed(true); } catch(eD) {} }
     return null;
   }
+}
+
+function _xlsEsc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
