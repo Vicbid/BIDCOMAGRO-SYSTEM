@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.3 -->
+<!-- @version 2.4 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1215,16 +1215,48 @@ function _imprimirEtiqueta(numero) {
         '}' +
         'function printBultos(){update();window.print();}' +
         'document.getElementById("ni").addEventListener("input",update);' +
-        'update();';
+        'update();' +
+        'function setSize(sz){' +
+          'document.getElementById("szstyle").textContent=sz==="A5"?' +
+            '"@page{size:A5 landscape;margin:5mm}' +
+            '.label{width:560px}' +
+            '.actions-bar{width:560px}' +
+            '.main-row{min-height:256px}' +
+            '.dest-col{padding:14px 17px}' +
+            '.dest-name{font-size:42px}' +
+            '.dest-cuit{font-size:12px;margin-top:4px}' +
+            '.info-row{gap:8px}' +
+            '.info-lbl{font-size:7px;min-width:52px}' +
+            '.info-val{font-size:16px}' +
+            '.rem-col{flex:0 0 180px;padding:14px 12px}' +
+            '.logo-text{font-size:21px}' +
+            '.rem-name{font-size:9px;margin-bottom:3px}' +
+            '.rem-line{font-size:7px;line-height:1.7}' +
+            '.bulto-txt{font-size:15px}' +
+            '.pedido-tag{font-size:9px;padding:4px 10px}' +
+            '.obs-band{font-size:8px;padding:5px 20px}' +
+            '.footer-bar{padding:8px 16px}"' +
+          ':"";' +
+          'var a4=document.getElementById("btn-a4");' +
+          'var a5=document.getElementById("btn-a5");' +
+          'a4.style.background=sz==="A4"?"#003399":"#e0e0e0";a4.style.color=sz==="A4"?"#fff":"#333";' +
+          'a5.style.background=sz==="A5"?"#003399":"#e0e0e0";a5.style.color=sz==="A5"?"#fff":"#333";' +
+        '}';
 
       w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiqueta ' + escH(r.numero) + '</title>' +
         '<style>' + css + '</style>' +
+        '<style id="szstyle"></style>' +
         '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
         '</head><body>' +
         '<div class="actions-bar">' +
           '<div class="bulto-ctrl">' +
             '<span>Cantidad de bultos:</span>' +
             '<input id="ni" type="number" min="1" value="1">' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+            '<span style="font-size:11px;font-weight:600;color:#555">Tama\xf1o:</span>' +
+            '<button id="btn-a4" onclick="setSize(\'A4\')" style="padding:6px 14px;background:#003399;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer">A4</button>' +
+            '<button id="btn-a5" onclick="setSize(\'A5\')" style="padding:6px 14px;background:#e0e0e0;color:#333;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer">\xbd&nbsp;A4</button>' +
           '</div>' +
           '<div style="display:flex;gap:10px">' +
             '<button onclick="printBultos()" style="padding:10px 28px;background:#003399;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer">&#128424;&nbsp; Imprimir</button>' +

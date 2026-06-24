@@ -37,7 +37,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Despacho_Código.js | 3.5 | Backorder XLS: columnas FOB vacías (se llenan a mano); etiqueta agrega provincia (DB_REPUESTOS col G) |
-| Despacho_Index.html | 2.3 | Etiqueta: muestra Provincia entre Localidad y Teléfono |
+| Despacho_Index.html | 2.4 | Etiqueta: toggle de tamaño A4 / ½A4 (A5 landscape) en barra de acciones |
 | WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
 | Despacho_Env.js | 1.0 | |
 
