@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.5
+// @version 1.6
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -233,9 +233,13 @@ function RS_getListaPrecios() {
       return { ok: false, msg: 'Hoja TODO no encontrada. Disponibles: ' + nombres };
     }
     Logger.log('RS_getListaPrecios: hoja encontrada, leyendo filas...');
-    var dataRange = sheet.getDataRange();
-    var rows      = dataRange.getValues();
-    var richVals  = dataRange.getRichTextValues();
+    var lastRow  = sheet.getLastRow();
+    var lastCol  = sheet.getLastColumn();
+    var rows     = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+    // getRichTextValues solo en col H (índice 8) para no leer todo el sheet
+    var richColH = lastRow > 1
+      ? sheet.getRange(2, 8, lastRow - 1, 1).getRichTextValues()
+      : [];
     Logger.log('RS_getListaPrecios: ' + rows.length + ' filas');
     var items = [];
     var fotoLog = []; // para diagnóstico
@@ -245,24 +249,24 @@ function RS_getListaPrecios() {
       var pvpRaw  = rows[i][5];
       var cantRaw = rows[i][4];
 
-      // Col H: leer URL desde chip/hipervínculo con getRichTextValues
-      var fotoUrl   = '';
-      var fotoPlain = String(rows[i][7] || '').trim(); // valor plano como fallback
-      try {
-        var richCell = richVals[i] && richVals[i][7];
-        if (richCell) {
-          fotoUrl = richCell.getLinkUrl() || '';
-          if (!fotoUrl) {
-            var runs = richCell.getRuns();
-            for (var r = 0; r < runs.length; r++) {
-              var ru = runs[r].getLinkUrl();
-              if (ru) { fotoUrl = ru; break; }
+      // Col H: valor plano primero (cubre URLs de texto), luego rich text para chips
+      var fotoPlain = String(rows[i][7] || '').trim();
+      var fotoUrl   = (fotoPlain.indexOf('http') === 0) ? fotoPlain : '';
+      if (!fotoUrl) {
+        try {
+          var richCell = richColH[i - 1] && richColH[i - 1][0];
+          if (richCell) {
+            fotoUrl = richCell.getLinkUrl() || '';
+            if (!fotoUrl) {
+              var runs = richCell.getRuns();
+              for (var r = 0; r < runs.length; r++) {
+                var ru = runs[r].getLinkUrl();
+                if (ru) { fotoUrl = ru; break; }
+              }
             }
           }
-        }
-        // Fallback: si el valor plano parece una URL, usarlo
-        if (!fotoUrl && fotoPlain.indexOf('http') === 0) fotoUrl = fotoPlain;
-      } catch(eFoto) { fotoUrl = fotoPlain.indexOf('http') === 0 ? fotoPlain : ''; }
+        } catch(eFoto) {}
+      }
 
       // Convertir URLs de Google Drive al formato de thumbnail directo
       if (fotoUrl) fotoUrl = _driveUrlToImg(fotoUrl);

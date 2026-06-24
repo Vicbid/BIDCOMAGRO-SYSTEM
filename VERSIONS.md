@@ -23,7 +23,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
 | RS_Auth.js | 1.0 | |
-| RS_Repuestos.js | 1.5 | _driveUrlToImg convierte Drive URLs a lh3; log muestra primeras 3 fotos para diagnóstico |
+| RS_Repuestos.js | 1.6 | getRichTextValues solo col H (no rango completo); plain URL tiene prioridad sobre rich text |
 | RS_Código.js | 1.0 | |
 | RS_CuentaCorriente.js | 1.0 | |
 | RS_Registro.js | 1.0 | |
