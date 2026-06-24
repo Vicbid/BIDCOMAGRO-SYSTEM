@@ -1,4 +1,4 @@
-// @version 2.8
+// @version 2.9
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1194,79 +1194,76 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
     var sheet = ss.getActiveSheet();
     sheet.setName('Backorder');
 
-    // Col A: vacía (para que el comprador agregue el código largo)
-    // Cabecera en fila 4, datos desde fila 5
     // A=vacía  B=Codigo  C=Descripcion  D=Equipo/Modelos  E=FOB  F=NecTotal  G=EnCamino  H=AComprar  I=TotalFOB
     var HDR_ROW  = 4;
     var DATA_ROW = 5;
-
-    // I3: total de la columna I (Total FOB)
     var lastDataRow = DATA_ROW + items.length - 1;
-    sheet.getRange(3, 9)
-      .setFormula('=SUM(I' + DATA_ROW + ':I' + lastDataRow + ')')
-      .setNumberFormat('#,##0.00')
-      .setFontWeight('bold')
-      .setFontSize(12)
-      .setBackground('#1e3a8a')
-      .setFontColor('#ffffff')
-      .setHorizontalAlignment('right');
 
-    // Cabeceras fila 4: B-I propias + J, K, L extras
-    var headers = [['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Nec. total', 'En camino', 'A comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']];
+    // Cabeceras — 1 sola llamada
     var hdrRange = sheet.getRange(HDR_ROW, 2, 1, 11);
-    hdrRange.setValues(headers);
-    hdrRange.setBackground('#1e3a8a');
-    hdrRange.setFontColor('#ffffff');
-    hdrRange.setFontWeight('bold');
-    hdrRange.setFontSize(11);
-    hdrRange.setHorizontalAlignment('center');
+    hdrRange.setValues([['Codigo', 'Descripcion', 'Equipo / Modelos', 'FOB Unitario (USD)', 'Nec. total', 'En camino', 'A comprar', 'Total FOB (USD)', 'PN Bidcom', 'PA', 'Link de referencia']]);
+    hdrRange.setBackground('#1e3a8a').setFontColor('#ffffff').setFontWeight('bold').setFontSize(11).setHorizontalAlignment('center');
     sheet.setFrozenRows(HDR_ROW);
 
-    // Filas de datos
+    // Total I3
+    sheet.getRange(3, 9)
+      .setFormula('=SUM(I' + DATA_ROW + ':I' + lastDataRow + ')')
+      .setNumberFormat('#,##0.00').setFontWeight('bold').setFontSize(12)
+      .setBackground('#1e3a8a').setFontColor('#ffffff').setHorizontalAlignment('right');
+
+    // Armar arrays batch para datos y fórmulas
+    var dataValues = [];
+    var totalFormulas = [];
     for (var i = 0; i < items.length; i++) {
-      var it      = items[i];
-      var row     = DATA_ROW + i;
-      var modelos = modelosMap[it.sku] || '';
-      var fob     = fobMap[it.sku]     || 0;
-      var cubierto = it.gap === 0;
-
-      sheet.getRange(row, 2).setValue(it.sku);
-      sheet.getRange(row, 3).setValue(it.desc);
-      sheet.getRange(row, 4).setValue(modelos);
-      sheet.getRange(row, 5).setValue(fob).setNumberFormat('#,##0.00');
-      sheet.getRange(row, 6).setValue(it.nec || 0).setNumberFormat('#,##0');
-      sheet.getRange(row, 7).setValue(it.camino || 0).setNumberFormat('#,##0');
-      sheet.getRange(row, 8).setValue(it.gap).setNumberFormat('#,##0');
-      sheet.getRange(row, 9).setFormula('=E' + row + '*H' + row).setNumberFormat('#,##0.00');
-
-      // Color por cobertura: verde si cubierto, rojo claro si falta comprar
-      var rowBg = cubierto ? '#f0fdf4' : (i % 2 === 0 ? '#fff5f5' : '#fee2e2');
-      sheet.getRange(row, 1, 1, 9).setBackground(rowBg);
+      var it  = items[i];
+      var row = DATA_ROW + i;
+      dataValues.push([
+        it.sku,
+        it.desc,
+        modelosMap[it.sku] || '',
+        fobMap[it.sku] || 0,
+        it.nec    || 0,
+        it.camino || 0,
+        it.gap    || 0
+      ]);
+      totalFormulas.push(['=E' + row + '*H' + row]);
     }
+
+    // Escritura batch: datos B:H + fórmula I
+    sheet.getRange(DATA_ROW, 2, items.length, 7).setValues(dataValues);
+    sheet.getRange(DATA_ROW, 9, items.length, 1).setFormulas(totalFormulas);
+
+    // Formatos numéricos — rangos completos, no por fila
+    sheet.getRange(DATA_ROW, 5, items.length, 1).setNumberFormat('#,##0.00'); // FOB
+    sheet.getRange(DATA_ROW, 6, items.length, 3).setNumberFormat('#,##0');    // Nec/EnCamino/AComprar
+    sheet.getRange(DATA_ROW, 9, items.length, 1).setNumberFormat('#,##0.00'); // Total
+    sheet.getRange(DATA_ROW, 8, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a'); // A comprar
+
+    // Colores por cobertura: dos pasadas de batch en vez de una por fila
+    var bgValues = [];
+    for (var j = 0; j < items.length; j++) {
+      var bg = items[j].gap === 0 ? '#f0fdf4' : (j % 2 === 0 ? '#fff5f5' : '#fee2e2');
+      bgValues.push([bg, bg, bg, bg, bg, bg, bg, bg, bg]);
+    }
+    sheet.getRange(DATA_ROW, 1, items.length, 9).setBackgrounds(bgValues);
 
     // Anchos de columna
-    sheet.setColumnWidth(1, 140); // A: vacía para codigo largo
-    sheet.setColumnWidth(2, 120); // B: Codigo corto
-    sheet.setColumnWidth(3, 280); // C: Descripcion
-    sheet.setColumnWidth(4, 220); // D: Modelos
-    sheet.setColumnWidth(5, 130); // E: FOB unitario
-    sheet.setColumnWidth(6, 110); // F: Nec. total
-    sheet.setColumnWidth(7, 110); // G: En camino
-    sheet.setColumnWidth(8, 120); // H: A comprar
-    sheet.setColumnWidth(9, 140); // I: Total FOB
-    sheet.setColumnWidth(10, 140); // J: PN Bidcom
-    sheet.setColumnWidth(11, 100); // K: PA
-    sheet.setColumnWidth(12, 200); // L: Link de referencia
-
-    // Negrita en col "A comprar" para que sea obvio que se puede editar
-    if (items.length > 0) {
-      sheet.getRange(DATA_ROW, 8, items.length, 1).setFontWeight('bold').setFontColor('#1e3a8a');
-    }
+    sheet.setColumnWidth(1, 140);
+    sheet.setColumnWidth(2, 120);
+    sheet.setColumnWidth(3, 280);
+    sheet.setColumnWidth(4, 220);
+    sheet.setColumnWidth(5, 130);
+    sheet.setColumnWidth(6, 110);
+    sheet.setColumnWidth(7, 110);
+    sheet.setColumnWidth(8, 120);
+    sheet.setColumnWidth(9, 140);
+    sheet.setColumnWidth(10, 140);
+    sheet.setColumnWidth(11, 100);
+    sheet.setColumnWidth(12, 200);
 
     SpreadsheetApp.flush();
-    Utilities.sleep(2000); // esperar que Drive procese el archivo antes de convertir
 
-    // Exportar como XLSX: forzar lectura de bytes en memoria ANTES de borrar el archivo
+    // Exportar como XLSX: getBytes() materializa en memoria antes de borrar
     var ssId    = ss.getId();
     var rawBlob = DriveApp.getFileById(ssId)
                     .getAs('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1276,10 +1273,9 @@ function _wosBackorderGenerarXLS(items, modelosMap, fobMap) {
                     'WOS_Backorder_' + fechaTag + '.xlsx'
                   );
 
-    // Borrar el temp solo después de tener los bytes en memoria
     try { DriveApp.getFileById(ssId).setTrashed(true); } catch(eD) { Logger.log('trash: ' + eD); }
 
-    Logger.log('_wosBackorderGenerarXLS OK: ' + blob.getBytes().length + ' bytes');
+    Logger.log('_wosBackorderGenerarXLS OK: ' + items.length + ' items, ' + blob.getBytes().length + ' bytes');
     return blob;
 
   } catch(e) {

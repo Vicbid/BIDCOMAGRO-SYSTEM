@@ -36,7 +36,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.8 | XLS backorder: siempre adjunto (antes solo si sinCubrir>0); agrega cols Nec.total y En camino; color verde/rojo por cobertura |
+| Despacho_Código.js | 2.9 | XLS backorder: reescritura batch (setValues/setFormulas/setBackgrounds); elimina calls individuales por fila que causaban timeout |
 | Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
 | WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
 | Despacho_Env.js | 1.0 | |
