@@ -1,4 +1,4 @@
-// @version 3.0
+// @version 3.1
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1129,39 +1129,51 @@ function WOS_reporteBackorder() {
     // 5. Generar XLS con todos los ítems y enviar manteniendo hilo
     var fechaStr   = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var emailHtml  = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
-    var asuntoHilo = '[WOS] Reporte Backorder — Logistica Internacional';
+    var asuntoHilo = '[WOS] Reporte Backorder Logistica Internacional';
 
     var todosItems = sinCubrir.concat(cubiertos);
     var xlsBlob    = todosItems.length > 0 ? _wosBackorderGenerarXLS(todosItems, modelosMap, fobMap) : null;
 
-    var toField  = destinatarios[0];
-    var ccField  = destinatarios.slice(1).join(', ');
-    var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro', cc: ccField };
-    if (xlsBlob) mailOpts.attachments = [xlsBlob];
+    var toField = destinatarios[0];
+    var ccField = destinatarios.slice(1).join(', ');
+    console.log('WOS paso5: to=' + toField + ' xls=' + (xlsBlob ? 'OK' : 'null') + ' sinCubrir=' + sinCubrir.length);
 
-    // Buscar hilo existente en Enviados por asunto (evita depender de WOS_CONFIG)
-    var enviado  = false;
+    // Buscar hilo existente en Enviados por asunto
+    var enviado = false;
     try {
-      var hilos = GmailApp.search('subject:"' + asuntoHilo + '" in:sent', 0, 1);
+      var hilos = GmailApp.search('subject:"Reporte Backorder Logistica" in:sent', 0, 3);
+      console.log('WOS search: hilos=' + hilos.length);
       if (hilos.length > 0) {
-        var msgs      = hilos[0].getMessages();
+        var msgs = hilos[0].getMessages();
         var replyOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
         if (ccField) replyOpts.cc = ccField;
         if (xlsBlob) replyOpts.attachments = [xlsBlob];
-        msgs[msgs.length - 1].reply('', replyOpts);
-        enviado = true;
-        Logger.log('WOS_reporteBackorder: reply en hilo existente → ' + destinatarios.join(', '));
+        try {
+          msgs[msgs.length - 1].reply('', replyOpts);
+          enviado = true;
+          console.log('WOS reply OK: hilo=' + hilos[0].getId());
+        } catch(eReply) {
+          console.log('WOS reply FALLO: ' + eReply);
+        }
       }
-    } catch(eR) {
-      Logger.log('WOS_reporteBackorder: error buscando hilo (' + eR + '), enviando nuevo');
+    } catch(eSearch) {
+      console.log('WOS search FALLO: ' + eSearch);
     }
 
     if (!enviado) {
-      GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
-      Logger.log('WOS_reporteBackorder: nuevo hilo enviado → ' + destinatarios.join(', '));
+      var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
+      if (ccField) mailOpts.cc = ccField;
+      if (xlsBlob) mailOpts.attachments = [xlsBlob];
+      try {
+        GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
+        enviado = true;
+        console.log('WOS sendEmail OK: ' + toField);
+      } catch(eSend) {
+        console.log('WOS sendEmail FALLO: ' + eSend);
+      }
     }
 
-    Logger.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO'));
+    console.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO') + ' enviado:' + enviado);
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }
