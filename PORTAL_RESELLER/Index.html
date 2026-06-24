@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.5 -->
+<!-- @version 1.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -353,6 +353,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .ped-chip.backorder    {background:rgba(230,126,34,.12);color:#e67e22;border:1px solid rgba(230,126,34,.22)}
 .ped-chip.consultar_Backorder{background:rgba(212,137,10,.12);color:#d4890a;border:1px solid rgba(212,137,10,.22)}
 .ped-chip.sin_catalogo {background:rgba(214,48,49,.1); color:#d63031;border:1px solid rgba(214,48,49,.2)}
+
+/* ── CHIPS DE MODELO (catálogo precios) ── */
+.mod-chip{display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--brd2);background:var(--surf);color:var(--tx-m);transition:all .13s;white-space:nowrap;user-select:none}
+.mod-chip:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-b)}
+.mod-chip.activo{background:var(--blue);border-color:var(--blue);color:#fff}
+.mod-chip.todos{border-style:dashed}
+.mod-chip.todos.activo{background:var(--surf);border-color:var(--brd2);color:var(--tx-m);border-style:dashed}
 </style>
 </head>
 <body>
@@ -1811,6 +1818,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <button class="btn-out" onclick="_preciosCargar(true)" style="white-space:nowrap">
           <i class="fa fa-arrows-rotate"></i> Actualizar
         </button>
+      </div>
+      <div id="precios-filtros-mod" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);font-weight:600;margin-bottom:7px">Filtrar por modelo</div>
+        <div id="precios-chips-wrap" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
       <div id="precios-count" style="font-size:11px;color:var(--tx-d);margin-top:8px"></div>
     </div>
@@ -6130,8 +6141,9 @@ function _campEditarEstimado() {
 // ══════════════════════════════════════════
 //  LISTA DE PRECIOS
 // ══════════════════════════════════════════
-var _preciosData     = null;
-var _preciosCargando = false;
+var _preciosData      = null;
+var _preciosCargando  = false;
+var _preciosModelosSel = [];   // modelos seleccionados para filtrar
 
 function _preciosCargar(forzar) {
   if (_preciosCargando) return;
@@ -6155,6 +6167,8 @@ function _preciosCargar(forzar) {
         return;
       }
       _preciosData = res.items;
+      _preciosModelosSel = [];
+      _preciosRenderizarChips();
       _preciosFiltrar();
     })
     .withFailureHandler(function(e) {
@@ -6175,19 +6189,81 @@ function _normP(s) {
     .replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
 }
 
+function _preciosExtraerModelos(items) {
+  var seen = {};
+  var mods = [];
+  for (var i = 0; i < items.length; i++) {
+    var partes = String(items[i].modelos || '').split(/[,;\/]+/);
+    for (var j = 0; j < partes.length; j++) {
+      var m = partes[j].trim();
+      if (m && !seen[m]) { seen[m] = true; mods.push(m); }
+    }
+  }
+  mods.sort(function(a, b) { return a.localeCompare(b); });
+  return mods;
+}
+
+function _preciosRenderizarChips() {
+  var modelos = _preciosExtraerModelos(_preciosData);
+  var wrap    = document.getElementById('precios-chips-wrap');
+  var sec     = document.getElementById('precios-filtros-mod');
+  if (!modelos.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+
+  var html = '<button class="mod-chip todos' + (_preciosModelosSel.length === 0 ? '' : '') + '" onclick="_preciosLimpiarModelos()">Todos</button>';
+  for (var i = 0; i < modelos.length; i++) {
+    var m   = modelos[i];
+    var sel = _preciosModelosSel.indexOf(m) !== -1;
+    html += '<button class="mod-chip' + (sel ? ' activo' : '') + '" onclick="_preciosToggleModelo(\'' + m.replace(/'/g, "\\'") + '\')">' + _escHtml(m) + '</button>';
+  }
+  wrap.innerHTML = html;
+}
+
+function _preciosToggleModelo(modelo) {
+  var idx = _preciosModelosSel.indexOf(modelo);
+  if (idx === -1) _preciosModelosSel.push(modelo);
+  else _preciosModelosSel.splice(idx, 1);
+  _preciosRenderizarChips();
+  _preciosFiltrar();
+}
+
+function _preciosLimpiarModelos() {
+  _preciosModelosSel = [];
+  _preciosRenderizarChips();
+  _preciosFiltrar();
+}
+
 function _preciosFiltrar() {
   if (!_preciosData) return;
-  var q      = _normP(document.getElementById('precios-busq').value);
-  var orden  = (document.getElementById('precios-orden') || {}).value || 'az';
-  var fil = [];
+  var q     = _normP(document.getElementById('precios-busq').value);
+  var orden = (document.getElementById('precios-orden') || {}).value || 'az';
+  var fil   = [];
+
   for (var i = 0; i < _preciosData.length; i++) {
     var it = _preciosData[i];
+
+    // filtro de texto
     if (q) {
       var hay = _normP(it.sku + ' ' + it.desc + ' ' + it.modelos);
       if (hay.indexOf(q) === -1) continue;
     }
+
+    // filtro de modelos (OR: basta con que tenga al menos uno de los seleccionados)
+    if (_preciosModelosSel.length > 0) {
+      var modsItem = String(it.modelos || '').split(/[,;\/]+/);
+      var match    = false;
+      for (var k = 0; k < _preciosModelosSel.length && !match; k++) {
+        var sel = _normP(_preciosModelosSel[k]);
+        for (var p = 0; p < modsItem.length && !match; p++) {
+          if (_normP(modsItem[p].trim()) === sel) match = true;
+        }
+      }
+      if (!match) continue;
+    }
+
     fil.push(it);
   }
+
   fil.sort(function(a, b) {
     if (orden === 'precio-asc') {
       var pa = a.pvp === null ? Infinity : Number(a.pvp);
@@ -6201,6 +6277,7 @@ function _preciosFiltrar() {
     }
     return _normP(a.desc).localeCompare(_normP(b.desc));
   });
+
   _preciosRenderizar(fil);
 }
 
