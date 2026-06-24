@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -196,5 +196,39 @@ function enviarGestionRepuestos(data) {
   } catch(e) {
     Logger.log("enviarGestionRepuestos: " + e);
     return { ok: false, error: e.toString() };
+  }
+}
+
+function RS_getListaPrecios() {
+  var CKEY = 'lista_precios_v1';
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(CKEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch(e) {}
+  }
+  try {
+    var ss    = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID);
+    var sheet = ss.getSheetByName('TODO');
+    if (!sheet) return { ok: false, msg: 'Hoja TODO no encontrada' };
+    var rows  = sheet.getDataRange().getValues();
+    var items = [];
+    for (var i = 1; i < rows.length; i++) {
+      var sku = String(rows[i][1] || '').trim();
+      if (!sku) continue;
+      var pvpRaw = rows[i][5];
+      items.push({
+        sku:       sku,
+        desc:      String(rows[i][2] || '').trim(),
+        modelos:   String(rows[i][3] || '').trim(),
+        cantUsada: rows[i][4] === '' || rows[i][4] === null ? '' : Number(rows[i][4]),
+        pvp:       pvpRaw === '' || pvpRaw === null ? null : Number(pvpRaw)
+      });
+    }
+    var res = { ok: true, items: items };
+    try { cache.put(CKEY, JSON.stringify(res), 3600); } catch(e) {}
+    return res;
+  } catch(e) {
+    Logger.log('RS_getListaPrecios ERROR: ' + e);
+    return { ok: false, msg: String(e) };
   }
 }

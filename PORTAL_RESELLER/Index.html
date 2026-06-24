@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.1 -->
+<!-- @version 1.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -728,6 +728,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn" id="tb-msg" onclick="pedirPinMensajes()">
       <i class="fa fa-comments"></i> Mensajes
       <span class="tab-badge" id="badge-msg" style="background:var(--yellow);color:#000">0</span>
+    </button>
+    <button class="tab-btn" id="tb-precios" onclick="showTab('precios','tb-precios');_preciosCargar()">
+      <i class="fa fa-tag"></i> Precios
     </button>
     <button class="tab-btn" id="tb-rtv" style="display:none;color:#7c3aed" onclick="showTab('rtv','tb-rtv')">
       <i class="fa fa-user-tie"></i> Mis Resellers
@@ -1788,6 +1791,31 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </div>
   </div><!-- /tab-rtv -->
 
+  <!-- ══ TAB: LISTA DE PRECIOS ════════════════ -->
+  <div class="tab-panel" id="tab-precios">
+    <div class="help-bar" style="margin-bottom:12px">
+      <span class="help-bar-title"><i class="fa fa-tag" style="color:var(--blue)"></i> Lista de Precios de Repuestos</span>
+      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_preciosCargar(true)">
+        <i class="fa fa-arrows-rotate"></i> Actualizar
+      </button>
+    </div>
+
+    <div class="dji-card" style="margin-bottom:12px">
+      <div class="dji-card-body" style="padding:12px 14px">
+        <input id="precios-busq" class="form-control" type="text"
+               placeholder="Buscar por SKU, descripcion o modelo..."
+               oninput="_preciosFiltrar()"
+               style="max-width:480px">
+      </div>
+    </div>
+
+    <div id="precios-wrap">
+      <div style="text-align:center;padding:40px;color:var(--tx-d)">
+        <i class="fa fa-tag" style="font-size:28px;opacity:.25;display:block;margin-bottom:10px"></i>
+        Haga clic en la tab para cargar precios
+      </div>
+    </div>
+  </div><!-- /tab-precios -->
 
 </div><!-- /wrap -->
 
@@ -6091,6 +6119,106 @@ function _campEditarEstimado() {
     var inp = document.getElementById('camp-q');
     if (inp) inp.focus();
   }, 80);
+}
+
+// ══════════════════════════════════════════
+//  LISTA DE PRECIOS
+// ══════════════════════════════════════════
+var _preciosData     = null;
+var _preciosCargando = false;
+
+function _preciosCargar(forzar) {
+  if (_preciosCargando) return;
+  if (_preciosData && !forzar) return;
+  _preciosCargando = true;
+  document.getElementById('precios-wrap').innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--tx-d)">' +
+    '<i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:10px;opacity:.5"></i>' +
+    'Cargando precios...</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      _preciosCargando = false;
+      if (!res || !res.ok) {
+        document.getElementById('precios-wrap').innerHTML =
+          '<div style="text-align:center;padding:40px;color:var(--red)">' +
+          '<i class="fa fa-exclamation-circle" style="display:block;font-size:24px;margin-bottom:10px"></i>' +
+          'Error al cargar precios' + (res && res.msg ? ': ' + res.msg : '') + '</div>';
+        return;
+      }
+      _preciosData = res.items;
+      _preciosRenderizar(_preciosData);
+    })
+    .withFailureHandler(function(e) {
+      _preciosCargando = false;
+      document.getElementById('precios-wrap').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--red)">Error: ' + e.message + '</div>';
+    })
+    .RS_getListaPrecios();
+}
+
+function _preciosFiltrar() {
+  if (!_preciosData) return;
+  var q = (document.getElementById('precios-busq').value || '').toLowerCase()
+    .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e')
+    .replace(/[íìïî]/g,'i').replace(/[óòöôõ]/g,'o')
+    .replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
+  if (!q) { _preciosRenderizar(_preciosData); return; }
+  var fil = [];
+  for (var i = 0; i < _preciosData.length; i++) {
+    var it = _preciosData[i];
+    var haystack = (it.sku + ' ' + it.desc + ' ' + it.modelos).toLowerCase()
+      .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e')
+      .replace(/[íìïî]/g,'i').replace(/[óòöôõ]/g,'o')
+      .replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
+    if (haystack.indexOf(q) !== -1) fil.push(it);
+  }
+  _preciosRenderizar(fil);
+}
+
+function _preciosRenderizar(items) {
+  var wrap = document.getElementById('precios-wrap');
+  if (!items || items.length === 0) {
+    wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--tx-d)">Sin resultados</div>';
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < items.length; i++) {
+    var it  = items[i];
+    var pvp = it.pvp !== null && it.pvp !== '' ? 'USD ' + Number(it.pvp).toFixed(2) : '<span style="color:var(--tx-d)">—</span>';
+    var cu  = it.cantUsada !== '' && it.cantUsada !== null ? it.cantUsada : '—';
+    rows += '<tr>' +
+      '<td style="font-weight:700;color:var(--blue);white-space:nowrap">' + _escHtml(it.sku) + '</td>' +
+      '<td>' + _escHtml(it.desc) + '</td>' +
+      '<td style="font-size:11px;color:var(--tx-m)">' + _escHtml(it.modelos) + '</td>' +
+      '<td style="text-align:center;color:var(--tx-m)">' + cu + '</td>' +
+      '<td style="text-align:right;font-weight:600;white-space:nowrap">' + pvp + '</td>' +
+      '</tr>';
+  }
+  wrap.innerHTML =
+    '<div style="overflow-x:auto">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="background:var(--surf);position:sticky;top:0">' +
+    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">SKU</th>' +
+    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m)">Descripcion</th>' +
+    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m)">Modelos Compatibles</th>' +
+    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">Cant. por equipo</th>' +
+    '<th style="padding:9px 12px;border-bottom:2px solid var(--brd);text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-m);white-space:nowrap">Precio PVP</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' +
+    '<div style="font-size:11px;color:var(--tx-d);padding:10px 12px;text-align:right">' + items.length + ' repuestos</div>';
+
+  var trs = wrap.querySelectorAll('tbody tr');
+  for (var j = 0; j < trs.length; j++) {
+    trs[j].style.background = j % 2 === 1 ? 'var(--surf)' : '#fff';
+    trs[j].querySelectorAll('td').forEach(function(td) {
+      td.style.padding = '9px 12px';
+      td.style.borderBottom = '1px solid var(--brd)';
+    });
+  }
+}
+
+function _escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 </script>

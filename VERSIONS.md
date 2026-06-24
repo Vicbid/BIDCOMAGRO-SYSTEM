@@ -17,7 +17,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
+| Index.html | 1.2 | Tab Lista de Precios: busqueda, tabla, _preciosCargar() |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
@@ -35,9 +35,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.6 | Fix XLS: getBytes() fuerza carga en memoria antes de trashar el archivo Drive |
+| Despacho_Código.js | 2.7 | Fix XLS: getBytes() materializa blob en memoria antes de borrar Drive; optimizaciones batch |
 | Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
-| WOS_GmailFlow.js | 1.1 | Fix: elimina bloqueo duro por Thread_ID ausente; fallback a email nuevo ya existía |
+| WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER
