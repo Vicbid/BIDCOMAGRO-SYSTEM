@@ -23,7 +23,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
 | RS_Auth.js | 1.0 | |
-| RS_Repuestos.js | 1.4 | Cache key v2 para invalidar cache viejo post-push |
+| RS_Repuestos.js | 1.5 | _driveUrlToImg convierte Drive URLs a lh3; log muestra primeras 3 fotos para diagnóstico |
 | RS_Código.js | 1.0 | |
 | RS_CuentaCorriente.js | 1.0 | |
 | RS_Registro.js | 1.0 | |

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.4
+// @version 1.5
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -199,6 +199,18 @@ function enviarGestionRepuestos(data) {
   }
 }
 
+// Convierte cualquier URL de Google Drive al formato directo usable en <img>
+function _driveUrlToImg(url) {
+  if (!url) return '';
+  // /file/d/FILE_ID/view  o  /file/d/FILE_ID?...
+  var m = url.match(/\/file\/d\/([A-Za-z0-9_-]+)/);
+  if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  // ?id=FILE_ID  o  &id=FILE_ID  (links uc, open, etc.)
+  m = url.match(/[?&]id=([A-Za-z0-9_-]+)/);
+  if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  return url; // URL directa (CDN, etc.) — devolver tal cual
+}
+
 function RS_getListaPrecios() {
   Logger.log('RS_getListaPrecios: inicio. LISTA_PRECIOS_SS_ID=' + LISTA_PRECIOS_SS_ID);
   var CKEY = 'lista_precios_v2';
@@ -226,20 +238,20 @@ function RS_getListaPrecios() {
     var richVals  = dataRange.getRichTextValues();
     Logger.log('RS_getListaPrecios: ' + rows.length + ' filas');
     var items = [];
+    var fotoLog = []; // para diagnóstico
     for (var i = 1; i < rows.length; i++) {
       var sku = String(rows[i][1] || '').trim();
       if (!sku) continue;
       var pvpRaw  = rows[i][5];
       var cantRaw = rows[i][4];
 
-      // Col H (índice 7) almacenada como chip → extraer URL real con getRichTextValues
-      var fotoUrl = '';
+      // Col H: leer URL desde chip/hipervínculo con getRichTextValues
+      var fotoUrl   = '';
+      var fotoPlain = String(rows[i][7] || '').trim(); // valor plano como fallback
       try {
         var richCell = richVals[i] && richVals[i][7];
         if (richCell) {
-          // Intentar URL directa de la celda completa
           fotoUrl = richCell.getLinkUrl() || '';
-          // Si no, buscar en los runs del rich text
           if (!fotoUrl) {
             var runs = richCell.getRuns();
             for (var r = 0; r < runs.length; r++) {
@@ -248,8 +260,14 @@ function RS_getListaPrecios() {
             }
           }
         }
-      } catch(eFoto) { fotoUrl = ''; }
-      if (!fotoUrl || fotoUrl.indexOf('http') !== 0) fotoUrl = '';
+        // Fallback: si el valor plano parece una URL, usarlo
+        if (!fotoUrl && fotoPlain.indexOf('http') === 0) fotoUrl = fotoPlain;
+      } catch(eFoto) { fotoUrl = fotoPlain.indexOf('http') === 0 ? fotoPlain : ''; }
+
+      // Convertir URLs de Google Drive al formato de thumbnail directo
+      if (fotoUrl) fotoUrl = _driveUrlToImg(fotoUrl);
+
+      if (fotoLog.length < 3) fotoLog.push(sku + ' → ' + (fotoUrl || '(sin foto)'));
 
       items.push({
         sku:       sku,
@@ -260,6 +278,7 @@ function RS_getListaPrecios() {
         foto:      fotoUrl
       });
     }
+    Logger.log('RS_getListaPrecios: muestra fotos: ' + fotoLog.join(' | '));
     Logger.log('RS_getListaPrecios: ' + items.length + ' items procesados. Retornando.');
     var resultado = { ok: true, items: items };
     try {
