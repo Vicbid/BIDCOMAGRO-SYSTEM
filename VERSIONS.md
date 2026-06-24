@@ -44,8 +44,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.1 | Validación: bloquea CAS con 0 productos |
-| Sm_Código.js | 1.0 | |
+| SM_Index.html | 1.2 | Pedidos DJI: campo ETA en modal + badge naranja en tarjeta kanban y dashboard |
+| Sm_Código.js | 1.1 | ETA: nueva col 15 en COMPRAS_DJI; cargarCompras y casTransito exponen eta; actualizarEstadoCAS acepta eta |
 | Env.js | 1.0 | |
 
 ## LAUNCHER

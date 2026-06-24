@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.1 -->
+<!-- @version 1.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1089,6 +1089,10 @@ tr:last-child td{border-bottom:none}
           <input type="text" id="est-cas-obs" class="form-control" placeholder="Ej: Vuelo AA1234">
         </div>
         <div class="mb-3">
+          <label class="flbl">ETA estimada (opcional)</label>
+          <input type="date" id="est-cas-eta" class="form-control">
+        </div>
+        <div class="mb-3">
           <label class="flbl">Operador</label>
           <select id="est-cas-op" class="form-select">
             <option>Juan Cuaresma</option><option>Victor Almao</option><option>Jeremías Silvestre</option>
@@ -1711,9 +1715,10 @@ function renderCASdashboard(lista) {
   var h = '<div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">';
   lista.forEach(function(c) {
     var paso = ESTADOS_CAS.indexOf(c.estado);
+    var etaDash = c.eta ? '<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:8px"><i class="fa fa-truck" style="margin-right:2px"></i>ETA: '+c.eta+'</span>' : '';
     h += '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px">' +
-         '<div style="display:flex;justify-content:space-between;margin-bottom:8px">' +
-           '<span style="font-size:12px;font-weight:700;color:var(--blue)">'+c.cas+'</span>' +
+         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+           '<span style="font-size:12px;font-weight:700;color:var(--blue)">'+c.cas+etaDash+'</span>' +
            '<span style="font-size:11px;color:var(--tx-m)">'+c.fechaPedido+'</span>' +
          '</div>' + renderTimeline(paso) + '</div>';
   });
@@ -2852,18 +2857,23 @@ function cargarComprasTab() {
               diasHtml = '<div class="kban-dias" style="color:' + dc + '"><i class="fa fa-clock"></i>' + c.diasEnTransito + 'd en tránsito</div>';
             }
             var safeEstado = c.estado.replace(/"/g, '&quot;');
+            var safeEta    = (c.eta || '').replace(/"/g, '');
             var ultimaAct = c.ultimaActualizacion
               ? '<div class="kban-meta" style="margin-top:2px"><i class="fa fa-edit" style="margin-right:3px;color:var(--tx-d)"></i>Actualizado: ' + c.ultimaActualizacion + '</div>'
+              : '';
+            var etaHtml = c.eta
+              ? '<div class="kban-meta" style="margin-top:2px;color:var(--orange);font-weight:600"><i class="fa fa-truck" style="margin-right:3px"></i>ETA: ' + c.eta + '</div>'
               : '';
             h += '<div class="kban-card">' +
               '<div class="kban-cas-id" title="' + c.cas + '">' + c.cas + '</div>' +
               '<div class="kban-meta"><i class="fa fa-calendar-alt" style="margin-right:3px"></i>' + c.fechaPedido +
                 (c.metodoPago ? ' &nbsp;·&nbsp; ' + c.metodoPago : '') + '</div>' +
               ultimaAct +
+              etaHtml +
               diasHtml +
               '<div class="kban-actions">' +
                 '<button class="btn-s" style="font-size:10px;padding:2px 7px" onclick=\'verDetalleCAS("' + c.cas + '")\' title="Ver contenido y reservas"><i class="fa fa-list"></i></button>' +
-                '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '")\'>Avanzar</button>' +
+                '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '","' + safeEta + '")\'>Avanzar</button>' +
               '</div>' +
             '</div>';
           });
@@ -3209,11 +3219,14 @@ function confirmarCAS() {
     .registrarCAS(cas, pago, op);
 }
 
-function abrirEstadoCAS(cas, estadoActual) {
+function abrirEstadoCAS(cas, estadoActual, eta) {
   document.getElementById('est-cas-num').value = cas;
   document.getElementById('est-cas-info').textContent = cas;
   document.getElementById('est-cas-nuevo').value = estadoActual;
   document.getElementById('est-cas-obs').value = '';
+  var etaInput = '';
+  if (eta) { var ep = eta.split('/'); if (ep.length === 3) etaInput = ep[2]+'-'+ep[1]+'-'+ep[0]; }
+  document.getElementById('est-cas-eta').value = etaInput;
   document.getElementById('recepcion-wrap').style.display = 'none';
   document.getElementById('recepcion-items').innerHTML = '';
   document.getElementById('est-cas-nuevo').onchange = function() {
@@ -3255,6 +3268,8 @@ function confirmarEstadoCAS() {
       .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
       .recibirMercaderia(cas, items, op, deposito);
   } else {
+    var etaStr = document.getElementById('est-cas-eta').value;
+    var eta = etaStr ? new Date(etaStr + 'T12:00:00') : null;
     google.script.run
       .withSuccessHandler(function(res) {
         sp(false);
@@ -3265,7 +3280,7 @@ function confirmarEstadoCAS() {
         } else toast(res.msg,'err');
       })
       .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-      .actualizarEstadoCAS(cas, estado, obs, op);
+      .actualizarEstadoCAS(cas, estado, obs, op, eta);
   }
 }
 

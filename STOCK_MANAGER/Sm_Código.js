@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  STOCK MANAGER BIDCOMAGRO v2.0 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
@@ -78,7 +78,7 @@ function asegurarHojas() {
   var hojas = {
     "STOCK_REPUESTOS":    ["Código","Descripción","Stock actual","Stock mínimo","Categoría","Ubicación","Modelos compatibles","Última entrada","Última salida"],
     "MOVIMIENTOS_STOCK":  ["Fecha","Tipo","Código","Descripción","Cantidad","Stock resultante","Referencia","Operador","Observaciones","Depósito"],
-    "COMPRAS_DJI":        ["CAS","Fecha pedido","Estado","Método pago","Fecha comprado","Fecha pagado","Fecha conf. envío","Fecha forwarder HK","Fecha vuelo","Fecha aduana","Fecha depósito","Operador","Observaciones","Última actualización"],
+    "COMPRAS_DJI":        ["CAS","Fecha pedido","Estado","Método pago","Fecha comprado","Fecha pagado","Fecha conf. envío","Fecha forwarder HK","Fecha vuelo","Fecha aduana","Fecha depósito","Operador","Observaciones","Última actualización","ETA"],
     "HISTORIAL_COMPRAS":  ["Fecha","ID_CAS","Estado anterior","Estado nuevo","Operador","Observaciones"],
     "CATALOGO_DJI":       ["Material Number","Simplified part number","代理商系统名称优化","English name","Applicable models","unit","pcs","South America"],
     "VENTAS_DIRECTAS":    ["Fecha","N° Orden entrega","N° Factura","Reseller","Código","Descripción","Cantidad","Precio USD","Observaciones"],
@@ -345,7 +345,8 @@ function cargarDashboard() {
         cas:        String(fct[0] || ''),
         fechaPedido:_fmtFecha(fct[1]),
         estado:     casEst,
-        metodoPago: String(fct[3] || '')
+        metodoPago: String(fct[3] || ''),
+        eta:        _fmtFecha(fct[14])
       });
     }
 
@@ -1390,7 +1391,8 @@ function cargarCompras() {
         },
         diasEnTransito: diasTransito,
         operador: String(f[11]||""), observaciones: String(f[12]||""),
-        ultimaActualizacion: f[13] instanceof Date ? _fmtFecha(f[13]) : (f[13] ? String(f[13]) : null)
+        ultimaActualizacion: f[13] instanceof Date ? _fmtFecha(f[13]) : (f[13] ? String(f[13]) : null),
+        eta: _fmtFecha(f[14])
       });
     }
     out.sort(function(a,b){ return ESTADOS_CAS.indexOf(a.estado) - ESTADOS_CAS.indexOf(b.estado); });
@@ -1413,7 +1415,7 @@ function registrarCAS(cas, metodoPago, operador) {
   } catch(e) { return { ok: false, msg: e.toString() }; }
 }
 
-function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador) {
+function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador, eta) {
   try {
     var hoja = getSheet(SCHEMA.SHEETS.COMPRAS);
     var d    = getSheetValues(hoja);
@@ -1429,6 +1431,7 @@ function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador) {
       if (observaciones) hoja.getRange(i+1, 13).setValue(String(d[i][12]||"")+" | "+observaciones);
       hoja.getRange(i+1, 12).setValue(operador||"");
       hoja.getRange(i+1, 14).setValue(ahora); // Última actualización
+      if (eta) hoja.getRange(i+1, 15).setValue(eta instanceof Date ? eta : new Date(eta));
 
       // Registrar en historial
       _logHistorialCAS(casB, estadoAnterior, nuevoEstado, operador, observaciones);
