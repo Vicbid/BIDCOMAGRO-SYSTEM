@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -229,12 +229,16 @@ function RS_getListaPrecios() {
       if (!sku) continue;
       var pvpRaw   = rows[i][5];
       var cantRaw  = rows[i][4];
+      var fotoRaw  = String(rows[i][7] || '').trim();
+      // Los chips de Google Sheets se devuelven como la URL completa; la limpiamos por si acaso
+      var fotoUrl  = (fotoRaw.indexOf('http') === 0) ? fotoRaw : '';
       items.push({
         sku:       sku,
         desc:      String(rows[i][2] || '').trim(),
         modelos:   String(rows[i][3] || '').trim(),
         cantUsada: (cantRaw === '' || cantRaw === null || cantRaw === undefined) ? '' : String(cantRaw),
-        pvp:       (pvpRaw === '' || pvpRaw === null || pvpRaw === undefined) ? null : Number(pvpRaw) || null
+        pvp:       (pvpRaw === '' || pvpRaw === null || pvpRaw === undefined) ? null : Number(pvpRaw) || null,
+        foto:      fotoUrl
       });
     }
     Logger.log('RS_getListaPrecios: ' + items.length + ' items procesados. Retornando.');
