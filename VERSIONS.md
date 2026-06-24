@@ -37,7 +37,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Despacho_Código.js | 2.7 | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
 | Despacho_Index.html | 2.2 | Boton cancelar admin para cualquier estado excepto Cancelado |
-| WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto (agrupa columnas contiguas en setValues) |
+| WOS_GmailFlow.js | 1.3 | Elimina "telefónicamente" del path manual (WOS_procesarRespuestaManual) |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER

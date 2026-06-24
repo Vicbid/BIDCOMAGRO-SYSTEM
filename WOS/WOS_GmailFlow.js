@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1248,8 +1248,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
       // Solo los items En_Espera_Reseller pasan a Backorder; los Preparado quedan intactos
       nuevoEst    = EST.BACKORDER;
       confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
-      confMensaje = "Registramos tu elecci\xf3n (confirmada telef\xf3nicamente con nuestro equipo):<br>" +
-        "<strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>" +
+      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>" +
         "Recibir\xe1s la Nota de Entrega por los \xedtems que se despachan ahora. " +
         "El faltante llegar\xe1 en un segundo env\xedo cuando el stock est\xe9 disponible.";
       _wosSetEstadoFiltrado(hoja, datos, numero, EST.EN_ESPERA, nuevoEst);
@@ -1259,8 +1258,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
       // Solo los items En_Espera_Reseller se modifican: cantDisp>0 → Preparado, cantDisp=0 → Cancelado
       nuevoEst    = EST.PREPARADO;
       confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
-      confMensaje = "Registramos tu elecci\xf3n (confirmada telef\xf3nicamente con nuestro equipo):<br>" +
-        "<strong>Opci\xf3n B — Cancelar el faltante.</strong><br>" +
+      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>" +
         "Estamos preparando el despacho de lo disponible. Recibir\xe1s la Nota de Entrega cuando sea despachado. Los \xedtems faltantes quedan cancelados.";
       var ahoraM = new Date();
       for (var r = 0; r < rows.length; r++) {

@@ -706,10 +706,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </button>
   </div>
 
-  <!-- TABS: Nueva Solicitud | Mis Órdenes | Recursos | Gestión DJI -->
+  <!-- TABS: Nueva Reparacion | Mis Órdenes | Recursos | Gestión DJI -->
   <div class="tab-bar mt-3">
     <button class="tab-btn active" id="tb-nueva" onclick="showTab('nueva','tb-nueva')">
-      <i class="fa fa-plus-circle"></i> Nueva Solicitud
+      <i class="fa fa-plus-circle"></i> Nueva Reparacion
     </button>
     <button class="tab-btn" id="tb-dash" onclick="pedirPin()">
       <i class="fa fa-th-large"></i> Mis Órdenes
@@ -733,11 +733,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </button>
   </div>
 
-  <!-- ══ TAB: NUEVA SOLICITUD ═══════════════ -->
+  <!-- ══ TAB: Nueva Reparacion ═══════════════ -->
   <div class="tab-panel show" id="tab-nueva">
 
     <div class="help-bar">
-      <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Solicitud de Servicio</span>
+      <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Reparacion de Servicio</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn-out blue" onclick="abrirModalLote()" style="font-size:11px;font-weight:600;padding:5px 12px">
           📥 Carga Masiva de Reparaciones (Excel)
@@ -995,7 +995,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <i class="fa fa-file-excel"></i> <span id="success-cotiz-txt">Generando hoja de repuestos…</span>
         </a>
       </div>
-      <button class="btn-out blue" onclick="resetForm()"><i class="fa fa-plus"></i> Nueva solicitud</button>
+      <button class="btn-out blue" onclick="resetForm()"><i class="fa fa-plus"></i> Nueva Reparacion</button>
     </div>
 
   </div>
@@ -1936,11 +1936,11 @@ window.onload = function() {
       .obtenerDatosReseller();
   }
 
-  // Cargar resellers para el selector de nueva solicitud, el login y el registro
+  // Cargar resellers para el selector de Nueva Reparacion, el login y el registro
   google.script.run
     .withSuccessHandler(function(lista) {
       _resellerLista = lista || [];
-      // Selector principal (formulario Nueva Solicitud)
+      // Selector principal (formulario Nueva Reparacion)
       var sel = document.getElementById('sel-reseller');
       lista.forEach(function(r) {
         var opt = document.createElement('option');
@@ -2110,7 +2110,7 @@ function login() {
 }
 
 function cancelarPin() {
-  pinModal.hide(); // el evento hidden.bs.modal quita el overlay y muestra Nueva Solicitud
+  pinModal.hide(); // el evento hidden.bs.modal quita el overlay y muestra Nueva Reparacion
 }
 
 function recordarClave() {
@@ -3417,7 +3417,7 @@ function confirmarRecepcion() {
 // ══════════════════════════════════════════
 var _ayudaContenidos = {
   nueva: {
-    titulo: 'Procedimiento — Nueva Solicitud',
+    titulo: 'Procedimiento — Nueva Reparacion',
     body: '<ol style="font-size:13px;color:var(--tx);line-height:2;padding-left:18px">' +
       '<li>Seleccioná el <strong>Reseller</strong> y el tipo de garantía (<strong>IW</strong> = en garantía / <strong>OOW</strong> = fuera de garantía).</li>' +
       '<li>Elegí el <strong>tipo de gestión</strong>:<ul style="margin:4px 0 4px 16px;line-height:1.9">' +
@@ -3571,7 +3571,7 @@ function descargarPlantilla() {
 //  GESTIÓN REPUESTOS DJI — HÍBRIDO
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
-//  REPUESTOS INLINE — Aftersales propio (Nueva Solicitud)
+//  REPUESTOS INLINE — Aftersales propio (Nueva Reparacion)
 // ══════════════════════════════════════════
 var _repNueva = [];
 var _repNuevaTimer;
