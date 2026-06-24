@@ -18,6 +18,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 2.8 | Tab inicial cambiada a Recursos (era Nueva Reparación) |
+| Guia_Reseller.html | 1.1 | Nombres de tabs actualizados; tab por defecto Recursos; eliminada sección de búsqueda inexistente |
 | RS_Pedidos.js | 1.1 | Fix getActiveSheet() → getSheetByName('Pedidos_resellers') |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
