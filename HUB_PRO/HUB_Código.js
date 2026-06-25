@@ -1902,15 +1902,17 @@ function obtenerDatosSupervisor() {
       : null;
 
     // ── Ranking de resellers con más casos abiertos ──────────────
-    var EST_CERRADOS = ['CANCELADO', 'Finalizado', 'Partes dañadas scrapeadas'];
+    var EST_CERRADOS_R = ['CANCELADO', 'Finalizado', 'Entregado', 'Partes dañadas scrapeadas'];
     var resMap = {};
     for (var ri = 1; ri < datos.length; ri++) {
       var rf = datos[ri];
-      if (!rf[2]) continue;
-      var estR = String(rf[4] || '').trim();
-      if (EST_CERRADOS.indexOf(estR) !== -1) continue;
-      var resellerR = String(rf[7] || '').trim();
-      if (!resellerR) continue;
+      if (!rf[SCHEMA.OT.OT]) continue;
+      var estR   = String(rf[SCHEMA.OT.ESTADO]   || '').trim();
+      var circR  = String(rf[SCHEMA.OT.CIRCUITO] || '').trim().toUpperCase();
+      var esResR = (circR === 'RESELLER' || circR === 'SI' || circR === 'RESELLER PROPIO');
+      if (!esResR) continue;
+      if (EST_CERRADOS_R.indexOf(estR) !== -1) continue;
+      var resellerR = String(rf[SCHEMA.OT.RESELLER] || '').trim() || 'Sin nombre';
       resMap[resellerR] = (resMap[resellerR] || 0) + 1;
     }
     var resellersRanking = [];

@@ -10,7 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.2 | Supervisor: ranking resellers con más casos abiertos |
+| HUB_Código.js | 1.3 | Supervisor: ranking resellers — filtra por circuito, agrega Entregado a terminales |
 | Index.html | 1.2 | Supervisor: reemplaza S/N reincidentes por gráfico de barras de resellers |
 | Env.js | 1.0 | Configuración inicial |
 
