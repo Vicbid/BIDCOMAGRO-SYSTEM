@@ -44,7 +44,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 1.4 | Fix: handler defensivo con try/catch; re-fetch wrap en callback; guards en arrays |
-| Sm_Código.js | 1.2 | cruzarComprasExternas(): lectura optimizada con rango fijo A1:P3000 (1 llamada API) |
+| Sm_Código.js | 1.3 | Fix: busca hoja "Pedidos" con trim() para tolerar espacio al final del nombre |
 | Env.js | 1.0 | |
 
 ## LAUNCHER

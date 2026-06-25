@@ -1730,7 +1730,14 @@ var _PEDIDOS_EXT_SS_ID = '15Y4tri7Egpa2Tjvq1kPXuuR7OUIsQVXgjPFUwthr7Sw';
 function cruzarComprasExternas() {
   try {
     var extSS    = SpreadsheetApp.openById(_PEDIDOS_EXT_SS_ID);
-    var pedSheet = extSS.getSheetByName('Pedidos');
+    var pedSheet = extSS.getSheetByName('Pedidos') || extSS.getSheetByName('Pedidos ');
+    if (!pedSheet) {
+      // Búsqueda tolerante a espacios
+      var allSheets = extSS.getSheets();
+      for (var si2 = 0; si2 < allSheets.length; si2++) {
+        if (allSheets[si2].getName().trim() === 'Pedidos') { pedSheet = allSheets[si2]; break; }
+      }
+    }
     if (!pedSheet) return { ok: false, msg: 'Hoja "Pedidos" no encontrada en el sheet externo.' };
 
     // Una sola lectura: columnas A-P (16 cols) hasta fila 3000
