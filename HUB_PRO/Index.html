@@ -896,6 +896,19 @@ body.compact tbody td{padding:6px 14px!important}
       </div>
 
       <div class="f-body">
+        <!-- Info read-only: fecha apertura, cliente, drive -->
+        <div id="f-info-strip" style="display:none;background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:9px 14px;margin-bottom:14px;flex-wrap:wrap;gap:14px;align-items:center">
+          <div id="f-info-fecha" style="display:none;font-size:11px;color:var(--tx-d)">
+            <i class="fa fa-calendar-alt" style="margin-right:4px;opacity:.6"></i><span id="f-info-fecha-val"></span>
+          </div>
+          <div id="f-info-cliente" style="display:none;font-size:11px;color:var(--tx-d)">
+            <i class="fa fa-user" style="margin-right:4px;opacity:.6"></i><span id="f-info-cliente-val" style="color:var(--tx);font-weight:600"></span>
+          </div>
+          <div id="f-info-drive" style="display:none;font-size:11px">
+            <i class="fa fa-folder-open" style="margin-right:4px;color:#f4b400"></i><a id="f-info-drive-lnk" href="#" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">Carpeta Drive</a>
+          </div>
+        </div>
+
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
 
@@ -1821,7 +1834,32 @@ function abrir(c){
   document.getElementById('hist-body').classList.remove('show');
   document.getElementById('hist-items').innerHTML='';
 
-  // 3. Inyección limpia de campos (Una sola vez)
+  // 3. Info strip: fecha apertura, cliente, drive
+  (function() {
+    var strip      = document.getElementById('f-info-strip');
+    var elFecha    = document.getElementById('f-info-fecha');
+    var elCliente  = document.getElementById('f-info-cliente');
+    var elDrive    = document.getElementById('f-info-drive');
+    var anyVisible = false;
+    if (actual.fechaIngreso) {
+      var fd = new Date(actual.fechaIngreso);
+      document.getElementById('f-info-fecha-val').textContent = 'Apertura: ' +
+        fd.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      elFecha.style.display = 'block'; anyVisible = true;
+    } else { elFecha.style.display = 'none'; }
+    if (actual.cliente) {
+      document.getElementById('f-info-cliente-val').textContent = actual.cliente;
+      elCliente.style.display = 'block'; anyVisible = true;
+    } else { elCliente.style.display = 'none'; }
+    var driveMatch = (actual.mensajes || '').match(/📁 Drive: (https?:\/\/[^\s\n\[]+)/);
+    if (driveMatch) {
+      document.getElementById('f-info-drive-lnk').href = driveMatch[1];
+      elDrive.style.display = 'block'; anyVisible = true;
+    } else { elDrive.style.display = 'none'; }
+    strip.style.display = anyVisible ? 'flex' : 'none';
+  })();
+
+  // 4. Inyección limpia de campos (Una sola vez)
   document.getElementById('f-ot').textContent  = actual.ot;
   document.getElementById('f-cas').value       = actual.cas;
   document.getElementById('f-equi').value      = actual.equipo;

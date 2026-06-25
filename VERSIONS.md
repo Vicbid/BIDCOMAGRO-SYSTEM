@@ -10,8 +10,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.3 | Supervisor: ranking resellers — filtra por circuito, agrega Entregado a terminales |
-| Index.html | 1.3 | Supervisor: fix escH → _escHtml en renderResellersRanking |
+| HUB_Código.js | 1.4 | Agrega fechaIngreso al objeto ordenes |
+| Index.html | 1.4 | OT: muestra strip con fecha apertura, usuario final y link Drive |
 | Env.js | 1.0 | Configuración inicial |
 
 ## PORTAL_RESELLER
