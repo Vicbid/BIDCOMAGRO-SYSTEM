@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.3
+// @version 1.5
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -342,6 +342,99 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
     sheet.setColumnWidth(6, 82);  // Subtotal
     sheet.setColumnWidth(7, 1);   // spacer
 
+    // ── HOJA ANEXO: NÚMEROS DE SERIE ─────────────────────────────
+    var itemsConSerial = [];
+    for (var sci = 0; sci < items.length; sci++) {
+      if (items[sci].seriales) itemsConSerial.push(items[sci]);
+    }
+    if (itemsConSerial.length > 0) {
+      // Nota al pie de la NE principal
+      sheet.getRange(ri, 1, 1, 7).merge()
+        .setValue('Ver Anexo — N\xfameros de Serie (p\xe1gina siguiente)')
+        .setFontSize(8).setFontStyle('italic').setFontColor('#00a3e0')
+        .setHorizontalAlignment('center').setBackground('#f0f8ff');
+      sheet.setRowHeight(ri, 14);
+      ri++;
+
+      var sSheet = tempSs.insertSheet('N\xba de Serie');
+      var sri = 1;
+
+      // Cabecera
+      sSheet.getRange(sri, 1, 3, 4).merge().setValue('BIDCOMAGRO')
+        .setFontSize(16).setFontWeight('bold').setFontColor('#ffffff')
+        .setBackground('#00a3e0').setVerticalAlignment('middle');
+      sSheet.getRange(sri,     5, 1, 3).merge().setValue('ANEXO — N\xdaMEROS DE SERIE')
+        .setFontSize(10).setFontWeight('bold').setFontColor('#ffffff')
+        .setBackground('#007ab3').setHorizontalAlignment('right').setVerticalAlignment('bottom');
+      sSheet.getRange(sri + 1, 5, 1, 3).merge().setValue('NE ' + numero + '-' + notaNumStr)
+        .setFontSize(9).setFontColor('#cce8f4')
+        .setBackground('#007ab3').setHorizontalAlignment('right');
+      sSheet.getRange(sri + 2, 5, 1, 3).merge().setValue(meta.nombre || '')
+        .setFontSize(9).setFontColor('#cce8f4')
+        .setBackground('#007ab3').setHorizontalAlignment('right').setVerticalAlignment('top');
+      sSheet.setRowHeight(sri, 24); sSheet.setRowHeight(sri+1, 18); sSheet.setRowHeight(sri+2, 18);
+      sri += 3;
+
+      sSheet.setRowHeight(sri, 8);
+      sSheet.getRange(sri, 1, 1, 7).merge().setBackground('#ffffff');
+      sri++;
+
+      for (var sii = 0; sii < itemsConSerial.length; sii++) {
+        var sIt    = itemsConSerial[sii];
+        var sNums  = String(sIt.seriales).split(',');
+
+        // Sub-cabecera del ítem
+        sSheet.getRange(sri, 1, 1, 7).merge()
+          .setValue(sIt.sku + '   \xb7   ' + sIt.desc + '   (' + sIt.cantDesp + ' u.)')
+          .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff')
+          .setBackground('#2d3436');
+        sSheet.setRowHeight(sri, 22);
+        sri++;
+
+        // Seriales numerados
+        for (var sni = 0; sni < sNums.length; sni++) {
+          var snVal = String(sNums[sni]).trim();
+          if (!snVal) continue;
+          var snBg = sni % 2 === 0 ? '#f7f8fa' : '#ffffff';
+          sSheet.getRange(sri, 1, 1, 2).merge()
+            .setValue(sni + 1)
+            .setFontSize(9).setFontColor('#5e6778').setBackground(snBg)
+            .setHorizontalAlignment('center').setFontWeight('bold');
+          sSheet.getRange(sri, 3, 1, 5).merge()
+            .setValue(snVal)
+            .setFontSize(10).setFontColor('#1a1a2e').setBackground(snBg)
+            .setFontFamily('Courier New').setFontWeight('bold');
+          sSheet.setRowHeight(sri, 22);
+          sri++;
+        }
+
+        if (sii < itemsConSerial.length - 1) {
+          sSheet.setRowHeight(sri, 8);
+          sSheet.getRange(sri, 1, 1, 7).merge().setBackground('#ffffff');
+          sri++;
+        }
+      }
+
+      // Pie
+      sSheet.setRowHeight(sri, 4);
+      sSheet.getRange(sri, 1, 1, 7).merge().setBackground('#00a3e0');
+      sri++;
+      sSheet.getRange(sri, 1, 1, 7).merge()
+        .setValue('Documento generado autom\xe1ticamente — WOS \xb7 BIDCOMAGRO \xb7 ' + meta.nombre)
+        .setFontSize(8).setFontStyle('italic').setFontColor('#9ba5b4')
+        .setHorizontalAlignment('center').setBackground('#ffffff');
+      sSheet.setRowHeight(sri, 16);
+
+      // Anchos
+      sSheet.setColumnWidth(1, 40);
+      sSheet.setColumnWidth(2, 10);
+      sSheet.setColumnWidth(3, 350);
+      sSheet.setColumnWidth(4, 1);
+      sSheet.setColumnWidth(5, 1);
+      sSheet.setColumnWidth(6, 1);
+      sSheet.setColumnWidth(7, 1);
+    }
+
     SpreadsheetApp.flush();
 
     var nombreNota = 'NE_' + numero + '-' + notaNumStr + '.pdf';
@@ -406,9 +499,11 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var fecha  = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy');
     var ahora  = new Date();
 
-    var despMap = {};
+    var despMap    = {};
+    var serialMap  = {};
     for (var d = 0; d < despachos.length; d++) {
-      despMap[despachos[d].row] = Number(despachos[d].cantDesp) || 0;
+      despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
+      serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
     }
 
     var carmenHoja = null;
@@ -439,6 +534,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         // FECHA_ESTADO (col 19), TRANSPORTISTA_DESP (col 20), COSTO_ENVIO (col 21), PESO_ENVIO (col 22) — bloque contiguo
         ped.hoja.getRange(i + 1, COL.FECHA_ESTADO + 1, 1, 4).setValues([[ahora, transp, costo > 0 ? costo : '', peso > 0 ? peso : '']]);
         if (operario) ped.hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(operario);
+        var rowSeriales = serialMap[i + 1] || '';
+        if (rowSeriales) ped.hoja.getRange(i + 1, COL.SERIALES + 1).setValue(rowSeriales);
         filasDesp.push(i + 1);
       }
 
@@ -455,7 +552,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         itemsDesp.push({
           sku:      String(ped.datos[i][COL.SKU]  || ''),
           desc:     String(ped.datos[i][COL.DESC] || ''),
-          cantDesp: dispNow, precio: prec
+          cantDesp: dispNow, precio: prec,
+          seriales: serialMap[i + 1] || ''
         });
         totalUSD += dispNow * prec;
       }
@@ -479,13 +577,17 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var tbodyRows = '';
     for (var ri = 0; ri < itemsDesp.length; ri++) {
       var itR = itemsDesp[ri];
+      var serRow = itR.seriales
+        ? "<tr><td colspan='4' style='padding:3px 10px 8px 10px;font-size:10px;color:#777;border-bottom:1px solid #eee'>" +
+          "<span style='font-weight:600;color:#555'>N\xba serie:</span> " + itR.seriales + "</td></tr>"
+        : '';
       tbodyRows +=
         "<tr>" +
-        "<td style='padding:8px 10px;font-family:Consolas,monospace;font-size:12px;color:#00a3e0;border-bottom:1px solid #eee'>" + (itR.sku  || '—') + "</td>" +
-        "<td style='padding:8px 10px;font-size:12px;color:#333;border-bottom:1px solid #eee'>"                                  + (itR.desc || '—') + "</td>" +
-        "<td style='padding:8px 10px;text-align:center;font-weight:700;color:#333;border-bottom:1px solid #eee'>"               + itR.cantDesp       + "</td>" +
-        "<td style='padding:8px 10px;text-align:right;font-size:12px;color:#555;border-bottom:1px solid #eee'>"                 + (itR.precio > 0 ? 'USD ' + _formatMoneda(Number(itR.precio)) : '—') + "</td>" +
-        "</tr>";
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-family:Consolas,monospace;font-size:12px;color:#00a3e0'>" + (itR.sku  || '—') + "</td>" +
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-size:12px;color:#333'>"                                   + (itR.desc || '—') + "</td>" +
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";text-align:center;font-weight:700;color:#333'>"                + itR.cantDesp       + "</td>" +
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";text-align:right;font-size:12px;color:#555'>"                 + (itR.precio > 0 ? 'USD ' + _formatMoneda(Number(itR.precio)) : '—') + "</td>" +
+        "</tr>" + serRow;
     }
     var tablaHtml =
       "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;border:1px solid #dde3ea;border-radius:8px;overflow:hidden'>" +

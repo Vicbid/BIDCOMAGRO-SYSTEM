@@ -63,6 +63,7 @@ var COL = {
   PESO_ENVIO:         21,  // V: peso del envío en kg
   NE_URL:             22,  // W: link Drive de la Nota de Entrega
   OPERARIO:           23,  // X: email del operario que realizó la última acción
+  SERIALES:           24,  // Y: números de serie despachados (separados por coma)
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };
