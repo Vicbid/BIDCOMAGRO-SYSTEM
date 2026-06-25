@@ -2554,10 +2554,19 @@ function abrirPickTicket(numero) {
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
     var cantTarget = it.cantPend > 0 ? it.cantPend : it.cantSol;
+    var estadoBadge;
+    if (it.estado === 'Backorder') {
+      estadoBadge = '<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">BACKORDER</span>';
+    } else if (it.estado === 'Cancelado') {
+      estadoBadge = '<span style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">CANCELADO</span>';
+    } else {
+      estadoBadge = '<span style="background:#d1e7dd;color:#0f5132;border:1px solid #badbcc;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">CONFIRMADO</span>';
+    }
     filas += '<tr>' +
       '<td class="pt-sku">' + escH(it.sku) + '</td>' +
       '<td>' + escH(it.desc) + '</td>' +
       '<td style="text-align:center;font-weight:700">' + cantTarget + '</td>' +
+      '<td style="text-align:center">' + estadoBadge + '</td>' +
       '<td style="text-align:center"><span class="pt-chk"></span></td>' +
     '</tr>';
   }
@@ -2576,7 +2585,7 @@ function abrirPickTicket(numero) {
     '</div>' +
     (ped.obs ? '<div style="background:#fffbe6;border:1px solid #f9d95a;border-radius:6px;padding:7px 10px;font-size:11px;margin-bottom:10px"><strong>Obs:</strong> ' + escH(ped.obs) + '</div>' : '') +
     '<table class="pt-table">' +
-      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Picking</th></tr></thead>' +
+      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Estado</th><th style="text-align:center">Picking</th></tr></thead>' +
       '<tbody>' + filas + '</tbody>' +
     '</table>' +
     '<div class="pt-firma">' +
