@@ -43,7 +43,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.2 | Cruce externo: panel de alertas en Compras DJI (nuevas + recibidas sin ingresar) |
+| SM_Index.html | 1.4 | Fix: handler defensivo con try/catch; re-fetch wrap en callback; guards en arrays |
 | Sm_Código.js | 1.2 | cruzarComprasExternas(): lectura optimizada con rango fijo A1:P3000 (1 llamada API) |
 | Env.js | 1.0 | |
 

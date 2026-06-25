@@ -1368,6 +1368,7 @@ var ESTADOS_CAS  = ["Comprado","Pagado","Envío confirmado","Forwarder HK","En v
 // ══════════════════════════════════════════
 //  UI HELPERS
 // ══════════════════════════════════════════
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
 
 function toast(msg, tipo) {
@@ -2817,52 +2818,49 @@ function _cargarCruceExterno() {
   wrap.innerHTML = '<div style="color:var(--tx-d);font-size:12px;padding:4px 0 10px"><i class="fa fa-sync fa-spin" style="margin-right:5px"></i>Verificando pedidos externos…</div>';
   google.script.run
     .withSuccessHandler(function(res) {
-      if (!res || !res.ok) {
-        wrap.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>' + escH((res && res.msg) || 'No se pudo leer el sheet externo') + '</div>';
-        return;
+      try {
+        var w = document.getElementById('cruce-ext-wrap');
+        if (!w) return;
+        if (!res || !res.ok) {
+          w.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>' + ((res && res.msg) ? escH(res.msg) : 'No se pudo leer el sheet externo') + '</div>';
+          return;
+        }
+        var nv = res.nuevas    || [];
+        var rc = res.recibidas || [];
+        if (!nv.length && !rc.length) {
+          w.innerHTML = '<div style="color:var(--green);font-size:12px;padding:4px 0 10px"><i class="fa fa-check-circle" style="margin-right:5px"></i>Todo en orden — sin compras sin registrar ni recepcionar.</div>';
+          return;
+        }
+        var h = '<div class="cruce-ext-panel">';
+        if (rc.length) {
+          h += '<div class="cruce-sect cruce-warn"><div class="cruce-sect-hdr"><i class="fa fa-exclamation-triangle"></i> Recibidas seg\xfan el planner sin ingresar en SM (' + rc.length + ')</div><div class="cruce-list">';
+          for (var ri = 0; ri < rc.length; ri++) {
+            var er = rc[ri];
+            var pct = er.total > 0 ? Math.round(er.si / er.total * 100) : 0;
+            h += '<div class="cruce-item"><div style="flex:1;min-width:0"><span class="cruce-cas">' + escH(er.cas) + '</span>' +
+              (er.air ? '<span class="cruce-air">' + escH(er.air) + '</span>' : '') +
+              '<span class="cruce-prog">&nbsp;&nbsp;' + er.si + '/' + er.total + ' \xedtems ingresados (' + pct + '%)</span>' +
+              (er.estadoSM ? '<span style="font-size:10px;color:var(--tx-d);margin-left:8px">SM: ' + escH(er.estadoSM) + '</span>' : '<span style="font-size:10px;color:#c05010;margin-left:8px">No registrado en SM</span>') +
+              '</div><button class="btn-s" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="verDetalleCAS(\'' + escH(er.cas) + '\')"><i class="fa fa-eye"></i> Ver</button></div>';
+          }
+          h += '</div></div>';
+        }
+        if (nv.length) {
+          h += '<div class="cruce-sect cruce-new"><div class="cruce-sect-hdr"><i class="fa fa-plus-circle"></i> Compras nuevas sin registrar en SM (' + nv.length + ')</div><div class="cruce-list">';
+          for (var ni = 0; ni < nv.length; ni++) {
+            var en = nv[ni];
+            h += '<div class="cruce-item"><div style="flex:1;min-width:0"><span class="cruce-cas">' + escH(en.cas) + '</span>' +
+              (en.air ? '<span class="cruce-air">' + escH(en.air) + '</span>' : '') +
+              (en.si > 0 ? '<span class="cruce-prog">&nbsp;&nbsp;' + en.si + ' \xedtems ya figuran ingresados</span>' : '') +
+              '</div><button class="btn-s blue" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="abrirNuevoCAS(\'' + escH(en.cas) + '\')"><i class="fa fa-plus"></i> Registrar</button></div>';
+          }
+          h += '</div></div>';
+        }
+        w.innerHTML = h + '</div>';
+      } catch(jsErr) {
+        var w2 = document.getElementById('cruce-ext-wrap');
+        if (w2) w2.innerHTML = '<div style="color:#c05010;font-size:11px;padding:4px 0 10px">Error al renderizar cruce: ' + jsErr.message + '</div>';
       }
-      if (!res.nuevas.length && !res.recibidas.length) {
-        wrap.innerHTML = '<div style="color:var(--green);font-size:12px;padding:4px 0 10px"><i class="fa fa-check-circle" style="margin-right:5px"></i>Todo en orden — sin compras sin registrar ni recepcionar.</div>';
-        return;
-      }
-      var h = '<div class="cruce-ext-panel">';
-      if (res.recibidas.length) {
-        h += '<div class="cruce-sect cruce-warn">' +
-          '<div class="cruce-sect-hdr"><i class="fa fa-exclamation-triangle"></i> Recibidas seg\xfan el planner sin ingresar en SM (' + res.recibidas.length + ')</div>' +
-          '<div class="cruce-list">';
-        res.recibidas.forEach(function(e) {
-          var pct = e.total > 0 ? Math.round(e.si / e.total * 100) : 0;
-          h += '<div class="cruce-item">' +
-            '<div style="flex:1;min-width:0">' +
-              '<span class="cruce-cas">' + escH(e.cas) + '</span>' +
-              (e.air ? '<span class="cruce-air">' + escH(e.air) + '</span>' : '') +
-              '<span class="cruce-prog">&nbsp;&nbsp;' + e.si + '/' + e.total + ' \xedtems ingresados (' + pct + '%)</span>' +
-              (e.estadoSM ? '<span style="font-size:10px;color:var(--tx-d);margin-left:8px">SM: ' + escH(e.estadoSM) + '</span>' : '<span style="font-size:10px;color:#c05010;margin-left:8px">No registrado en SM</span>') +
-            '</div>' +
-            '<button class="btn-s" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick=\'verDetalleCAS("' + escH(e.cas) + '")\' title="Ver detalle y recepcionar"><i class="fa fa-eye"></i> Ver</button>' +
-          '</div>';
-        });
-        h += '</div></div>';
-      }
-      if (res.nuevas.length) {
-        h += '<div class="cruce-sect cruce-new">' +
-          '<div class="cruce-sect-hdr"><i class="fa fa-plus-circle"></i> Compras nuevas sin registrar en SM (' + res.nuevas.length + ')</div>' +
-          '<div class="cruce-list">';
-        res.nuevas.forEach(function(e) {
-          var urgente = e.si > 0;
-          h += '<div class="cruce-item">' +
-            '<div style="flex:1;min-width:0">' +
-              '<span class="cruce-cas">' + escH(e.cas) + '</span>' +
-              (e.air ? '<span class="cruce-air">' + escH(e.air) + '</span>' : '') +
-              (urgente ? '<span class="cruce-prog">&nbsp;&nbsp;' + e.si + ' \xedtems ya figuran como ingresados</span>' : '') +
-            '</div>' +
-            '<button class="btn-s blue" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick=\'abrirNuevoCAS("' + escH(e.cas) + '")\' title="Registrar en SM"><i class="fa fa-plus"></i> Registrar</button>' +
-          '</div>';
-        });
-        h += '</div></div>';
-      }
-      h += '</div>';
-      wrap.innerHTML = h;
     })
     .withFailureHandler(function(e) {
       var w = document.getElementById('cruce-ext-wrap');
