@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.3
+// @version 1.4
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1201,10 +1201,10 @@ function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, fo
     // 4. FILA TOTAL
     // ──────────────────────────────────────────────────────────────
     if (total > 0) {
-      sheet.getRange(ri, 1, 1, 6).merge().setValue('TOTAL ESTIMADO (precio reseller · 40% dto. · no incluye impuestos)')
-        .setFontSize(10).setFontWeight('bold').setFontColor('#5e6778')
+      sheet.getRange(ri, 1, 1, 5).merge().setValue('TOTAL ESTIMADO (precio reseller \xb7 40% dto. \xb7 no incluye impuestos)')
+        .setFontSize(9).setFontWeight('bold').setFontColor('#5e6778')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
-      sheet.getRange(ri, 7).setValue(_fmtUsd(total))
+      sheet.getRange(ri, 6, 1, 2).merge().setValue(_fmtUsd(total))
         .setFontSize(11).setFontWeight('bold').setFontColor('#00a3e0')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
       sheet.setRowHeight(ri, 24);
