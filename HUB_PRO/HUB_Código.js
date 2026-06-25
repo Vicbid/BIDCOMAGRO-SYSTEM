@@ -1901,7 +1901,27 @@ function obtenerDatosSupervisor() {
       ? { promedio: Math.round(sumDesp / cntDesp), count: cntDesp }
       : null;
 
-    return { backorderPred: backorderPred, slaData: slaFinal, tiempoDespacho: tiempoDespacho };
+    // ── Ranking de resellers con más casos abiertos ──────────────
+    var EST_CERRADOS = ['CANCELADO', 'Finalizado', 'Partes dañadas scrapeadas'];
+    var resMap = {};
+    for (var ri = 1; ri < datos.length; ri++) {
+      var rf = datos[ri];
+      if (!rf[2]) continue;
+      var estR = String(rf[4] || '').trim();
+      if (EST_CERRADOS.indexOf(estR) !== -1) continue;
+      var resellerR = String(rf[7] || '').trim();
+      if (!resellerR) continue;
+      resMap[resellerR] = (resMap[resellerR] || 0) + 1;
+    }
+    var resellersRanking = [];
+    var rkeys = Object.keys(resMap);
+    for (var rk = 0; rk < rkeys.length; rk++) {
+      resellersRanking.push({ nombre: rkeys[rk], count: resMap[rkeys[rk]] });
+    }
+    resellersRanking.sort(function(a, b) { return b.count - a.count; });
+    if (resellersRanking.length > 10) resellersRanking = resellersRanking.slice(0, 10);
+
+    return { backorderPred: backorderPred, slaData: slaFinal, tiempoDespacho: tiempoDespacho, resellersRanking: resellersRanking };
   } catch(e) {
     Logger.log("obtenerDatosSupervisor: " + e);
     return { backorderPred: [], slaData: {} };

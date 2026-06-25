@@ -10,8 +10,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.1 | Agrega HUB_generarPedidoRepuestos + constantes WOS |
-| Index.html | 1.1 | Agrega modal REP→WOS, botón, y JS asociado |
+| HUB_Código.js | 1.2 | Supervisor: ranking resellers con más casos abiertos |
+| Index.html | 1.2 | Supervisor: reemplaza S/N reincidentes por gráfico de barras de resellers |
 | Env.js | 1.0 | Configuración inicial |
 
 ## PORTAL_RESELLER

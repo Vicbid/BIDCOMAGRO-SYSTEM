@@ -783,16 +783,16 @@ body.compact tbody td{padding:6px 14px!important}
     <!-- Vista Supervisor -->
     <div id="sup-view" style="display:none">
 
-      <!-- KPI de reincidentes -->
+      <!-- Ranking resellers con más casos abiertos -->
       <div class="tbl-wrap" style="margin-bottom:16px">
         <div class="tbl-bar">
           <div style="display:flex;align-items:center;gap:8px">
-            <i class="fa fa-barcode" style="color:var(--green)"></i>
-            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">S/N reincidentes</span>
+            <i class="fa fa-store" style="color:var(--indigo)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">Resellers con más casos abiertos</span>
           </div>
-          <span style="font-size:10px;color:var(--tx-d)">Equipos con más de una OT histórica</span>
+          <span style="font-size:10px;color:var(--tx-d)">Top 10 · OTs activas por reseller</span>
         </div>
-        <div id="sup-sn" style="padding:14px 18px">
+        <div id="sup-res" style="padding:14px 18px">
           <div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div>
         </div>
       </div>
@@ -2596,21 +2596,53 @@ function cargarEmails() {
 var supCargado = false;
 
 function cargarSupervisor() {
-  if (supCargado) return; // cache: no recargar si ya está cargado
-  supCargado = false; // siempre recargar al entrar
+  if (supCargado) return;
+  supCargado = false;
+  document.getElementById('sup-res').innerHTML  = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
   document.getElementById('sup-back').innerHTML = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
   document.getElementById('sup-sla').innerHTML  = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
 
   google.script.run
     .withSuccessHandler(function(d) {
+      renderResellersRanking(d.resellersRanking || []);
       renderBackorderPred(d.backorderPred || []);
       renderSLA(d.slaData || {}, d.tiempoDespacho || null);
     })
     .withFailureHandler(function(e) {
+      document.getElementById('sup-res').innerHTML  = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
       document.getElementById('sup-back').innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
       document.getElementById('sup-sla').innerHTML  = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
     })
     .obtenerDatosSupervisor();
+}
+
+function renderResellersRanking(lista) {
+  var el = document.getElementById('sup-res');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin casos abiertos</p></div>';
+    return;
+  }
+  var max = lista[0].count || 1;
+  var barColors = [
+    'var(--indigo)','var(--blue)','var(--blue)','var(--blue)','var(--blue)',
+    'var(--tx-m)','var(--tx-m)','var(--tx-m)','var(--tx-m)','var(--tx-m)'
+  ];
+  var h = '<div style="padding:4px 0">';
+  for (var i = 0; i < lista.length; i++) {
+    var r    = lista[i];
+    var pct  = Math.round((r.count / max) * 100);
+    var col  = barColors[i] || 'var(--tx-m)';
+    var bold = i < 3 ? 'font-weight:700' : 'font-weight:400';
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+    h +=   '<span style="font-size:12px;color:var(--tx);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bold+'" title="'+escH(r.nombre)+'">'+escH(r.nombre)+'</span>';
+    h +=   '<div style="flex:1;height:18px;background:var(--surf);border-radius:4px;overflow:hidden">';
+    h +=     '<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px;transition:width .4s ease"></div>';
+    h +=   '</div>';
+    h +=   '<span style="font-size:13px;font-weight:700;color:var(--tx);width:24px;text-align:right;flex-shrink:0">'+r.count+'</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 function renderBackorderPred(lista) {
