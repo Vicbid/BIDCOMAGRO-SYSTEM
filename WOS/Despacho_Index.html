@@ -1305,6 +1305,13 @@ function _renderTablaCompacta(lista) {
       '<div class="empty-state"><div class="ico">📭</div><p>Sin pedidos</p></div>';
     return;
   }
+  // Ordenar igual que la vista regular: por posición en _EST_ORDEN, luego más antiguo primero
+  lista = lista.slice().sort(function(a, b) {
+    var ai = _EST_ORDEN.indexOf(a.estado); if (ai === -1) ai = 999;
+    var bi = _EST_ORDEN.indexOf(b.estado); if (bi === -1) bi = 999;
+    if (ai !== bi) return ai - bi;
+    return (a.fechaMs || 0) - (b.fechaMs || 0);
+  });
   var h = '<div style="overflow-x:auto"><table class="compact-tbl"><thead><tr>' +
     '<th>N° Pedido</th><th>Reseller</th><th>Estado</th><th style="text-align:center" title="Cantidad de ítems distintos">Ítems</th>' +
     '<th style="text-align:right" title="Valor total del pedido">Total</th><th title="Tiempo desde el pedido (SLA: 96 hs hábiles)">SLA</th><th>Acción rápida</th>' +
