@@ -1740,9 +1740,7 @@ function cruzarComprasExternas() {
     }
     if (!pedSheet) return { ok: false, msg: 'Hoja "Pedidos" no encontrada en el sheet externo.' };
 
-    // Una sola lectura: columnas A-P (16 cols) hasta fila 3000
-    // Más rápido que getLastRow/getLastColumn + múltiples getRange separados
-    var ext = pedSheet.getRange('A1:P3000').getValues();
+    var ext = pedSheet.getDataRange().getValues();
 
     // Encontrar fila de encabezados (primeras 10 filas)
     var hdrIdx = -1, cCas = -1, cAir = -1, cIng = -1;

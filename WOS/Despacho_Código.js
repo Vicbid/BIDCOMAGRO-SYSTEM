@@ -168,13 +168,14 @@ function WOS_getEtiquetaData(numero) {
     var rsDatos = SpreadsheetApp.openById(MASTER_SS_ID)
       .getSheetByName('Resellers').getDataRange().getValues();
     var rLow = reseller.toLowerCase();
-    var direccion = '', cp = '', localidad = '', telefono = '', cuit = '';
+    var direccion = '', cp = '', localidad = '', provincia = '', telefono = '', cuit = '';
     for (var j = 1; j < rsDatos.length; j++) {
       if (String(rsDatos[j][0] || '').trim().toLowerCase() !== rLow) continue;
       cuit      = String(rsDatos[j][1] || '').trim();
       direccion = String(rsDatos[j][2] || '').trim();
       cp        = String(rsDatos[j][3] || '').trim();
       localidad = String(rsDatos[j][4] || '').trim();
+      provincia = String(rsDatos[j][5] || '').trim();
       telefono  = String(rsDatos[j][6] || '').trim();
       break;
     }
@@ -186,6 +187,7 @@ function WOS_getEtiquetaData(numero) {
       direccion: direccion,
       cp:        cp,
       localidad: localidad,
+      provincia: provincia,
       telefono:  telefono,
       envio:     envio,
       obs:       obs

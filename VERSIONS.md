@@ -36,7 +36,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Despacho_Código.js | 2.7 | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
-| Despacho_Index.html | 2.6 | Fix: vista compacta ordena por estado (igual que vista regular) |
+| Despacho_Index.html | 2.7 | Fix: etiqueta muestra provincia del destinatario (col 5 de Resellers) |
 | WOS_GmailFlow.js | 1.5 | Seriales: hoja anexo separada en PDF (página 2), nota al pie de la NE |
 | Despacho_Env.js | 1.0 | |
 
@@ -44,7 +44,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 1.4 | Fix: handler defensivo con try/catch; re-fetch wrap en callback; guards en arrays |
-| Sm_Código.js | 1.3 | Fix: busca hoja "Pedidos" con trim() para tolerar espacio al final del nombre |
+| Sm_Código.js | 1.4 | cruzarComprasExternas: getDataRange() sin límite de filas/columnas |
 | Env.js | 1.0 | |
 
 ## LAUNCHER

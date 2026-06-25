@@ -1150,6 +1150,7 @@ function _imprimirEtiqueta(numero) {
         direccion: r.direccion || '',
         cp:        r.cp        || '',
         localidad: r.localidad || '',
+        provincia: r.provincia || '',
         telefono:  r.telefono  || '',
         obs:       r.obs       || '',
         fecha:     new Date().toLocaleDateString('es-AR')
@@ -1179,6 +1180,7 @@ function _imprimirEtiqueta(numero) {
                     '(D.direccion?"<div class=\'info-row\'><span class=\'info-lbl\'>Direcci\xf3n</span><span class=\'info-val\'>"+esc(D.direccion)+"</span></div>":"") +' +
                     '(D.cp?"<div class=\'info-row\'><span class=\'info-lbl\'>CP</span><span class=\'info-val\'>"+esc(D.cp)+"</span></div>":"") +' +
                     '(D.localidad?"<div class=\'info-row\'><span class=\'info-lbl\'>Localidad</span><span class=\'info-val\'>"+esc(D.localidad)+"</span></div>":"") +' +
+                    '(D.provincia?"<div class=\'info-row\'><span class=\'info-lbl\'>Provincia</span><span class=\'info-val\'>"+esc(D.provincia)+"</span></div>":"") +' +
                     '(D.telefono?"<div class=\'info-row\'><span class=\'info-lbl\'>Tel\xe9fono</span><span class=\'info-val\'>"+esc(D.telefono)+"</span></div>":"") +' +
                   '"</div>" +' +
                   'qrDiv +' +
