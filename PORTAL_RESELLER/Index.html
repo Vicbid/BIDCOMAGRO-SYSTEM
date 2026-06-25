@@ -2619,13 +2619,20 @@ function mostrarResultado(r) {
     pasos = [{n:1,label:'Ingreso'},{n:2,label:'Aprobación'},{n:3,label:'En proceso'},{n:4,label:'Finalizado'}];
   }
   var html  = '';
-  pasos.forEach(function(p, i) {
-    var cls = p.n < paso ? 'done' : (p.n === paso ? 'active' : '');
-    html += '<div class="step-node '+cls+'">';
-    html += '<div class="step-circle">' + (p.n<paso?'<i class="fa fa-check" style="font-size:11px"></i>':p.n) + '</div>';
-    html += '<div class="step-label">'+p.label+'</div></div>';
-    if (i<pasos.length-1) html += '<div class="step-line '+(p.n<paso?'done':'')+'"></div>';
-  });
+  if (paso === 5) {
+    html = '<div style="display:flex;align-items:center;gap:10px;padding:2px 0">' +
+      '<div style="width:34px;height:34px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0"><i class="fa fa-times"></i></div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--red)">Orden cancelada</div>' +
+      '</div>';
+  } else {
+    pasos.forEach(function(p, i) {
+      var cls = p.n < paso ? 'done' : (p.n === paso ? 'active' : '');
+      html += '<div class="step-node '+cls+'">';
+      html += '<div class="step-circle">' + (p.n<paso?'<i class="fa fa-check" style="font-size:11px"></i>':p.n) + '</div>';
+      html += '<div class="step-label">'+p.label+'</div></div>';
+      if (i<pasos.length-1) html += '<div class="step-line '+(p.n<paso?'done':'')+'"></div>';
+    });
+  }
   document.getElementById('stepper').innerHTML = html;
 
   document.getElementById('btn-recibido').style.display = (r.estado === 'Repuestos enviados') ? 'inline-flex' : 'none';

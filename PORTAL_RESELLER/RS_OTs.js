@@ -170,6 +170,7 @@ function consultarEstado(ot, sn) {
         else if (flujo === "Reseller") inst = "✅ APROBADO. Repuestos en preparación en almacén.";
         else                           inst = "✅ REGISTRO OK. Proceda con la gestión técnica local.";
       }
+      else if (est.indexOf("CANCELADO") !== -1)   { paso = 5; inst = "❌ CASO CANCELADO. La orden fue anulada."; }
       else if (est.indexOf("FINALIZADO") !== -1) { paso = 4; inst = "📦 CASO CERRADO. La reparación fue completada."; }
       else                                        { paso = 3; inst = "🔧 EN PROCESO TÉCNICO. El equipo está siendo atendido."; }
 
@@ -355,7 +356,8 @@ function obtenerGarantias(nombreReseller) {
       var f = ref.datos[i];
       if (!f[SCHEMA.OT.OT]) continue;
       if (String(f[SCHEMA.OT.RESELLER] || "").trim().toLowerCase() !== rB) continue;
-      if (String(f[SCHEMA.OT.ESTADO] || "") === "Finalizado") continue;
+      var estG = String(f[SCHEMA.OT.ESTADO] || "");
+      if (estG === "Finalizado" || estG === "CANCELADO" || estG === "Entregado") continue;
 
       var fechaAct = f[SCHEMA.OT.FECHA_ACTIVACION];
       if (!(fechaAct instanceof Date)) continue;

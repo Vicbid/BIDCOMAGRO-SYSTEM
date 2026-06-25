@@ -19,6 +19,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
 | RS_Pedidos.js | 1.4 | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
+| RS_OTs.js | 1.5 | Fix: CANCELADO ya no cae en paso 3; garantías excluyen CANCELADO y Entregado |
+| Index.html | 1.2 | Fix: stepper muestra "Orden cancelada" en lugar de paso 3 para OTs CANCELADAS |
 | RS_Email.js | 1.0 | |
 | RS_Main.js | 1.0 | |
 | RS_OTs.js | 1.0 | |
