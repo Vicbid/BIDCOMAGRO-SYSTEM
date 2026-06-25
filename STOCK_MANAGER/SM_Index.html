@@ -2864,8 +2864,9 @@ function _cargarCruceExterno() {
       h += '</div>';
       wrap.innerHTML = h;
     })
-    .withFailureHandler(function() {
-      document.getElementById('cruce-ext-wrap').innerHTML = '';
+    .withFailureHandler(function(e) {
+      var w = document.getElementById('cruce-ext-wrap');
+      if (w) w.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>Cruce externo no disponible: ' + (e && e.message ? escH(e.message) : 'error desconocido') + '</div>';
     })
     .cruzarComprasExternas();
 }
