@@ -1735,6 +1735,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <input id="perfil-localidad" class="form-control" type="text" placeholder="Ej: Colón">
           </div>
         </div>
+        <div style="margin-bottom:14px">
+          <label class="flbl">Provincia</label>
+          <input id="perfil-provincia" class="form-control" type="text" placeholder="Ej: Buenos Aires">
+        </div>
 
         <div style="border-top:1px solid var(--brd);margin:18px 0"></div>
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-m);margin-bottom:12px;display:flex;align-items:center;gap:6px">
@@ -5630,11 +5634,12 @@ function _cargarPerfil() {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-save" style="margin-right:6px"></i>Guardar cambios';
       if (r && r.ok) {
-        document.getElementById('perfil-dir').value      = r.direccion || '';
-        document.getElementById('perfil-cp').value       = r.cp        || '';
+        document.getElementById('perfil-dir').value       = r.direccion || '';
+        document.getElementById('perfil-cp').value        = r.cp        || '';
         document.getElementById('perfil-localidad').value = r.localidad || '';
-        document.getElementById('perfil-tel').value      = r.telefono  || '';
-        document.getElementById('perfil-email').value    = r.email     || '';
+        document.getElementById('perfil-provincia').value = r.provincia || '';
+        document.getElementById('perfil-tel').value       = r.telefono  || '';
+        document.getElementById('perfil-email').value     = r.email     || '';
         if (!r.direccion) document.getElementById('perfil-dir').focus();
       }
     })
@@ -5650,6 +5655,7 @@ function guardarPerfil() {
   var dir      = (document.getElementById('perfil-dir').value       || '').trim();
   var cp       = (document.getElementById('perfil-cp').value        || '').trim();
   var localidad= (document.getElementById('perfil-localidad').value || '').trim();
+  var provincia= (document.getElementById('perfil-provincia').value || '').trim();
   var tel      = (document.getElementById('perfil-tel').value       || '').trim();
   var email    = (document.getElementById('perfil-email').value     || '').trim();
   var msgEl    = document.getElementById('perfil-msg');
@@ -5681,7 +5687,7 @@ function guardarPerfil() {
         msgEl.style.border     = '1px solid #a3d9b5';
         msgEl.innerHTML        = '<i class="fa fa-check" style="margin-right:6px"></i>Datos actualizados correctamente.';
         document.getElementById('banner-sin-dir').style.display = 'none';
-        _perfilCache = { ok: true, direccion: dir, cp: cp, localidad: localidad, telefono: tel, email: email };
+        _perfilCache = { ok: true, direccion: dir, cp: cp, localidad: localidad, provincia: provincia, telefono: tel, email: email };
         var strip = document.getElementById('rep-dir-strip');
         var btn   = document.getElementById('btn-enviar-rep');
         if (strip) _renderRepDirStrip(strip, btn, _perfilCache);
@@ -5701,7 +5707,7 @@ function guardarPerfil() {
       msgEl.style.border     = '1px solid #f5c6c6';
       msgEl.innerHTML        = '<i class="fa fa-exclamation-circle" style="margin-right:6px"></i>Error al guardar.';
     })
-    .RS_actualizarPerfil(resellerActual, tel, email, dir, cp, localidad);
+    .RS_actualizarPerfil(resellerActual, tel, email, dir, cp, localidad, provincia);
 }
 
 var _perfilCache = null;

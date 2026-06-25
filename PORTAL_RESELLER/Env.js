@@ -95,6 +95,7 @@ var SCHEMA = {
     DIRECCION: 2,
     CP: 3,
     LOCALIDAD: 4,
+    PROVINCIA: 5,
     TELEFONO: 6,
     EMAIL: 9,
     PIN: 10,

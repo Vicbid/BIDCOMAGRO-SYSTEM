@@ -267,6 +267,7 @@ function RS_obtenerPerfil(resellerNombre) {
           direccion: String(d[i][SCHEMA.RESELLERS.DIRECCION] || '').trim(),
           cp:        String(d[i][SCHEMA.RESELLERS.CP]        || '').trim(),
           localidad: String(d[i][SCHEMA.RESELLERS.LOCALIDAD] || '').trim(),
+          provincia: String(d[i][SCHEMA.RESELLERS.PROVINCIA] || '').trim(),
           telefono:  String(d[i][SCHEMA.RESELLERS.TELEFONO]  || '').trim(),
           email:     String(d[i][SCHEMA.RESELLERS.EMAIL]     || '').trim()
         };
@@ -280,7 +281,7 @@ function RS_obtenerPerfil(resellerNombre) {
 }
 
 // ── Perfil self-service: actualizar datos del reseller ──────────
-function RS_actualizarPerfil(resellerNombre, telefono, email, direccion, cp, localidad) {
+function RS_actualizarPerfil(resellerNombre, telefono, email, direccion, cp, localidad, provincia) {
   try {
     var nombre = String(resellerNombre || '').trim().toLowerCase();
     if (!nombre) return { ok: false, error: 'Nombre inválido' };
@@ -291,6 +292,7 @@ function RS_actualizarPerfil(resellerNombre, telefono, email, direccion, cp, loc
         hoja.getRange(i + 1, SCHEMA.RESELLERS.DIRECCION + 1).setValue(String(direccion || '').trim());
         hoja.getRange(i + 1, SCHEMA.RESELLERS.CP        + 1).setValue(String(cp        || '').trim());
         hoja.getRange(i + 1, SCHEMA.RESELLERS.LOCALIDAD + 1).setValue(String(localidad || '').trim());
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.PROVINCIA + 1).setValue(String(provincia || '').trim());
         hoja.getRange(i + 1, SCHEMA.RESELLERS.TELEFONO  + 1).setValue(String(telefono  || '').trim());
         hoja.getRange(i + 1, SCHEMA.RESELLERS.EMAIL     + 1).setValue(String(email     || '').trim());
         invalidateSheetValues(SCHEMA.SHEETS.RESELLERS);
