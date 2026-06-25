@@ -297,6 +297,8 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .modal-item-sol{font-size:10px;color:var(--tx-d);margin-top:2px}
 .modal-desp-inp{width:76px;height:40px;padding:0 8px;border:1.5px solid var(--brd);border-radius:var(--rm);font-size:15px;font-weight:700;text-align:center;flex-shrink:0;background:var(--surf);font-family:var(--f)}
 .modal-desp-inp:focus{outline:none;border-color:var(--green-m);background:#fff;box-shadow:0 0 0 3px rgba(0,135,90,.12)}
+.modal-ser-chk-lbl{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--tx-d);cursor:pointer;user-select:none;margin-top:1px}
+.modal-ser-chk-lbl input{accent-color:var(--blue);width:13px;height:13px;cursor:pointer}
 .modal-ser-wrap{display:flex;flex-direction:column;gap:3px;margin-top:2px}
 .modal-ser-item{display:flex;align-items:center;gap:6px}
 .modal-ser-lbl{font-size:10px;font-weight:700;color:var(--tx-d);width:18px;text-align:right;flex-shrink:0}
@@ -2149,6 +2151,7 @@ function abrirModalDespacho(numero) {
           '</div>' +
           '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
@@ -2165,6 +2168,7 @@ function abrirModalDespacho(numero) {
           '</div>' +
           '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
@@ -2213,20 +2217,28 @@ function abrirModalDespacho(numero) {
   document.getElementById('modal-desp-title').textContent = 'Generar nota de entrega \xb7 ' + numero;
   document.getElementById('modal-desp-sub').textContent   = ped.reseller + (ped.envio ? ' · ' + ped.envio : '');
   document.getElementById('modal-desp-body').innerHTML    = html;
-  // Inicializar campos de serie con la cantidad pre-cargada
-  for (var si = 0; si < _modalDesp.items.length; si++) {
-    var sIt = _modalDesp.items[si];
-    var qEl = document.getElementById('mdi-' + sIt.row);
-    if (qEl) _syncSeriales(sIt.row, parseInt(qEl.value) || 0);
-  }
   if (!esRetiro) _agregarBulto();   // pre-agregar un bulto vacío
   document.getElementById('modal-desp').style.display     = 'flex';
 }
 
+function _toggleSeriales(row) {
+  var chk = document.getElementById('mdi-chk-' + row);
+  if (chk && chk.checked) {
+    var inp = document.getElementById('mdi-' + row);
+    _syncSeriales(row, inp ? (parseInt(inp.value) || 0) : 0);
+  } else {
+    var wrap = document.getElementById('mdi-ser-wrap-' + row);
+    var cnt  = document.getElementById('mdi-ser-cnt-' + row);
+    if (wrap) wrap.innerHTML = '';
+    if (cnt)  { cnt.style.display = 'none'; cnt.textContent = ''; }
+  }
+}
+
 function _syncSeriales(row, qty) {
+  var chk  = document.getElementById('mdi-chk-' + row);
   var wrap = document.getElementById('mdi-ser-wrap-' + row);
   var cntEl = document.getElementById('mdi-ser-cnt-' + row);
-  if (!wrap) return;
+  if (!wrap || !chk || !chk.checked) return;
   // Preservar valores ya ingresados
   var prev = [];
   var old = wrap.querySelectorAll('.modal-ser-single');
