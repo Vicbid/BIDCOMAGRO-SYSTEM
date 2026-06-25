@@ -1152,7 +1152,6 @@ function _imprimirEtiqueta(numero) {
         localidad: r.localidad || '',
         provincia: r.provincia || '',
         telefono:  r.telefono  || '',
-        obs:       r.obs       || '',
         fecha:     new Date().toLocaleDateString('es-AR')
       }).replace(/<\/script>/gi, '<\\/script>');
 
@@ -1166,7 +1165,6 @@ function _imprimirEtiqueta(numero) {
         'function renderLabel(i,n){' +
           'var D=window._D;' +
           'var pb=i<n?" page-break":"";' +
-          'var obs=D.obs?"<div class=\'obs-band\'>&#9888;&nbsp;"+esc(D.obs)+"</div>":"";' +
           'var qrDiv=window._mapsUrl?"<div class=\'qr-wrap\'><div id=\'qr-"+i+"\'></div><div class=\'qr-lbl\'>&#128205; Ubicaci\xf3n</div><a href=\'"+window._mapsUrl+"\' target=\'_blank\' class=\'qr-verify\'>Verificar en Maps &#8599;</a></div>":"";' +
           'return "<div class=\'label"+pb+"\'>" +' +
             '"<div class=\'main-row\'>" +' +
@@ -1199,7 +1197,6 @@ function _imprimirEtiqueta(numero) {
                 '"</div>" +' +
               '"</div>" +' +
             '"</div>" +' +
-            'obs +' +
             '"<div class=\'footer-bar\'>" +' +
               '"<span class=\'pedido-tag\'>N&#176;&nbsp;"+esc(D.numero)+"</span>" +' +
               '"<div><span class=\'bulto-caption\'>Bulto</span><span class=\'bulto-txt\'>"+i+" de "+n+"</span></div>" +' +
