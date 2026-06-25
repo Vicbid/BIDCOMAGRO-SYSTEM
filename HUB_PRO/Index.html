@@ -2634,7 +2634,7 @@ function renderResellersRanking(lista) {
     var col  = barColors[i] || 'var(--tx-m)';
     var bold = i < 3 ? 'font-weight:700' : 'font-weight:400';
     h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
-    h +=   '<span style="font-size:12px;color:var(--tx);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bold+'" title="'+escH(r.nombre)+'">'+escH(r.nombre)+'</span>';
+    h +=   '<span style="font-size:12px;color:var(--tx);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bold+'" title="'+_escHtml(r.nombre)+'">'+_escHtml(r.nombre)+'</span>';
     h +=   '<div style="flex:1;height:18px;background:var(--surf);border-radius:4px;overflow:hidden">';
     h +=     '<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px;transition:width .4s ease"></div>';
     h +=   '</div>';
