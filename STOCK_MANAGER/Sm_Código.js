@@ -1723,6 +1723,76 @@ function setModelosActivos(modelos) {
 }
 
 // ============================================================
+//  CRUCE COMPRAS EXTERNAS
+// ============================================================
+var _PEDIDOS_EXT_SS_ID = '15Y4tri7Egpa2Tjvq1kPXuuR7OUIsQVXgjPFUwthr7Sw';
+
+function cruzarComprasExternas() {
+  try {
+    var extSS    = SpreadsheetApp.openById(_PEDIDOS_EXT_SS_ID);
+    var pedSheet = extSS.getSheetByName('Pedidos');
+    if (!pedSheet) return { ok: false, msg: 'Hoja "Pedidos" no encontrada en el sheet externo.' };
+
+    var ext = pedSheet.getDataRange().getValues();
+
+    // Encontrar fila de encabezados buscando "invoice" e "ingreso*stock"
+    var hdrIdx = -1, cCas = -1, cAir = -1, cIng = -1;
+    for (var ri = 0; ri < Math.min(ext.length, 10) && hdrIdx < 0; ri++) {
+      var foundCas = false, foundIng = false;
+      for (var ci = 0; ci < ext[ri].length; ci++) {
+        var v = String(ext[ri][ci] || '').trim().toLowerCase();
+        if (v.indexOf('invoice') >= 0)                              { cCas = ci; foundCas = true; }
+        if ((v.indexOf('n') === 0 && v.indexOf('air') >= 0) || v === 'air') cAir = ci;
+        if (v.indexOf('ingreso') >= 0 && v.indexOf('stock') >= 0)  { cIng = ci; foundIng = true; }
+      }
+      if (foundCas && foundIng) hdrIdx = ri;
+    }
+    if (hdrIdx < 0 || cCas < 0 || cIng < 0)
+      return { ok: false, msg: 'No se encontraron columnas N° INVOICE / INGRESO A STOCK en el sheet externo.' };
+
+    // Agrupar por CAS (N° INVOICE), contar total de ítems e ítems con INGRESO = "SI"
+    var casMap = {};
+    for (var di = hdrIdx + 1; di < ext.length; di++) {
+      var row    = ext[di];
+      var casNum = String(row[cCas] || '').trim().toUpperCase();
+      if (!casNum) continue;
+      var airNum = cAir >= 0 ? String(row[cAir] || '').trim() : '';
+      var ing    = String(row[cIng] || '').trim().toUpperCase();
+      if (!casMap[casNum]) casMap[casNum] = { cas: casNum, air: airNum, total: 0, si: 0 };
+      casMap[casNum].total++;
+      if (ing === 'SI') casMap[casNum].si++;
+    }
+
+    // Estado actual de cada CAS en COMPRAS_DJI de SM
+    var smData   = getSheetValues(SCHEMA.SHEETS.COMPRAS);
+    var smCasMap = {};
+    for (var si = 1; si < smData.length; si++) {
+      var smCas = String(smData[si][SCHEMA.COMPRAS_DJI.ID_CAS] || '').trim().toUpperCase();
+      if (smCas) smCasMap[smCas] = String(smData[si][SCHEMA.COMPRAS_DJI.ESTADO] || '');
+    }
+
+    var nuevas = [], recibidas = [];
+    var keys = Object.keys(casMap);
+    for (var ki = 0; ki < keys.length; ki++) {
+      var e    = casMap[keys[ki]];
+      var inSM = smCasMap.hasOwnProperty(e.cas);
+      if (!inSM) {
+        nuevas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si });
+      }
+      // Recibidas: tiene al menos 1 ítem ingresado en el sheet pero SM no lo marca "En depósito"
+      if (e.si > 0 && (!inSM || smCasMap[e.cas] !== 'En dep\xf3sito')) {
+        recibidas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, estadoSM: inSM ? smCasMap[e.cas] : null });
+      }
+    }
+
+    return { ok: true, nuevas: nuevas, recibidas: recibidas };
+  } catch(e) {
+    Logger.log('cruzarComprasExternas: ' + e);
+    return { ok: false, msg: e.toString() };
+  }
+}
+
+// ============================================================
 //  GENERADOR DE PEDIDO DJI — algoritmo inteligente
 // ============================================================
 function calcularPedidoDJI() {

@@ -43,8 +43,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.1 | Validación: bloquea CAS con 0 productos |
-| Sm_Código.js | 1.0 | |
+| SM_Index.html | 1.2 | Cruce externo: panel de alertas en Compras DJI (nuevas + recibidas sin ingresar) |
+| Sm_Código.js | 1.1 | Agrega cruzarComprasExternas() para cruzar COMPRAS_DJI con sheet externo de pedidos |
 | Env.js | 1.0 | |
 
 ## LAUNCHER

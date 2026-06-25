@@ -177,6 +177,19 @@ tr:last-child td{border-bottom:none}
 .wms-tipo-cuarentena{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r);background:rgba(214,48,49,.08);color:var(--red);border:1px solid rgba(214,48,49,.15)}
 .wms-tipo-default{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r);background:var(--raise);color:var(--tx-m);border:1px solid var(--brd2)}
 
+/* ── CRUCE EXTERNO ──────────────────────── */
+.cruce-ext-panel{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.cruce-sect{border-radius:var(--rl);border:1px solid var(--brd);overflow:hidden}
+.cruce-sect-hdr{padding:8px 12px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.cruce-sect-hdr i{font-size:12px}
+.cruce-warn .cruce-sect-hdr{background:rgba(220,90,30,.08);color:#c05010;border-bottom:1px solid rgba(220,90,30,.2)}
+.cruce-new  .cruce-sect-hdr{background:rgba(0,122,204,.07);color:var(--blue);border-bottom:1px solid rgba(0,122,204,.15)}
+.cruce-list{display:flex;flex-direction:column;gap:0}
+.cruce-item{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--brd);font-size:11px;gap:8px}
+.cruce-item:last-child{border-bottom:none}
+.cruce-cas{font-weight:700;color:var(--tx);font-family:var(--f-mono)}
+.cruce-air{color:var(--tx-d);font-size:10px;background:var(--raise);padding:1px 5px;border-radius:4px;margin-left:4px}
+.cruce-prog{color:var(--tx-m);font-size:10px;margin-left:4px}
 /* ── KANBAN COMPRAS DJI ─────────────────── */
 .kb-pipeline{display:flex;align-items:center;padding:10px 16px 12px;gap:0;overflow-x:auto;border-bottom:1px solid var(--brd)}
 .kb-pipe-step{display:flex;align-items:center;flex-shrink:0}
@@ -547,6 +560,9 @@ tr:last-child td{border-bottom:none}
           <button class="btn-s" onclick="sincronizarCatalogoDJI()" title="Lee la hoja CATALOGO_DJI y sincroniza códigos, descripciones y precios en la base de repuestos"><i class="fa fa-sync-alt"></i> Sincronizar catálogo</button>
         </div>
       </div>
+
+      <!-- Cruce con sheet externo de pedidos -->
+      <div id="cruce-ext-wrap"></div>
 
       <div class="card">
         <div class="card-head"><div class="card-head-left"><i class="fa fa-plane"></i> CAS activos</div></div>
@@ -2795,7 +2811,67 @@ function sincronizarCatalogoDJI() {
     .sincronizarCatalogoDJI('');
 }
 
+function _cargarCruceExterno() {
+  var wrap = document.getElementById('cruce-ext-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--tx-d);font-size:12px;padding:4px 0 10px"><i class="fa fa-sync fa-spin" style="margin-right:5px"></i>Verificando pedidos externos…</div>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        wrap.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>' + escH((res && res.msg) || 'No se pudo leer el sheet externo') + '</div>';
+        return;
+      }
+      if (!res.nuevas.length && !res.recibidas.length) {
+        wrap.innerHTML = '<div style="color:var(--green);font-size:12px;padding:4px 0 10px"><i class="fa fa-check-circle" style="margin-right:5px"></i>Todo en orden — sin compras sin registrar ni recepcionar.</div>';
+        return;
+      }
+      var h = '<div class="cruce-ext-panel">';
+      if (res.recibidas.length) {
+        h += '<div class="cruce-sect cruce-warn">' +
+          '<div class="cruce-sect-hdr"><i class="fa fa-exclamation-triangle"></i> Recibidas seg\xfan el planner sin ingresar en SM (' + res.recibidas.length + ')</div>' +
+          '<div class="cruce-list">';
+        res.recibidas.forEach(function(e) {
+          var pct = e.total > 0 ? Math.round(e.si / e.total * 100) : 0;
+          h += '<div class="cruce-item">' +
+            '<div style="flex:1;min-width:0">' +
+              '<span class="cruce-cas">' + escH(e.cas) + '</span>' +
+              (e.air ? '<span class="cruce-air">' + escH(e.air) + '</span>' : '') +
+              '<span class="cruce-prog">&nbsp;&nbsp;' + e.si + '/' + e.total + ' \xedtems ingresados (' + pct + '%)</span>' +
+              (e.estadoSM ? '<span style="font-size:10px;color:var(--tx-d);margin-left:8px">SM: ' + escH(e.estadoSM) + '</span>' : '<span style="font-size:10px;color:#c05010;margin-left:8px">No registrado en SM</span>') +
+            '</div>' +
+            '<button class="btn-s" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick=\'verDetalleCAS("' + escH(e.cas) + '")\' title="Ver detalle y recepcionar"><i class="fa fa-eye"></i> Ver</button>' +
+          '</div>';
+        });
+        h += '</div></div>';
+      }
+      if (res.nuevas.length) {
+        h += '<div class="cruce-sect cruce-new">' +
+          '<div class="cruce-sect-hdr"><i class="fa fa-plus-circle"></i> Compras nuevas sin registrar en SM (' + res.nuevas.length + ')</div>' +
+          '<div class="cruce-list">';
+        res.nuevas.forEach(function(e) {
+          var urgente = e.si > 0;
+          h += '<div class="cruce-item">' +
+            '<div style="flex:1;min-width:0">' +
+              '<span class="cruce-cas">' + escH(e.cas) + '</span>' +
+              (e.air ? '<span class="cruce-air">' + escH(e.air) + '</span>' : '') +
+              (urgente ? '<span class="cruce-prog">&nbsp;&nbsp;' + e.si + ' \xedtems ya figuran como ingresados</span>' : '') +
+            '</div>' +
+            '<button class="btn-s blue" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick=\'abrirNuevoCAS("' + escH(e.cas) + '")\' title="Registrar en SM"><i class="fa fa-plus"></i> Registrar</button>' +
+          '</div>';
+        });
+        h += '</div></div>';
+      }
+      h += '</div>';
+      wrap.innerHTML = h;
+    })
+    .withFailureHandler(function() {
+      document.getElementById('cruce-ext-wrap').innerHTML = '';
+    })
+    .cruzarComprasExternas();
+}
+
 function cargarComprasTab() {
+  _cargarCruceExterno();
   var el = document.getElementById('comp-wrap');
   el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
   google.script.run
@@ -3150,8 +3226,8 @@ function agregarItemRecepcionManual() {
   document.getElementById('recepcion-items').insertAdjacentHTML('beforeend', h);
 }
 
-function abrirNuevoCAS() {
-  document.getElementById('cas-num').value = '';
+function abrirNuevoCAS(casId) {
+  document.getElementById('cas-num').value = casId || '';
   modal('modal-cas').show();
 }
 
