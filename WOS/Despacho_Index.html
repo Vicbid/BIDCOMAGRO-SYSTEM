@@ -491,9 +491,10 @@ table.items-tbl tr:hover td{background:var(--surf)}
 
 /* ── PRINT ────────────────────────────────────────────── */
 @media print{
+  html,body{height:auto!important;overflow:visible!important}
   body>*{display:none!important}
-  #pt-print-zone{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;padding:24px;font-family:var(--f)}
-  #rsm-print-zone{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;padding:24px;font-family:var(--f);font-size:12px}
+  #pt-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f)}
+  #rsm-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f);font-size:12px}
   .no-print{display:none!important}
   .pt-chk{border:1.5px solid #888}
 }
