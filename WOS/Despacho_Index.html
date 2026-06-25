@@ -2121,11 +2121,24 @@ function abrirModalDespacho(numero) {
   var html = '';
   for (var j = 0; j < ped.items.length; j++) {
     var it = ped.items[j];
-    _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp });
-
+    var esCancelado = it.estado === 'Cancelado';
     var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
     var esBackorder = it.estado === 'Backorder';
-    if (yaEnviado) {
+
+    if (!esCancelado) {
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp });
+    }
+
+    if (esCancelado) {
+      html += '<div class="modal-item-row" style="opacity:.4;pointer-events:none;border-left:3px solid var(--red-m)">' +
+        '<div class="modal-item-info">' +
+          '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+          '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+          '<div class="modal-item-sol">Sol.: <strong>' + it.cantSol + '</strong> \xa0\xb7\xa0 Cancelado por el reseller</div>' +
+        '</div>' +
+        '<span style="font-size:11px;font-weight:700;color:var(--red-m);padding:0 8px;white-space:nowrap">CANCELADO</span>' +
+      '</div>';
+    } else if (yaEnviado) {
       // Ítem ya despachado en envío anterior — solo referencia, sin input
       html += '<div class="modal-item-row" style="opacity:.45;pointer-events:none">' +
         '<div class="modal-item-info">' +

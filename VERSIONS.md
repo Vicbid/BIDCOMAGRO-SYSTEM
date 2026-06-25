@@ -36,7 +36,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Despacho_Código.js | 2.7 | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
-| Despacho_Index.html | 2.4 | Seriales: checkbox por ítem para activar inputs de N/S, contador X/Y |
+| Despacho_Index.html | 2.5 | Fix: ítems Cancelados no se incluyen en el modal de despacho |
 | WOS_GmailFlow.js | 1.5 | Seriales: hoja anexo separada en PDF (página 2), nota al pie de la NE |
 | Despacho_Env.js | 1.0 | |
 
