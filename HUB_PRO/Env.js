@@ -97,6 +97,12 @@ var SCHEMA = {
     DESCRIPCION: 2,
     MODELOS: 3
   },
+  EQUIPOS: {
+    NOMBRE: 0,
+    TIPO:   1,
+    PREFIJO:2,
+    MESES:  3
+  },
   RESERVAS_STOCK: {
     ID:           0,
     FECHA:        1,
