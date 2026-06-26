@@ -11,7 +11,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | HUB_Código.js | 1.5 | Calcula vencimientoGar (fecha activación + meses del modelo) y fechaIngreso |
-| Index.html | 1.4 | OT: muestra strip con fecha apertura, usuario final y link Drive |
+| Index.html | 1.6 | Filtro de estado en sidebar; strip con fecha apertura, cliente y link Drive; renombra estados EST_R/EST_RP |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 
 ## PORTAL_RESELLER

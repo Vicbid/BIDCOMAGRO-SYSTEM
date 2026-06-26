@@ -669,6 +669,10 @@ body.compact tbody td{padding:6px 14px!important}
             <select id="fil-tec" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%" onchange="render()">
               <option value="">— Todos —</option>
             </select>
+            <div class="sb-lbl" style="margin-top:8px;margin-bottom:4px">Estado</div>
+            <select id="fil-est" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%" onchange="render()">
+              <option value="">— Todos —</option>
+            </select>
           </div>
         </div>
       </div>
@@ -932,7 +936,7 @@ body.compact tbody td{padding:6px 14px!important}
           <!-- Fecha de activación col N — editable desde el HUB -->
           <div class="col-md-4">
             <label class="flbl" style="display:flex;align-items:center;gap:6px">
-              Fecha activación //
+              Fecha activación
               <span id="f-fecha-badge" style="display:none;font-size:9px;font-weight:700;background:rgba(212,137,10,.15);color:var(--yellow);border:1px solid rgba(212,137,10,.3);border-radius:3px;padding:1px 6px">SIN FECHA</span>
             </label>
             <input type="date" id="f-fecha-act" class="form-control" oninput="markDirty()">
@@ -1106,8 +1110,8 @@ var isDirty=false, histCargado=false;
 
 var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
 var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
-var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Recepcion piezas dañadas','Aprobacion DJI','Finalizado'];
-var EST_RP = ['Abierto','Pedido de repuesto para reparar','Reparado y aprobado en el aftersales','Partes dañadas scrapeadas','Finalizado'];
+var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Finalizado'];
+var EST_RP = ['Abierto','Pedido de repuesto para reparar','Aprobado DJI · Repuestos en preparación','En cierre','Finalizado'];
 var EST_RPB = ['Abierto','Aprobado por DJI','Finalizado'];
 
 // ── UI HELPERS ────────────────────────────────────────────────
@@ -1265,6 +1269,23 @@ function load() {
           filTecEl.appendChild(o);
         });
       }
+
+      // Poblar filtro de estado
+      var filEstEl = document.getElementById('fil-est');
+      if (filEstEl) {
+        var valEstAnt = filEstEl.value;
+        filEstEl.innerHTML = '<option value="">— Todos —</option>';
+        var estSet = {};
+        for (var e2=0; e2<dataset.length; e2++) {
+          if (dataset[e2].estado) estSet[dataset[e2].estado] = (estSet[dataset[e2].estado]||0)+1;
+        }
+        Object.keys(estSet).sort().forEach(function(e) {
+          var o = document.createElement('option');
+          o.value = e; o.textContent = e + ' (' + estSet[e] + ')';
+          if (e === valEstAnt) o.selected = true;
+          filEstEl.appendChild(o);
+        });
+      }
       render(); kpis();
       var t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
       document.getElementById('ts').textContent = 'Actualizado '+t;
@@ -1292,11 +1313,16 @@ function render() {
   var tb=document.getElementById('tbody');
   var q=document.getElementById('busc').value.toLowerCase();
   var filRes=document.getElementById('fil-res').value;
+  var filEstVal = document.getElementById('fil-est') ? document.getElementById('fil-est').value : '';
   var f=dataset.slice();
-  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
-  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  if (!filEstVal) {
+    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+    else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+    else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
+    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  } else {
+    f=f.filter(function(c){return c.estado===filEstVal;});
+  }
   if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
   var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
   if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});

@@ -102,7 +102,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .step-line.done{background:var(--blue)}
 
 /* ── INFO BOXES ─────────────────────────── */
-.inst-box{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--blue);border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:14px}
+.inst-box{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--blue);border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:10px}
+.accion-box{background:rgba(255,171,0,.07);border:1px solid rgba(255,171,0,.35);border-left:3px solid #ffab00;border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:14px}
+.accion-box-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ffab00;margin-bottom:6px}
 .est-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,163,224,.07);border:1px solid rgba(0,163,224,.2);border-radius:var(--rm);padding:6px 12px;font-size:12px;color:var(--blue);font-weight:600;margin-bottom:12px}
 
 /* ── FICHA ──────────────────────────────── */
@@ -1055,6 +1057,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <div class="stepper" id="stepper"></div>
           <div id="est-wrap" style="display:none"><span class="est-badge"><i class="fa fa-calendar-check"></i> Entrega estimada: <strong id="r-est-fecha"></strong></span></div>
           <div class="inst-box" id="r-inst"></div>
+          <div class="accion-box" id="r-accion" style="display:none">
+            <div class="accion-box-lbl"><i class="fa fa-hand-point-right" style="margin-right:5px"></i>Acción requerida</div>
+            <span id="r-accion-txt"></span>
+          </div>
           <div class="ficha">
             <div class="ficha-row"><span class="ficha-lbl">Estado</span><span class="ficha-val"><span class="b-est" id="r-estado"></span></span></div>
             <div class="ficha-row"><span class="ficha-lbl">Equipo</span><span class="ficha-val" id="r-equipo2"></span></div>
@@ -2570,7 +2576,15 @@ function mostrarResultado(r) {
   document.getElementById('r-equipo').textContent   = r.equipo;
   document.getElementById('r-equipo2').textContent  = r.equipo;
   document.getElementById('r-estado').textContent   = r.estado;
-  document.getElementById('r-inst').textContent     = r.trabajo;
+  document.getElementById('r-inst').textContent = r.quePasa || r.trabajo || '';
+  var accionEl  = document.getElementById('r-accion');
+  var accionTxt = document.getElementById('r-accion-txt');
+  if (r.accion) {
+    accionTxt.textContent = r.accion;
+    accionEl.style.display = 'block';
+  } else {
+    accionEl.style.display = 'none';
+  }
 
   var garEl = document.getElementById('r-gar');
   garEl.innerHTML = r.garantia
@@ -2614,13 +2628,16 @@ function mostrarResultado(r) {
   } else { estWrap.style.display = 'none'; }
 
   var paso  = r.pasoActual || 1;
-  // Detectar flujo batería Reseller Propio
   var esBatRP = (r.flujo && r.flujo.toLowerCase().indexOf('propio') !== -1 && r.esBateria);
   var pasos;
   if (esBatRP) {
-    pasos = [{n:1,label:'Abierto'},{n:2,label:'Aprobado DJI'},{n:3,label:'Finalizado'}];
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Aprobado DJI'},{n:3,label:'Finalizado'}];
+  } else if (r.flujo === 'Reseller Propio') {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'En reparación'},{n:3,label:'Aprobado DJI'},{n:4,label:'Finalizado'}];
+  } else if (r.flujo && r.flujo.indexOf('Reseller') !== -1) {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Reparación'},{n:3,label:'Documentación'},{n:4,label:'Finalizado'}];
   } else {
-    pasos = [{n:1,label:'Ingreso'},{n:2,label:'Aprobación'},{n:3,label:'En proceso'},{n:4,label:'Finalizado'}];
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Aprobación'},{n:3,label:'En taller'},{n:4,label:'Finalizado'}];
   }
   var html  = '';
   if (paso === 5) {
