@@ -11,7 +11,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | HUB_Código.js | 1.9 | Sin respuesta · Cerrado y Rechazado DJI en todos los checks de estado terminal |
-| Index.html | 1.7 | Sin respuesta · Cerrado en EST_R, EST_RP y _esTerminalHub |
+| Index.html | 1.8 | Sin respuesta · Cerrado y Rechazado DJI excluidos de todos los filtros de pendientes/urgentes/KPIs |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 
 ## PORTAL_RESELLER

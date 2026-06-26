@@ -1320,10 +1320,10 @@ function render() {
   var filEstVal = document.getElementById('fil-est') ? document.getElementById('fil-est').value : '';
   var f=dataset.slice();
   if (!filEstVal) {
-    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-    else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-    else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
-    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
+    else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
+    else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO'||c.estado==='Rechazado DJI'||c.estado==='Sin respuesta · Cerrado';});
+    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
   } else {
     f=f.filter(function(c){return c.estado===filEstVal;});
   }
@@ -1386,8 +1386,8 @@ function render() {
 }
 
 function kpis(){
-  document.getElementById('kpi-p').textContent=dataset.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
-  document.getElementById('kpi-u').textContent=dataset.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
+  document.getElementById('kpi-p').textContent=dataset.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';}).length;
+  document.getElementById('kpi-u').textContent=dataset.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';}).length;
   var noLeidos = dataset.filter(function(c){return c.msgNoLeido;}).length;
   var badge = document.getElementById('kpi-msg-badge');
   if (badge) { badge.textContent = noLeidos; badge.style.display = noLeidos > 0 ? 'inline' : 'none'; }
@@ -1587,10 +1587,10 @@ function abrirDesdeTabla(indice) {
   var f = dataset.slice();
   
   // Replicamos los filtros exactos de la tabla para dar con el índice correcto
-  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
-  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
+  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
+  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
+  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO'||c.estado==='Rechazado DJI'||c.estado==='Sin respuesta · Cerrado';});
+  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
   if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
   var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
   if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
