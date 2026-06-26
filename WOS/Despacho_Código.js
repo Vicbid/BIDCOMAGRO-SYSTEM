@@ -1098,14 +1098,42 @@ function WOS_reporteBackorder() {
     sinCubrir.sort(function(a, b) { return b.gap - a.gap; });
     cubiertos.sort(function(a, b) { return b.nec - a.nec; });
 
-    if (!sinCubrir.length && !cubiertos.length) {
-      Logger.log('WOS_reporteBackorder: sin ítems en backorder, no se envía mail');
+    // 5. Demanda perdida — ítems cancelados en los últimos 90 días, agrupados por SKU
+    var perdidoMap = {};
+    var hace90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    for (var p = 1; p < wosData.length; p++) {
+      if (String(wosData[p][COL.ESTADO] || '').trim() !== EST.CANCELADO) continue;
+      var pSku = String(wosData[p][COL.SKU] || '').trim().toUpperCase();
+      if (!pSku) continue;
+      // Usar FECHA_ESTADO si es Date, sino FECHA
+      var pFecha = wosData[p][COL.FECHA_ESTADO] instanceof Date ? wosData[p][COL.FECHA_ESTADO]
+                 : (wosData[p][COL.FECHA] instanceof Date ? wosData[p][COL.FECHA] : null);
+      if (!pFecha || pFecha < hace90) continue;
+      var pDesc     = String(wosData[p][COL.DESC]     || '').trim();
+      var pReseller = String(wosData[p][COL.RESELLER] || '').trim();
+      var pCant     = Number(wosData[p][COL.CANT_SOL] || 0);
+      if (pCant <= 0) continue;
+      if (!perdidoMap[pSku]) perdidoMap[pSku] = { desc: pDesc, total: 0, resellers: {} };
+      perdidoMap[pSku].total += pCant;
+      perdidoMap[pSku].resellers[pReseller] = (perdidoMap[pSku].resellers[pReseller] || 0) + pCant;
+    }
+    var perdidos = [];
+    for (var psk in perdidoMap) {
+      var pm = perdidoMap[psk];
+      var rList = [];
+      for (var rn in pm.resellers) rList.push(rn + ' (' + pm.resellers[rn] + 'u)');
+      perdidos.push({ sku: psk, desc: pm.desc, total: pm.total, resellers: rList });
+    }
+    perdidos.sort(function(a, b) { return b.total - a.total; });
+
+    if (!sinCubrir.length && !cubiertos.length && !perdidos.length) {
+      Logger.log('WOS_reporteBackorder: sin ítems en backorder ni demanda perdida, no se envía mail');
       return;
     }
 
-    // 5. Enviar email
+    // 6. Enviar email
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
-    var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
+    var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr);
     var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
     GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
     Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
@@ -1114,7 +1142,7 @@ function WOS_reporteBackorder() {
   }
 }
 
-function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
+function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
   var rowsRojo = '';
   for (var i = 0; i < sinCubrir.length; i++) {
     var it = sinCubrir[i];
@@ -1165,6 +1193,30 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
       tableHdr('#f0fdf4') + '<tbody>' + rowsVerde + '</tbody></table></div>'
     : '';
 
+  var rowsPerd = '';
+  for (var k = 0; k < perdidos.length; k++) {
+    var pd = perdidos[k];
+    rowsPerd +=
+      '<tr style="border-bottom:1px solid #e5e7eb">' +
+      '<td style="padding:7px 12px;font-family:monospace;font-size:11px;font-weight:700;color:#1a56db;white-space:nowrap">' + pd.sku + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#111">' + pd.desc + '</td>' +
+      '<td style="padding:7px 12px;text-align:center;font-weight:700;color:#374151">' + pd.total + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#555;line-height:1.6">' + pd.resellers.join('<br>') + '</td>' +
+      '</tr>';
+  }
+  var secPerdida = perdidos.length
+    ? '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">' +
+      '<h3 style="font-size:12px;font-weight:800;color:#78350f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px">📦 Demanda perdida — últimos 90 días</h3>' +
+      '<p style="font-size:11px;color:#92400e;margin:0 0 10px">Ítems cancelados por resellers que podrías stockear a futuro. Ordenados por volumen total.</p>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="background:#fffbeb;border-bottom:2px solid #fde68a">' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">SKU</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">Descripción</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:center">Unidades canceladas</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">Resellers</th>' +
+      '</tr></thead><tbody>' + rowsPerd + '</tbody></table></div>'
+    : '';
+
   var banner = sinCubrir.length
     ? '<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:24px">' +
       '<strong style="color:#b91c1c;font-size:14px">⚠ ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' en backorder sin cobertura DJI</strong>' +
@@ -1179,7 +1231,7 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
     '<div><div style="color:#fff;font-size:15px;font-weight:700">Reporte de Backorder</div>' +
     '<div style="color:#93c5fd;font-size:12px">' + fechaStr + '</div></div>' +
     '</div>' +
-    '<div style="padding:24px 28px">' + banner + secRojo + secVerde + '</div>' +
+    '<div style="padding:24px 28px">' + banner + secRojo + secVerde + secPerdida + '</div>' +
     '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 28px;font-size:11px;color:#94a3b8;text-align:center">' +
     'WOS · BidcomAgro · Reporte automático — Lunes, Miércoles y Viernes a las 10 hs' +
     '</div></div></body></html>';
