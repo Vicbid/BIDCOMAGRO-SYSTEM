@@ -1107,9 +1107,7 @@ function WOS_reporteBackorder() {
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
     var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
-    for (var r = 0; r < destinatarios.length; r++) {
-      GmailApp.sendEmail(destinatarios[r], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro' });
-    }
+    GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
     Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
