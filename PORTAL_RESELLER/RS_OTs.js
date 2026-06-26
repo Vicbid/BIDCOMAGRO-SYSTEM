@@ -212,7 +212,7 @@ function consultarEstado(ot, sn) {
         } else if (estKey === "PIEZAS DAÑADAS RECIBIDAS") {
           paso = 3; quePasa = "Recibimos las piezas dañadas. Estamos gestionando la aprobación ante DJI.";
         } else if (estKey === "APROBACION DJI") {
-          paso = 4; quePasa = "DJI aprobó el caso. Estamos procesando el cierre.";
+          paso = 4; quePasa = "Enviamos el caso a DJI y esperamos su aprobación o rechazo.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
         }
