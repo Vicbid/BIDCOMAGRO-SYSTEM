@@ -18,7 +18,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
-| RS_Pedidos.js | 1.4 | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
+| RS_Pedidos.js | 1.5 | Fórmula CANT_PEND col G incluye -Z (CANT_CANCEL) al crear filas | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
 | RS_OTs.js | 1.5 | Fix: CANCELADO ya no cae en paso 3; garantías excluyen CANCELADO y Entregado |
 | Index.html | 1.2 | Fix: stepper muestra "Orden cancelada" en lugar de paso 3 para OTs CANCELADAS |
 | RS_Auth.js | 1.1 | Perfil: agrega provincia (col 5) en obtener y actualizar |
@@ -39,7 +39,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Despacho_Código.js | 2.9 | Backorder mail: un solo mail con CC; sección demanda perdida (cancelados 90 días) | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
+| Despacho_Código.js | 3.0 | CANT_CANCEL col Z: demanda perdida usa CANT_CANCEL con fallback a CANCELADO viejo | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
 | Despacho_Index.html | 3.0 | Pick ticket: columna Estado + fix multi-página al imprimir (position:fixed→static) |
 | WOS_GmailFlow.js | 1.5 | Seriales: hoja anexo separada en PDF (página 2), nota al pie de la NE |
 | Despacho_Env.js | 1.0 | |

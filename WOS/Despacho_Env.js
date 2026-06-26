@@ -45,7 +45,7 @@ var COL = {
   DESC:           3,   // D
   CANT_SOL:       4,   // E
   CANT_DESP:      5,   // F
-  CANT_PEND:      6,   // G (fórmula =E-F en sheet)
+  CANT_PEND:      6,   // G (fórmula =E-F-Z en sheet)
   PRECIO:         7,   // H
   STOCK_ORI:      8,   // I
   ESTADO:         9,   // J
@@ -64,6 +64,7 @@ var COL = {
   NE_URL:             22,  // W: link Drive de la Nota de Entrega
   OPERARIO:           23,  // X: email del operario que realizó la última acción
   SERIALES:           24,  // Y: números de serie despachados (separados por coma)
+  CANT_CANCEL:        25,  // Z: unidades canceladas por reseller (Opción B) — fórmula CANT_PEND actualizar a =E-F-Z
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };

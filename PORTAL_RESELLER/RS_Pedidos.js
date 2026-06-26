@@ -503,7 +503,7 @@ function confirmarPedidoPortal(params) {
           it.descripcion || '',              // D: Descripción
           cant,                              // E: Cantidad solicitada
           0,                                 // F: 0 inicial
-          '=E' + newRow + '-F' + newRow,     // G: Fórmula pendiente
+          '=E' + newRow + '-F' + newRow + '-Z' + newRow,  // G: Fórmula pendiente (SOL - DESP - CANCEL)
           prec,                              // H: Precio con descuento (reseller)
           stkH,                              // I: Stock Carmen al momento de carga
           estadoNota,                        // J: Estado

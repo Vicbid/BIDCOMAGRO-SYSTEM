@@ -305,8 +305,9 @@ function WOS_cargarPedidos() {
         precio:      Number(r[COL.PRECIO]) || 0,
         stockOri:    (r[COL.STOCK_ORI] !== '' && r[COL.STOCK_ORI] !== null && !isNaN(Number(r[COL.STOCK_ORI])))
                      ? Number(r[COL.STOCK_ORI]) : -1,
-        stockActual: (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
-        estado:      String(r[COL.ESTADO] || '')
+        stockActual:  (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
+        cantCancel:   Number(r[COL.CANT_CANCEL] || 0),
+        estado:       String(r[COL.ESTADO] || '')
       });
     }
 
@@ -1098,21 +1099,24 @@ function WOS_reporteBackorder() {
     sinCubrir.sort(function(a, b) { return b.gap - a.gap; });
     cubiertos.sort(function(a, b) { return b.nec - a.nec; });
 
-    // 5. Demanda perdida — ítems cancelados en los últimos 90 días, agrupados por SKU
+    // 5. Demanda perdida — ítems con CANT_CANCEL > 0 en los últimos 90 días, agrupados por SKU
+    //    Fallback: filas con estado Cancelado sin CANT_CANCEL (pedidos anteriores al campo)
     var perdidoMap = {};
     var hace90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     for (var p = 1; p < wosData.length; p++) {
-      if (String(wosData[p][COL.ESTADO] || '').trim() !== EST.CANCELADO) continue;
       var pSku = String(wosData[p][COL.SKU] || '').trim().toUpperCase();
       if (!pSku) continue;
-      // Usar FECHA_ESTADO si es Date, sino FECHA
       var pFecha = wosData[p][COL.FECHA_ESTADO] instanceof Date ? wosData[p][COL.FECHA_ESTADO]
                  : (wosData[p][COL.FECHA] instanceof Date ? wosData[p][COL.FECHA] : null);
       if (!pFecha || pFecha < hace90) continue;
+      var pCantCancel = Number(wosData[p][COL.CANT_CANCEL] || 0);
+      var pEst        = String(wosData[p][COL.ESTADO] || '').trim();
+      // Fuente primaria: CANT_CANCEL. Fallback: fila Cancelada sin CANT_CANCEL (datos viejos)
+      var pCant = pCantCancel > 0 ? pCantCancel
+                : (pEst === EST.CANCELADO ? Number(wosData[p][COL.CANT_SOL] || 0) : 0);
+      if (pCant <= 0) continue;
       var pDesc     = String(wosData[p][COL.DESC]     || '').trim();
       var pReseller = String(wosData[p][COL.RESELLER] || '').trim();
-      var pCant     = Number(wosData[p][COL.CANT_SOL] || 0);
-      if (pCant <= 0) continue;
       if (!perdidoMap[pSku]) perdidoMap[pSku] = { desc: pDesc, total: 0, resellers: {} };
       perdidoMap[pSku].total += pCant;
       perdidoMap[pSku].resellers[pReseller] = (perdidoMap[pSku].resellers[pReseller] || 0) + pCant;

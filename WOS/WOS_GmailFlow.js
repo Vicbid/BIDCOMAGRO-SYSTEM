@@ -1372,9 +1372,10 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
         if (cantDispM >= cantSolOrigM && cantSolOrigM > 0) {
           rEstM.setValue(EST.PREPARADO);
         } else if (cantDispM > 0) {
-          hoja.getRange(rows[r].rowNum, COL.CANT_SOL + 1).setValue(cantDispM);
+          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrigM - cantDispM);
           rEstM.setValue(EST.PREP_PARCIAL);
         } else {
+          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrigM);
           rEstM.setValue(EST.CANCELADO);
         }
         hoja.getRange(rows[r].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraM);
