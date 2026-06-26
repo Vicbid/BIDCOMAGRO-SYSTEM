@@ -495,7 +495,7 @@ function actualizarOrden(data) {
       }
     }
 
-    var esEstadoTerminal = (data.estado === "Finalizado" || data.estado === "Entregado" || data.estado === "CANCELADO");
+    var esEstadoTerminal = (data.estado === "Finalizado" || data.estado === "Entregado" || data.estado === "CANCELADO" || data.estado === "Rechazado DJI" || data.estado === "Sin respuesta · Cerrado");
 
     if (data.estado === "Finalizado") {
       hoja.getRange(fila, SCHEMA.OT.FECHA_CIERRE + 1).setValue(new Date());
@@ -2140,7 +2140,7 @@ function verificarSLAs() {
       var f = datos[i];
       if (!f[2]) continue;
       var est = String(f[4]||"");
-      if (est === "Finalizado" || est === "CANCELADO") continue;
+      if (est === "Finalizado" || est === "CANCELADO" || est === "Rechazado DJI" || est === "Sin respuesta · Cerrado") continue;
       var dias = (f[0] instanceof Date) ? Math.floor((hoy - f[0]) / 86400000) : 0;
       var urg  = String(f[17]).toUpperCase() === "URGENTE";
       if (!((urg && dias > 1) || (!urg && dias > 7))) continue;

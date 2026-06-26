@@ -14,7 +14,7 @@ function obtenerKPIs() {
     var tz   = Session.getScriptTimeZone();
     var hoy  = new Date();
     var primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    var TERMINAL = ['Finalizado', 'Entregado', 'CANCELADO'];
+    var TERMINAL = ['Finalizado', 'Entregado', 'CANCELADO', 'Rechazado DJI', 'Sin respuesta · Cerrado'];
 
     // ── HUB PRO ──────────────────────────────────────────────────
     var hub = { abiertas: 0, urgentes: 0, sinTecnico: 0, finMes: 0 };
