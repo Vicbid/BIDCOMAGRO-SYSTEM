@@ -5,7 +5,7 @@ var PLANIF_SS_ID  = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
 var HOJA_PEDIDOS  = 'Pedidos_resellers';
 // Defaults — sobreescritos por WOS_CONFIG en MASTER si existe
 var EMAIL_SOPORTE     = 'soporteagrasdji@bidcom.com.ar';
-var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar';
+var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar';
 var WOS_PDF_FOLDER_ID = '1yVefFM-vZ-Skmg2a_V9fsA-3XTAKx3Pz';
 
 var _wosConfigCache = null;

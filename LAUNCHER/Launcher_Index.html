@@ -187,10 +187,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         </div>
       </div>
       <div class="card-foot">
-        <a id="btn-hub" class="btn-mod off" target="_blank">
+        <a id="btn-hub" class="btn-mod off" target="_blank" style="margin-bottom:7px">
           <i class="fa fa-external-link-alt"></i>
           <span>Abrir HUB PRO</span>
           <span class="no-url-txt" id="hub-notcfg">· configurar URL</span>
+        </a>
+        <a id="btn-guia" target="_blank" style="display:none;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;border:1px solid rgba(0,163,224,.3);border-radius:8px;font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;background:rgba(0,163,224,.06);transition:background .13s" onmouseover="this.style.background='rgba(0,163,224,.12)'" onmouseout="this.style.background='rgba(0,163,224,.06)'">
+          <i class="fa fa-map"></i>&nbsp; Guía de flujos
         </a>
       </div>
     </div>
@@ -422,7 +425,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Email de facturación (CC al despachar)</label>
-        <input id="wos-email-fact" type="email" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <input id="wos-email-fact" type="text" placeholder="ej: cecilia@bidcom.com.ar,lucia@bidcom.com.ar" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Para múltiples destinatarios, separar con coma sin espacios.</div>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">ID carpeta Drive · Notas de Entrega (PDF)</label>
@@ -630,10 +634,18 @@ function setUrl(btnId, notCfgId, url, cls) {
     btn.href = url;
     btn.className = 'btn-mod ' + cls;
     if (nc) nc.style.display = 'none';
+    if (btnId === 'btn-hub') {
+      var guia = document.getElementById('btn-guia');
+      if (guia) { guia.href = url + '?page=guia'; guia.style.display = 'flex'; }
+    }
   } else {
     btn.href = '#';
     btn.className = 'btn-mod off';
     if (nc) nc.style.display = '';
+    if (btnId === 'btn-hub') {
+      var guia2 = document.getElementById('btn-guia');
+      if (guia2) guia2.style.display = 'none';
+    }
   }
 }
 
@@ -1059,9 +1071,18 @@ function pinReset() {
       <div class="tool-card">
         <div class="tool-icon editor"><i class="fa fa-robot"></i></div>
         <div class="tool-body">
-          <div class="tool-name">Instalar detector automático</div>
+          <div class="tool-name">Instalar detector automático de respuestas</div>
           <div class="tool-desc">Crea el trigger que escanea Gmail cada 10 minutos para detectar respuestas A/B de resellers. Debe ejecutarse una vez desde el editor del proyecto WOS.</div>
           <div class="tool-editor-note">Apps Script → WOS → WOS_instalarTriggerDetector()</div>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-icon editor"><i class="fa fa-box-open"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Instalar trigger de backorder</div>
+          <div class="tool-desc">Crea el trigger diario que detecta automáticamente pedidos con demanda perdida (CANT_CANCEL > 0) y genera las notas de compra pendientes. Ejecutar una vez desde el editor del proyecto WOS.</div>
+          <div class="tool-editor-note">Apps Script → WOS → WOS_instalarTriggerBackorder()</div>
         </div>
       </div>
     </div>

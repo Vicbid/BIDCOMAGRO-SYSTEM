@@ -54,8 +54,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## LAUNCHER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| Launcher_Código.js | 1.0 | |
-| Launcher_Index.html | 1.0 | |
+| Launcher_Código.js | 1.1 | Default emailFact incluye lucia.c@bidcom.com.ar |
+| Launcher_Index.html | 1.2 | HUB PRO card: boton Guia de flujos; Tools WOS: trigger backorder; campo emailFact acepta multiples |
 
 ## Raíz
 | Archivo | Versión | Notas |

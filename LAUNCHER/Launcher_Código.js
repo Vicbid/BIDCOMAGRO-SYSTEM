@@ -255,7 +255,7 @@ function LAUNCH_getAviso() {
 function LAUNCH_getWosConfig() {
   try {
     var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('WOS_CONFIG');
-    var def  = { emailSoporte: 'soporteagrasdji@bidcom.com.ar', emailFact: 'Cecilia.f@bidcom.com.ar', pdfFolderId: '1yVefFM-vZ-Skmg2a_V9fsA-3XTAKx3Pz' };
+    var def  = { emailSoporte: 'soporteagrasdji@bidcom.com.ar', emailFact: 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar', pdfFolderId: '1yVefFM-vZ-Skmg2a_V9fsA-3XTAKx3Pz' };
     if (!hoja) return def;
     var data = hoja.getDataRange().getValues();
     var map  = {};
