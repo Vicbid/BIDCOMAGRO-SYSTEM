@@ -10,7 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.6 | doGet soporta ?page=guia; agrega getGuiaUrl() |
+| HUB_Código.js | 1.7 | doGet soporta ?page=guia; agrega getGuiaUrl(); Rechazado DJI en ESTADOS_NOTIFICAR_RESELLER |
 | Index.html | 1.6 | Filtro de estado en sidebar; strip con fecha apertura, cliente y link Drive; renombra estados EST_R/EST_RP |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 

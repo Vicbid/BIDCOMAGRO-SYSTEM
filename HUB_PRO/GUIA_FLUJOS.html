@@ -201,7 +201,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Con repuesto</td>
         <td>~7 días</td>
-        <td style="color:var(--tx-m)">Abierto → En reparacion → Informe de reparacion → Piezas dañadas recibidas → Aprobacion DJI → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → En reparacion → Informe de reparacion → Piezas dañadas recibidas → Aprobacion DJI → Finalizado / Rechazado DJI</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-reseller">Reseller Común</span></td>
@@ -215,14 +215,14 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Con repuesto</td>
         <td>~5 días</td>
-        <td style="color:var(--tx-m)">Abierto → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → En reparacion → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Sin repuesto (adelanto)</td>
         <td>~7 días</td>
-        <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En cierre → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En reparacion → En cierre → Finalizado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
@@ -676,12 +676,43 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <div class="tl-card-head">
           <span class="state-badge s-dji">Aprobacion DJI</span>
           <span class="actor-badge a-dji">DJI</span>
-          <span class="tl-name">DJI aprobó el caso de garantía</span>
+          <span class="tl-name">DJI resuelve el caso — aprobación o rechazo</span>
           <span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI procesó el caso y aprobó la cobertura. Bidcom recibe la confirmación y procede al cierre.</span></div>
-          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar aprobación DJI. Pasar a <strong>Finalizado</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI procesa el caso. Puede aprobar o rechazar la cobertura de garantía.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Esperar respuesta. Si aprueba → <strong>Finalizado</strong>. Si rechaza → <strong>Rechazado DJI</strong> → <strong>CANCELADO</strong>.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="branch">
+      <div class="branch-title">⑂ Bifurcación — Resolución de DJI</div>
+      <div class="branch-cols">
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--green)">✅ DJI aprueba → Finalizado</div>
+          <p>La OT se cierra exitosamente. Si el reseller usó adelanto, la factura queda compensada por la aprobación DJI.</p>
+        </div>
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--red)">❌ DJI rechaza → Rechazado DJI → CANCELADO</div>
+          <p>El reseller es notificado. Los repuestos enviados (sean propios o adelanto) quedan facturados a su cuenta. El operador pasa a <strong>Rechazado DJI</strong> y luego a <strong>CANCELADO</strong>.</p>
+        </div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Rechazado DJI</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">DJI rechazó — notificación al reseller antes de cancelar</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Estado intermedio que permite notificar claramente al reseller el motivo de cierre antes de marcar CANCELADO. El sistema envía una notificación automática al reseller.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar motivo del rechazo en la nota técnica. Pasar a <strong>CANCELADO</strong> para cerrar definitivamente.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta."</span></div>
         </div></div>
       </div>
     </div><div class="tl-gap"></div>
@@ -696,7 +727,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso fue aprobado por DJI. La OT queda cerrada. Si el reseller usó adelanto de repuesto, se acredita contra la factura a 30 días.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó el caso. La OT queda cerrada. Si el reseller usó adelanto de repuesto, la factura queda compensada por la aprobación DJI.</span></div>
         </div></div>
       </div>
     </div>
@@ -765,6 +796,23 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
       </div>
     </div><div class="tl-gap"></div>
 
+    <div class="tl-item">
+      <div class="tl-dot d-reseller">R</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-reseller">En reparacion</span>
+          <span class="actor-badge a-reseller">Reseller</span>
+          <span class="tl-name">Reseller ejecuta la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller está reparando el equipo con el repuesto disponible (propio o recibido como adelanto). Bidcom puede ver el avance desde HUB PRO.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Pasar a este estado cuando el reseller confirma que arrancó la reparación.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Estás ejecutando la reparación. Una vez finalizada, cargá el caso en DJI AfterSales y avisanos por la mensajería de la orden."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
     <div class="tl-item" style="opacity:.7">
       <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow);color:#000;font-size:8px">ALT</div>
       <div class="tl-card" onclick="togCard(this)">
@@ -815,6 +863,37 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
       </div>
     </div><div class="tl-gap"></div>
 
+    <div class="branch">
+      <div class="branch-title">⑂ Bifurcación — Resolución de DJI (aplica a ambos paths)</div>
+      <div class="branch-cols">
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--green)">✅ DJI aprueba → Finalizado</div>
+          <p><strong>Con repuesto propio:</strong> La OT cierra, Bidcom envió el repuesto de reposición. <strong>Sin repuesto (adelanto):</strong> La OT cierra, el cierre es administrativo.</p>
+        </div>
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--red)">❌ DJI rechaza → Rechazado DJI → CANCELADO</div>
+          <p>El reseller es notificado. Los repuestos enviados quedan facturados a su cuenta (sean de reposición o adelanto). El operador pasa a <strong>Rechazado DJI</strong> y luego a <strong>CANCELADO</strong>.</p>
+        </div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Rechazado DJI</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">DJI rechazó — notificación al reseller antes de cancelar</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Estado intermedio para notificar claramente al reseller antes de marcar CANCELADO. El sistema envía notificación automática.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar motivo del rechazo en la nota técnica. Pasar a <strong>CANCELADO</strong> para cerrar definitivamente.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
     <div class="tl-item">
       <div class="tl-dot d-ok">✓</div>
       <div class="tl-card" onclick="togCard(this)">
@@ -825,7 +904,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Caso cerrado. El reseller recibió los repuestos de reposición. Si hubo adelanto, se acredita contra la factura a 30 días.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó. La OT queda cerrada. Si hubo adelanto de repuesto, la factura queda compensada por la aprobación DJI.</span></div>
         </div></div>
       </div>
     </div>

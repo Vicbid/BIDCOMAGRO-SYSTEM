@@ -1114,8 +1114,8 @@ var isDirty=false, histCargado=false;
 
 var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
 var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
-var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Finalizado'];
-var EST_RP = ['Abierto','Pedido de repuesto para reparar','Aprobado DJI · Repuestos en preparación','En cierre','Finalizado'];
+var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Rechazado DJI','Finalizado'];
+var EST_RP = ['Abierto','Pedido de repuesto para reparar','En reparacion','Aprobado DJI · Repuestos en preparación','En cierre','Rechazado DJI','Finalizado'];
 var EST_RPB = ['Abierto','Aprobado por DJI','Finalizado'];
 
 // ── UI HELPERS ────────────────────────────────────────────────
@@ -1942,7 +1942,7 @@ function abrir(c){
   if (moSec) moSec.style.display = esOOW ? 'block' : 'none';
   // Botón Pedir Repuestos al WOS: OOW + orden activa
   var btnRepWos = document.getElementById('btn-rep-wos');
-  var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO');
+  var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO' || actual.estado === 'Rechazado DJI');
   if (btnRepWos) btnRepWos.style.display = (esOOW && !_esTerminalHub) ? 'inline-flex' : 'none';
 
   // Botones presupuesto: solo OOW + estado "En Revision" o "Presupuesto enviado"

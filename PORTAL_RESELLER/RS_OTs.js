@@ -212,7 +212,9 @@ function consultarEstado(ot, sn) {
         } else if (estKey === "PIEZAS DAÑADAS RECIBIDAS") {
           paso = 3; quePasa = "Recibimos las piezas dañadas. Estamos gestionando la aprobación ante DJI.";
         } else if (estKey === "APROBACION DJI") {
-          paso = 4; quePasa = "Enviamos el caso a DJI y esperamos su aprobación o rechazo.";
+          paso = 4; quePasa = "Presentamos el caso ante DJI. Estamos esperando su resolución.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
         }
@@ -222,10 +224,14 @@ function consultarEstado(ot, sn) {
           accion = "Realizá la reparación, cargá el caso en el portal DJI (AfterSales) y solicitá los repuestos de reposición desde aquí cuando tengas la aprobación.";
         } else if (estKey === "PEDIDO DE REPUESTO PARA REPARAR") {
           paso = 2; quePasa = "Solicitaste un adelanto de repuesto. Lo estamos preparando y te lo enviamos en breve.";
+        } else if (estKey === "EN REPARACION") {
+          paso = 2; quePasa = "Estás ejecutando la reparación. Una vez finalizada, cargá el caso en el portal DJI AfterSales y avisanos por la mensajería de la orden cuando tengas la aprobación.";
         } else if (estKey === "APROBADO DJI · REPUESTOS EN PREPARACIÓN") {
           paso = 3; quePasa = "Verificamos la aprobación de DJI. Tus repuestos de reposición están siendo preparados en almacén.";
         } else if (estKey === "EN CIERRE") {
           paso = 3; quePasa = "El caso está siendo procesado por nuestro equipo para el cierre final.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
         }
