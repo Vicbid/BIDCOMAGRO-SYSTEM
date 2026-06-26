@@ -10,7 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.4 | Agrega fechaIngreso al objeto ordenes |
+| HUB_Código.js | 1.5 | Calcula vencimientoGar (fecha activación + meses del modelo) y fechaIngreso |
 | Index.html | 1.4 | OT: muestra strip con fecha apertura, usuario final y link Drive |
 | Env.js | 1.0 | Configuración inicial |
 
@@ -47,8 +47,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.4 | Fix: handler defensivo con try/catch; re-fetch wrap en callback; guards en arrays |
-| Sm_Código.js | 1.4 | cruzarComprasExternas: getDataRange() sin límite de filas/columnas |
+| SM_Index.html | 1.5 | Registrar CAS desde cruce: precarga ítems del sheet (sin XLS) |
+| Sm_Código.js | 1.5 | cruzarComprasExternas: incluye items (cols D/E/F) en cada entrada nuevas |
 | Env.js | 1.0 | |
 
 ## LAUNCHER

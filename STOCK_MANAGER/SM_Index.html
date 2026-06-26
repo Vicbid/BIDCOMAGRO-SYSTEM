@@ -989,17 +989,24 @@ tr:last-child td{border-bottom:none}
             </select>
           </div>
         </div>
-        <label class="flbl">XLS del pedido enviado a DJI <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(para saber qué viene)</span></label>
-        <div class="drop-zone" id="drop-cas" onclick="document.getElementById('inp-xls-cas').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="dropXLSCas(event)">
-          <i class="fa fa-file-excel" style="color:var(--blue)"></i>
-          <p>Subí el XLS que enviaste a DJI</p>
-          <p style="font-size:10px;margin-top:4px">Columnas: Código corto · Descripción · Cantidad · Precio FOB · FOB total</p>
+        <!-- Banner: ítems precargados desde sheet (oculto por defecto) -->
+        <div id="cas-sheet-banner" style="display:none;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:var(--rm);padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="font-size:11px;color:var(--green)"><i class="fa fa-table" style="margin-right:6px"></i>Ítems cargados desde la hoja Pedidos</span>
+          <button type="button" class="btn-s" style="font-size:10px;padding:2px 8px" onclick="resetXLSCas()"><i class="fa fa-file-excel" style="margin-right:4px"></i>Usar XLS en cambio</button>
         </div>
-        <input type="file" id="inp-xls-cas" style="display:none" accept=".xlsx,.xls" onchange="leerXLSCas(this)">
+        <div id="cas-xls-zone">
+          <label class="flbl">XLS del pedido enviado a DJI <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(para saber qué viene)</span></label>
+          <div class="drop-zone" id="drop-cas" onclick="document.getElementById('inp-xls-cas').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="dropXLSCas(event)">
+            <i class="fa fa-file-excel" style="color:var(--blue)"></i>
+            <p>Subí el XLS que enviaste a DJI</p>
+            <p style="font-size:10px;margin-top:4px">Columnas: Código corto · Descripción · Cantidad · Precio FOB · FOB total</p>
+          </div>
+          <input type="file" id="inp-xls-cas" style="display:none" accept=".xlsx,.xls" onchange="leerXLSCas(this)">
+        </div>
         <div id="cas-items-wrap" style="display:none;margin-top:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
             <div style="font-size:11px;font-weight:600;color:var(--tx-m)" id="cas-items-cnt"></div>
-            <button type="button" class="btn-s" style="font-size:11px;padding:3px 9px" onclick="resetXLSCas()"><i class="fa fa-times" style="margin-right:4px"></i>Cambiar archivo</button>
+            <button type="button" class="btn-s" style="font-size:11px;padding:3px 9px" id="cas-items-change-btn" onclick="resetXLSCas()"><i class="fa fa-times" style="margin-right:4px"></i>Cambiar archivo</button>
           </div>
           <div style="max-height:200px;overflow-y:auto;border:1px solid var(--brd);border-radius:var(--rm)">
             <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -2846,11 +2853,17 @@ function _cargarCruceExterno() {
           h += '</div></div>';
         }
         if (nv.length) {
+          _cruceItemsCache = {};
           h += '<div class="cruce-sect cruce-new"><div class="cruce-sect-hdr"><i class="fa fa-plus-circle"></i> Compras nuevas sin registrar en SM (' + nv.length + ')</div><div class="cruce-list">';
           for (var ni = 0; ni < nv.length; ni++) {
             var en = nv[ni];
+            if (en.items && en.items.length) _cruceItemsCache[en.cas] = en.items;
+            var itemsTag = (en.items && en.items.length)
+              ? '<span style="font-size:10px;color:var(--green);margin-left:8px"><i class="fa fa-list"></i> ' + en.items.length + ' ítems</span>'
+              : '';
             h += '<div class="cruce-item"><div style="flex:1;min-width:0"><span class="cruce-cas">' + escH(en.cas) + '</span>' +
               (en.air ? '<span class="cruce-air">' + escH(en.air) + '</span>' : '') +
+              itemsTag +
               (en.si > 0 ? '<span class="cruce-prog">&nbsp;&nbsp;' + en.si + ' \xedtems ya figuran ingresados</span>' : '') +
               '</div><button class="btn-s blue" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="abrirNuevoCAS(\'' + escH(en.cas) + '\')"><i class="fa fa-plus"></i> Registrar</button></div>';
           }
@@ -3227,15 +3240,40 @@ function agregarItemRecepcionManual() {
 
 function abrirNuevoCAS(casId) {
   document.getElementById('cas-num').value = casId || '';
+  resetXLSCas();
+  var sheetItems = casId ? (_cruceItemsCache[casId] || []) : [];
+  if (sheetItems.length) {
+    casItemsData = sheetItems.map(function(it) {
+      return { codigo: it.codigo, descripcion: it.descripcion, cantidad: it.cantidad, precioFOB: 0 };
+    });
+    var tb = document.getElementById('cas-items-tbody');
+    var h  = '';
+    casItemsData.forEach(function(it) {
+      h += '<tr><td style="padding:5px 10px;font-size:11px;font-weight:700;color:var(--blue)">' + escH(it.codigo) + '</td>' +
+        '<td style="padding:5px 10px;font-size:11px">' + escH(it.descripcion) + '</td>' +
+        '<td style="padding:5px 10px;text-align:center;font-weight:700">' + it.cantidad + '</td>' +
+        '<td style="padding:5px 10px;text-align:right;font-size:11px;color:var(--tx-d)">—</td></tr>';
+    });
+    tb.innerHTML = h;
+    document.getElementById('cas-items-cnt').textContent = casItemsData.length + ' ítems cargados desde la hoja';
+    document.getElementById('cas-items-wrap').style.display = 'block';
+    document.getElementById('cas-xls-zone').style.display   = 'none';
+    document.getElementById('cas-sheet-banner').style.display = 'flex';
+    document.getElementById('cas-items-change-btn').style.display = 'none';
+  }
   modal('modal-cas').show();
 }
 
 function resetXLSCas() {
   casItemsData = [];
-  document.getElementById('inp-xls-cas').value = '';
-  document.getElementById('cas-items-wrap').style.display = 'none';
-  document.getElementById('cas-items-cnt').textContent = '';
-  document.getElementById('cas-items-tbody').innerHTML = '';
+  var inp = document.getElementById('inp-xls-cas');
+  if (inp) inp.value = '';
+  document.getElementById('cas-items-wrap').style.display    = 'none';
+  document.getElementById('cas-items-cnt').textContent       = '';
+  document.getElementById('cas-items-tbody').innerHTML       = '';
+  document.getElementById('cas-xls-zone').style.display      = 'block';
+  document.getElementById('cas-sheet-banner').style.display  = 'none';
+  document.getElementById('cas-items-change-btn').style.display = '';
   document.getElementById('drop-cas').querySelector('p').textContent = 'Subí el XLS que enviaste a DJI';
 }
 
@@ -3567,6 +3605,7 @@ function restaurarBorradorPedido() {
 
 // ── XLS DEL CAS ──────────────────────────────────────────────
 var casItemsData = [];
+var _cruceItemsCache = {};
 
 function dropXLSCas(e) {
   e.preventDefault();

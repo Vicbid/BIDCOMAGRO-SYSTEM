@@ -140,15 +140,20 @@ function cargarTodo() {
     var hojaOT  = getSheet(SCHEMA.SHEETS.OT);
     var datosOT = getSheetValues(hojaOT);
 
-    // Mapa de equipos tipo Bateria desde hoja EQUIPOS
-    var mapaBaterias = {};
+    // Mapa de equipos tipo Bateria + meses de garantía desde hoja EQUIPOS
+    var mapaBaterias = {}, mesesMap = {};
     var hojaEqBat = getSheet(SCHEMA.SHEETS.EQUIPOS);
     if (hojaEqBat) {
       var dEqBat = getSheetValues(hojaEqBat);
       for (var eb = 1; eb < dEqBat.length; eb++) {
+        var nomEq = String(dEqBat[eb][0]||"").trim();
+        if (!nomEq) continue;
+        var nomLow = nomEq.toLowerCase();
         if (String(dEqBat[eb][1]||"").trim().toLowerCase() === "bateria") {
-          mapaBaterias[String(dEqBat[eb][0]||"").trim().toLowerCase()] = true;
+          mapaBaterias[nomLow] = true;
         }
+        var mes = parseInt(dEqBat[eb][SCHEMA.EQUIPOS.MESES], 10);
+        if (!isNaN(mes) && mes > 0) mesesMap[nomLow] = mes;
       }
     }
     Logger.log("Baterías mapeadas: " + Object.keys(mapaBaterias).length);
@@ -198,6 +203,16 @@ function cargarTodo() {
         tecnico:    (f[9] && f[9] !== 'undefined') ? String(f[9]) : "",
         trabajo:   String(f[12]||""),
         factura:   (f[13] instanceof Date) ? Utilities.formatDate(f[13], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(f[13] || ""),
+        vencimientoGar: (function() {
+          var eqKey = String(f[SCHEMA.OT.EQUIPO]||'').trim().toLowerCase();
+          var mes   = mesesMap[eqKey] || 0;
+          if (mes > 0 && f[13] instanceof Date) {
+            var vd = new Date(f[13].getTime());
+            vd.setMonth(vd.getMonth() + mes);
+            return Utilities.formatDate(vd, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          }
+          return '';
+        })(),
         cas:       String(f[14]||""),
         repuestos: f[16] ? String(f[16]).replace(/\r/g, "").trim() : "Sin consumo de repuestos",
         manoObraGuardada: f[22] ? String(f[22]).trim() : "",

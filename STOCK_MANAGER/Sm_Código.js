@@ -1764,9 +1764,14 @@ function cruzarComprasExternas() {
       if (!casNum) continue;
       var airNum = cAir >= 0 ? String(ext[di][cAir] || '').trim() : '';
       var ing    = String(ext[di][cIng] || '').trim().toUpperCase();
-      if (!casMap[casNum]) casMap[casNum] = { cas: casNum, air: airNum, total: 0, si: 0 };
+      if (!casMap[casNum]) casMap[casNum] = { cas: casNum, air: airNum, total: 0, si: 0, items: [] };
       casMap[casNum].total++;
       if (ing === 'SI') casMap[casNum].si++;
+      // Cols D(3)=código, E(4)=descripción, F(5)=cantidad
+      var cod  = String(ext[di][3] || '').trim();
+      var desc = String(ext[di][4] || '').trim();
+      var qty  = parseInt(ext[di][5], 10) || 0;
+      if (cod && qty > 0) casMap[casNum].items.push({ codigo: cod, descripcion: desc, cantidad: qty });
     }
 
     // Estado actual de cada CAS en COMPRAS_DJI de SM
@@ -1782,7 +1787,7 @@ function cruzarComprasExternas() {
     for (var ki = 0; ki < keys.length; ki++) {
       var e    = casMap[keys[ki]];
       var inSM = smCasMap.hasOwnProperty(e.cas);
-      if (!inSM) nuevas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si });
+      if (!inSM) nuevas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, items: e.items });
       if (e.si > 0 && (!inSM || smCasMap[e.cas] !== 'En dep\xf3sito')) {
         recibidas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, estadoSM: inSM ? smCasMap[e.cas] : null });
       }
