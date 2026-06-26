@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HUB PRO — Guía de Flujos de OT</title>
+<style>
+:root {
+  --bg:     #0d1117;
+  --panel:  #161b22;
+  --surf:   #1c2128;
+  --brd:    #30363d;
+  --brd2:   #21262d;
+  --tx:     #e6edf3;
+  --tx-m:   #8b949e;
+  --tx-d:   #484f58;
+  --blue:   #58a6ff;
+  --green:  #3fb950;
+  --red:    #f85149;
+  --yellow: #d29922;
+  --purple: #bc8cff;
+  --orange: #ffa657;
+  --r: 8px; --rm: 6px; --rs: 4px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--tx); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+
+/* ── HEADER ── */
+.hdr { background: var(--panel); border-bottom: 1px solid var(--brd); padding: 20px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+.hdr-logo { width: 36px; height: 36px; background: var(--blue); border-radius: var(--rm); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.hdr-title { font-size: 18px; font-weight: 700; color: var(--tx); }
+.hdr-sub { font-size: 12px; color: var(--tx-m); margin-top: 1px; }
+.hdr-date { margin-left: auto; font-size: 11px; color: var(--tx-d); }
+
+/* ── TABS ── */
+.tabs { background: var(--panel); border-bottom: 1px solid var(--brd); padding: 0 32px; display: flex; gap: 2px; overflow-x: auto; }
+.tab { padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--tx-m); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; user-select: none; }
+.tab:hover { color: var(--tx); }
+.tab.active { color: var(--blue); border-color: var(--blue); }
+
+/* ── LEGEND ── */
+.legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 32px; background: var(--panel); border-bottom: 1px solid var(--brd); }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--tx-m); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── CONTENT ── */
+.content { max-width: 900px; margin: 0 auto; padding: 28px 32px 60px; }
+.flow-section { display: none; }
+.flow-section.active { display: block; }
+
+/* ── FLOW HEADER ── */
+.flow-hdr { margin-bottom: 24px; }
+.flow-hdr h2 { font-size: 20px; font-weight: 700; color: var(--tx); margin-bottom: 6px; }
+.flow-hdr p { font-size: 13px; color: var(--tx-m); line-height: 1.6; }
+.flow-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.flow-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; border: 1px solid; }
+.flow-tag.circ  { border-color: rgba(88,166,255,.4); color: var(--blue); background: rgba(88,166,255,.08); }
+.flow-tag.gar   { border-color: rgba(63,185,80,.4);  color: var(--green); background: rgba(63,185,80,.08); }
+.flow-tag.dias  { border-color: rgba(139,148,158,.3); color: var(--tx-m); background: var(--surf); }
+
+/* ── TIMELINE ── */
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before { content:''; position:absolute; left:11px; top:0; bottom:0; width:2px; background: var(--brd); }
+
+.tl-item { position: relative; margin-bottom: 6px; }
+.tl-dot { position: absolute; left: -32px; top: 16px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--brd); background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; z-index: 1; }
+.tl-card { background: var(--panel); border: 1px solid var(--brd); border-radius: var(--r); overflow: hidden; transition: border-color .15s; }
+.tl-card:hover { border-color: var(--brd2); }
+.tl-card-head { padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
+.tl-card-head:hover { background: var(--surf); }
+.tl-card-body { padding: 0 16px 14px; border-top: 1px solid var(--brd); display: none; }
+.tl-card.open .tl-card-body { display: block; }
+.tl-card.open .tl-chv { transform: rotate(90deg); }
+.tl-chv { margin-left: auto; font-size: 10px; color: var(--tx-d); transition: transform .2s; flex-shrink: 0; }
+
+.state-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+.actor-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+
+/* Actores */
+.a-bidcom  { background: rgba(88,166,255,.12); border-color: rgba(88,166,255,.35); color: var(--blue); }
+.a-reseller{ background: rgba(63,185,80,.12);  border-color: rgba(63,185,80,.35);  color: var(--green); }
+.a-dji     { background: rgba(255,166,87,.12); border-color: rgba(255,166,87,.35); color: var(--orange); }
+.a-sistema { background: rgba(139,148,158,.1); border-color: rgba(139,148,158,.3); color: var(--tx-m); }
+
+/* Estados */
+.s-inicio    { background: rgba(139,148,158,.1); border-color: rgba(139,148,158,.3); color: var(--tx-m); }
+.s-bidcom    { background: rgba(88,166,255,.1);  border-color: rgba(88,166,255,.3);  color: var(--blue); }
+.s-reseller  { background: rgba(63,185,80,.1);   border-color: rgba(63,185,80,.3);   color: var(--green); }
+.s-espera    { background: rgba(210,153,34,.1);  border-color: rgba(210,153,34,.3);  color: var(--yellow); }
+.s-dji       { background: rgba(255,166,87,.1);  border-color: rgba(255,166,87,.3);  color: var(--orange); }
+.s-ok        { background: rgba(63,185,80,.15);  border-color: rgba(63,185,80,.5);   color: var(--green); }
+.s-cancel    { background: rgba(248,81,73,.1);   border-color: rgba(248,81,73,.3);   color: var(--red); }
+.s-purple    { background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.3); color: var(--purple); }
+
+/* Dots */
+.d-sistema  { background: var(--tx-d); border-color: var(--tx-d); color: #fff; }
+.d-bidcom   { background: var(--blue);   border-color: var(--blue);   color: #fff; }
+.d-reseller { background: var(--green);  border-color: var(--green);  color: #fff; }
+.d-dji      { background: var(--orange); border-color: var(--orange); color: #fff; }
+.d-ok       { background: var(--green);  border-color: var(--green);  color: #fff; }
+.d-cancel   { background: var(--red);    border-color: var(--red);    color: #fff; }
+
+.tl-name { font-size: 13px; font-weight: 600; color: var(--tx); }
+.tl-body-inner { padding-top: 12px; }
+.tl-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.tl-row-lbl { font-size: 11px; font-weight: 600; color: var(--tx-d); text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; width: 80px; padding-top: 1px; }
+.tl-row-val { font-size: 12px; color: var(--tx-m); line-height: 1.6; }
+.tl-row-val strong { color: var(--tx); font-weight: 600; }
+.tl-row-val em { color: var(--yellow); font-style: normal; }
+
+/* Bifurcación */
+.branch { background: var(--surf); border: 1px solid var(--brd); border-radius: var(--r); padding: 12px 14px; margin: 6px 0; }
+.branch-title { font-size: 11px; font-weight: 700; color: var(--tx-d); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.branch-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .branch-cols { grid-template-columns: 1fr; } }
+.branch-col { background: var(--panel); border: 1px solid var(--brd); border-radius: var(--rm); padding: 10px 12px; }
+.branch-col-title { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+.branch-col p { font-size: 12px; color: var(--tx-m); line-height: 1.5; }
+
+/* Nota */
+.nota { background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.25); border-radius: var(--rm); padding: 10px 14px; margin-top: 20px; font-size: 12px; color: var(--tx-m); line-height: 1.6; }
+.nota strong { color: var(--yellow); }
+
+/* Divider */
+.tl-gap { height: 4px; }
+
+/* Overview table */
+.ov-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+.ov-table th { background: var(--surf); color: var(--tx-m); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--brd); }
+.ov-table td { padding: 9px 12px; border-bottom: 1px solid var(--brd2); vertical-align: top; }
+.ov-table tr:last-child td { border-bottom: none; }
+.ov-table tr:hover td { background: var(--surf); }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">🔧</div>
+  <div>
+    <div class="hdr-title">HUB PRO — Guía de Flujos</div>
+    <div class="hdr-sub">Referencia operativa de estados y procesos por circuito</div>
+  </div>
+  <div class="hdr-date" id="fecha-hdr"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab('overview')">Resumen</div>
+  <div class="tab" onclick="setTab('taller-iw')">Taller · IW</div>
+  <div class="tab" onclick="setTab('taller-oow')">Taller · OOW</div>
+  <div class="tab" onclick="setTab('reseller-comun')">Reseller Común</div>
+  <div class="tab" onclick="setTab('reseller-propio')">Reseller Propio</div>
+  <div class="tab" onclick="setTab('bateria')">Batería (RP)</div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Bidcom actúa</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Reseller actúa</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>DJI / Tercero</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tx-d)"></div>Sistema automático</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Cancelación</div>
+</div>
+
+<div class="content">
+
+<!-- ════════════════════════════════════════
+     OVERVIEW
+════════════════════════════════════════ -->
+<div class="flow-section active" id="sec-overview">
+  <div class="flow-hdr">
+    <h2>Resumen de flujos</h2>
+    <p>Cada OT sigue uno de estos circuitos según el tipo de reseller, la garantía del equipo y si tiene o no el repuesto disponible.</p>
+  </div>
+
+  <table class="ov-table">
+    <thead>
+      <tr>
+        <th>Circuito</th>
+        <th>Garantía</th>
+        <th>Variante</th>
+        <th>Días estimados</th>
+        <th>Estados clave</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="actor-badge a-bidcom">Taller</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>—</td>
+        <td>~10 días</td>
+        <td style="color:var(--tx-m)">Abierto → En Revision → Espera de repuestos → En reparacion → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-bidcom">Taller</span></td>
+        <td><span class="state-badge s-espera">OOW</span></td>
+        <td>—</td>
+        <td>~15 días</td>
+        <td style="color:var(--tx-m)">Abierto → En Revision → Presupuesto enviado → Presupuesto aceptado → En reparacion → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-reseller">Reseller Común</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>Con repuesto</td>
+        <td>~7 días</td>
+        <td style="color:var(--tx-m)">Abierto → En reparacion → Informe de reparacion → Piezas dañadas recibidas → Aprobacion DJI → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-reseller">Reseller Común</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>Sin repuesto (adelanto)</td>
+        <td>~10 días</td>
+        <td style="color:var(--tx-m)">Abierto → Pedido de repuestos → Repuestos enviados → Informe de reparacion → Aprobacion DJI → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>Con repuesto</td>
+        <td>~5 días</td>
+        <td style="color:var(--tx-m)">Abierto → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>Sin repuesto (adelanto)</td>
+        <td>~7 días</td>
+        <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En cierre → Finalizado</td>
+      </tr>
+      <tr>
+        <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
+        <td><span class="state-badge s-ok">IW</span></td>
+        <td>Batería</td>
+        <td>~3 días</td>
+        <td style="color:var(--tx-m)">Abierto → Aprobado por DJI → Finalizado</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="nota" style="margin-top:20px">
+    <strong>⚠ Renombres recientes:</strong> Los estados "Reparado y aprobado en el aftersales" → <strong>Aprobado DJI · Repuestos en preparación</strong>, "Partes dañadas scrapeadas" → <strong>En cierre</strong>, "Recepcion piezas dañadas" → <strong>Piezas dañadas recibidas</strong>. Filas viejas en el sheet aún pueden tener los nombres anteriores.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     TALLER · IW
+════════════════════════════════════════ -->
+<div class="flow-section" id="sec-taller-iw">
+  <div class="flow-hdr">
+    <h2>Taller Central · En Garantía (IW)</h2>
+    <p>El equipo es enviado a Carmen de Areco para ser reparado por técnicos de Bidcom. DJI cubre los costos. No se genera presupuesto.</p>
+    <div class="flow-tags">
+      <span class="flow-tag circ">Circuito: Taller</span>
+      <span class="flow-tag gar">Garantía: IW</span>
+      <span class="flow-tag dias">⏱ ~10 días estimados</span>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-dot d-sistema">S</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-inicio">Pendiente de Aprobación</span>
+          <span class="actor-badge a-sistema">Sistema</span>
+          <span class="tl-name">Caso registrado desde el portal</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso desde el Portal Reseller. El sistema crea la fila en el sheet con estado <strong>Pendiente de Aprobación</strong> y notifica a HUB PRO.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Aparece en la cola de pendientes. Revisar datos: equipo, S/N, garantía, descripción de falla.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en el portal: "Tu solicitud fue registrada. Estamos revisando los datos."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Abierto</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Bidcom aprueba el ingreso</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Operador valida el S/N y la cobertura IW. Cambia estado a <strong>Abierto</strong>. El sistema notifica al reseller por email.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Asignar técnico, completar datos técnicos si corresponde.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe email de aprobación con dirección de envío. Ve en portal: instrucciones para enviar el equipo a Carmen de Areco.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Dirección</span><span class="tl-row-val"><em>EUCAWOODS — SIPCA, Carmen de Areco, BS.AS. (CP 6725) · Lun-Vie 08:00-17:00 · Mariano Castronuevo</em></span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">En Revision</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Equipo recibido en taller, en diagnóstico</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El equipo llegó a Carmen de Areco. El técnico lo recibe y realiza el diagnóstico inicial para verificar la falla y la cobertura de garantía.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Confirmar recepción física, actualizar estado, registrar observaciones del diagnóstico en la nota técnica.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Estamos revisando los datos del equipo."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Espera de repuestos</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso abierto ante DJI, esperando partes</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom abrió el caso en el portal DJI AfterSales y solicitó las partes de reemplazo. Se espera el envío de DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Hacer seguimiento del caso DJI. Registrar el CAS/FWR en la OT cuando esté disponible.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "El equipo está en nuestro taller, esperando repuestos."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">En reparacion</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Técnico ejecuta la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Los repuestos llegaron. El técnico realiza la reparación y hace las pruebas de funcionamiento.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar trabajo realizado en la nota técnica.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "El equipo está siendo reparado en nuestro taller."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Finalizado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reparación completada, listo para despacho</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La reparación fue completada y verificada. El equipo queda en depósito listo para ser despachado al reseller.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Coordinar el retiro o despacho del equipo. Una vez entregado, cambiar a <strong>Entregado</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación. Ve en portal: "La reparación fue completada."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Entregado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Equipo devuelto — caso cerrado</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El equipo fue retirado o despachado al reseller. La OT queda cerrada definitivamente.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Estado terminal. La OT pasa a la sección "Finalizados" del hub.</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     TALLER · OOW
+════════════════════════════════════════ -->
+<div class="flow-section" id="sec-taller-oow">
+  <div class="flow-hdr">
+    <h2>Taller Central · Fuera de Garantía (OOW)</h2>
+    <p>El equipo llega al taller de Carmen de Areco pero la garantía DJI no cubre la reparación. Se genera un presupuesto que el reseller debe aprobar antes de continuar.</p>
+    <div class="flow-tags">
+      <span class="flow-tag circ">Circuito: Taller</span>
+      <span class="flow-tag gar" style="border-color:rgba(210,153,34,.4);color:var(--yellow);background:rgba(210,153,34,.08)">Garantía: OOW</span>
+      <span class="flow-tag dias">⏱ ~15 días estimados</span>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-dot d-sistema">S</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-inicio">Pendiente de Aprobación</span>
+          <span class="actor-badge a-sistema">Sistema</span>
+          <span class="tl-name">Caso registrado desde el portal</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Igual que IW: el reseller cargó el caso, el sistema lo crea con estado <strong>Pendiente de Aprobación</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Verificar que la garantía está vencida. Si corresponde, aprobar el ingreso para evaluación OOW.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Abierto → En Revision</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Aprobación de ingreso y diagnóstico OOW</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom aprueba el ingreso físico. El reseller envía el equipo. Al llegar, el técnico hace diagnóstico y arma el presupuesto de reparación OOW.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Armar presupuesto detallado (mano de obra + repuestos). Usar el botón <strong>Enviar Presupuesto</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Instrucciones para enviar el equipo a Carmen de Areco.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Presupuesto enviado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reseller recibe el presupuesto para decidir</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El presupuesto se envió al reseller. El sistema muestra el panel de aprobación en el portal del reseller.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Esperar respuesta. El reseller puede aprobar o rechazar directamente desde el portal.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Acción requerida:</em> Revisar y aprobar/rechazar el presupuesto desde el portal.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="branch">
+      <div class="branch-title">⑂ Bifurcación — Decisión del reseller</div>
+      <div class="branch-cols">
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--green)">✅ Presupuesto aceptado</div>
+          <p>El reseller aprobó. Bidcom coordina la reparación OOW. El flujo continúa hacia <strong>Espera de repuestos → En reparacion → Finalizado</strong>.</p>
+        </div>
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--red)">❌ Presupuesto rechazado</div>
+          <p>El reseller rechazó. El equipo se devuelve sin reparar. La OT queda en estado <strong>Presupuesto rechazado</strong> y se cancela.</p>
+        </div>
+      </div>
+    </div>
+    <div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Presupuesto aceptado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reparación autorizada, preparando materiales</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller aceptó el presupuesto. Bidcom procede a conseguir los repuestos necesarios (compra, stock, etc.).</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Gestionar adquisición de repuestos OOW. Pasar a <strong>Espera de repuestos</strong> cuando se confirme el pedido.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Espera de repuestos</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Aguardando partes para ejecutar la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Los repuestos fueron pedidos. El equipo permanece en taller esperando las partes.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Hacer seguimiento del proveedor. Al recibir partes, pasar a <strong>En reparacion</strong>.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">En reparacion</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Técnico ejecuta la reparación OOW</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Repuestos disponibles. Técnico ejecuta la reparación, hace pruebas y verifica el funcionamiento.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar trabajo en nota técnica. Al terminar, pasar a <strong>Finalizado</strong> y coordinar devolución.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Finalizado → Entregado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reparación completada y equipo devuelto</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La reparación fue exitosa. Se coordina el retiro o despacho del equipo al reseller. Al confirmarse la entrega, la OT cierra con <strong>Entregado</strong>.</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     RESELLER COMÚN
+════════════════════════════════════════ -->
+<div class="flow-section" id="sec-reseller-comun">
+  <div class="flow-hdr">
+    <h2>Reseller Común</h2>
+    <p>El reseller ejecuta la reparación en su local. Bidcom gestiona el caso ante DJI y recibe las piezas dañadas para el proceso de reposición de stock.</p>
+    <div class="flow-tags">
+      <span class="flow-tag circ">Circuito: Reseller</span>
+      <span class="flow-tag gar">Garantía: IW</span>
+      <span class="flow-tag dias">⏱ ~7-10 días estimados</span>
+    </div>
+  </div>
+
+  <div class="branch" style="margin-bottom:16px">
+    <div class="branch-title">⑂ Bifurcación — ¿El reseller tiene el repuesto?</div>
+    <div class="branch-cols">
+      <div class="branch-col">
+        <div class="branch-col-title" style="color:var(--green)">Con repuesto disponible</div>
+        <p>El flujo empieza directamente en <strong>Abierto → En reparacion</strong>. El reseller ya puede reparar sin esperar partes de Bidcom.</p>
+      </div>
+      <div class="branch-col">
+        <div class="branch-col-title" style="color:var(--yellow)">Sin repuesto (solicita adelanto)</div>
+        <p>Desde <strong>Abierto</strong>, el reseller solicita repuestos. Bidcom hace un <em>adelanto facturado a 30 días</em>. El flujo retoma en <strong>Repuestos enviados</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-dot d-sistema">S</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-inicio">Pendiente de Aprobación</span>
+          <span class="actor-badge a-sistema">Sistema</span>
+          <span class="tl-name">Caso registrado desde el portal</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso en el portal. El sistema notifica a HUB PRO.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Validar S/N, garantía y descripción de falla. Aprobar o rechazar el caso.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Abierto</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso aprobado — reseller puede reparar</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom aprueba el caso. El reseller recibe el visto bueno para proceder con la reparación.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Si tiene el repuesto:</em> Ejecutar la reparación y pasar a enviar el informe. <em>Si no tiene:</em> Solicitar repuesto desde el portal (Pedido de repuestos).</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-reseller">R</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-reseller">En reparacion</span>
+          <span class="actor-badge a-reseller">Reseller</span>
+          <span class="tl-name">Reseller ejecuta la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller tiene el repuesto y está ejecutando la reparación en su local. Bidcom no interviene en este paso.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Acción requerida:</em> Realizar la reparación y enviar el informe técnico a Bidcom una vez finalizada.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Sin intervención. Esperar el informe del reseller.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.7">
+      <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow);color:#000;font-size:8px">ALT</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Pedido de repuestos</span>
+          <span class="actor-badge a-reseller">Reseller</span>
+          <span class="tl-name">Alternativa: reseller solicita adelanto de repuesto</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller no tiene el repuesto en stock. Lo solicita a Bidcom desde el portal. Bidcom lo factura como adelanto a 30 días.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Verificar disponibilidad, preparar y despachar el repuesto. Cambiar estado a <strong>Repuestos enviados</strong> al despachar.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Solicitaste repuestos. Los estamos preparando."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.7">
+      <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow);color:#000;font-size:8px">ALT</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Repuestos enviados</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Repuesto despachado, reseller ejecuta la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom despachó el repuesto al reseller. El reseller lo recibe, lo confirma en el portal (botón "Recibí los repuestos") y ejecuta la reparación.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Acción requerida:</em> Confirmar recepción del repuesto y realizar la reparación.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-reseller">R</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-reseller">Informe de reparacion</span>
+          <span class="actor-badge a-reseller">Reseller</span>
+          <span class="tl-name">Reseller envía el informe técnico a Bidcom</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La reparación fue completada. El reseller envía el informe técnico a Bidcom para que lo presente ante DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Recibir el informe, abrirlo en el portal DJI AfterSales como caso de garantía.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Acción requerida:</em> Enviar también las piezas dañadas a Carmen de Areco (EUCAWOODS). Bidcom las necesita para cerrar el caso DJI.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Piezas dañadas recibidas</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Bidcom recibió las partes dañadas, gestionando ante DJI</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Las piezas dañadas llegaron a Carmen de Areco. Bidcom las registra y las envía a DJI junto con el caso para su aprobación.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Confirmar recepción de piezas. Presentar toda la documentación ante DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Recibimos las piezas dañadas. Estamos gestionando la aprobación ante DJI."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-dji">D</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-dji">Aprobacion DJI</span>
+          <span class="actor-badge a-dji">DJI</span>
+          <span class="tl-name">DJI aprobó el caso de garantía</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI procesó el caso y aprobó la cobertura. Bidcom recibe la confirmación y procede al cierre.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar aprobación DJI. Pasar a <strong>Finalizado</strong>.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Finalizado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso cerrado exitosamente</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso fue aprobado por DJI. La OT queda cerrada. Si el reseller usó adelanto de repuesto, se acredita contra la factura a 30 días.</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     RESELLER PROPIO
+════════════════════════════════════════ -->
+<div class="flow-section" id="sec-reseller-propio">
+  <div class="flow-hdr">
+    <h2>Reseller Propio</h2>
+    <p>El reseller tiene acceso directo al portal DJI AfterSales y gestiona el caso por su cuenta. Bidcom verifica la aprobación y envía los repuestos de reposición.</p>
+    <div class="flow-tags">
+      <span class="flow-tag circ">Circuito: Reseller Propio</span>
+      <span class="flow-tag gar">Garantía: IW</span>
+      <span class="flow-tag dias">⏱ ~5-7 días estimados</span>
+    </div>
+  </div>
+
+  <div class="branch" style="margin-bottom:16px">
+    <div class="branch-title">⑂ Bifurcación — ¿El reseller tiene el repuesto?</div>
+    <div class="branch-cols">
+      <div class="branch-col">
+        <div class="branch-col-title" style="color:var(--green)">Con repuesto disponible</div>
+        <p>Directo a <strong>Abierto → [repara + carga DJI] → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado</strong>. Bidcom envía el repuesto de reposición cuando DJI aprueba.</p>
+      </div>
+      <div class="branch-col">
+        <div class="branch-col-title" style="color:var(--yellow)">Sin repuesto (solicita adelanto)</div>
+        <p><strong>Abierto → Pedido de repuesto para reparar → En cierre → Finalizado</strong>. Bidcom ya envió el repuesto como adelanto — no hay envío adicional tras la aprobación DJI. El cierre es administrativo.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-dot d-sistema">S</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-inicio">Pendiente de Aprobación</span>
+          <span class="actor-badge a-sistema">Sistema</span>
+          <span class="tl-name">Caso registrado desde el portal</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso. HUB PRO recibe la notificación.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Abierto</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso aprobado — reseller gestiona la reparación</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom valida y aprueba el caso. El reseller queda habilitado para operar.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val"><em>Acción requerida:</em> Realizar la reparación, luego cargar el caso en el portal DJI AfterSales y solicitar los repuestos de reposición desde este portal cuando tenga la aprobación DJI.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.7">
+      <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow);color:#000;font-size:8px">ALT</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-espera">Pedido de repuesto para reparar</span>
+          <span class="actor-badge a-reseller">Reseller</span>
+          <span class="tl-name">Alternativa: reseller solicita adelanto de repuesto</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller no tiene el repuesto. Lo solicita a Bidcom. Bidcom lo factura como <strong>adelanto a 30 días</strong> y lo despacha. El reseller lo recibe, repara y carga el caso en el portal DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Preparar y despachar el repuesto. Una vez que DJI aprueba el caso del reseller, pasar directamente a <strong>En cierre</strong> — no se envía repuesto adicional porque ya fue enviado como adelanto.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Diferencia clave</span><span class="tl-row-val"><em>Este path NO pasa por "Aprobado DJI · Repuestos en preparación".</em> El cierre es administrativo: acreditar el adelanto contra la aprobación DJI.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-dji">D</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-dji">Aprobado DJI · Repuestos en preparación</span>
+          <span class="actor-badge a-reseller">Reseller + Bidcom</span>
+          <span class="tl-name">Solo path "con repuesto" — DJI aprobó, Bidcom envía repuesto de reposición</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller tenía su propio repuesto, reparó y obtuvo aprobación DJI. Ahora solicita a Bidcom que le reponga el repuesto que usó de su stock. Bidcom verifica la aprobación y prepara el envío.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Verificar la aprobación DJI. Preparar y despachar el repuesto de reposición. Cambiar a <strong>En cierre</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Verificamos la aprobación de DJI. Tus repuestos de reposición están siendo preparados."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">En cierre</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Procesando documentación de cierre</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom procesa las piezas dañadas devueltas por el reseller y completa el cierre administrativo del caso.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Confirmar recepción de piezas dañadas si corresponde. Cerrar el caso en DJI y pasar a <strong>Finalizado</strong>.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Finalizado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso cerrado exitosamente</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Caso cerrado. El reseller recibió los repuestos de reposición. Si hubo adelanto, se acredita contra la factura a 30 días.</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     BATERÍA (RESELLER PROPIO)
+════════════════════════════════════════ -->
+<div class="flow-section" id="sec-bateria">
+  <div class="flow-hdr">
+    <h2>Batería — Reseller Propio</h2>
+    <p>Flujo simplificado exclusivo para equipos tipo batería con circuito Reseller Propio. DJI aprueba directamente sin proceso de taller.</p>
+    <div class="flow-tags">
+      <span class="flow-tag circ">Circuito: Reseller Propio</span>
+      <span class="flow-tag gar">Tipo: Batería</span>
+      <span class="flow-tag dias">⏱ ~3 días estimados</span>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Abierto</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso registrado y aprobado por Bidcom</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso de batería ingresa y Bidcom lo aprueba. Bidcom gestiona directamente la aprobación ante DJI sin que el reseller intervenga en el proceso técnico.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Abrir el caso en portal DJI AfterSales. Esperar aprobación de DJI.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-dji">D</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-dji">Aprobado por DJI</span>
+          <span class="actor-badge a-dji">DJI</span>
+          <span class="tl-name">DJI aprobó el reemplazo de batería</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó el caso en su portal. Bidcom procede al despacho de la batería de reemplazo al reseller.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Verificar aprobación, preparar y despachar la batería. Cerrar el caso.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "DJI aprobó el caso." Recibirá la batería de reemplazo.</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-ok">✓</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-ok">Finalizado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Caso cerrado — batería despachada</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La batería de reemplazo fue despachada al reseller. El caso queda cerrado.</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="nota">
+    <strong>Nota:</strong> El flujo de batería para Reseller Común no está contemplado actualmente en el sistema. Si un Reseller Común tiene un caso de batería, se gestiona como flujo Reseller Común estándar.
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<script>
+document.getElementById('fecha-hdr').textContent = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+
+var TAB_MAP = {
+  'overview':        'sec-overview',
+  'taller-iw':       'sec-taller-iw',
+  'taller-oow':      'sec-taller-oow',
+  'reseller-comun':  'sec-reseller-comun',
+  'reseller-propio': 'sec-reseller-propio',
+  'bateria':         'sec-bateria'
+};
+
+function setTab(id) {
+  document.querySelectorAll('.tab').forEach(function(t, i) {
+    t.classList.toggle('active', Object.keys(TAB_MAP)[i] === id);
+  });
+  document.querySelectorAll('.flow-section').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  var sec = document.getElementById(TAB_MAP[id]);
+  if (sec) sec.classList.add('active');
+}
+
+function togCard(card) {
+  card.classList.toggle('open');
+}
+
+// Abrir primera card de cada sección por defecto
+document.querySelectorAll('.tl-card').forEach(function(c, i) {
+  if (i === 0) c.classList.add('open');
+});
+</script>
+</body>
+</html>

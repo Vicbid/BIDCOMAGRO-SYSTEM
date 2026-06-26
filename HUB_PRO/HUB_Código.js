@@ -122,11 +122,21 @@ var CONFIG = {
 
 
 // ── ENTRY POINT ─────────────────────────────────────────────
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.page === 'guia') {
+    return HtmlService.createHtmlOutputFromFile('GUIA_FLUJOS')
+      .setTitle('HUB PRO — Guía de Flujos')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('DJI HUB PRO')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getGuiaUrl() {
+  return ScriptApp.getService().getUrl() + '?page=guia';
 }
 
 
