@@ -312,13 +312,14 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
 
     // ── 4. FILA TOTAL ─────────────────────────────────────────
     if (total > 0) {
-      sheet.getRange(ri, 1, 1, 6).merge()
+      sheet.getRange(ri, 1, 1, 5).merge()
         .setValue('TOTAL (precio reseller · no incluye impuestos)')
         .setFontSize(10).setFontWeight('bold').setFontColor('#5e6778')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
-      sheet.getRange(ri, 7).setValue('USD ' + _formatMoneda(total))
+      sheet.getRange(ri, 6).setValue('USD ' + _formatMoneda(total))
         .setFontSize(11).setFontWeight('bold').setFontColor('#00a3e0')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
+      sheet.getRange(ri, 7).setValue('').setBackground('#e8f5fc');
       sheet.setRowHeight(ri, 24);
       ri++;
     }

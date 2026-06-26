@@ -41,7 +41,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Despacho_Código.js | 3.0 | CANT_CANCEL col Z: demanda perdida usa CANT_CANCEL con fallback a CANCELADO viejo | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
 | Despacho_Index.html | 3.0 | Pick ticket: columna Estado + fix multi-página al imprimir (position:fixed→static) |
-| WOS_GmailFlow.js | 1.5 | Seriales: hoja anexo separada en PDF (página 2), nota al pie de la NE |
+| WOS_GmailFlow.js | 1.6 | Fix fila TOTAL: valor iba a col 7 (spacer invisible) en vez de col 6 (Subtotal) |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER
