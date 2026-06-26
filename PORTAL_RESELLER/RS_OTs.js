@@ -215,6 +215,8 @@ function consultarEstado(ot, sn) {
           paso = 4; quePasa = "Presentamos el caso ante DJI. Estamos esperando su resolución.";
         } else if (estKey === "RECHAZADO DJI") {
           paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
         }
@@ -232,6 +234,8 @@ function consultarEstado(ot, sn) {
           paso = 3; quePasa = "El caso está siendo procesado por nuestro equipo para el cierre final.";
         } else if (estKey === "RECHAZADO DJI") {
           paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
         }

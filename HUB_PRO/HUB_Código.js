@@ -111,7 +111,7 @@ var CONFIG = {
   ESTADOS_NOTIFICAR_RESELLER: [
     "Abierto","Presupuesto rechazado",
     "Presupuesto aceptado","Espera de repuestos",
-    "Repuestos enviados","En reparacion","Rechazado DJI","Finalizado"
+    "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
   ESTADOS_NOTIFICAR_SUPERVISOR: ["Finalizado"],
