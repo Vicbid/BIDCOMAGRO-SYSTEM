@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.5
+// @version 1.7
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -285,29 +285,87 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
     sheet.setRowHeight(ri, 22);
     ri++;
 
+    // Determinar si renderizar agrupado por caja
+    var hasCajaAssign = bultos.length > 1;
+    if (hasCajaAssign) {
+      var anyAssigned = false;
+      for (var ci = 0; ci < items.length; ci++) {
+        if (items[ci].cajaIdx !== undefined) { anyAssigned = true; break; }
+      }
+      hasCajaAssign = anyAssigned;
+    }
+
     var total = 0;
-    for (var i = 0; i < items.length; i++) {
-      var it   = items[i];
-      var cant = Number(it.cantDesp) || 0;
-      var prec = Number(it.precio)   || 0;
-      var pvp  = prec > 0 ? Math.round(prec / 0.60 * 100) / 100 : 0;
-      var sub  = cant * prec;
-      total   += sub;
-      var rowBg = (i % 2 === 0) ? '#ffffff' : '#f5f7fa';
-      sheet.getRange(ri, 1, 1, 7).setValues([[
-        it.sku  || '—',
-        it.desc || '—',
-        cant,
-        pvp  > 0 ? 'USD ' + _formatMoneda(pvp)  : '—',
-        prec > 0 ? 'USD ' + _formatMoneda(prec) : '—',
-        sub  > 0 ? 'USD ' + _formatMoneda(sub)  : '—',
-        ''
-      ]]).setFontSize(9).setBackground(rowBg).setVerticalAlignment('middle');
-      sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#00a3e0');
-      sheet.getRange(ri, 3).setHorizontalAlignment('center');
-      sheet.getRange(ri, 4, 1, 3).setHorizontalAlignment('right');
-      sheet.setRowHeight(ri, 20);
-      ri++;
+    if (hasCajaAssign) {
+      // Ordenar ítems por cajaIdx
+      var sortedItems = items.slice().sort(function(a, b) {
+        return (a.cajaIdx || 0) - (b.cajaIdx || 0);
+      });
+      var currentCajaIdx = -1;
+      var altRow = 0;
+      for (var i = 0; i < sortedItems.length; i++) {
+        var it      = sortedItems[i];
+        var cajaIdx = it.cajaIdx !== undefined ? it.cajaIdx : 0;
+        // Fila separadora de caja
+        if (cajaIdx !== currentCajaIdx) {
+          currentCajaIdx = cajaIdx;
+          altRow = 0;
+          var blt      = bultos[cajaIdx] || {};
+          var cajaLbl  = 'Caja ' + (cajaIdx + 1);
+          if (blt.tracking) cajaLbl += '  ·  Tracking: ' + blt.tracking;
+          if (blt.peso > 0) cajaLbl += '  ·  ' + blt.peso + ' kg';
+          sheet.getRange(ri, 1, 1, 7).merge().setValue(cajaLbl)
+            .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff')
+            .setBackground('#005082').setHorizontalAlignment('left').setVerticalAlignment('middle');
+          sheet.setRowHeight(ri, 20);
+          ri++;
+        }
+        var cant  = Number(it.cantDesp) || 0;
+        var prec  = Number(it.precio)   || 0;
+        var pvp   = prec > 0 ? Math.round(prec / 0.60 * 100) / 100 : 0;
+        var sub   = cant * prec;
+        total    += sub;
+        var rowBg = (altRow % 2 === 0) ? '#ffffff' : '#f5f7fa';
+        sheet.getRange(ri, 1, 1, 7).setValues([[
+          it.sku  || '—',
+          it.desc || '—',
+          cant,
+          pvp  > 0 ? 'USD ' + _formatMoneda(pvp)  : '—',
+          prec > 0 ? 'USD ' + _formatMoneda(prec) : '—',
+          sub  > 0 ? 'USD ' + _formatMoneda(sub)  : '—',
+          ''
+        ]]).setFontSize(9).setBackground(rowBg).setVerticalAlignment('middle');
+        sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#00a3e0');
+        sheet.getRange(ri, 3).setHorizontalAlignment('center');
+        sheet.getRange(ri, 4, 1, 3).setHorizontalAlignment('right');
+        sheet.setRowHeight(ri, 20);
+        ri++;
+        altRow++;
+      }
+    } else {
+      for (var i = 0; i < items.length; i++) {
+        var it   = items[i];
+        var cant = Number(it.cantDesp) || 0;
+        var prec = Number(it.precio)   || 0;
+        var pvp  = prec > 0 ? Math.round(prec / 0.60 * 100) / 100 : 0;
+        var sub  = cant * prec;
+        total   += sub;
+        var rowBg = (i % 2 === 0) ? '#ffffff' : '#f5f7fa';
+        sheet.getRange(ri, 1, 1, 7).setValues([[
+          it.sku  || '—',
+          it.desc || '—',
+          cant,
+          pvp  > 0 ? 'USD ' + _formatMoneda(pvp)  : '—',
+          prec > 0 ? 'USD ' + _formatMoneda(prec) : '—',
+          sub  > 0 ? 'USD ' + _formatMoneda(sub)  : '—',
+          ''
+        ]]).setFontSize(9).setBackground(rowBg).setVerticalAlignment('middle');
+        sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#00a3e0');
+        sheet.getRange(ri, 3).setHorizontalAlignment('center');
+        sheet.getRange(ri, 4, 1, 3).setHorizontalAlignment('right');
+        sheet.setRowHeight(ri, 20);
+        ri++;
+      }
     }
 
     // ── 4. FILA TOTAL ─────────────────────────────────────────
@@ -502,9 +560,11 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 
     var despMap    = {};
     var serialMap  = {};
+    var cajaMap    = {};
     for (var d = 0; d < despachos.length; d++) {
       despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
       serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
+      cajaMap[despachos[d].row]   = despachos[d].cajaIdx !== undefined ? Number(despachos[d].cajaIdx) : 0;
     }
 
     var carmenHoja = null;
@@ -554,7 +614,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
           sku:      String(ped.datos[i][COL.SKU]  || ''),
           desc:     String(ped.datos[i][COL.DESC] || ''),
           cantDesp: dispNow, precio: prec,
-          seriales: serialMap[i + 1] || ''
+          seriales: serialMap[i + 1] || '',
+          cajaIdx:  cajaMap[i + 1] !== undefined ? cajaMap[i + 1] : 0
         });
         totalUSD += dispNow * prec;
       }

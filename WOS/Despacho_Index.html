@@ -1,3 +1,4 @@
+<!-- @version 3.1 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -257,6 +258,9 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .pk-sku{font-family:var(--f-mono);font-size:10px;font-weight:700;color:var(--blue);flex-shrink:0;width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk-desc{font-size:11px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .pk-ready{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--rm);margin-top:8px;font-size:12px;font-weight:600;color:var(--green-m)}
+.pk-caja{flex-shrink:0;height:24px;padding:0 7px;border:1.5px solid var(--brd);border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;background:var(--panel);color:var(--tx-d);transition:all .13s;white-space:nowrap}
+.pk-caja:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+.pk-caja.active{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 .total-usd{font-size:12px;color:var(--tx-m);margin-right:auto;font-weight:500}
 .total-usd strong{color:var(--blue);font-size:15px;font-weight:800;letter-spacing:-.01em}
 .email-sent-badge{font-size:9px;color:var(--green);background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--r);padding:3px 8px;font-weight:700;flex-shrink:0}
@@ -338,6 +342,12 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .bulto-peso:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
 .bulto-del{background:none;border:none;color:var(--tx-d);cursor:pointer;font-size:16px;padding:4px 6px;line-height:1;border-radius:var(--r);transition:all .13s}
 .bulto-del:hover{color:var(--red-m);background:var(--red-l)}
+/* Selector de caja por ítem */
+.caja-wrap{display:none;align-items:center;gap:6px;margin-top:6px}
+.caja-wrap.visible{display:flex}
+.caja-sel{height:28px;padding:0 6px;border:1.5px solid var(--brd);border-radius:6px;font-size:11px;font-weight:600;background:var(--bg);color:var(--tx);outline:none;cursor:pointer;transition:border-color .13s}
+.caja-sel:focus{border-color:var(--blue)}
+.caja-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-d);white-space:nowrap}
 /* Faltante */
 .falt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--surf)}
 .falt-row:last-child{border-bottom:none}
@@ -1742,22 +1752,29 @@ function _renderPickTracker(p) {
   var allDone = totalPicked >= totalPend;
   var sn = escH(numero);
 
+  var multiItem = pickable.length > 1;
   var rows = '';
   for (var r = 0; r < pickable.length; r++) {
-    var ri = pickable[r];
-    var it = p.items[ri];
-    var pk = Math.min(state[ri] || 0, it.cantPend);
-    var dn = pk >= it.cantPend;
+    var ri    = pickable[r];
+    var it    = p.items[ri];
+    var pk    = Math.min(state[ri] || 0, it.cantPend);
+    var dn    = pk >= it.cantPend;
+    var caja  = state['c_' + ri] !== undefined ? state['c_' + ri] : 0;
+    var cajaActive = caja > 0;
     rows += '<div class="pk-row' + (dn ? ' pk-row-done' : '') + '" id="pk-row-' + sn + '-' + ri + '">' +
       '<button class="pk-btn' + (dn ? ' done' : '') + '" id="pk-btn-' + sn + '-' + ri +
         '" onclick="_incPick(\'' + sn + '\',' + ri + ',' + it.cantPend + ')">' + (dn ? '✓' : '+1') + '</button>' +
       '<span class="pk-count' + (dn ? ' done' : '') + '" id="pk-cnt-' + sn + '-' + ri + '">' + pk + '/' + it.cantPend + '</span>' +
       '<span class="pk-sku">'  + escH(it.sku)  + '</span>' +
       '<span class="pk-desc">' + escH(it.desc) + '</span>' +
+      (multiItem
+        ? '<button class="pk-caja' + (cajaActive ? ' active' : '') + '" id="pk-caja-' + sn + '-' + ri +
+            '" onclick="_cyclePickCaja(\'' + sn + '\',' + ri + ')" title="Asignar caja">📦 ' + (caja + 1) + '</button>'
+        : '') +
     '</div>';
   }
 
-  return '<div class="pk-wrap">' +
+  return '<div class="pk-wrap" id="pk-wrap-' + sn + '">' +
     '<div class="pk-hdr">' +
       '<span class="pk-lbl">🗂 Picking</span>' +
       '<span class="pk-prog-txt' + (allDone ? ' done' : '') + '" id="pk-prog-' + sn + '">' + totalPicked + '/' + totalPend + ' u.</span>' +
@@ -1767,6 +1784,30 @@ function _renderPickTracker(p) {
       '<span>✅</span><span>¡Todo en mano! Ya podés marcar como Preparado.</span>' +
     '</div>' +
   '</div>';
+}
+
+function _cyclePickCaja(numero, itemIdx) {
+  if (!_pickState[numero]) _pickState[numero] = {};
+  var state = _pickState[numero];
+  // Determinar máximo de cajas actualmente asignadas en este pedido
+  var maxCaja = 0;
+  var pickEl  = document.getElementById('pk-wrap-' + numero);
+  var cajaBtns = pickEl ? pickEl.querySelectorAll('[id^="pk-caja-' + numero + '-"]') : [];
+  for (var b = 0; b < cajaBtns.length; b++) {
+    var bIdx = cajaBtns[b].id.replace('pk-caja-' + numero + '-', '');
+    var bCaja = state['c_' + bIdx] !== undefined ? state['c_' + bIdx] : 0;
+    if (bCaja > maxCaja) maxCaja = bCaja;
+  }
+  var cur  = state['c_' + itemIdx] !== undefined ? state['c_' + itemIdx] : 0;
+  var next = cur + 1;
+  if (next > maxCaja + 1) next = 0;  // cicla de vuelta a la Caja 1
+  state['c_' + itemIdx] = next;
+  try { localStorage.setItem('wos_pick_' + numero, JSON.stringify(state)); } catch(e) {}
+  var btn = document.getElementById('pk-caja-' + numero + '-' + itemIdx);
+  if (btn) {
+    btn.textContent = '📦 ' + (next + 1);
+    next > 0 ? btn.classList.add('active') : btn.classList.remove('active');
+  }
 }
 
 function _incPick(numero, itemIdx, max) {
@@ -2191,6 +2232,10 @@ function abrirModalDespacho(numero) {
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
+        '<div class="caja-wrap" id="mdi-caja-wrap-' + it.row + '">' +
+          '<span class="caja-lbl">Va en:</span>' +
+          '<select class="caja-sel" id="mdi-caja-' + it.row + '"><option value="0">Bulto 1</option></select>' +
+        '</div>' +
       '</div>';
     }
   }
@@ -2237,7 +2282,30 @@ function abrirModalDespacho(numero) {
   document.getElementById('modal-desp-title').textContent = 'Generar nota de entrega \xb7 ' + numero;
   document.getElementById('modal-desp-sub').textContent   = ped.reseller + (ped.envio ? ' · ' + ped.envio : '');
   document.getElementById('modal-desp-body').innerHTML    = html;
-  if (!esRetiro) _agregarBulto();   // pre-agregar un bulto vacío
+  if (!esRetiro) {
+    // Leer asignaciones de caja del pick state
+    var pickSt = {};
+    try { var _ls2 = localStorage.getItem('wos_pick_' + numero); pickSt = _ls2 ? JSON.parse(_ls2) : {}; } catch(e) {}
+    // Determinar cuántas cajas distintas se usaron
+    var maxCajaPick = 0;
+    for (var pi = 0; pi < ped.items.length; pi++) {
+      var pc = pickSt['c_' + pi];
+      if (pc !== undefined && pc > maxCajaPick) maxCajaPick = pc;
+    }
+    var numBultos = maxCajaPick + 1;   // al menos 1
+    for (var bi = 0; bi < numBultos; bi++) _agregarBulto();
+    // Pre-llenar selectores de caja según pick state
+    if (numBultos > 1) {
+      for (var pi2 = 0; pi2 < ped.items.length; pi2++) {
+        var pIt  = ped.items[pi2];
+        var pCaja = pickSt['c_' + pi2];
+        if (pCaja !== undefined && pCaja > 0) {
+          var pSel = document.getElementById('mdi-caja-' + pIt.row);
+          if (pSel) pSel.value = pCaja;
+        }
+      }
+    }
+  }
   document.getElementById('modal-desp').style.display     = 'flex';
 }
 
@@ -2315,6 +2383,7 @@ function _agregarBulto() {
     '<input class="bulto-peso"  id="bt-peso-'  + id + '" type="number" min="0" step="0.001" placeholder="kg">' +
     '<button class="bulto-del" onclick="_quitarBulto(' + id + ')" title="Quitar bulto">✕</button>';
   list.appendChild(div);
+  _actualizarCajaOpts();
 }
 
 function _quitarBulto(id) {
@@ -2326,6 +2395,28 @@ function _quitarBulto(id) {
     for (var i = 0; i < rows.length; i++) {
       var lbl = rows[i].querySelector('.bulto-num');
       if (lbl) lbl.textContent = 'Bulto ' + (i + 1);
+    }
+    _actualizarCajaOpts();
+  }
+}
+
+function _actualizarCajaOpts() {
+  var n = document.querySelectorAll('#bultos-list .bulto-row').length;
+  var wraps = document.querySelectorAll('[id^="mdi-caja-wrap-"]');
+  for (var i = 0; i < wraps.length; i++) {
+    var wrap  = wraps[i];
+    var rowId = wrap.id.replace('mdi-caja-wrap-', '');
+    var sel   = document.getElementById('mdi-caja-' + rowId);
+    wrap.classList.toggle('visible', n > 1);
+    if (!sel) continue;
+    var cur = parseInt(sel.value) || 0;
+    sel.innerHTML = '';
+    for (var j = 0; j < n; j++) {
+      var opt = document.createElement('option');
+      opt.value = j;
+      opt.textContent = 'Bulto ' + (j + 1);
+      if (j === cur && cur < n) opt.selected = true;
+      sel.appendChild(opt);
     }
   }
 }
@@ -2362,7 +2453,9 @@ function confirmarDespacho() {
         var bSEl = document.getElementById('mdi-ser-' + bIt.row + '-' + bsn);
         if (bSEl && bSEl.value.trim()) bSers.push(bSEl.value.trim());
       }
-      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', ') });
+      var bCajaEl  = document.getElementById('mdi-caja-' + bIt.row);
+      var bCajaIdx = bCajaEl ? (parseInt(bCajaEl.value) || 0) : 0;
+      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', '), cajaIdx: bCajaIdx });
     }
     for (var bn = 0; bn < _modalDesp.batchNumeros.length; bn++) {
       var bNum = _modalDesp.batchNumeros[bn];
@@ -2404,7 +2497,9 @@ function confirmarDespacho() {
       var sEl = document.getElementById('mdi-ser-' + it.row + '-' + sn);
       if (sEl && sEl.value.trim()) sers.push(sEl.value.trim());
     }
-    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', ') });
+    var cajaEl  = document.getElementById('mdi-caja-' + it.row);
+    var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;
