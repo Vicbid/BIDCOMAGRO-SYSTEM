@@ -42,7 +42,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Despacho_Código.js | 3.0 | CANT_CANCEL col Z: demanda perdida usa CANT_CANCEL con fallback a CANCELADO viejo | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
 | Despacho_Index.html | 3.0 | Pick ticket: columna Estado + fix multi-página al imprimir (position:fixed→static) |
-| Despacho_Index.html | 3.2 | Pick tracker: badge 📦N por item cicla asignacion de caja; al abrir modal de despacho pre-crea bultos y pre-llena selectores desde pick state |
+| Despacho_Index.html | 3.3 | Pick tracker: badge ciclable reemplazado por select directo; _buildPickCajaOpts/_onPickCajaSel/_actualizarPickCajaSelects en lugar de _cyclePickCaja |
 | WOS_GmailFlow.js | 1.7 | Nota de entrega agrupa items por caja con fila separadora Caja N + tracking cuando hay multi-bulto; Fix 1.6: fila TOTAL en col 6 |
 | Despacho_Env.js | 1.0 | |
 

@@ -1,4 +1,4 @@
-<!-- @version 3.1 -->
+<!-- @version 3.3 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -258,9 +258,9 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .pk-sku{font-family:var(--f-mono);font-size:10px;font-weight:700;color:var(--blue);flex-shrink:0;width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk-desc{font-size:11px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .pk-ready{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--rm);margin-top:8px;font-size:12px;font-weight:600;color:var(--green-m)}
-.pk-caja{flex-shrink:0;height:24px;padding:0 7px;border:1.5px solid var(--brd);border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;background:var(--panel);color:var(--tx-d);transition:all .13s;white-space:nowrap}
-.pk-caja:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
-.pk-caja.active{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+.pk-caja-sel{flex-shrink:0;height:24px;padding:0 5px;border:1.5px solid var(--brd);border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;background:var(--panel);color:var(--tx-d);outline:none;transition:border-color .13s,color .13s,background .13s;min-width:64px}
+.pk-caja-sel:focus,.pk-caja-sel:hover{border-color:var(--blue);color:var(--blue)}
+.pk-caja-sel.active{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 .total-usd{font-size:12px;color:var(--tx-m);margin-right:auto;font-weight:500}
 .total-usd strong{color:var(--blue);font-size:15px;font-weight:800;letter-spacing:-.01em}
 .email-sent-badge{font-size:9px;color:var(--green);background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--r);padding:3px 8px;font-weight:700;flex-shrink:0}
@@ -1768,8 +1768,9 @@ function _renderPickTracker(p) {
       '<span class="pk-sku">'  + escH(it.sku)  + '</span>' +
       '<span class="pk-desc">' + escH(it.desc) + '</span>' +
       (multiItem
-        ? '<button class="pk-caja' + (cajaActive ? ' active' : '') + '" id="pk-caja-' + sn + '-' + ri +
-            '" onclick="_cyclePickCaja(\'' + sn + '\',' + ri + ')" title="Asignar caja">📦 ' + (caja + 1) + '</button>'
+        ? '<select class="pk-caja-sel' + (cajaActive ? ' active' : '') + '" id="pk-caja-' + sn + '-' + ri +
+            '" onchange="_onPickCajaSel(this,\'' + sn + '\',' + ri + ')" title="Asignar caja">' +
+            _buildPickCajaOpts(numero, caja) + '</select>'
         : '') +
     '</div>';
   }
@@ -1786,27 +1787,52 @@ function _renderPickTracker(p) {
   '</div>';
 }
 
-function _cyclePickCaja(numero, itemIdx) {
-  if (!_pickState[numero]) _pickState[numero] = {};
-  var state = _pickState[numero];
-  // Determinar máximo de cajas actualmente asignadas en este pedido
+function _buildPickCajaOpts(numero, selectedCaja) {
+  var state = _pickState[numero] || {};
   var maxCaja = 0;
-  var pickEl  = document.getElementById('pk-wrap-' + numero);
-  var cajaBtns = pickEl ? pickEl.querySelectorAll('[id^="pk-caja-' + numero + '-"]') : [];
-  for (var b = 0; b < cajaBtns.length; b++) {
-    var bIdx = cajaBtns[b].id.replace('pk-caja-' + numero + '-', '');
-    var bCaja = state['c_' + bIdx] !== undefined ? state['c_' + bIdx] : 0;
-    if (bCaja > maxCaja) maxCaja = bCaja;
+  for (var k in state) {
+    if (k.indexOf('c_') === 0) {
+      var v = parseInt(state[k]);
+      if (!isNaN(v) && v > maxCaja) maxCaja = v;
+    }
   }
-  var cur  = state['c_' + itemIdx] !== undefined ? state['c_' + itemIdx] : 0;
-  var next = cur + 1;
-  if (next > maxCaja + 1) next = 0;  // cicla de vuelta a la Caja 1
-  state['c_' + itemIdx] = next;
-  try { localStorage.setItem('wos_pick_' + numero, JSON.stringify(state)); } catch(e) {}
-  var btn = document.getElementById('pk-caja-' + numero + '-' + itemIdx);
-  if (btn) {
-    btn.textContent = '📦 ' + (next + 1);
-    next > 0 ? btn.classList.add('active') : btn.classList.remove('active');
+  var opts = '';
+  for (var j = 0; j <= maxCaja + 1; j++) {
+    opts += '<option value="' + j + '"' + (j === selectedCaja ? ' selected' : '') + '>📦 ' + (j + 1) + '</option>';
+  }
+  return opts;
+}
+
+function _onPickCajaSel(sel, numero, itemIdx) {
+  if (!_pickState[numero]) _pickState[numero] = {};
+  var val = parseInt(sel.value) || 0;
+  _pickState[numero]['c_' + itemIdx] = val;
+  try { localStorage.setItem('wos_pick_' + numero, JSON.stringify(_pickState[numero])); } catch(e) {}
+  val > 0 ? sel.classList.add('active') : sel.classList.remove('active');
+  _actualizarPickCajaSelects(numero);
+}
+
+function _actualizarPickCajaSelects(numero) {
+  var state = _pickState[numero] || {};
+  var maxCaja = 0;
+  for (var k in state) {
+    if (k.indexOf('c_') === 0) {
+      var v = parseInt(state[k]);
+      if (!isNaN(v) && v > maxCaja) maxCaja = v;
+    }
+  }
+  var pickEl = document.getElementById('pk-wrap-' + numero);
+  if (!pickEl) return;
+  var sels = pickEl.querySelectorAll('[id^="pk-caja-' + numero + '-"]');
+  for (var i = 0; i < sels.length; i++) {
+    var s = sels[i];
+    var cur = parseInt(s.value) || 0;
+    var opts = '';
+    for (var j = 0; j <= maxCaja + 1; j++) {
+      opts += '<option value="' + j + '"' + (j === cur ? ' selected' : '') + '>📦 ' + (j + 1) + '</option>';
+    }
+    s.innerHTML = opts;
+    cur > 0 ? s.classList.add('active') : s.classList.remove('active');
   }
 }
 
