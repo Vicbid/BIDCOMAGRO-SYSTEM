@@ -1,3 +1,4 @@
+<!-- @version 1.2 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -121,6 +122,11 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
 .nota { background: #fef9c3; border: 1px solid #fde047; border-radius: var(--rm); padding: 10px 14px; margin-top: 20px; font-size: 12px; color: #713f12; line-height: 1.6; }
 .nota strong { color: #854d0e; }
 
+/* Turno — quién tiene la pelota */
+.turno-bid { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(9,105,218,.1); border:1px solid rgba(9,105,218,.25); color:var(--blue); white-space:nowrap; margin-left:auto; flex-shrink:0; margin-right:6px; }
+.turno-res { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(26,127,55,.1); border:1px solid rgba(26,127,55,.25); color:var(--green); white-space:nowrap; margin-left:auto; flex-shrink:0; margin-right:6px; }
+.turno-dji { font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(188,76,0,.1); border:1px solid rgba(188,76,0,.25); color:var(--orange); white-space:nowrap; margin-left:auto; flex-shrink:0; margin-right:6px; }
+
 /* Divider */
 .tl-gap { height: 4px; }
 
@@ -201,28 +207,28 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Con repuesto</td>
         <td>~7 días</td>
-        <td style="color:var(--tx-m)">Abierto → En reparacion → Informe de reparacion → Piezas dañadas recibidas → Aprobacion DJI → Finalizado / Rechazado DJI</td>
+        <td style="color:var(--tx-m)">Abierto → En reparacion → Informe de reparacion → Piezas dañadas recibidas → Aprobacion DJI → Finalizado / Rechazado DJI / Sin respuesta · Cerrado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-reseller">Reseller Común</span></td>
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Sin repuesto (adelanto)</td>
         <td>~10 días</td>
-        <td style="color:var(--tx-m)">Abierto → Pedido de repuestos → Repuestos enviados → Informe de reparacion → Aprobacion DJI → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → Pedido de repuestos → Repuestos enviados → Informe de reparacion → Aprobacion DJI → Finalizado / Sin respuesta · Cerrado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Con repuesto</td>
         <td>~5 días</td>
-        <td style="color:var(--tx-m)">Abierto → En reparacion → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → En reparacion → Aprobado DJI · Repuestos en preparación → En cierre → Finalizado / Sin respuesta · Cerrado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
         <td><span class="state-badge s-ok">IW</span></td>
         <td>Sin repuesto (adelanto)</td>
         <td>~7 días</td>
-        <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En reparacion → En cierre → Finalizado</td>
+        <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En reparacion → En cierre → Finalizado / Sin respuesta · Cerrado</td>
       </tr>
       <tr>
         <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
@@ -262,7 +268,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-inicio">Pendiente de Aprobación</span>
           <span class="actor-badge a-sistema">Sistema</span>
           <span class="tl-name">Caso registrado desde el portal</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso desde el Portal Reseller. El sistema crea la fila en el sheet con estado <strong>Pendiente de Aprobación</strong> y notifica a HUB PRO.</span></div>
@@ -279,7 +285,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Abierto</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Bidcom aprueba el ingreso</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Operador valida el S/N y la cobertura IW. Cambia estado a <strong>Abierto</strong>. El sistema notifica al reseller por email.</span></div>
@@ -297,7 +303,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">En Revision</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Equipo recibido en taller, en diagnóstico</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El equipo llegó a Carmen de Areco. El técnico lo recibe y realiza el diagnóstico inicial para verificar la falla y la cobertura de garantía.</span></div>
@@ -314,7 +320,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Espera de repuestos</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Caso abierto ante DJI, esperando partes</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom abrió el caso en el portal DJI AfterSales y solicitó las partes de reemplazo. Se espera el envío de DJI.</span></div>
@@ -331,7 +337,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">En reparacion</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Técnico ejecuta la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Los repuestos llegaron. El técnico realiza la reparación y hace las pruebas de funcionamiento.</span></div>
@@ -400,7 +406,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-inicio">Pendiente de Aprobación</span>
           <span class="actor-badge a-sistema">Sistema</span>
           <span class="tl-name">Caso registrado desde el portal</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Igual que IW: el reseller cargó el caso, el sistema lo crea con estado <strong>Pendiente de Aprobación</strong>.</span></div>
@@ -416,7 +422,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Abierto → En Revision</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Aprobación de ingreso y diagnóstico OOW</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom aprueba el ingreso físico. El reseller envía el equipo. Al llegar, el técnico hace diagnóstico y arma el presupuesto de reparación OOW.</span></div>
@@ -433,7 +439,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Presupuesto enviado</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Reseller recibe el presupuesto para decidir</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El presupuesto se envió al reseller. El sistema muestra el panel de aprobación en el portal del reseller.</span></div>
@@ -465,7 +471,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Presupuesto aceptado</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Reparación autorizada, preparando materiales</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller aceptó el presupuesto. Bidcom procede a conseguir los repuestos necesarios (compra, stock, etc.).</span></div>
@@ -481,7 +487,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Espera de repuestos</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Aguardando partes para ejecutar la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Los repuestos fueron pedidos. El equipo permanece en taller esperando las partes.</span></div>
@@ -497,7 +503,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">En reparacion</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Técnico ejecuta la reparación OOW</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Repuestos disponibles. Técnico ejecuta la reparación, hace pruebas y verifica el funcionamiento.</span></div>
@@ -561,7 +567,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-inicio">Pendiente de Aprobación</span>
           <span class="actor-badge a-sistema">Sistema</span>
           <span class="tl-name">Caso registrado desde el portal</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso en el portal. El sistema notifica a HUB PRO.</span></div>
@@ -577,7 +583,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Abierto</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Caso aprobado — reseller puede reparar</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom aprueba el caso. El reseller recibe el visto bueno para proceder con la reparación.</span></div>
@@ -593,7 +599,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-reseller">En reparacion</span>
           <span class="actor-badge a-reseller">Reseller</span>
           <span class="tl-name">Reseller ejecuta la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller tiene el repuesto y está ejecutando la reparación en su local. Bidcom no interviene en este paso.</span></div>
@@ -610,7 +616,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Pedido de repuestos</span>
           <span class="actor-badge a-reseller">Reseller</span>
           <span class="tl-name">Alternativa: reseller solicita adelanto de repuesto</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller no tiene el repuesto en stock. Lo solicita a Bidcom desde el portal. Bidcom lo factura como adelanto a 30 días.</span></div>
@@ -627,7 +633,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Repuestos enviados</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Repuesto despachado, reseller ejecuta la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom despachó el repuesto al reseller. El reseller lo recibe, lo confirma en el portal (botón "Recibí los repuestos") y ejecuta la reparación.</span></div>
@@ -643,7 +649,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-reseller">Informe de reparacion</span>
           <span class="actor-badge a-reseller">Reseller</span>
           <span class="tl-name">Reseller envía el informe técnico a Bidcom</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La reparación fue completada. El reseller envía el informe técnico a Bidcom para que lo presente ante DJI.</span></div>
@@ -660,7 +666,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Piezas dañadas recibidas</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Bidcom recibió las partes dañadas, gestionando ante DJI</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Las piezas dañadas llegaron a Carmen de Areco. Bidcom las registra y las envía a DJI junto con el caso para su aprobación.</span></div>
@@ -677,7 +683,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-dji">Aprobacion DJI</span>
           <span class="actor-badge a-dji">DJI</span>
           <span class="tl-name">DJI resuelve el caso — aprobación o rechazo</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-dji">⏳ DJI</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI procesa el caso. Puede aprobar o rechazar la cobertura de garantía.</span></div>
@@ -713,6 +719,23 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Estado intermedio que permite notificar claramente al reseller el motivo de cierre antes de marcar CANCELADO. El sistema envía una notificación automática al reseller.</span></div>
           <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar motivo del rechazo en la nota técnica. Pasar a <strong>CANCELADO</strong> para cerrar definitivamente.</span></div>
           <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Sin respuesta · Cerrado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reseller dejó de responder — cierre por inactividad</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller dejó de responder durante el proceso. Puede ocurrir en cualquier punto del flujo. El sistema notifica al reseller y el caso queda cerrado.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Documentar en la nota técnica el punto donde se perdió la respuesta. Cambiar estado a <strong>Sin respuesta · Cerrado</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos."</span></div>
         </div></div>
       </div>
     </div><div class="tl-gap"></div>
@@ -772,7 +795,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-inicio">Pendiente de Aprobación</span>
           <span class="actor-badge a-sistema">Sistema</span>
           <span class="tl-name">Caso registrado desde el portal</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller cargó el caso. HUB PRO recibe la notificación.</span></div>
@@ -787,7 +810,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Abierto</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Caso aprobado — reseller gestiona la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom valida y aprueba el caso. El reseller queda habilitado para operar.</span></div>
@@ -803,7 +826,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-reseller">En reparacion</span>
           <span class="actor-badge a-reseller">Reseller</span>
           <span class="tl-name">Reseller ejecuta la reparación</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller está reparando el equipo con el repuesto disponible (propio o recibido como adelanto). Bidcom puede ver el avance desde HUB PRO.</span></div>
@@ -820,7 +843,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-espera">Pedido de repuesto para reparar</span>
           <span class="actor-badge a-reseller">Reseller</span>
           <span class="tl-name">Alternativa: reseller solicita adelanto de repuesto</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller no tiene el repuesto. Lo solicita a Bidcom. Bidcom lo factura como <strong>adelanto a 30 días</strong> y lo despacha. El reseller lo recibe, repara y carga el caso en el portal DJI.</span></div>
@@ -837,7 +860,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-dji">Aprobado DJI · Repuestos en preparación</span>
           <span class="actor-badge a-reseller">Reseller + Bidcom</span>
           <span class="tl-name">Solo path "con repuesto" — DJI aprobó, Bidcom envía repuesto de reposición</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller tenía su propio repuesto, reparó y obtuvo aprobación DJI. Ahora solicita a Bidcom que le reponga el repuesto que usó de su stock. Bidcom verifica la aprobación y prepara el envío.</span></div>
@@ -854,7 +877,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">En cierre</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Procesando documentación de cierre</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom procesa las piezas dañadas devueltas por el reseller y completa el cierre administrativo del caso.</span></div>
@@ -890,6 +913,23 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Estado intermedio para notificar claramente al reseller antes de marcar CANCELADO. El sistema envía notificación automática.</span></div>
           <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar motivo del rechazo en la nota técnica. Pasar a <strong>CANCELADO</strong> para cerrar definitivamente.</span></div>
           <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Sin respuesta · Cerrado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reseller dejó de responder — cierre por inactividad</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller dejó de responder durante el proceso. Puede ocurrir en cualquier punto del flujo. El sistema notifica al reseller y el caso queda cerrado.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Documentar en la nota técnica el punto donde se perdió la respuesta. Cambiar estado a <strong>Sin respuesta · Cerrado</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos."</span></div>
         </div></div>
       </div>
     </div><div class="tl-gap"></div>
@@ -935,7 +975,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-bidcom">Abierto</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
           <span class="tl-name">Caso registrado y aprobado por Bidcom</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso de batería ingresa y Bidcom lo aprueba. Bidcom gestiona directamente la aprobación ante DJI sin que el reseller intervenga en el proceso técnico.</span></div>
@@ -951,7 +991,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
           <span class="state-badge s-dji">Aprobado por DJI</span>
           <span class="actor-badge a-dji">DJI</span>
           <span class="tl-name">DJI aprobó el reemplazo de batería</span>
-          <span class="tl-chv">▶</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
           <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó el caso en su portal. Bidcom procede al despacho de la batería de reemplazo al reseller.</span></div>

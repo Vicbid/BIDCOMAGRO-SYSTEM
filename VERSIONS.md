@@ -12,6 +12,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | HUB_Código.js | 1.9 | Sin respuesta · Cerrado y Rechazado DJI en todos los checks de estado terminal |
 | Index.html | 1.8 | Sin respuesta · Cerrado y Rechazado DJI excluidos de todos los filtros de pendientes/urgentes/KPIs |
+| GUIA_FLUJOS.html | 1.2 | Badges de turno (⚽ Bidcom / ⚽ Reseller / ⏳ DJI) en headers de todos los cards; estado Sin respuesta · Cerrado en ambas secciones Reseller |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 
 ## PORTAL_RESELLER
