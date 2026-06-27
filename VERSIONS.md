@@ -10,8 +10,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 1.9 | Sin respuesta · Cerrado y Rechazado DJI en todos los checks de estado terminal |
-| Index.html | 1.8 | Sin respuesta · Cerrado y Rechazado DJI excluidos de todos los filtros de pendientes/urgentes/KPIs |
+| HUB_Código.js | 2.0 | crearNuevaOT acepta datos (reseller, equipo, sn, garantia, circuito, tecnico, trabajo, fechaActivacion, prioridad) en lugar de crear fila en blanco |
+| Index.html | 1.9 | Modal "Nueva OT" con todos los campos; auto-abre la OT recién creada al terminar load() |
 | GUIA_FLUJOS.html | 1.2 | Badges de turno (⚽ Bidcom / ⚽ Reseller / ⏳ DJI) en headers de todos los cards; estado Sin respuesta · Cerrado en ambas secciones Reseller |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 

@@ -1,3 +1,4 @@
+<!-- @version 1.9 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -438,6 +439,17 @@ body.compact tbody td{padding:6px 14px!important}
   .p-row{grid-template-columns:1fr 2fr 52px 52px 26px}
   .met-grid{grid-template-columns:1fr 1fr}
 }
+
+/* ── MODAL NUEVA OT ─────────────────────────── */
+.nev-toggle-grp{display:flex;gap:5px;flex-wrap:wrap}
+.nev-toggle-btn{flex:1;padding:8px 10px;border:1.5px solid var(--brd);border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;background:var(--panel);color:var(--tx-m);text-align:center;transition:all .13s;white-space:nowrap}
+.nev-toggle-btn:hover{border-color:var(--blue);color:var(--blue)}
+.nev-toggle-btn.sel{background:var(--blue);border-color:var(--blue);color:#fff}
+.nev-toggle-btn.sel-urg{background:var(--red);border-color:var(--red);color:#fff}
+.nev-eq-wrap{position:relative}
+.nev-eq-drop{display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--surf,#fff);border:1px solid var(--brd,#ddd);border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.nev-eq-item{padding:8px 12px;font-size:12px;cursor:pointer;color:var(--tx);transition:background .1s}
+.nev-eq-item:hover,.nev-eq-item.active{background:var(--blue-l);color:var(--blue)}
 </style>
 </head>
 <body>
@@ -545,6 +557,97 @@ body.compact tbody td{padding:6px 14px!important}
         <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px">Volver</button>
         <button onclick="cancelarCasoEjecutar()" style="flex:1;padding:10px;background:var(--red);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
           <i class="fa fa-ban"></i> Confirmar cancelación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA ORDEN DE TRABAJO -->
+<div class="modal fade" id="modal-nueva-ot" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:560px">
+    <div class="modal-content">
+      <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--brd)">
+        <h5 class="modal-title" style="font-size:14px;font-weight:700">
+          <i class="fa fa-plus-circle" style="color:var(--blue);margin-right:8px"></i>Nueva Orden de Trabajo
+        </h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 18px;display:flex;flex-direction:column;gap:16px">
+        <!-- Reseller -->
+        <div>
+          <label class="flbl">Reseller <span style="color:var(--red)">*</span></label>
+          <select id="nev-res" class="form-control" style="font-size:13px">
+            <option value="">— Seleccionar reseller —</option>
+          </select>
+        </div>
+        <!-- Equipo + S/N -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="flbl">Equipo / Modelo <span style="color:var(--red)">*</span></label>
+            <div class="nev-eq-wrap">
+              <input type="text" id="nev-equi" class="form-control" placeholder="Buscar modelo…" autocomplete="off"
+                     oninput="_filtrarEqNuev(this)" onfocus="_filtrarEqNuev(this)"
+                     onblur="_cerrarEqNuev()" onkeydown="_navEqNuev(event)" style="font-size:13px">
+              <div class="nev-eq-drop" id="nev-eq-drop"></div>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">N° de Serie <span style="color:var(--red)">*</span></label>
+            <input type="text" id="nev-sn" class="form-control" placeholder="Serial number" style="font-size:13px">
+          </div>
+        </div>
+        <!-- Garantía + Circuito -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="flbl">Garantía</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-gar-IW" onclick="_nevSetGar('IW')">IW (en garantía)</button>
+              <button class="nev-toggle-btn" id="nev-btn-gar-OOW" onclick="_nevSetGar('OOW')">OOW (fuera)</button>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">Circuito</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-circ-0" onclick="_nevSetCirc('Taller')">Taller</button>
+              <button class="nev-toggle-btn" id="nev-btn-circ-1" onclick="_nevSetCirc('Reseller')">Reseller</button>
+              <button class="nev-toggle-btn" id="nev-btn-circ-2" onclick="_nevSetCirc('Reseller Propio')">Propio</button>
+            </div>
+          </div>
+        </div>
+        <!-- Fecha activación (IW only) -->
+        <div id="nev-fecha-row">
+          <label class="flbl">Fecha de activación (garantía IW) <span style="color:var(--red)">*</span></label>
+          <input type="date" id="nev-fecha-act" class="form-control" style="font-size:13px;max-width:220px">
+        </div>
+        <!-- Descripción de falla -->
+        <div>
+          <label class="flbl">Descripción de falla <span style="color:var(--red)">*</span></label>
+          <textarea id="nev-falla" class="form-control" rows="3" placeholder="Describir el problema reportado por el cliente…" style="font-size:13px;resize:vertical"></textarea>
+        </div>
+        <!-- Técnico + Prioridad -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div id="nev-tec-row">
+            <label class="flbl">Técnico asignado</label>
+            <select id="nev-tec" class="form-control" style="font-size:13px">
+              <option value="">— Sin asignar —</option>
+            </select>
+          </div>
+          <div>
+            <label class="flbl">Prioridad</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-prio-N" onclick="_nevSetPrio('NORMAL')">Normal</button>
+              <button class="nev-toggle-btn" id="nev-btn-prio-U" onclick="_nevSetPrio('URGENTE')">🔴 Urgente</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:12px 18px;gap:8px;border-top:1px solid var(--brd)">
+        <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px">Cancelar</button>
+        <button onclick="confirmarNuevaOT()"
+          style="padding:10px 22px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:opacity .15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <i class="fa fa-plus"></i> Crear Orden
         </button>
       </div>
     </div>
@@ -1107,6 +1210,7 @@ var dataset=[], actual=null, urgente=false, filtro='pendientes';
 var _settings = { tema:'dark', density:'normal', vistaInicial:'pendientes', autoRefresh:0, displayName:'' };
 var _arTimer = null;
 var repCache=[], estadoAct='', adCache=[], tecCache=[], resCache=[], equiposCache=[];
+var _pendingOpenOT = '', _nevGar = 'IW', _nevCirc = 'Taller', _nevPrio = 'NORMAL', _nevEqDropIdx = -1;
 var esBateriaActual=false;
 var tecDisponibles=[];
 var manoObraCache=[], manoObraSeleccionada=[];
@@ -1293,6 +1397,11 @@ function load() {
       render(); kpis();
       var t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
       document.getElementById('ts').textContent = 'Actualizado '+t;
+      if (_pendingOpenOT) {
+        var _pOT = _pendingOpenOT;
+        _pendingOpenOT = '';
+        setTimeout(function() { abrirOTPorNombre(_pOT); }, 80);
+      }
     })
     .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
     .cargarTodo();
@@ -2371,20 +2480,170 @@ function cancelarCasoEjecutar() {
     .cancelarCaso(actual.ot);
 }
 
-function crearCaso(){
+function crearCaso() {
+  // Poblar resellers
+  var sel = document.getElementById('nev-res');
+  sel.innerHTML = '<option value="">— Seleccionar reseller —</option>';
+  var sorted = resCache.slice().sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+  for (var i = 0; i < sorted.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = sorted[i].nombre;
+    opt.textContent = sorted[i].nombre;
+    sel.appendChild(opt);
+  }
+  // Poblar técnicos
+  var tsel = document.getElementById('nev-tec');
+  tsel.innerHTML = '<option value="">— Sin asignar —</option>';
+  var fuente = tecDisponibles.length ? tecDisponibles : tecCache.map(function(t) { return { nombre: t }; });
+  for (var j = 0; j < fuente.length; j++) {
+    var topt = document.createElement('option');
+    topt.value = fuente[j].nombre;
+    topt.textContent = fuente[j].nombre;
+    tsel.appendChild(topt);
+  }
+  // Reset form
+  document.getElementById('nev-equi').value = '';
+  document.getElementById('nev-sn').value = '';
+  document.getElementById('nev-falla').value = '';
+  document.getElementById('nev-fecha-act').value = '';
+  _nevSetGar('IW');
+  _nevSetCirc('Taller');
+  _nevSetPrio('NORMAL');
+  new bootstrap.Modal(document.getElementById('modal-nueva-ot')).show();
+  setTimeout(function() { document.getElementById('nev-res').focus(); }, 350);
+}
+
+function _nevSetGar(v) {
+  _nevGar = v;
+  document.getElementById('nev-btn-gar-IW').classList.toggle('sel', v === 'IW');
+  document.getElementById('nev-btn-gar-OOW').classList.toggle('sel', v === 'OOW');
+  document.getElementById('nev-fecha-row').style.display = v === 'IW' ? '' : 'none';
+}
+
+function _nevSetCirc(v) {
+  _nevCirc = v;
+  var circs = ['Taller','Reseller','Reseller Propio'];
+  for (var i = 0; i < circs.length; i++) {
+    document.getElementById('nev-btn-circ-' + i).classList.toggle('sel', circs[i] === v);
+  }
+  document.getElementById('nev-tec-row').style.display = v === 'Taller' ? '' : 'none';
+}
+
+function _nevSetPrio(v) {
+  _nevPrio = v;
+  document.getElementById('nev-btn-prio-N').classList.toggle('sel', v === 'NORMAL');
+  document.getElementById('nev-btn-prio-U').classList.toggle('sel-urg', v === 'URGENTE');
+}
+
+function _filtrarEqNuev(inp) {
+  var val = inp.value.trim().toLowerCase();
+  var drop = document.getElementById('nev-eq-drop');
+  _nevEqDropIdx = -1;
+  if (!val || !equiposCache.length) { drop.style.display = 'none'; return; }
+  var escaped = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var matches = [];
+  for (var i = 0; i < equiposCache.length; i++) {
+    if (equiposCache[i].toLowerCase().indexOf(val) !== -1) matches.push(equiposCache[i]);
+  }
+  if (!matches.length) { drop.style.display = 'none'; return; }
+  var html = '';
+  for (var j = 0; j < Math.min(matches.length, 30); j++) {
+    var hi = matches[j].replace(new RegExp('(' + escaped + ')', 'gi'), '<strong>$1</strong>');
+    html += '<div class="nev-eq-item" data-val="' + matches[j].replace(/"/g, '&quot;') + '" data-idx="' + j + '" ' +
+            'onmousedown="_selEqNuev(this)" onmouseover="_resaltEqNuev(this)">' + hi + '</div>';
+  }
+  drop.innerHTML = html;
+  drop.style.display = 'block';
+}
+
+function _selEqNuev(el) {
+  document.getElementById('nev-equi').value = el.getAttribute('data-val');
+  document.getElementById('nev-eq-drop').style.display = 'none';
+  _nevEqDropIdx = -1;
+}
+
+function _cerrarEqNuev() {
+  setTimeout(function() {
+    var d = document.getElementById('nev-eq-drop');
+    if (d) d.style.display = 'none';
+    _nevEqDropIdx = -1;
+  }, 180);
+}
+
+function _resaltEqNuev(el) {
+  var items = document.querySelectorAll('.nev-eq-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+  el.classList.add('active');
+  _nevEqDropIdx = parseInt(el.getAttribute('data-idx'), 10);
+}
+
+function _navEqNuev(e) {
+  var drop = document.getElementById('nev-eq-drop');
+  if (!drop || drop.style.display === 'none') { return; }
+  var items = drop.querySelectorAll('.nev-eq-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _nevEqDropIdx = Math.min(_nevEqDropIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _nevEqDropIdx = Math.max(_nevEqDropIdx - 1, 0);
+  } else if (e.key === 'Enter' && _nevEqDropIdx >= 0) {
+    e.preventDefault();
+    _selEqNuev(items[_nevEqDropIdx]);
+    return;
+  } else if (e.key === 'Escape') {
+    drop.style.display = 'none';
+    _nevEqDropIdx = -1;
+    return;
+  } else {
+    return;
+  }
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+  if (_nevEqDropIdx >= 0) items[_nevEqDropIdx].classList.add('active');
+}
+
+function confirmarNuevaOT() {
+  var reseller = document.getElementById('nev-res').value;
+  var equipo   = document.getElementById('nev-equi').value.trim();
+  var sn       = document.getElementById('nev-sn').value.trim();
+  var falla    = document.getElementById('nev-falla').value.trim();
+  var fechaAct = document.getElementById('nev-fecha-act').value;
+  var tecnico  = document.getElementById('nev-tec').value;
+
+  if (!reseller) { toast('Seleccioná un reseller.', 'err'); return; }
+  if (!equipo)   { toast('Ingresá el modelo del equipo.', 'err'); return; }
+  if (!sn)       { toast('Ingresá el número de serie.', 'err'); return; }
+  if (!falla)    { toast('Describí la falla.', 'err'); return; }
+  if (_nevGar === 'IW' && !fechaAct) { toast('La fecha de activación es obligatoria para garantías IW.', 'err'); return; }
+
+  var datos = {
+    reseller: reseller,
+    equipo:   equipo,
+    sn:       sn,
+    garantia: _nevGar,
+    circuito: _nevCirc,
+    tecnico:  tecnico,
+    trabajo:  falla,
+    fechaActivacion: fechaAct,
+    prioridad: _nevPrio
+  };
+
+  bootstrap.Modal.getInstance(document.getElementById('modal-nueva-ot')).hide();
   hubLoadStart(STEPS_CREAR);
   google.script.run
     .withSuccessHandler(function(r) {
       hubLoadDone();
       if (!r || !r.resultado || r.resultado.indexOf('Error') === 0) {
-        toast('Error al crear OT','err');
+        toast('Error al crear OT', 'err');
         return;
       }
       toast('Nueva OT creada: ' + r.resultado);
+      _pendingOpenOT = r.ot;
       load();
     })
-    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
-    .crearNuevaOT();
+    .withFailureHandler(function(e) { hubLoadDone(); toast('Error: ' + e.message, 'err'); })
+    .crearNuevaOT(datos);
 }
 
 function cerrarV(){

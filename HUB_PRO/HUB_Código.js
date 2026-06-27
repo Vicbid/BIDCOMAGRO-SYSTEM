@@ -2,6 +2,7 @@
 //  DJI HUB PRO v14 — Codigo.gs - ¿FUNCIONAL?
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
+// @version 2.0
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -734,7 +735,8 @@ function _cerrarSolicitudesPendientes(idOT, operador) {
 // ============================================================
 //  CREAR NUEVA OT (CON CANDADO DE CONCURRENCIA)
 // ============================================================
-function crearNuevaOT() {
+function crearNuevaOT(datos) {
+  datos = datos || {};
   var lock = LockService.getScriptLock();
   var nOT  = "";
   try {
@@ -745,8 +747,29 @@ function crearNuevaOT() {
     while (num.length < 5) num = "0" + num;
     nOT = "WH/REP/" + num;
 
-    hoja.appendRow([new Date(),"",nOT,"OOW","Abierto","","","","","","","","","","","","","NORMAL","Taller","",new Date()]);
-    registrarLog(nOT, "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
+    var fechaAct = "";
+    if (datos.fechaActivacion) {
+      var parts = String(datos.fechaActivacion).split("-");
+      if (parts.length === 3) fechaAct = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+
+    var row = new Array(21).fill("");
+    row[0]  = new Date();
+    row[2]  = nOT;
+    row[3]  = datos.garantia  || "OOW";
+    row[4]  = "Abierto";
+    row[5]  = datos.equipo    || "";
+    row[6]  = datos.sn        || "";
+    row[7]  = datos.reseller  || "";
+    row[9]  = datos.tecnico   || "";
+    row[12] = datos.trabajo   || "";
+    row[13] = fechaAct        || "";
+    row[17] = datos.prioridad || "NORMAL";
+    row[18] = datos.circuito  || "Taller";
+    row[20] = new Date();
+    hoja.appendRow(row);
+
+    registrarLog(nOT, datos.reseller || "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
 
     return { resultado: nOT, ot: nOT };
 
