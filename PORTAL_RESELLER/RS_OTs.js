@@ -1,5 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
+// @version 1.6
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -173,10 +174,43 @@ function consultarEstado(ot, sn) {
       };
       var estKey = EST_ALIAS[est] || est;
 
+      // Detectar batería para usar el flujo unificado independientemente del circuito
+      var esBateriaOT = (function() {
+        try {
+          var equipoNom = String(f[SCHEMA.OT.EQUIPO] || "").trim().toLowerCase();
+          var hEq = getSheet(SCHEMA.SHEETS.EQUIPOS);
+          if (!hEq) return false;
+          var dEq = getSheetValues(hEq);
+          for (var eb = 1; eb < dEq.length; eb++) {
+            if (String(dEq[eb][0] || "").trim().toLowerCase() === equipoNom)
+              return String(dEq[eb][1] || "").trim().toLowerCase() === "bateria";
+          }
+          return false;
+        } catch(e) { return false; }
+      })();
+
       if (estKey === "CANCELADO" || est.indexOf("CANCELADO") !== -1) {
         paso = 5; quePasa = "La orden fue anulada.";
       } else if (estKey === "FINALIZADO" || estKey === "ENTREGADO") {
-        paso = 4; quePasa = "La reparación fue completada y el caso está cerrado.";
+        paso = 4; quePasa = "El caso está cerrado. ¡Gracias!";
+      } else if (esBateriaOT) {
+        if (estKey === "ABIERTO") {
+          paso = 1; quePasa = "Registramos tu caso. Bidcom está preparando el expediente ante DJI.";
+        } else if (estKey === "CASO ENVIADO") {
+          paso = 2; quePasa = "Cargamos el caso en el portal DJI. Estamos esperando su respuesta.";
+        } else if (estKey === "APROBADO POR DJI") {
+          paso = 3; quePasa = "DJI aprobó el reemplazo de batería. Estamos coordinando el proceso para enviarte la batería de reposición.";
+        } else if (estKey === "SCRAP ENVIADO (EVIDENCIAS)") {
+          paso = 3; quePasa = "Enviamos el scrap a DJI como evidencia. Tu batería de reemplazo está siendo preparada por nuestro equipo de logística.";
+        } else if (estKey === "BATERIA ENVIADA A RESELLER") {
+          paso = 4; quePasa = "Tu batería de reemplazo fue despachada. Vas a recibirla en breve.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso de batería. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
+        } else {
+          paso = 2; quePasa = "El caso está siendo gestionado ante DJI. Te avisamos ante cualquier novedad.";
+        }
       } else if (flujo === "Taller") {
         if (estKey === "ABIERTO" || estKey === "EN REVISION") {
           paso = 1; quePasa = "Tu solicitud fue registrada. Estamos revisando los datos del equipo para autorizar el ingreso.";
@@ -287,16 +321,7 @@ function consultarEstado(ot, sn) {
         fechaEstimada: calcularFechaEstimada(flujo, String(f[3] || "OOW"), f[0]),
         infoGarantia:  infoGarantia,
         mensajes:      mensajesRaw,
-        esBateria:     (function() {
-          var hEq = getSheet(SCHEMA.SHEETS.EQUIPOS);
-          if (!hEq) return false;
-          var dEq = getSheetValues(hEq);
-          for (var eb = 1; eb < dEq.length; eb++) {
-            if (String(dEq[eb][0] || "").trim().toLowerCase() === equipo.toLowerCase())
-              return String(dEq[eb][1] || "").trim().toLowerCase() === "bateria";
-          }
-          return false;
-        })()
+        esBateria:     esBateriaOT
       };
     }
     return { encontrado: false };

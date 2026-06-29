@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- @version 1.3 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2628,10 +2629,10 @@ function mostrarResultado(r) {
   } else { estWrap.style.display = 'none'; }
 
   var paso  = r.pasoActual || 1;
-  var esBatRP = (r.flujo && r.flujo.toLowerCase().indexOf('propio') !== -1 && r.esBateria);
+  var esBat = r.esBateria === true;
   var pasos;
-  if (esBatRP) {
-    pasos = [{n:1,label:'Registro'},{n:2,label:'Aprobado DJI'},{n:3,label:'Finalizado'}];
+  if (esBat) {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Caso DJI'},{n:3,label:'Aprobado DJI'},{n:4,label:'Finalizado'}];
   } else if (r.flujo === 'Reseller Propio') {
     pasos = [{n:1,label:'Registro'},{n:2,label:'En reparación'},{n:3,label:'Aprobado DJI'},{n:4,label:'Finalizado'}];
   } else if (r.flujo && r.flujo.indexOf('Reseller') !== -1) {
@@ -2659,7 +2660,7 @@ function mostrarResultado(r) {
   document.getElementById('btn-recibido').style.display = (r.estado === 'Repuestos enviados') ? 'inline-flex' : 'none';
   document.getElementById('btn-nota').style.display = (r.flujo === 'Taller' && paso >= 2) ? 'inline-flex' : 'none';
   document.getElementById('btn-etiqueta').style.display  = (r.flujo==='Taller' && paso===2) ? 'inline-flex' : 'none';
-  document.getElementById('btn-repuestos').style.display = (r.flujo && r.flujo.indexOf('Reseller')!==-1 && paso<4) ? 'inline-flex' : 'none';
+  document.getElementById('btn-repuestos').style.display = (!esBat && r.flujo && r.flujo.indexOf('Reseller')!==-1 && paso<4) ? 'inline-flex' : 'none';
 
   // ── Bloque de garantía ──
   var garBlock  = document.getElementById('r-gar-block');

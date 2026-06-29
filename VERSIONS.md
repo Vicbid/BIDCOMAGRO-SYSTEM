@@ -20,8 +20,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
 | RS_Pedidos.js | 1.5 | Fórmula CANT_PEND col G incluye -Z (CANT_CANCEL) al crear filas | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
-| RS_OTs.js | 1.5 | Fix: CANCELADO ya no cae en paso 3; garantías excluyen CANCELADO y Entregado |
-| Index.html | 1.2 | Fix: stepper muestra "Orden cancelada" en lugar de paso 3 para OTs CANCELADAS |
+| RS_OTs.js | 1.6 | Flujo batería unificado: detección esBateriaOT antes de ramas de flujo; 7 estados nuevos con paso/quePasa propios; esBateria en return usa variable en lugar de IIFE duplicado |
+| Index.html | 1.3 | Stepper batería: 4 pasos (Registro→Caso DJI→Aprobado DJI→Finalizado); detección esBat aplica a cualquier circuito (no solo Reseller Propio); btn-repuestos oculto para baterías |
 | RS_Auth.js | 1.1 | Perfil: agrega provincia (col 5) en obtener y actualizar |
 | Env.js | 1.1 | SCHEMA.RESELLERS: agrega PROVINCIA: 5 |
 | RS_Email.js | 1.0 | |
