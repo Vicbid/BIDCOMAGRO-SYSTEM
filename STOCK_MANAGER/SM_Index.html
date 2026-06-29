@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- @version 1.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -563,6 +564,18 @@ tr:last-child td{border-bottom:none}
 
       <!-- Cruce con sheet externo de pedidos -->
       <div id="cruce-ext-wrap"></div>
+
+      <!-- ── BORRADOR DE PEDIDO DJI ── -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-head">
+          <div class="card-head-left"><i class="fa fa-shopping-cart"></i> Borrador de pedido <span id="borrador-count" style="font-size:10px;font-weight:400;padding:1px 7px;border-radius:10px;background:var(--blue-l);color:var(--blue);margin-left:6px">0 ítems</span></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn-s green" onclick="_borradorDownloadXLS()"><i class="fa fa-download"></i> Descargar XLS</button>
+            <button class="btn-s" onclick="_borradorClear()" style="color:var(--red)"><i class="fa fa-trash"></i> Vaciar</button>
+          </div>
+        </div>
+        <div id="borrador-body"></div>
+      </div>
 
       <div class="card">
         <div class="card-head"><div class="card-head-left"><i class="fa fa-plane"></i> CAS activos</div></div>
@@ -1361,6 +1374,8 @@ var stockData    = [];
 var activeEstante   = '';
 var pronosticoData  = {};
 var activeSugCompra = false;
+var _borradorDJI    = [];
+var _BORRADOR_KEY   = 'sm_borrador_dji';
 var hotItemsSet     = {};
 var _snRequested    = false;
 var _snList         = [];
@@ -2883,6 +2898,7 @@ function _cargarCruceExterno() {
 }
 
 function cargarComprasTab() {
+  _borradorInit();
   _cargarCruceExterno();
   var el = document.getElementById('comp-wrap');
   el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
@@ -3755,6 +3771,139 @@ function registrarPedidoEnviado() {
     })
     .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .registrarPedidoEnviado(items, cas, pago, 'Juan Cuaresma');
+}
+
+// ══════════════════════════════════════════
+//  BORRADOR DE PEDIDO DJI
+// ══════════════════════════════════════════
+function _borradorInit() {
+  try {
+    var raw = localStorage.getItem(_BORRADOR_KEY);
+    _borradorDJI = raw ? JSON.parse(raw) : [];
+  } catch(e) { _borradorDJI = []; }
+  _borradorRender();
+}
+
+function _borradorSave() {
+  try { localStorage.setItem(_BORRADOR_KEY, JSON.stringify(_borradorDJI)); } catch(e) {}
+}
+
+function _borradorLookupDesc(sku) {
+  var up = sku.toUpperCase();
+  for (var i = 0; i < stockData.length; i++) {
+    if (stockData[i].codigo.toUpperCase() === up) return stockData[i].descripcion;
+  }
+  return '';
+}
+
+function _borradorRender() {
+  var body = document.getElementById('borrador-body');
+  var cnt  = document.getElementById('borrador-count');
+  if (!body) return;
+  if (cnt) cnt.textContent = _borradorDJI.length + ' ítems';
+
+  var h = '';
+  if (_borradorDJI.length) {
+    h += '<table class="tbl" style="margin-bottom:0"><thead><tr>' +
+         '<th>Código</th><th>Descripción</th><th style="width:90px;text-align:center">Cant.</th><th style="width:32px"></th>' +
+         '</tr></thead><tbody>';
+    _borradorDJI.forEach(function(r, i) {
+      h += '<tr>' +
+        '<td><span class="b-info" style="font-family:monospace">' + escH(r.sku) + '</span></td>' +
+        '<td style="font-size:12px;color:var(--tx-m)">' + escH(r.desc || '') + '</td>' +
+        '<td style="text-align:center"><input type="number" min="1" value="' + r.qty +
+          '" style="width:68px;text-align:center;font-weight:700" onchange="_borradorSetQty(' + i + ',this.value)"></td>' +
+        '<td><button class="btn-s" style="color:var(--red);padding:1px 6px;min-width:0" onclick="_borradorRemove(' + i + ')" title="Quitar"><i class="fa fa-times"></i></button></td>' +
+      '</tr>';
+    });
+    h += '</tbody></table>';
+  } else {
+    h += '<div style="padding:18px 16px;color:var(--tx-d);font-size:12px;font-style:italic">El borrador está vacío — agregá ítems abajo.</div>';
+  }
+
+  var dlOpts = stockData.map(function(r) { return '<option value="' + escH(r.codigo) + '">'; }).join('');
+  h += '<div style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--brd);align-items:center;flex-wrap:wrap">' +
+    '<datalist id="borrador-sku-dl">' + dlOpts + '</datalist>' +
+    '<input id="borrador-add-sku" type="text" placeholder="Part Number / Código" list="borrador-sku-dl"' +
+      ' style="flex:1;min-width:160px;font-family:monospace;font-size:13px;text-transform:uppercase"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_borradorAdd();}">' +
+    '<input id="borrador-add-qty" type="number" min="1" value="1" placeholder="Cant."' +
+      ' style="width:76px;text-align:center;font-size:13px;font-weight:700"' +
+      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_borradorAdd();}">' +
+    '<button class="btn-p" onclick="_borradorAdd()"><i class="fa fa-plus"></i> Agregar</button>' +
+  '</div>';
+
+  body.innerHTML = h;
+}
+
+function _borradorAdd() {
+  var skuInp = document.getElementById('borrador-add-sku');
+  var qtyInp = document.getElementById('borrador-add-qty');
+  if (!skuInp || !qtyInp) return;
+  var sku = skuInp.value.trim().toUpperCase();
+  var qty = parseInt(qtyInp.value) || 1;
+  if (!sku) { skuInp.focus(); return; }
+  if (qty < 1) qty = 1;
+
+  var existing = -1;
+  for (var i = 0; i < _borradorDJI.length; i++) {
+    if (_borradorDJI[i].sku === sku) { existing = i; break; }
+  }
+
+  if (existing >= 0) {
+    _borradorDJI[existing].qty += qty;
+    toast(sku + ': total → ' + _borradorDJI[existing].qty, 'ok');
+  } else {
+    _borradorDJI.push({ sku: sku, desc: _borradorLookupDesc(sku), qty: qty });
+    toast('Agregado: ' + sku, 'ok');
+  }
+
+  _borradorSave();
+  skuInp.value = '';
+  qtyInp.value = '1';
+  _borradorRender();
+  var newInp = document.getElementById('borrador-add-sku');
+  if (newInp) newInp.focus();
+}
+
+function _borradorSetQty(idx, val) {
+  var qty = parseInt(val) || 0;
+  if (qty <= 0) { _borradorRemove(idx); return; }
+  _borradorDJI[idx].qty = qty;
+  _borradorSave();
+  var cnt = document.getElementById('borrador-count');
+  if (cnt) cnt.textContent = _borradorDJI.length + ' ítems';
+}
+
+function _borradorRemove(idx) {
+  var sku = _borradorDJI[idx] ? _borradorDJI[idx].sku : '';
+  _borradorDJI.splice(idx, 1);
+  _borradorSave();
+  _borradorRender();
+  if (sku) toast('Quitado: ' + sku, 'inf');
+}
+
+function _borradorClear() {
+  if (!_borradorDJI.length) return;
+  if (!confirm('¿Vaciar el borrador? Se eliminarán los ' + _borradorDJI.length + ' ítems.')) return;
+  _borradorDJI = [];
+  _borradorSave();
+  _borradorRender();
+}
+
+function _borradorDownloadXLS() {
+  if (typeof XLSX === 'undefined') { toast('Librería XLSX no cargada, esperá un momento', 'err'); return; }
+  if (!_borradorDJI.length) { toast('El borrador está vacío', 'err'); return; }
+  var rows = [['Part Number', 'Description', 'Qty']];
+  _borradorDJI.forEach(function(r) {
+    rows.push([r.sku, r.desc || '', r.qty]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:24},{wch:52},{wch:8}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pedido DJI');
+  XLSX.writeFile(wb, 'PedidoDJI_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('XLS descargado — ' + _borradorDJI.length + ' ítems', 'ok');
 }
 
 // ══════════════════════════════════════════

@@ -49,7 +49,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.5 | Registrar CAS desde cruce: precarga ítems del sheet (sin XLS) |
+| SM_Index.html | 1.6 | Borrador de pedido DJI: carrito persistente en localStorage con add/edit/remove/XLS download |
 | Sm_Código.js | 1.5 | cruzarComprasExternas: incluye items (cols D/E/F) en cada entrada nuevas |
 | Env.js | 1.0 | |
 
