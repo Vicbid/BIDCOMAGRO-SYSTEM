@@ -46,6 +46,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Despacho_Index.html | 3.6 | Pick ticket: badge de cada ítem usa it.estado real (mismo que la tarjeta de pedido); print-color-adjust para colores en impresión |
 | Despacho_Index.html | 3.3 | Pick tracker: badge ciclable reemplazado por select directo; _buildPickCajaOpts/_onPickCajaSel/_actualizarPickCajaSelects en lugar de _cyclePickCaja |
 | WOS_GmailFlow.js | 1.7 | Nota de entrega agrupa items por caja con fila separadora Caja N + tracking cuando hay multi-bulto; Fix 1.6: fila TOTAL en col 6 |
+| Despacho_Código.js | 2.8 | WOS_cargarStock: lee ubicaciones desde Carmen UBICACIONES tab (multi-ubicacion WMS); fallback a STOCK_REPUESTOS para items sin mapear |
+| Despacho_Env.js | 1.1 | Agrega CARMEN_UBICACIONES_TAB = 'UBICACIONES' |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER

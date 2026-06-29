@@ -1879,12 +1879,13 @@ function renderTimeline(paso) {
 // ══════════════════════════════════════════
 //  STOCK
 // ══════════════════════════════════════════
-function cargarStockTab() {
+function cargarStockTab(cb) {
   sp(true, 'Cargando stock…');
   document.getElementById('tbody-stock').innerHTML = _skelRows(12, 10);
   google.script.run
     .withSuccessHandler(function(d) {
       sp(false); stockData = d; renderStock(d);
+      if (typeof cb === 'function') cb();
     })
     .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .cargarStock('');

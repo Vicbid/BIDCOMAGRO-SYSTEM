@@ -1,4 +1,4 @@
-// @version 2.7
+// @version 2.8
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -637,6 +637,23 @@ function WOS_cargarStock(q) {
     // Abrir MASTER una sola vez para repMap + enCamino
     var master = SpreadsheetApp.openById(MASTER_SS_ID);
 
+    // Ubicaciones WMS desde Carmen UBICACIONES tab: SKU → [{ubicacion, cantidad}]
+    var ubicMap = {};
+    try {
+      var hojaUbic = carmenSS.getSheetByName(CARMEN_UBICACIONES_TAB);
+      if (hojaUbic) {
+        var dUbic = hojaUbic.getDataRange().getValues();
+        for (var u = 1; u < dUbic.length; u++) {
+          var uSku  = String(dUbic[u][0] || '').trim().toUpperCase();
+          var uUbic = String(dUbic[u][1] || '').trim();
+          var uCant = parseFloat(dUbic[u][2]) || 0;
+          if (!uSku || !uUbic) continue;
+          if (!ubicMap[uSku]) ubicMap[uSku] = [];
+          ubicMap[uSku].push({ ubicacion: uUbic, cantidad: uCant });
+        }
+      }
+    } catch(eUbic) { Logger.log('WOS_cargarStock ubicMap: ' + eUbic); }
+
     // Metadatos extra desde STOCK_REPUESTOS: min(D), categoria(E), ubicacion(F), modelos(G)
     var repMap = {};
     try {
@@ -722,7 +739,13 @@ function WOS_cargarStock(q) {
         clase:       planif.clase,
         estado:      estado,
         categoria:   meta.categoria,
-        ubicacion:   meta.ubicacion,
+        ubicacion:   (function() {
+          var arr = ubicMap[codKey];
+          if (arr && arr.length) {
+            return arr.map(function(u) { return u.ubicacion + ' (' + u.cantidad + 'u.)'; }).join(' · ');
+          }
+          return meta.ubicacion; // fallback: ítem aún sin mapear en WMS
+        })(),
         modelos:     String(datos[i][4] || '').trim(),
         enCamino:    ecTotal,
         enCaminoOcs: ecOcs
