@@ -53,7 +53,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
 | Sm_Código.js | 2.3 | cargarCatalogoBorrador(): agrega stockActual cruzando con Carmen (_getCarmenStockMap), sin precio |
-| SM_Index.html | 2.1 | Borrador: resultado de búsqueda muestra stock de Carmen (verde/rojo/—); precio eliminado |
+| SM_Index.html | 2.2 | Pantallas de carga: spinner global con label dinámico, filas skeleton en stock y movimientos, texto de carga en despachos/compras/ventas, placeholder del borrador indica estado del catálogo |
 | Sm_Código.js | 2.2 | cargarStock(): fuente primaria cambiada a Carmen STOCK (5428 ítems) en lugar de STOCK_REPUESTOS; STOCK_REPUESTOS sigue proveyendo metadata (mínimo, categoría, ubicación) |
 | Sm_Código.js | 2.1 | cargarCatalogoBorrador(): lee sheet externo CATALOGO_REPUESTOS_ID, devuelve codigo/codigoCorto/descripcion/modelo/precio |
 | Env.js | 1.1 | Agrega CATALOGO_REPUESTOS_ID con ID del sheet externo de catálogo DJI |

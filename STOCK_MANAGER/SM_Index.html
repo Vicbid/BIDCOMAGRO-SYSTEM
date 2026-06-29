@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.1 -->
+<!-- @version 2.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -162,8 +162,11 @@ tr:last-child td{border-bottom:none}
 #spin.on{display:flex}
 #spin-bg{position:absolute;inset:0;background:rgba(240,242,245,.85)}
 .spin-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px}
-.spin-r{width:32px;height:32px;border:2px solid var(--brd2);border-top-color:var(--blue);border-radius:50%;animation:sp .65s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
+.spin-r{width:32px;height:32px;border:2px solid var(--brd2);border-top-color:var(--blue);border-radius:50%;animation:spR .65s linear infinite}
+#spin-lbl{font-size:12px;font-weight:600;color:var(--tx-m);letter-spacing:.02em;min-height:16px}
+@keyframes spR{to{transform:rotate(360deg)}}
+.skel{background:linear-gradient(90deg,var(--brd) 25%,var(--surf) 50%,var(--brd) 75%);background-size:200% 100%;animation:skelShimmer 1.3s infinite;border-radius:4px;height:12px;display:inline-block}
+@keyframes skelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .empty-state{text-align:center;padding:32px;color:var(--tx-d)}
 .empty-state i{font-size:28px;margin-bottom:10px;display:block}
 .sk{height:14px;border-radius:3px;background:linear-gradient(90deg,var(--surf) 25%,var(--raise) 50%,var(--surf) 75%);background-size:400% 100%;animation:shim 1.5s ease infinite;margin-bottom:8px}
@@ -288,7 +291,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div id="spin"><div id="spin-bg"></div><div class="spin-in"><div class="spin-r"></div></div></div>
+<div id="spin"><div id="spin-bg"></div><div class="spin-in"><div class="spin-r"></div><div id="spin-lbl"></div></div></div>
 <div id="toasts"></div>
 
 <div class="app-shell">
@@ -1402,7 +1405,23 @@ var ESTADOS_CAS  = ["Comprado","Pagado","Envío confirmado","Forwarder HK","En v
 //  UI HELPERS
 // ══════════════════════════════════════════
 function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
+function sp(on, label) {
+  document.getElementById('spin').className = on ? 'on' : '';
+  var lbl = document.getElementById('spin-lbl');
+  if (lbl) lbl.textContent = on ? (label || '') : '';
+}
+function _skelRows(cols, n) {
+  var r = '';
+  for (var i = 0; i < (n || 8); i++) {
+    r += '<tr style="opacity:' + (1 - i * 0.09) + '">';
+    for (var c = 0; c < cols; c++) {
+      var w = [80,180,40,60,50,55,45,70,80,80,70,30][c] || 80;
+      r += '<td><span class="skel" style="width:' + (w - Math.floor(Math.random()*20)) + 'px"></span></td>';
+    }
+    r += '</tr>';
+  }
+  return r;
+}
 
 function toast(msg, tipo) {
   tipo = tipo || 'ok';
@@ -1440,7 +1459,8 @@ function modal(id) { return new bootstrap.Modal(document.getElementById(id)); }
 var movData = [];
 
 function cargarMovimientosTab() {
-  sp(true);
+  sp(true, 'Cargando historial…');
+  document.getElementById('tbody-mov').innerHTML = _skelRows(9, 8);
   google.script.run
     .withSuccessHandler(function(rows) {
       sp(false);
@@ -1449,6 +1469,7 @@ function cargarMovimientosTab() {
     })
     .withFailureHandler(function(e) {
       sp(false);
+      document.getElementById('tbody-mov').innerHTML = '<tr><td colspan="9"><div class="empty-state" style="color:var(--red)"><i class="fa fa-exclamation-circle"></i><p>Error: ' + escH(e.message) + '</p></div></td></tr>';
       toast('Error al cargar movimientos: ' + e.message, 'err');
     })
     .obtenerUltimosLogs(200);
@@ -1785,7 +1806,8 @@ function renderTimeline(paso) {
 //  STOCK
 // ══════════════════════════════════════════
 function cargarStockTab() {
-  sp(true);
+  sp(true, 'Cargando stock…');
+  document.getElementById('tbody-stock').innerHTML = _skelRows(12, 10);
   google.script.run
     .withSuccessHandler(function(d) {
       sp(false); stockData = d; renderStock(d);
@@ -2640,11 +2662,12 @@ function descargarPlantillaXLS() {
 //  DESPACHOS
 // ══════════════════════════════════════════
 function cargarDespachosTab() {
+  sp(true, 'Cargando despachos…');
   var el = document.getElementById('desp-wrap');
-  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
+  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i><p style="margin-top:8px;font-size:12px;color:var(--tx-d)">Cargando despachos…</p></div>';
   google.script.run
-    .withSuccessHandler(renderDespachos)
-    .withFailureHandler(function(e){ toast('Error: '+e.message,'err'); })
+    .withSuccessHandler(function(d) { sp(false); renderDespachos(d); })
+    .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .cargarSolicitudesDespacho();
 }
 
@@ -2911,10 +2934,12 @@ function _cargarCruceExterno() {
 function cargarComprasTab() {
   _borradorInit();
   _cargarCruceExterno();
+  sp(true, 'Cargando compras DJI…');
   var el = document.getElementById('comp-wrap');
-  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
+  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i><p style="margin-top:8px;font-size:12px;color:var(--tx-d)">Cargando compras…</p></div>';
   google.script.run
     .withSuccessHandler(function(lista) {
+      sp(false);
       if (!lista.length) {
         el.innerHTML = '<div class="empty-state"><i class="fa fa-box"></i><p>Sin compras registradas</p></div>';
         return;
@@ -2988,7 +3013,7 @@ function cargarComprasTab() {
       h += '</div>';
       el.innerHTML = h;
     })
-    .withFailureHandler(function(e){ toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .cargarCompras();
 }
 
@@ -3805,8 +3830,10 @@ function _cargarCatalogoBorrador() {
   google.script.run
     .withSuccessHandler(function(r) {
       if (r.ok) {
-        _catalogoDJI    = r.items;
+        _catalogoDJI     = r.items;
         _catalogoCargado = true;
+        var inp = document.getElementById('borrador-add-sku');
+        if (inp) inp.placeholder = 'Código o nombre del repuesto…';
       } else {
         toast('Error al cargar catálogo: ' + r.error, 'err');
       }
@@ -3865,7 +3892,8 @@ function _borradorRender() {
   h += '<div style="padding:10px 14px;border-top:1px solid var(--brd)">' +
     '<div style="display:flex;gap:6px;align-items:center">' +
       '<div style="flex:1;position:relative">' +
-        '<input id="borrador-add-sku" type="text" placeholder="Código o nombre del repuesto…"' +
+        '<input id="borrador-add-sku" type="text"' +
+          ' placeholder="' + (_catalogoCargado ? 'Código o nombre del repuesto…' : 'Cargando catálogo DJI…') + '"' +
           ' style="width:100%;font-size:13px" autocomplete="off"' +
           ' oninput="_borradorBuscar()"' +
           ' onkeydown="_borradorKeyNav(event)">' +
@@ -4227,10 +4255,12 @@ function confirmarVenta() {
 }
 
 function cargarVentasTab() {
+  sp(true, 'Cargando ventas…');
   var el = document.getElementById('vent-wrap');
-  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
+  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i><p style="margin-top:8px;font-size:12px;color:var(--tx-d)">Cargando ventas…</p></div>';
   google.script.run
     .withSuccessHandler(function(lista) {
+      sp(false);
       if (!lista.length) {
         el.innerHTML = '<div class="empty-state"><i class="fa fa-receipt"></i><p>Sin ventas registradas</p></div>';
         return;
@@ -4255,7 +4285,7 @@ function cargarVentasTab() {
       h += '</tbody></table></div>';
       el.innerHTML = h;
     })
-    .withFailureHandler(function(e){ toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .cargarVentas(100);
 }
 
