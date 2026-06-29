@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.9 -->
+<!-- @version 2.0 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1385,6 +1385,8 @@ var pronosticoData  = {};
 var activeSugCompra = false;
 var _borradorDJI    = [];
 var _BORRADOR_KEY   = 'sm_borrador_dji';
+var _catalogoDJI    = [];
+var _catalogoCargado = false;
 var hotItemsSet     = {};
 var _snRequested    = false;
 var _snList         = [];
@@ -3794,9 +3796,23 @@ function _borradorInit() {
 }
 
 function abrirBorrador() {
-  if (!stockData.length) cargarStockTab();
   _borradorRender();
   modal('modal-borrador').show();
+  if (!_catalogoCargado) _cargarCatalogoBorrador();
+}
+
+function _cargarCatalogoBorrador() {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.ok) {
+        _catalogoDJI    = r.items;
+        _catalogoCargado = true;
+      } else {
+        toast('Error al cargar catálogo: ' + r.error, 'err');
+      }
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); })
+    .cargarCatalogoBorrador();
 }
 
 function _borradorSave() {
@@ -3875,21 +3891,27 @@ function _borradorBuscar() {
   if (!resDiv) return;
   _borradorFocusIdx = -1;
   if (q.length < 2) { resDiv.style.display = 'none'; return; }
-  if (!stockData.length) {
-    resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)">Cargando datos de stock…</div>';
+  if (!_catalogoCargado) {
+    resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)">Cargando catálogo DJI…</div>';
     resDiv.style.display = 'block';
     return;
   }
+  // Mapa de stock actual desde stockData (si está cargado)
+  var stkMap = {};
+  for (var si = 0; si < stockData.length; si++) {
+    stkMap[stockData[si].codigo.toUpperCase()] = stockData[si].stockActual;
+  }
   var qL = q.toLowerCase();
   var matches = [];
-  for (var i = 0; i < stockData.length; i++) {
-    var r = stockData[i];
-    var cL = r.codigo.toLowerCase(), dL = r.descripcion.toLowerCase();
+  for (var i = 0; i < _catalogoDJI.length; i++) {
+    var r = _catalogoDJI[i];
+    var cL = r.codigo.toLowerCase(), ccL = (r.codigoCorto || '').toLowerCase(), dL = r.descripcion.toLowerCase();
+    var mL = (r.modelo || '').toLowerCase();
     var score;
-    if      (cL === qL)               score = 10;
-    else if (cL.indexOf(qL) === 0)    score = 6;
-    else if (dL.indexOf(qL) === 0)    score = 4;
-    else if (cL.indexOf(qL) !== -1 || dL.indexOf(qL) !== -1) score = 1;
+    if      (cL === qL || ccL === qL)                    score = 10;
+    else if (cL.indexOf(qL) === 0 || ccL.indexOf(qL) === 0) score = 6;
+    else if (dL.indexOf(qL) === 0)                       score = 4;
+    else if (cL.indexOf(qL) !== -1 || ccL.indexOf(qL) !== -1 || dL.indexOf(qL) !== -1 || mL.indexOf(qL) !== -1) score = 1;
     else continue;
     matches.push({ r: r, score: score });
   }
@@ -3901,18 +3923,23 @@ function _borradorBuscar() {
     return;
   }
   var h = '';
-  matches.forEach(function(m, idx) {
+  matches.forEach(function(m) {
     var r = m.r;
-    var stk = r.stockActual;
-    var stkColor = stk <= 0 ? 'var(--red)' : (stk <= (r.stockMinimo || 0) ? '#e67e22' : 'var(--green)');
-    var stkTxt   = stk <= 0 ? 'Sin stock' : stk + ' en stock';
+    var stk = stkMap[r.codigo.toUpperCase()];
+    var stkBadge = stk === undefined ? '' :
+      '<span style="font-size:10px;font-weight:600;color:' + (stk <= 0 ? 'var(--red)' : 'var(--green)') + ';white-space:nowrap;flex-shrink:0">' +
+      (stk <= 0 ? 'Sin stock' : stk + ' en stock') + '</span>';
+    var precioBadge = r.precio > 0
+      ? '<span style="font-size:10px;color:var(--tx-d);white-space:nowrap;flex-shrink:0">USD ' + r.precio.toFixed(2) + '</span>'
+      : '';
     h += '<div class="borrador-ri" data-bsku="' + escH(r.codigo) + '" data-bdesc="' + escH(r.descripcion) + '"' +
       ' style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--brd)">' +
-      '<div>' +
+      '<div style="min-width:0">' +
         '<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--blue)">' + escH(r.codigo) + '</div>' +
-        '<div style="font-size:12px;color:var(--tx)">' + escH(r.descripcion) + '</div>' +
+        '<div style="font-size:12px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escH(r.descripcion) + '</div>' +
+        (r.modelo ? '<div style="font-size:10px;color:var(--tx-d)">' + escH(r.modelo) + '</div>' : '') +
       '</div>' +
-      '<span style="font-size:11px;font-weight:600;color:' + stkColor + ';white-space:nowrap;flex-shrink:0">' + stkTxt + '</span>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">' + stkBadge + precioBadge + '</div>' +
     '</div>';
   });
   resDiv.innerHTML = h;

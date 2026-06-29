@@ -51,7 +51,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.9 | Fix borrador: carga stockData al abrir si no está cargado; muestra "Cargando…" en lugar de fallar silencioso |
+| SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| Sm_Código.js | 2.1 | cargarCatalogoBorrador(): lee sheet externo CATALOGO_REPUESTOS_ID, devuelve codigo/codigoCorto/descripcion/modelo/precio |
+| Env.js | 1.1 | Agrega CATALOGO_REPUESTOS_ID con ID del sheet externo de catálogo DJI |
 | SM_Index.html | 1.8 | Borrador de pedido: buscador interactivo con dropdown (código+descripción+stock), navegación por teclado ↑↓/Enter, igual al portal reseller |
 | Sm_Código.js | 1.5 | cruzarComprasExternas: incluye items (cols D/E/F) en cada entrada nuevas |
 | Env.js | 1.0 | |
