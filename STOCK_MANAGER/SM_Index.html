@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.8 -->
+<!-- @version 1.9 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3794,6 +3794,7 @@ function _borradorInit() {
 }
 
 function abrirBorrador() {
+  if (!stockData.length) cargarStockTab();
   _borradorRender();
   modal('modal-borrador').show();
 }
@@ -3873,7 +3874,12 @@ function _borradorBuscar() {
   var resDiv = document.getElementById('borrador-results');
   if (!resDiv) return;
   _borradorFocusIdx = -1;
-  if (q.length < 2 || !stockData.length) { resDiv.style.display = 'none'; return; }
+  if (q.length < 2) { resDiv.style.display = 'none'; return; }
+  if (!stockData.length) {
+    resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)">Cargando datos de stock…</div>';
+    resDiv.style.display = 'block';
+    return;
+  }
   var qL = q.toLowerCase();
   var matches = [];
   for (var i = 0; i < stockData.length; i++) {
