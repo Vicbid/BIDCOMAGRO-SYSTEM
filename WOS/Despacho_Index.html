@@ -1,4 +1,4 @@
-<!-- @version 3.5 -->
+<!-- @version 3.6 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -503,7 +503,7 @@ table.items-tbl tr:hover td{background:var(--surf)}
 @media print{
   html,body{height:auto!important;overflow:visible!important}
   body>*{display:none!important}
-  #pt-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f)}
+  #pt-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f);-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #rsm-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f);font-size:12px}
   .no-print{display:none!important}
   .pt-chk{border:1.5px solid #888}
@@ -2673,32 +2673,20 @@ function abrirPickTicket(numero) {
 
   var fecha = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
 
-  // Carga estado del pick tracker desde localStorage
-  if (!_pickState[numero]) {
-    try {
-      var _lsPT = localStorage.getItem('wos_pick_' + numero);
-      _pickState[numero] = _lsPT ? JSON.parse(_lsPT) : {};
-    } catch(e) { _pickState[numero] = {}; }
-  }
-  var pkSt = _pickState[numero];
+  var _ptLbl = {
+    'Pendiente_Revision': 'Nuevo',     'Confirmado': 'Confirmado',
+    'En_Espera_Reseller': 'Esp. reseller', 'Preparado': 'Preparado',
+    'Preparado Parcial':  'Parcial',   'Backorder': 'Sin stock',
+    'Entregado_Cerrado':  'Despachado','Listo_Retiro': 'Retiro listo',
+    'Entregado_Confirmado': 'Recibido ✓', 'Cancelado': 'Cancelado'
+  };
 
   var filas = '';
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
     var cantTarget = it.cantPend > 0 ? it.cantPend : it.cantSol;
-    var estadoBadge;
-    if (it.estado === 'Backorder') {
-      estadoBadge = '<span style="background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">BACKORDER</span>';
-    } else if (it.estado === 'Cancelado') {
-      estadoBadge = '<span style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">CANCELADO</span>';
-    } else {
-      var picked = Math.min(pkSt[i] || 0, cantTarget);
-      if (picked >= cantTarget && cantTarget > 0) {
-        estadoBadge = '<span style="background:#d1e7dd;color:#0f5132;border:1px solid #badbcc;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">CONFIRMADO</span>';
-      } else {
-        estadoBadge = '<span style="background:#e9ecef;color:#495057;border:1px solid #ced4da;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em">PENDIENTE</span>';
-      }
-    }
+    var estadoBadge = '<span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:10px;padding:2px 7px">' +
+      escH(_ptLbl[it.estado] || it.estado || '—') + '</span>';
     filas += '<tr>' +
       '<td class="pt-sku">' + escH(it.sku) + '</td>' +
       '<td>' + escH(it.desc) + '</td>' +
