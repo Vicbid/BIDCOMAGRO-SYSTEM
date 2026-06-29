@@ -59,6 +59,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
 | SM_Index.html | 2.9 | WMS panel Sin mapear: tercer modo con lista de items con stock pero sin ubicacion, badge con conteo, click abre modo Por item pre-cargado |
+| SM_Index.html | 3.0 | Cruce externo: nueva seccion Diferencias de items vs sheet externo (tabla SKU/SM/Externo, boton Usar externo sincroniza COMPRAS_DETALLE) |
+| Sm_Código.js | 3.3 | cruzarComprasExternas: compara items de CAS no-deposito contra sheet externo, devuelve diferencias; sincronizarItemsCAS(): reemplaza items en COMPRAS_DETALLE preservando cantidades recibidas |
 | Sm_Código.js | 3.2 | Fix stock WOS: elimina llamadas a _actualizarCarmenStock (sobreescribía la fórmula de Carmen col C); agrega restaurarFormulasCarmenStock() para reparar filas con número plano |
 | Sm_Código.js | 3.1 | Despachos eliminados: funciones cargarSolicitudesDespacho, limpiarSolicitudesDeOTsCerradas, generarReportePendientesPDF, procesarDespacho, _actualizarEnviadosEnRep, _notificarDespacho removidas; todo el despacho pasa por WOS |
 | Sm_Código.js | 3.0 | cargarSinMapear(): cruza Carmen STOCK vs UBICACIONES, devuelve hasta 200 items sin ubicacion ordenados desc por stock |

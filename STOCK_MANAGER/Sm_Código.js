@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v3.2 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v3.3 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -1626,21 +1626,149 @@ function cruzarComprasExternas() {
       if (smCas) smCasMap[smCas] = String(smData[si][SCHEMA.COMPRAS_DJI.ESTADO] || '');
     }
 
-    var nuevas = [], recibidas = [];
+    // Items cargados en SM por CAS (COMPRAS_DETALLE)
+    var smDetailByCas = {};
+    try {
+      var hojaDetalle = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
+      if (hojaDetalle) {
+        var dDet = getSheetValues(hojaDetalle);
+        var CD   = SCHEMA.COMPRAS_DETALLE;
+        for (var di = 1; di < dDet.length; di++) {
+          var dCas = String(dDet[di][CD.ID_CAS] || '').trim().toUpperCase();
+          var dSku = String(dDet[di][CD.SKU] || '').trim().toUpperCase();
+          if (!dCas || !dSku) continue;
+          if (!smDetailByCas[dCas]) smDetailByCas[dCas] = {};
+          smDetailByCas[dCas][dSku] = {
+            pedida:   parseInt(dDet[di][CD.CANTIDAD_PEDIDA])   || 0,
+            recibida: parseInt(dDet[di][CD.CANTIDAD_RECIBIDA]) || 0
+          };
+        }
+      }
+    } catch(eDet) { Logger.log('cruzarComprasExternas detalle: ' + eDet); }
+
+    var nuevas = [], recibidas = [], diferencias = [];
     var keys = Object.keys(casMap);
     for (var ki = 0; ki < keys.length; ki++) {
       var e    = casMap[keys[ki]];
       var inSM = smCasMap.hasOwnProperty(e.cas);
-      if (!inSM) nuevas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, items: e.items });
-      if (e.si > 0 && (!inSM || smCasMap[e.cas] !== 'En dep\xf3sito')) {
-        recibidas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, estadoSM: inSM ? smCasMap[e.cas] : null });
+      if (!inSM) {
+        nuevas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, items: e.items });
+        continue;
       }
+      var estadoSM = smCasMap[e.cas];
+      if (e.si > 0 && estadoSM !== 'En dep\xf3sito') {
+        recibidas.push({ cas: e.cas, air: e.air, total: e.total, si: e.si, estadoSM: estadoSM });
+      }
+      // Comparar ítems para CAS que no están en depósito y tienen detalle en SM
+      if (estadoSM === 'En dep\xf3sito') continue;
+      var smDet = smDetailByCas[e.cas];
+      if (!smDet || !e.items.length) continue;
+
+      var extMap = {};
+      for (var ei = 0; ei < e.items.length; ei++) {
+        var eSku = String(e.items[ei].codigo || '').trim().toUpperCase();
+        if (eSku) extMap[eSku] = { cantidad: e.items[ei].cantidad, desc: e.items[ei].descripcion };
+      }
+
+      var diffs = [];
+      var allSkus = {};
+      var ks = Object.keys(extMap); for (var ks0 = 0; ks0 < ks.length; ks0++) allSkus[ks[ks0]] = true;
+      var ks2 = Object.keys(smDet);  for (var ks1 = 0; ks1 < ks2.length; ks1++) allSkus[ks2[ks1]] = true;
+
+      var skuList = Object.keys(allSkus);
+      for (var si2 = 0; si2 < skuList.length; si2++) {
+        var sk      = skuList[si2];
+        var extQty  = extMap[sk]  ? extMap[sk].cantidad      : null;
+        var smQty   = smDet[sk]   ? smDet[sk].pedida         : null;
+        var extDesc = extMap[sk]  ? extMap[sk].desc           : '';
+        if (extQty !== smQty) diffs.push({ sku: sk, desc: extDesc, ext: extQty, sm: smQty });
+      }
+      if (diffs.length) diferencias.push({ cas: e.cas, estadoSM: estadoSM, air: e.air, diffs: diffs, extItems: e.items });
     }
 
-    return { ok: true, nuevas: nuevas, recibidas: recibidas };
+    return { ok: true, nuevas: nuevas, recibidas: recibidas, diferencias: diferencias };
   } catch(e) {
     Logger.log('cruzarComprasExternas: ' + e);
     return { ok: false, msg: e.toString() };
+  }
+}
+
+// Reemplaza los ítems de COMPRAS_DETALLE para un CAS con los del sheet externo.
+// Conserva CANTIDAD_RECIBIDA de las filas existentes que coincidan por SKU.
+function sincronizarItemsCAS(cas) {
+  try {
+    var casKey = String(cas || '').trim().toUpperCase();
+    if (!casKey) return { ok: false, error: 'CAS vacío' };
+
+    // Leer items desde sheet externo
+    var extSS    = SpreadsheetApp.openById(_PEDIDOS_EXT_SS_ID);
+    var pedSheet = extSS.getSheetByName('Pedidos') || extSS.getSheetByName('Pedidos ');
+    if (!pedSheet) {
+      var allS = extSS.getSheets();
+      for (var si = 0; si < allS.length; si++) {
+        if (allS[si].getName().trim() === 'Pedidos') { pedSheet = allS[si]; break; }
+      }
+    }
+    if (!pedSheet) return { ok: false, error: 'Hoja Pedidos no encontrada en sheet externo' };
+
+    var ext    = pedSheet.getDataRange().getValues();
+    var hdrIdx = -1, cCas = -1;
+    for (var ri = 0; ri < Math.min(ext.length, 10) && hdrIdx < 0; ri++) {
+      var hasInv = false, hasIng = false;
+      for (var ci = 0; ci < ext[ri].length; ci++) {
+        var v = String(ext[ri][ci] || '').trim().toLowerCase();
+        if (v.indexOf('invoice') >= 0) { cCas = ci; hasInv = true; }
+        if (v.indexOf('ingreso') >= 0 && v.indexOf('stock') >= 0) hasIng = true;
+      }
+      if (hasInv && hasIng) hdrIdx = ri;
+    }
+    if (hdrIdx < 0 || cCas < 0) return { ok: false, error: 'Columnas no encontradas en sheet externo' };
+
+    var extItems = [];
+    for (var di = hdrIdx + 1; di < ext.length; di++) {
+      var extCas = String(ext[di][cCas] || '').trim().toUpperCase();
+      if (extCas !== casKey) continue;
+      var cod  = String(ext[di][3] || '').trim().toUpperCase();
+      var desc = String(ext[di][4] || '').trim();
+      var qty  = parseInt(ext[di][5], 10) || 0;
+      if (cod && qty > 0) extItems.push({ sku: cod, desc: desc, cantidad: qty });
+    }
+    if (!extItems.length) return { ok: false, error: 'No se encontraron ítems para ' + casKey + ' en el sheet externo' };
+
+    // Leer COMPRAS_DETALLE actual para conservar CANTIDAD_RECIBIDA
+    var hojaCD = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
+    if (!hojaCD) return { ok: false, error: 'Hoja COMPRAS_DETALLE no encontrada' };
+    var CD      = SCHEMA.COMPRAS_DETALLE;
+    var dCD     = hojaCD.getDataRange().getValues();
+    var recibMap = {};
+    var rowsKeep = [dCD[0]]; // encabezado
+    for (var ri2 = 1; ri2 < dCD.length; ri2++) {
+      var rCas = String(dCD[ri2][CD.ID_CAS] || '').trim().toUpperCase();
+      if (rCas === casKey) {
+        // guardar recibido por SKU, descartar la fila (se reemplaza)
+        var rSku = String(dCD[ri2][CD.SKU] || '').trim().toUpperCase();
+        recibMap[rSku] = parseInt(dCD[ri2][CD.CANTIDAD_RECIBIDA]) || 0;
+      } else {
+        rowsKeep.push(dCD[ri2]);
+      }
+    }
+
+    // Agregar nuevas filas con datos del sheet externo
+    for (var xi = 0; xi < extItems.length; xi++) {
+      var xIt  = extItems[xi];
+      var xRec = recibMap[xIt.sku] || 0;
+      var xEst = xRec >= xIt.cantidad ? 'Recibido' : (xRec > 0 ? 'Parcial' : 'Pendiente');
+      rowsKeep.push([casKey, xIt.sku, xIt.desc, xIt.cantidad, xRec, xEst]);
+    }
+
+    hojaCD.clearContents();
+    hojaCD.getRange(1, 1, rowsKeep.length, rowsKeep[0].length).setValues(rowsKeep);
+    invalidateSheetValues(SCHEMA.SHEETS.COMPRAS_DETALLE);
+    SpreadsheetApp.flush();
+    return { ok: true, cas: casKey, items: extItems.length };
+  } catch(e) {
+    Logger.log('sincronizarItemsCAS: ' + e);
+    return { ok: false, error: e.toString() };
   }
 }
 

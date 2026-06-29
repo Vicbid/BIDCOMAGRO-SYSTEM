@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.2 -->
+<!-- @version 3.0 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2766,13 +2766,42 @@ function _cargarCruceExterno() {
           w.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>' + ((res && res.msg) ? escH(res.msg) : 'No se pudo leer el sheet externo') + '</div>';
           return;
         }
-        var nv = res.nuevas    || [];
-        var rc = res.recibidas || [];
-        if (!nv.length && !rc.length) {
-          w.innerHTML = '<div style="color:var(--green);font-size:12px;padding:4px 0 10px"><i class="fa fa-check-circle" style="margin-right:5px"></i>Todo en orden — sin compras sin registrar ni recepcionar.</div>';
+        var nv = res.nuevas      || [];
+        var rc = res.recibidas   || [];
+        var df = res.diferencias || [];
+        if (!nv.length && !rc.length && !df.length) {
+          w.innerHTML = '<div style="color:var(--green);font-size:12px;padding:4px 0 10px"><i class="fa fa-check-circle" style="margin-right:5px"></i>Todo en orden — sin compras sin registrar, recepcionar ni diferencias de ítems.</div>';
           return;
         }
         var h = '<div class="cruce-ext-panel">';
+        if (df.length) {
+          h += '<div class="cruce-sect" style="border-left:3px solid var(--orange)"><div class="cruce-sect-hdr" style="color:var(--orange)"><i class="fa fa-not-equal"></i> Diferencias de ítems vs sheet externo (' + df.length + ')</div><div class="cruce-list">';
+          for (var dfi = 0; dfi < df.length; dfi++) {
+            var edf = df[dfi];
+            var tbl = '<table style="font-size:10px;border-collapse:collapse;margin-top:4px;width:100%">' +
+              '<thead><tr style="color:var(--tx-d)"><th style="text-align:left;padding:1px 6px 1px 0">SKU</th>' +
+              '<th style="text-align:right;padding:1px 6px">SM</th>' +
+              '<th style="text-align:right;padding:1px 6px;color:var(--orange)">Externo</th></tr></thead><tbody>';
+            for (var dfd = 0; dfd < edf.diffs.length; dfd++) {
+              var dd = edf.diffs[dfd];
+              var smVal  = dd.sm  !== null ? dd.sm  : '<span style="color:var(--tx-d)">—</span>';
+              var extVal = dd.ext !== null ? dd.ext : '<span style="color:var(--tx-d)">—</span>';
+              tbl += '<tr><td style="padding:1px 6px 1px 0">' + escH(dd.sku) + (dd.desc ? ' <span style="color:var(--tx-d)">'+escH(dd.desc)+'</span>' : '') + '</td>' +
+                '<td style="text-align:right;padding:1px 6px">' + smVal + '</td>' +
+                '<td style="text-align:right;padding:1px 6px;font-weight:600;color:var(--orange)">' + extVal + '</td></tr>';
+            }
+            tbl += '</tbody></table>';
+            h += '<div class="cruce-item" style="flex-direction:column;align-items:flex-start">' +
+              '<div style="display:flex;align-items:center;width:100%;gap:8px">' +
+              '<span class="cruce-cas">' + escH(edf.cas) + '</span>' +
+              (edf.air ? '<span class="cruce-air">' + escH(edf.air) + '</span>' : '') +
+              '<span style="font-size:10px;color:var(--tx-d)">SM: ' + escH(edf.estadoSM) + '</span>' +
+              '<span style="font-size:10px;color:var(--orange);margin-left:4px">' + edf.diffs.length + ' diferencia(s)</span>' +
+              '<button class="btn-s" style="font-size:10px;padding:2px 8px;margin-left:auto;background:var(--orange);color:#fff;border-color:var(--orange)" onclick="_sincronizarCAS(\'' + escH(edf.cas) + '\',this)"><i class="fa fa-sync"></i> Usar externo</button>' +
+              '</div>' + tbl + '</div>';
+          }
+          h += '</div></div>';
+        }
         if (rc.length) {
           h += '<div class="cruce-sect cruce-warn"><div class="cruce-sect-hdr"><i class="fa fa-exclamation-triangle"></i> Recibidas seg\xfan el planner sin ingresar en SM (' + rc.length + ')</div><div class="cruce-list">';
           for (var ri = 0; ri < rc.length; ri++) {
@@ -2814,6 +2843,28 @@ function _cargarCruceExterno() {
       if (w) w.innerHTML = '<div style="color:var(--tx-d);font-size:11px;padding:4px 0 10px"><i class="fa fa-exclamation-circle" style="margin-right:4px"></i>Cruce externo no disponible: ' + (e && e.message ? escH(e.message) : 'error desconocido') + '</div>';
     })
     .cruzarComprasExternas();
+}
+
+function _sincronizarCAS(cas, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.ok) {
+        toast('CAS ' + cas + ' actualizado (' + r.items + ' ítems desde sheet externo)', 'ok');
+        _cargarCruceExterno();
+      } else {
+        toast('Error: ' + (r.error || 'desconocido'), 'err');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-sync"></i> Usar externo';
+      }
+    })
+    .withFailureHandler(function(e) {
+      toast('Error: ' + e.message, 'err');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-sync"></i> Usar externo';
+    })
+    .sincronizarItemsCAS(cas);
 }
 
 function cargarComprasTab() {
