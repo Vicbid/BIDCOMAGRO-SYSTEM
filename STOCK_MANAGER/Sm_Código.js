@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.2 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v2.3 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -407,6 +407,7 @@ function cargarDashboard() {
 //  CATÁLOGO REPUESTOS DJI (para Borrador de Pedido)
 function cargarCatalogoBorrador() {
   try {
+    var stkMap = _getCarmenStockMap(); // { SKU_UPPER: stockActual }
     var ss   = SpreadsheetApp.openById(CATALOGO_REPUESTOS_ID);
     var hoja = ss.getSheets()[0];
     var d    = hoja.getDataRange().getValues();
@@ -417,12 +418,15 @@ function cargarCatalogoBorrador() {
       var codC = String(d[i][1] || '').trim();
       var desc = String(d[i][2] || '').trim();
       if (!codL || !desc) continue;
+      // Buscar stock: primero por Código Largo, luego por Código Corto
+      var stk = stkMap[codL.toUpperCase()];
+      if (stk === undefined) stk = stkMap[codC.toUpperCase()];
       out.push({
         codigo:      codL,
         codigoCorto: codC,
         descripcion: desc,
         modelo:      String(d[i][3] || '').trim(),
-        precio:      parseFloat(String(d[i][5] || '').replace(',', '.')) || 0
+        stockActual: stk !== undefined ? stk : null
       });
     }
     return { ok: true, items: out };
