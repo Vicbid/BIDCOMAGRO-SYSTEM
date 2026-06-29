@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.6 -->
+<!-- @version 1.7 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -553,6 +553,10 @@ tr:last-child td{border-bottom:none}
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
         <button class="btn-p" onclick="abrirNuevoCAS()"><i class="fa fa-plus"></i> Registrar nuevo CAS</button>
         <button class="btn-p amber" onclick="abrirGeneradorPedido()"><i class="fa fa-file-excel"></i> Generar pedido DJI (.xlsx)</button>
+        <button class="btn-p" onclick="abrirBorrador()" style="position:relative">
+          <i class="fa fa-shopping-cart"></i> Borrador
+          <span id="borrador-count" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--blue);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:16px;text-align:center"></span>
+        </button>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <button id="btn-auto-restock" class="btn-s" onclick="toggleAutoRestock()" style="gap:6px" title="Crea borradores de compra automáticamente cada día para items críticos/urgentes">
             <i class="fa fa-robot"></i> <span id="auto-restock-lbl">Auto-restock: cargando…</span>
@@ -564,18 +568,6 @@ tr:last-child td{border-bottom:none}
 
       <!-- Cruce con sheet externo de pedidos -->
       <div id="cruce-ext-wrap"></div>
-
-      <!-- ── BORRADOR DE PEDIDO DJI ── -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-head">
-          <div class="card-head-left"><i class="fa fa-shopping-cart"></i> Borrador de pedido <span id="borrador-count" style="font-size:10px;font-weight:400;padding:1px 7px;border-radius:10px;background:var(--blue-l);color:var(--blue);margin-left:6px">0 ítems</span></div>
-          <div style="display:flex;gap:6px">
-            <button class="btn-s green" onclick="_borradorDownloadXLS()"><i class="fa fa-download"></i> Descargar XLS</button>
-            <button class="btn-s" onclick="_borradorClear()" style="color:var(--red)"><i class="fa fa-trash"></i> Vaciar</button>
-          </div>
-        </div>
-        <div id="borrador-body"></div>
-      </div>
 
       <div class="card">
         <div class="card-head"><div class="card-head-left"><i class="fa fa-plane"></i> CAS activos</div></div>
@@ -1340,6 +1332,23 @@ tr:last-child td{border-bottom:none}
           <i class="fa fa-check"></i> Confirmar y generar orden de entrega
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Borrador de pedido DJI -->
+<div class="modal fade" id="modal-borrador" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:680px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px;gap:8px">
+        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-shopping-cart" style="color:var(--blue);margin-right:6px"></i> Borrador de pedido DJI</h6>
+        <div style="display:flex;gap:6px;margin-left:auto;margin-right:8px">
+          <button class="btn-s green" onclick="_borradorDownloadXLS()"><i class="fa fa-download"></i> Descargar XLS</button>
+          <button class="btn-s" onclick="_borradorClear()" style="color:var(--red)"><i class="fa fa-trash"></i> Vaciar</button>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:0" id="borrador-body"></div>
     </div>
   </div>
 </div>
@@ -3781,11 +3790,27 @@ function _borradorInit() {
     var raw = localStorage.getItem(_BORRADOR_KEY);
     _borradorDJI = raw ? JSON.parse(raw) : [];
   } catch(e) { _borradorDJI = []; }
+  _borradorUpdateBadge();
+}
+
+function abrirBorrador() {
   _borradorRender();
+  modal('modal-borrador').show();
 }
 
 function _borradorSave() {
   try { localStorage.setItem(_BORRADOR_KEY, JSON.stringify(_borradorDJI)); } catch(e) {}
+}
+
+function _borradorUpdateBadge() {
+  var el = document.getElementById('borrador-count');
+  if (!el) return;
+  if (_borradorDJI.length) {
+    el.textContent = _borradorDJI.length;
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function _borradorLookupDesc(sku) {
@@ -3798,9 +3823,8 @@ function _borradorLookupDesc(sku) {
 
 function _borradorRender() {
   var body = document.getElementById('borrador-body');
-  var cnt  = document.getElementById('borrador-count');
   if (!body) return;
-  if (cnt) cnt.textContent = _borradorDJI.length + ' ítems';
+  _borradorUpdateBadge();
 
   var h = '';
   if (_borradorDJI.length) {
@@ -3871,8 +3895,6 @@ function _borradorSetQty(idx, val) {
   if (qty <= 0) { _borradorRemove(idx); return; }
   _borradorDJI[idx].qty = qty;
   _borradorSave();
-  var cnt = document.getElementById('borrador-count');
-  if (cnt) cnt.textContent = _borradorDJI.length + ' ítems';
 }
 
 function _borradorRemove(idx) {

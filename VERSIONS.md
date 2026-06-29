@@ -50,7 +50,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| SM_Index.html | 1.6 | Borrador de pedido DJI: carrito persistente en localStorage con add/edit/remove/XLS download |
+| SM_Index.html | 1.7 | Borrador de pedido DJI: convertido a modal con botón + badge de cantidad en la toolbar |
 | Sm_Código.js | 1.5 | cruzarComprasExternas: incluye items (cols D/E/F) en cada entrada nuevas |
 | Env.js | 1.0 | |
 
