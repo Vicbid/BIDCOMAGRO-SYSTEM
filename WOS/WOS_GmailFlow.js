@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.8
+// @version 1.9
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -80,9 +80,10 @@ function _wosGetEmailReseller(nombre) {
   return '';
 }
 
-// Lee todas las filas de un pedido desde NOTAS
+// Lee todas las filas de un pedido desde NOTAS — resuelve la hoja por prefijo de número
 function _wosLeerPedido(numero) {
-  var hoja  = _wosHoja();
+  var hoja  = _getHojaPorNumero(numero);
+  if (!hoja) return { hoja: null, datos: [], reseller: '', envio: '', pago: '', obs: '', threadId: '', tracking: '', items: [] };
   var datos = hoja.getDataRange().getValues();
   var res   = {
     hoja: hoja, datos: datos,
@@ -1315,17 +1316,20 @@ function WOS_detectarRespuestasResellers() {
 //  Ver resultado en Ver → Registros de ejecución.
 // ─────────────────────────────────────────────────────────────
 function WOS_recuperarThreadIds() {
-  var hoja  = _wosHoja();
-  var datos = hoja.getDataRange().getValues();
+  var hojas = [_wosHoja(), _getHojaPedidosOT()].filter(Boolean);
 
-  // Agrupar filas por pedido, solo los que no tienen threadId
-  var sinThread = {};
-  for (var i = 1; i < datos.length; i++) {
-    var num = String(datos[i][COL.NUMERO]    || '').trim();
-    var tid = String(datos[i][COL.THREAD_ID] || '').trim();
-    if (!num || tid) continue;
-    if (!sinThread[num]) sinThread[num] = [];
-    sinThread[num].push(i + 1); // filas 1-indexed
+  // Agrupar filas por pedido, solo los que no tienen threadId; registra la hoja de origen
+  var sinThread = {}; // numero → { hoja, filas: [] }
+  for (var h = 0; h < hojas.length; h++) {
+    var hoja  = hojas[h];
+    var datos = hoja.getDataRange().getValues();
+    for (var i = 1; i < datos.length; i++) {
+      var num = String(datos[i][COL.NUMERO]    || '').trim();
+      var tid = String(datos[i][COL.THREAD_ID] || '').trim();
+      if (!num || tid) continue;
+      if (!sinThread[num]) sinThread[num] = { hoja: hoja, filas: [] };
+      sinThread[num].filas.push(i + 1); // filas 1-indexed
+    }
   }
 
   var numeros = Object.keys(sinThread);
@@ -1337,7 +1341,8 @@ function WOS_recuperarThreadIds() {
 
   for (var n = 0; n < numeros.length; n++) {
     var numero = numeros[n];
-    var rows   = sinThread[numero];
+    var hoja   = sinThread[numero].hoja;
+    var rows   = sinThread[numero].filas;
 
     // Buscar en Gmail: el Portal usa asunto "[PEDIDO] PR-XXXXX — ..."
     // Un solo número es suficiente porque los IDs son únicos
@@ -1400,7 +1405,8 @@ function WOS_instalarTriggerDetector() {
 function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
   try {
     operario  = String(operario || '');
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     var datos = hoja.getDataRange().getValues();
 
     var threadId = '', reseller = '';

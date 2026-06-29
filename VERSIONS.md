@@ -10,7 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: escribe en Pedidos_OTs en lugar de Pedidos_resellers; columnas remapeadas para la nueva hoja (16 cols); numero pasa de REP-OT-X a OT-X |
+| HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: 26 cols (COL schema igual a Pedidos_resellers); formula =E-F-Z en col G; hilo Gmail ancla via draft.send() guardado en col R; lookup email reseller en MASTER; estado inicial Confirmado |
 | HUB_Código.js | 2.1 | Flujo batería unificado: trigger reposición mueve de "Aprobado por DJI" a "Scrap Enviado (Evidencias)"; nuevos estados Caso Enviado y Bateria enviada a reseller en ESTADOS_NOTIFICAR_RESELLER |
 | Index.html | 2.0 | EST_BAT reemplaza EST_RPB con 7 estados; detección batería sin restricción de circuito; esTerminal incluye Rechazado DJI y Sin respuesta · Cerrado |
 | GUIA_FLUJOS.html | 1.3 | Flujo batería: tab renombrado, sección reescrita con nuevos 7 estados; aplica a Reseller Común y Propio |
@@ -42,6 +42,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Despacho_Código.js | 3.1 | WOS despacha todo: WOS_cargarPedidos fusiona Pedidos_resellers + Pedidos_OTs; _procesarFilasPedidos extrae loop; todas las funciones per-numero (cancelar, cambiarEstado, reactivar, revertir, obs, etiqueta) usan _getHojaPorNumero; WOS_buscarBackorderPorSKU + WOS_recibirMercaderia + WOS_reporteBackorder + WOS_checkCambios + WOS_getResumenEnvios escanean ambas hojas; WOS_actualizarValidacion aplica a ambas; WOS_migrarPedidosOTs() función one-time que recrea Pedidos_OTs con 26 cols |
+| WOS_GmailFlow.js | 1.9 | _wosLeerPedido usa _getHojaPorNumero(numero); WOS_recuperarThreadIds escanea ambas hojas con hoja-por-numero; WOS_procesarRespuestaManual usa _getHojaPorNumero |
+| Despacho_Env.js | 1.2 | HOJA_PEDIDOS_OT, _getHojaPedidosOT(), _esNumeroOT(), _getHojaPorNumero() — resolver de hoja por prefijo OT- vs resellers |
 | Despacho_Index.html | 3.7 | Modal despacho: selector de ubicacion WMS por item (recomendacion = mayor stock); pick ticket muestra ubicacion sugerida en negrita |
 | WOS_GmailFlow.js | 1.8 | WOS_despacharCompleto: escribe ubicacion en col H de Entregados y resta cantidad de UBICACIONES |
 | Despacho_Código.js | 2.9 | WOS_cargarUbicacionesPedido(skus): carga ubicaciones WMS de multiples SKUs en una lectura, ordenadas desc por cantidad |
@@ -57,9 +60,16 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 3.2 | Dashboard: KPI y panel renombrados a "Pedidos WOS pendientes" — incluye Pedidos_resellers + Pedidos_OTs |
+| Sm_Código.js | 3.7 | cargarDashboard: solicPendientes fusiona Pedidos_resellers + Pedidos_OTs del WOS (ambos tipos de pedido tratan igual al stock); SOLICITUDES_DESPACHO deprecada removida |
+| SM_Index.html | 3.1 | Dashboard: panel "Solicitudes pendientes HUB" reemplazado por "Pedidos OT pendientes (WOS)" — lee Pedidos_OTs del WOS (estado, cantPend, diasEspera); renderOTTracking muestra badge de estado WOS por OT (_wosBadge) |
+| Sm_Código.js | 3.6 | cargarDashboard: solicPendientes lee Pedidos_OTs del WOS en lugar de SOLICITUDES_DESPACHO (deprecada); SOLICITUDES removida del preload de hojas |
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
 | SM_Index.html | 2.9 | WMS panel Sin mapear: tercer modo con lista de items con stock pero sin ubicacion, badge con conteo, click abre modo Por item pre-cargado |
 | SM_Index.html | 3.0 | Cruce externo: nueva seccion Diferencias de items vs sheet externo (tabla SKU/SM/Externo, boton Usar externo sincroniza COMPRAS_DETALLE) |
+| Sm_Código.js | 3.5 | obtenerOTsBloqueadasConCAS: agrega campo wos con estado de despacho leido de Pedidos_OTs (WOS); null si aun no generado en WOS |
+| Env.js | 1.4 | Agrega WOS_NOTAS_SS_ID para que SM pueda leer Pedidos_OTs |
+| Sm_Código.js | 3.4 | _alertarBackordersPendientes: reescrita — cruza SKUs del CAS contra WOS Pedidos_resellers (estado Backorder); cobertura basada en stock actual de STOCK_REPUESTOS (no en items del CAS); email muestra stock disponible vs pendiente por pedido |
 | Sm_Código.js | 3.3 | cruzarComprasExternas: compara items de CAS no-deposito contra sheet externo, devuelve diferencias; sincronizarItemsCAS(): reemplaza items en COMPRAS_DETALLE preservando cantidades recibidas |
 | Sm_Código.js | 3.2 | Fix stock WOS: elimina llamadas a _actualizarCarmenStock (sobreescribía la fórmula de Carmen col C); agrega restaurarFormulasCarmenStock() para reparar filas con número plano |
 | Sm_Código.js | 3.1 | Despachos eliminados: funciones cargarSolicitudesDespacho, limpiarSolicitudesDeOTsCerradas, generarReportePendientesPDF, procesarDespacho, _actualizarEnviadosEnRep, _notificarDespacho removidas; todo el despacho pasa por WOS |

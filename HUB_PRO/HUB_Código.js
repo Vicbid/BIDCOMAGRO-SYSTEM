@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.1
+// @version 2.2
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -54,41 +54,92 @@ function HUB_generarPedidoRepuestos(data) {
     var items = data.items || [];
     if (!items.length) return { ok: false, error: 'No hay ítems para pedir.' };
 
-    var aprobado = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ PENDIENTE APROBACIÓN DJI';
-    var nota     = aprobado + (data.garantia ? ' | ' + data.garantia : '');
+    var reseller = String(data.reseller || '').trim();
     var idVenGar = String(data.cas || data.garantia || '').trim();
+    var aprobado = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ SIN APROBACIÓN DJI';
+    var obs      = aprobado + (data.garantia ? ' | ' + data.garantia : '') + (idVenGar ? ' | CAS: ' + idVenGar : '');
     var fecha    = new Date();
+    var operario = Session.getActiveUser().getEmail();
 
+    // Buscar email del reseller en MASTER para el hilo Gmail
+    var emailReseller = '';
+    try {
+      var rsData = SpreadsheetApp.openById(MASTER_SHEET_ID)
+                    .getSheetByName(SCHEMA.SHEETS.RESELLERS).getDataRange().getValues();
+      var rNom = reseller.toLowerCase();
+      for (var ri = 1; ri < rsData.length; ri++) {
+        if (String(rsData[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rNom) {
+          emailReseller = String(rsData[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
+          break;
+        }
+      }
+    } catch(eRS) { Logger.log('HUB_generarPedidoRepuestos emailReseller: ' + eRS); }
+
+    // Crear hilo Gmail ancla — WOS_despacharCompleto lo necesita para responder al despachar
+    var threadId = '';
+    try {
+      var asunto = '[' + numero + '] Repuestos — ' + reseller;
+      var itemsText = '';
+      for (var ii = 0; ii < items.length; ii++) {
+        var itI = items[ii];
+        itemsText += '• ' + String(itI.cod || '').trim() + ' · ' + String(itI.desc || '').trim() + ' (x' + (Number(itI.qty) || 1) + ')\n';
+      }
+      var bodyPlain = 'Pedido de repuestos: ' + numero + '\nReseller: ' + reseller +
+        (idVenGar ? '\nReferencia: ' + idVenGar : '') + '\n\n' + itemsText;
+      var bodyHtml =
+        '<p><strong>' + numero + '</strong> — Repuestos de reparación</p>' +
+        '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
+        '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>' +
+        '<p style="font-size:11px;color:#888">Este email es el hilo ancla del pedido. El WOS responderá aquí al despachar.</p>';
+      var toAddr = emailReseller || CONFIG.EMAIL_SUPERVISOR;
+      var gmOpts = { name: CONFIG.NOMBRE_REMITENTE, cc: CONFIG.EMAIL_SUPERVISOR, htmlBody: bodyHtml };
+      var draft   = GmailApp.createDraft(toAddr, asunto, bodyPlain, gmOpts);
+      var sentMsg = draft.send();
+      threadId    = sentMsg.getThread().getId();
+    } catch(eGm) { Logger.log('HUB_generarPedidoRepuestos Gmail: ' + eGm); }
+
+    // Escribir filas con el schema de 26 cols (igual a Pedidos_resellers / COL)
+    var primeraFila = hoja.getLastRow() + 1;
     for (var j = 0; j < items.length; j++) {
-      var it = items[j];
+      var it  = items[j];
       if (!it.cod || !it.desc) continue;
-      var qty  = Number(it.qty) || 1;
-      var fila = new Array(16).fill('');
-      fila[0]  = numero;
-      fila[1]  = String(data.reseller || '');
-      fila[2]  = String(it.cod  || '').trim().toUpperCase();
-      fila[3]  = String(it.desc || '').trim();
-      fila[4]  = qty;
-      fila[5]  = 0;            // Qty preparada
-      fila[6]  = qty;          // Qty pendiente de entrega
-      fila[7]  = 'Pedido';     // Estado
-      fila[8]  = fecha;        // Fecha de carga
-      fila[9]  = '';           // Urgente
-      fila[10] = '';           // Nota de Salida
-      fila[11] = idVenGar;     // ID Venta o Garantia?
-      fila[12] = '';           // Descontado de Cardex!
-      fila[13] = 'OT';         // Tipo Vta Rptos /Vta Acc u OT
-      fila[14] = nota;         // Nota
-      fila[15] = '';           // Qty dias (calculado por sheet)
+      var qty    = Number(it.qty)    || 1;
+      var precio = Number(it.precio || it.price || 0);
+      // 26 posiciones: índice 0=A … 25=Z
+      var fila = ['','','','','','','','','','','','','','','','','','','','','','','','','',''];
+      fila[0]  = numero;                                   // A NUMERO
+      fila[1]  = reseller;                                 // B RESELLER
+      fila[2]  = String(it.cod  || '').trim().toUpperCase(); // C SKU
+      fila[3]  = String(it.desc || '').trim();             // D DESC
+      fila[4]  = qty;                                      // E CANT_SOL
+      fila[5]  = 0;                                        // F CANT_DESP
+      // G(6) CANT_PEND: se pone fórmula después (appendRow no soporta fórmulas)
+      fila[7]  = precio;                                   // H PRECIO
+      fila[8]  = '';                                       // I STOCK_ORI (desconocido al crear)
+      fila[9]  = 'Confirmado';                             // J ESTADO
+      fila[10] = fecha;                                    // K FECHA
+      fila[11] = '';                                       // L ENVIO (se define al despachar)
+      fila[12] = '';                                       // M PAGO
+      fila[13] = obs;                                      // N OBS
+      fila[17] = threadId;                                 // R THREAD_ID
+      fila[23] = operario;                                 // X OPERARIO
+      fila[25] = 0;                                        // Z CANT_CANCEL
       hoja.appendRow(fila);
     }
+
+    // Escribir fórmula CANT_PEND (=E-F-Z) en col G para cada fila recién agregada
+    var ultimaFila = hoja.getLastRow();
+    for (var f = primeraFila; f <= ultimaFila; f++) {
+      hoja.getRange(f, 7).setFormula('=E' + f + '-F' + f + '-Z' + f);
+    }
+
     SpreadsheetApp.flush();
 
-    registrarLog(data.ot, '', Session.getActiveUser().getEmail(),
+    registrarLog(data.ot, '', operario,
       'PEDIDO REP', data.estado || '', data.estado || '',
-      'Generado ' + numero + ' — ' + items.length + ' ítem(s)' + (data.aprobadoDJI ? '' : ' [SIN APROBACIÓN DJI]'));
+      'Generado ' + numero + ' — ' + items.length + ' ítem(s)' + (threadId ? ' [hilo Gmail OK]' : ' [SIN hilo Gmail]'));
 
-    return { ok: true, numero: numero };
+    return { ok: true, numero: numero, threadId: threadId };
   } catch(e) {
     Logger.log('HUB_generarPedidoRepuestos ERROR: ' + e);
     return { ok: false, error: e.toString() };

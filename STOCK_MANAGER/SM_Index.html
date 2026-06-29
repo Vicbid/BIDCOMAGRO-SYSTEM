@@ -413,10 +413,10 @@ tr:last-child td{border-bottom:none}
         </div>
       </div>
 
-      <!-- Solicitudes pendientes HUB -->
+      <!-- Pedidos OT pendientes (WOS) -->
       <div class="card">
         <div class="card-head">
-          <div class="card-head-left"><i class="fa fa-inbox" style="color:var(--orange)"></i> Solicitudes pendientes del HUB</div>
+          <div class="card-head-left"><i class="fa fa-box-open" style="color:var(--orange)"></i> Pedidos pendientes de despacho (WOS)</div>
         </div>
         <div id="dash-solic-wrap">
           <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
@@ -1739,7 +1739,7 @@ function renderDashboard(d) {
     kpiHtml('CRÍTICO · Cat. A', bm.A||0, bm.A>0?'crit':'ok') +
     kpiHtml('BAJO · Cat. B', bm.B||0, bm.B>0?'warn':'ok') +
     kpiHtml('Bajo mínimo total', bm.total||0, bm.total>0?'warn':'ok') +
-    kpiHtml('Sol. pendientes HUB', (d.solicPendientes||[]).length, (d.solicPendientes||[]).length>0?'warn':'ok') +
+    kpiHtml('Pedidos WOS pendientes', (d.solicPendientes||[]).length, (d.solicPendientes||[]).length>0?'warn':'ok') +
     kpiHtml('CAS en tránsito', (d.casTransito||[]).length, 'info') +
     kpiHtml('Valor depósito', valDepStr, 'info') +
     kpiHtml('Lead time prom.', ltStr, m.leadTime>30?'crit':(m.leadTime>20?'warn':'info')) +
@@ -1880,19 +1880,30 @@ function kpiHtml(label, num, cls) {
 function renderSolicitesDashboard(lista) {
   var el = document.getElementById('dash-solic-wrap');
   if (!lista.length) {
-    el.innerHTML = '<div class="empty-state"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin solicitudes pendientes</p></div>';
+    el.innerHTML = '<div class="empty-state"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin pedidos pendientes</p></div>';
     return;
   }
-  var h = '<div class="tbl-wrap"><table><thead><tr><th>OT</th><th>Reseller</th><th>Código</th><th>Cant.</th><th>Urgencia</th><th>Espera</th></tr></thead><tbody>';
-  lista.slice(0,5).forEach(function(s) {
-    var urgCol = s.urgencia==='URGENTE'?'var(--red)':'var(--tx-m)';
-    h += '<tr><td><span style="font-weight:700;color:var(--blue)">'+s.ot+'</span></td>' +
-         '<td>'+s.reseller+'</td><td>'+s.codigo+'</td><td>'+s.cantSol+'</td>' +
-         '<td><span style="color:'+urgCol+';font-weight:700;font-size:11px">'+s.urgencia+'</span></td>' +
-         '<td><span style="font-weight:700;color:'+(s.diasEspera>3?'var(--red)':'var(--tx-m)')+'">'+s.diasEspera+'d</span></td></tr>';
+  var EST_COLOR = {
+    'Confirmado':       'var(--blue)',
+    'Preparado':        'var(--indigo)',
+    'Preparado Parcial':'var(--orange)',
+    'Backorder':        'var(--red)',
+    'Pendiente_Revision':'var(--tx-m)'
+  };
+  var h = '<div class="tbl-wrap"><table><thead><tr><th>Pedido</th><th>Reseller</th><th>Estado</th><th>Pend.</th><th>Días</th></tr></thead><tbody>';
+  lista.slice(0, 8).forEach(function(s) {
+    var estCol  = EST_COLOR[s.estado] || 'var(--tx-m)';
+    var diasCol = s.diasEspera > 5 ? 'var(--red)' : s.diasEspera > 2 ? 'var(--orange)' : 'var(--tx-m)';
+    h += '<tr>' +
+         '<td><span style="font-weight:700;color:var(--blue)">' + s.numero + '</span></td>' +
+         '<td style="font-size:11px">' + s.reseller + '</td>' +
+         '<td><span style="font-size:10px;font-weight:700;color:' + estCol + '">' + s.estado + '</span></td>' +
+         '<td style="text-align:center;font-weight:700">' + s.cantPend + '</td>' +
+         '<td><span style="font-weight:700;color:' + diasCol + '">' + s.diasEspera + 'd</span></td>' +
+         '</tr>';
   });
   h += '</tbody></table></div>';
-  if (lista.length > 5) h += '<div style="padding:8px 14px;font-size:11px;color:var(--tx-m)">+' + (lista.length-5) + ' más</div>';
+  if (lista.length > 8) h += '<div style="padding:8px 14px;font-size:11px;color:var(--tx-m)">+' + (lista.length - 8) + ' más</div>';
   el.innerHTML = h;
 }
 
@@ -2674,6 +2685,26 @@ function cargarOTTracking() {
     .obtenerOTsBloqueadasConCAS();
 }
 
+function _wosBadge(wos) {
+  if (!wos) return '<span style="font-size:10px;color:var(--tx-d)"><i class="fa fa-clock" style="margin-right:3px"></i>Sin pedido WOS</span>';
+  var est = wos.estado || '';
+  var color = est === 'Entregado_Cerrado' || est === 'Entregado_Confirmado' ? 'var(--green)'
+            : est === 'Preparado'         ? 'var(--indigo)'
+            : est === 'Preparado Parcial' ? 'var(--orange)'
+            : est === 'Backorder'         ? 'var(--red)'
+            : est === 'Confirmado'        ? 'var(--blue)'
+            : 'var(--tx-m)';
+  var icon  = (est === 'Entregado_Cerrado' || est === 'Entregado_Confirmado') ? 'fa-check-circle'
+            : est === 'Preparado'  ? 'fa-box'
+            : est === 'Backorder'  ? 'fa-exclamation-circle'
+            : 'fa-tools';
+  var detail = (wos.cantPend > 0 ? ' · ' + wos.cantPend + ' pend.' : '') +
+               (wos.notaEntrega ? ' · NE: ' + wos.notaEntrega : '') +
+               (wos.fechaDesp   ? ' (' + wos.fechaDesp + ')' : '');
+  return '<span style="font-size:10px;font-weight:700;color:' + color + ';white-space:nowrap">' +
+         '<i class="fa ' + icon + '" style="margin-right:3px"></i>WOS: ' + est + detail + '</span>';
+}
+
 function renderOTTracking(lista) {
   var card = document.getElementById('card-ot-tracking');
   var wrap = document.getElementById('ot-tracking-wrap');
@@ -2685,13 +2716,15 @@ function renderOTTracking(lista) {
   var h = '';
   lista.forEach(function(ot) {
     var hasLink = ot.skus.some(function(s) { return s.cas && s.cas.length; });
+    var wos = ot.wos || null;
+    var casTag = hasLink
+      ? '<span class="b-ok" style="font-size:10px">CAS asignado</span>'
+      : '<span class="b-crit" style="font-size:10px">Sin CAS</span>';
     h += '<div class="ot-track-card">';
     h += '<div class="ot-track-hd">' +
          '<span style="font-size:12px;font-weight:700;color:var(--blue)">' + ot.ot + '</span>' +
          '<span style="font-size:11px;color:var(--tx-m)">' + ot.reseller + '</span>' +
-         (hasLink
-           ? '<span class="b-ok" style="font-size:10px">Abastecido por CAS</span>'
-           : '<span class="b-crit" style="font-size:10px">Sin CAS asignado</span>') +
+         casTag + _wosBadge(wos) +
          '</div>';
     ot.skus.forEach(function(s) {
       h += '<div class="ot-track-sku">';

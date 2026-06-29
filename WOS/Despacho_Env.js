@@ -3,7 +3,8 @@ var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var PLANIF_SS_ID           = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
 var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab WMS en Carmen
-var HOJA_PEDIDOS  = 'Pedidos_resellers';
+var HOJA_PEDIDOS    = 'Pedidos_resellers';
+var HOJA_PEDIDOS_OT = 'Pedidos_OTs'; // mismo schema (COL) que Pedidos_resellers — repuestos de reparaciones (HUB PRO)
 // Defaults — sobreescritos por WOS_CONFIG en MASTER si existe
 var EMAIL_SOPORTE     = 'soporteagrasdji@bidcom.com.ar';
 var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar';
@@ -85,4 +86,17 @@ var EST = {
 
 function _getHojaPedidos() {
   return SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName(HOJA_PEDIDOS);
+}
+
+function _getHojaPedidosOT() {
+  return SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName(HOJA_PEDIDOS_OT);
+}
+
+// Resuelve a qué hoja pertenece un número de pedido — 'OT-' = repuestos de reparación, resto = Pedidos_resellers.
+// Ambas hojas comparten el mismo layout de columnas (COL).
+function _esNumeroOT(numero) {
+  return String(numero || '').trim().toUpperCase().indexOf('OT-') === 0;
+}
+function _getHojaPorNumero(numero) {
+  return _esNumeroOT(numero) ? _getHojaPedidosOT() : _getHojaPedidos();
 }

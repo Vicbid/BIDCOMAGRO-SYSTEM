@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v3.3 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v3.7 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -236,7 +236,7 @@ function cargarDashboard() {
     var ss = getSS();
     
     // Leemos todo el libro de una vez para minimizar llamadas al servidor
-    var hojas = [SCHEMA.SHEETS.STOCK, SCHEMA.SHEETS.SOLICITUDES, SCHEMA.SHEETS.COMPRAS, SCHEMA.SHEETS.DB_REPUESTOS, SCHEMA.SHEETS.MOVIMIENTOS];
+    var hojas = [SCHEMA.SHEETS.STOCK, SCHEMA.SHEETS.COMPRAS, SCHEMA.SHEETS.DB_REPUESTOS, SCHEMA.SHEETS.MOVIMIENTOS];
     var db = {};
     hojas.forEach(function(h) {
       var sheet = ss.getSheetByName(h);
@@ -311,18 +311,48 @@ function cargarDashboard() {
       return b.bloqueadas - a.bloqueadas;
     });
 
-    // Solicitudes Pendientes (Optimizado)
-    var dSolic = db[SCHEMA.SHEETS.SOLICITUDES];
-    var solicPendientes = dSolic.slice(1).filter(function(fs) {
-      return String(fs[8]) === "Pendiente";
-    }).map(function(fs) {
-      return {
-        id: String(fs[0]), fecha: _fmtFecha(fs[1]), ot: String(fs[2]),
-        reseller: String(fs[3]), codigo: String(fs[4]),
-        descripcion: String(fs[5]), cantSol: parseInt(fs[6]) || 0,
-        urgencia: String(fs[9]), diasEspera: (fs[1] instanceof Date) ? Math.floor((hoy - fs[1]) / 86400000) : 0
-      };
-    }).sort(function(a, b) { return b.diasEspera - a.diasEspera; });
+    // Pedidos pendientes de despacho — fusiona Pedidos_resellers + Pedidos_OTs del WOS
+    // COL: 0=NUMERO, 1=RESELLER, 6=CANT_PEND, 9=ESTADO, 10=FECHA
+    var solicPendientes = [];
+    try {
+      var wosSS = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+      var wosHojas = [wosSS.getSheetByName('Pedidos_resellers'), wosSS.getSheetByName('Pedidos_OTs')].filter(Boolean);
+      var ESTADOS_CERRADOS_WOS = ['Entregado_Cerrado', 'Cancelado', 'Entregado_Confirmado'];
+      var pedMap = {};
+      for (var wh = 0; wh < wosHojas.length; wh++) {
+        var wosD = wosHojas[wh].getDataRange().getValues();
+        for (var wp = 1; wp < wosD.length; wp++) {
+          var wNum  = String(wosD[wp][0] || '').trim();
+          var wEst  = String(wosD[wp][9] || '').trim();
+          if (!wNum || ESTADOS_CERRADOS_WOS.indexOf(wEst) !== -1) continue;
+          var wPend = Number(wosD[wp][6]) || 0;
+          if (wPend <= 0) continue;
+          var wFec  = wosD[wp][10];
+          if (!pedMap[wNum]) {
+            pedMap[wNum] = {
+              numero:   wNum,
+              reseller: String(wosD[wp][1] || ''),
+              estado:   wEst,
+              cantPend: 0,
+              fecha:    (wFec instanceof Date) ? wFec : null
+            };
+          }
+          pedMap[wNum].cantPend += wPend;
+        }
+      }
+      var wKeys = Object.keys(pedMap);
+      for (var wk = 0; wk < wKeys.length; wk++) {
+        var ped = pedMap[wKeys[wk]];
+        solicPendientes.push({
+          numero:     ped.numero,
+          reseller:   ped.reseller,
+          estado:     ped.estado,
+          cantPend:   ped.cantPend,
+          diasEspera: ped.fecha ? Math.floor((hoy - ped.fecha) / 86400000) : 0
+        });
+      }
+      solicPendientes.sort(function(a, b) { return b.diasEspera - a.diasEspera; });
+    } catch(eWP) { Logger.log('cargarDashboard WOS pedidos: ' + eWP); }
 
     // Métricas logísticas desde COMPRAS_DJI (ya cargado en db, sin round-trip extra)
     var dCom = db[SCHEMA.SHEETS.COMPRAS];
@@ -1435,42 +1465,105 @@ function recibirMercaderia(cas, items, operador, deposito) {
 
 function _alertarBackordersPendientes(cas) {
   try {
-    // Buscar solicitudes pendientes y avisar por mail
-    var dSol = getSheetValues(SCHEMA.SHEETS.SOLICITUDES);
-    var dStr = getSheetValues(SCHEMA.SHEETS.STOCK);
-    var stockMap = {};
-    for (var s=1; s<dStr.length; s++) stockMap[String(dStr[s][0]).trim().toUpperCase()] = parseInt(dStr[s][2])||0;
-    var afectadas = [];
-    for (var i=1; i<dSol.length; i++) {
-      var f = dSol[i];
-      if (String(f[8]) !== "Pendiente") continue;
-      var cod = String(f[4]).trim().toUpperCase();
-      if (stockMap[cod] !== undefined && stockMap[cod] > 0) {
-        afectadas.push({ ot: String(f[2]), reseller: String(f[3]), codigo: cod, descripcion: String(f[5]) });
-      }
+    var casKey = String(cas || '').trim().toUpperCase();
+
+    // SKUs del CAS recibido (de COMPRAS_DETALLE) — usados para filtrar qué backorders revisar
+    var hojaCD   = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
+    if (!hojaCD) return;
+    var dCD      = getSheetValues(hojaCD);
+    var CD       = SCHEMA.COMPRAS_DETALLE;
+    var skusCAS  = {}; // SKU → desc
+    for (var ci = 1; ci < dCD.length; ci++) {
+      if (String(dCD[ci][CD.ID_CAS] || '').trim().toUpperCase() !== casKey) continue;
+      var sku = String(dCD[ci][CD.SKU] || '').trim().toUpperCase();
+      if (sku) skusCAS[sku] = String(dCD[ci][CD.DESCRIPCION] || '');
+    }
+    if (!Object.keys(skusCAS).length) return;
+
+    // Stock actual desde STOCK_REPUESTOS (ya actualizado por la recepción)
+    var dStr     = getSheetValues(SCHEMA.SHEETS.STOCK);
+    var S        = SCHEMA.STOCK_REPUESTOS;
+    var stockMap = {}; // SKU → stock actual
+    for (var si = 1; si < dStr.length; si++) {
+      var sCod = String(dStr[si][S.CODIGO] || '').trim().toUpperCase();
+      if (sCod && skusCAS[sCod] !== undefined) stockMap[sCod] = parseInt(dStr[si][S.STOCK_ACTUAL]) || 0;
+    }
+
+    // Backorders en WOS Pedidos_resellers con estado 'Backorder' para esos SKUs
+    var hojaWOS = SpreadsheetApp.openById('1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw')
+                    .getSheetByName('Pedidos_resellers');
+    if (!hojaWOS) return;
+    var dWOS     = hojaWOS.getDataRange().getValues();
+    // COL indices (Despacho_Env.js): 0=NUMERO,1=RESELLER,2=SKU,3=DESC,4=CANT_SOL,5=CANT_DESP,9=ESTADO,25=CANT_CANCEL
+    var afectadas  = [];
+    var procesados = {};
+    for (var wi = 1; wi < dWOS.length; wi++) {
+      if (String(dWOS[wi][9] || '').trim() !== 'Backorder') continue;
+      var wSku = String(dWOS[wi][2] || '').trim().toUpperCase();
+      if (!skusCAS[wSku]) continue;
+      var numero = String(dWOS[wi][0] || '').trim();
+      var key    = numero + '|' + wSku;
+      if (procesados[key]) continue;
+      procesados[key] = true;
+      var pend = Math.max(0, (Number(dWOS[wi][4]) || 0) - (Number(dWOS[wi][5]) || 0) - (Number(dWOS[wi][25]) || 0));
+      if (pend <= 0) continue;
+      var stockActual = stockMap[wSku] !== undefined ? stockMap[wSku] : 0;
+      afectadas.push({
+        numero:   numero,
+        reseller: String(dWOS[wi][1] || ''),
+        sku:      wSku,
+        desc:     skusCAS[wSku] || String(dWOS[wi][3] || ''),
+        pend:     pend,
+        stock:    stockActual,
+        cubre:    stockActual >= pend
+      });
     }
     if (!afectadas.length) return;
-    var filas = afectadas.map(function(a){
-      return "<tr><td style='padding:6px 10px;font-size:12px;font-weight:700;color:#00a3e0'>"+a.ot+"</td><td style='padding:6px 10px;font-size:12px'>"+a.reseller+"</td><td style='padding:6px 10px;font-size:12px'>"+a.codigo+"</td><td style='padding:6px 10px;font-size:12px'>"+a.descripcion+"</td></tr>";
-    }).join("");
-    GmailApp.sendEmail(SM_CONFIG.EMAIL_SUPERVISOR,
-      "[Stock Manager] MercaderÍ­a llegó — hay "+afectadas.length+" OT(s) que pueden despacharse", "", {
-        htmlBody:
-          "<div style='font-family:sans-serif;max-width:600px'>" +
-          "<div style='background:#00a3e0;padding:16px 20px;border-radius:8px 8px 0 0'>" +
-            "<span style='color:#fff;font-size:16px;font-weight:700'>📦 MercaderÍ­a recibida — OTs esperando despacho</span>" +
-          "</div>" +
-          "<div style='background:#fff;border:1px solid #ddd;padding:18px 20px;border-radius:0 0 8px 8px'>" +
-            "<p style='font-size:13px;color:#444;margin:0 0 14px'>El CAS <strong>"+cas+"</strong> fue recibido en depósito. Las siguientes OTs tienen repuestos que ahora están disponibles:</p>" +
-            "<table style='width:100%;border-collapse:collapse;border:1px solid #eee'>" +
-              "<thead><tr style='background:#f5f5f5'><th style='padding:6px 10px;font-size:11px;text-align:left'>OT</th><th style='padding:6px 10px;font-size:11px;text-align:left'>Reseller</th><th style='padding:6px 10px;font-size:11px;text-align:left'>Código</th><th style='padding:6px 10px;font-size:11px;text-align:left'>Descripción</th></tr></thead>" +
-              "<tbody>"+filas+"</tbody>" +
-            "</table>" +
-            "<p style='font-size:11px;color:#999;margin-top:14px'>Ingresá al Stock Manager para procesar los despachos.</p>" +
-          "</div></div>",
-        name: SM_CONFIG.NOMBRE_REMITENTE, replyTo: SM_CONFIG.EMAIL_SUPERVISOR
-      });
-  } catch(e) { Logger.log("_alertarBackordersPendientes: "+e); }
+
+    var filas = afectadas.map(function(a) {
+      var cobertura = a.cubre
+        ? '<span style="color:#27ae60;font-weight:700">&#10003; Stock suficiente (' + a.stock + ' disp. / ' + a.pend + ' pend.)</span>'
+        : '<span style="color:#e67e22;font-weight:700">Stock insuf.: ' + a.stock + '/' + a.pend + ' u.</span>';
+      return '<tr>' +
+        '<td style="padding:6px 10px;font-size:12px;font-weight:700;color:#00a3e0">' + a.numero + '</td>' +
+        '<td style="padding:6px 10px;font-size:12px">' + a.reseller + '</td>' +
+        '<td style="padding:6px 10px;font-size:12px">' + a.sku + '</td>' +
+        '<td style="padding:6px 10px;font-size:12px">' + a.desc + '</td>' +
+        '<td style="padding:6px 10px;font-size:12px;text-align:center">' + cobertura + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var totalCubren   = afectadas.filter(function(a) { return a.cubre; }).length;
+    var totalParciales = afectadas.length - totalCubren;
+    var asunto = '[WOS] Backorders desbloqueados — CAS ' + casKey +
+      ' (' + (totalCubren ? totalCubren + ' total' : '') +
+      (totalCubren && totalParciales ? ', ' : '') +
+      (totalParciales ? totalParciales + ' parcial' : '') + ')';
+
+    GmailApp.sendEmail(SM_CONFIG.EMAIL_SUPERVISOR, asunto, '', {
+      htmlBody:
+        '<div style="font-family:sans-serif;max-width:650px">' +
+        '<div style="background:#00a3e0;padding:16px 20px;border-radius:8px 8px 0 0">' +
+          '<span style="color:#fff;font-size:16px;font-weight:700">Backorders desbloqueados — ' + casKey + '</span>' +
+        '</div>' +
+        '<div style="background:#fff;border:1px solid #ddd;padding:18px 20px;border-radius:0 0 8px 8px">' +
+          '<p style="font-size:13px;color:#444;margin:0 0 14px">La recepci\xf3n de <strong>' + casKey + '</strong> cubre (total o parcialmente) los siguientes backorders en WOS. Ingres\xe1 al WOS para despachar.</p>' +
+          '<table style="width:100%;border-collapse:collapse;border:1px solid #eee">' +
+            '<thead><tr style="background:#f5f5f5">' +
+              '<th style="padding:6px 10px;font-size:11px;text-align:left">Pedido</th>' +
+              '<th style="padding:6px 10px;font-size:11px;text-align:left">Reseller</th>' +
+              '<th style="padding:6px 10px;font-size:11px;text-align:left">SKU</th>' +
+              '<th style="padding:6px 10px;font-size:11px;text-align:left">Descripci\xf3n</th>' +
+              '<th style="padding:6px 10px;font-size:11px;text-align:center">Cobertura</th>' +
+            '</tr></thead>' +
+            '<tbody>' + filas + '</tbody>' +
+          '</table>' +
+          '<p style="font-size:11px;color:#999;margin-top:14px">Cobertura calculada sobre las unidades recibidas en este CAS vs. unidades pendientes en cada pedido WOS.</p>' +
+        '</div></div>',
+      name: SM_CONFIG.NOMBRE_REMITENTE,
+      replyTo: SM_CONFIG.EMAIL_SUPERVISOR
+    });
+  } catch(e) { Logger.log('_alertarBackordersPendientes: ' + e); }
 }
 
 
@@ -2856,6 +2949,30 @@ function obtenerOTsBloqueadasConCAS() {
       }
     }
 
+    // Mapa OT-{num} → estado de despacho en Pedidos_OTs (WOS)
+    var wosOTMap = {}; // 'OT-123' → { estado, cantDesp, cantPend, notaEntrega, fechaDesp }
+    try {
+      var wosHoja = SpreadsheetApp.openById(WOS_NOTAS_SS_ID).getSheetByName('Pedidos_OTs');
+      if (wosHoja) {
+        var wosData = wosHoja.getDataRange().getValues();
+        var tz = Session.getScriptTimeZone();
+        for (var wi = 1; wi < wosData.length; wi++) {
+          var wNum = String(wosData[wi][0] || '').trim();
+          if (!wNum) continue;
+          if (!wosOTMap[wNum]) {
+            var fdRaw = wosData[wi][14];
+            wosOTMap[wNum] = {
+              estado:      String(wosData[wi][9]  || ''),
+              cantDesp:    Number(wosData[wi][5])  || 0,
+              cantPend:    Number(wosData[wi][6])  || 0,
+              notaEntrega: String(wosData[wi][15] || '').trim(),
+              fechaDesp:   (fdRaw instanceof Date) ? Utilities.formatDate(fdRaw, tz, 'dd/MM/yyyy') : ''
+            };
+          }
+        }
+      }
+    } catch(eWOS) { Logger.log('obtenerOTsBloqueadasConCAS wosOTMap: ' + eWOS); }
+
     var out = [];
     for (var oi = 1; oi < dOT.length; oi++) {
       if (String(dOT[oi][OT.ESTADO] || '') !== 'Espera de repuestos') continue;
@@ -2863,6 +2980,7 @@ function obtenerOTsBloqueadasConCAS() {
       if (!repStr || repStr === 'Sin consumo de repuestos') continue;
       var otNum  = String(dOT[oi][OT.OT]      || '');
       var resNom = String(dOT[oi][OT.RESELLER] || '');
+      var wosKey = 'OT-' + otNum;
       var partes = repStr.split(' ; ');
       var skus   = [];
       for (var pi = 0; pi < partes.length; pi++) {
@@ -2871,7 +2989,12 @@ function obtenerOTsBloqueadasConCAS() {
         if (!sku) continue;
         skus.push({ sku: sku, desc: cols[1] || '', cas: skuCasMap[sku] || null });
       }
-      if (skus.length) out.push({ ot: otNum, reseller: resNom, skus: skus });
+      if (skus.length) out.push({
+        ot:       otNum,
+        reseller: resNom,
+        skus:     skus,
+        wos:      wosOTMap[wosKey] || null  // null = pedido aún no generado en WOS
+      });
     }
     return out.slice(0, 20);
   } catch(e) {
