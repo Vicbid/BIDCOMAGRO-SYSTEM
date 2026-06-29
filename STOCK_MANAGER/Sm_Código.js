@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v3.1 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v3.2 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -129,6 +129,38 @@ function _actualizarCarmenStock(sku, nuevoSaldo) {
     }
     Logger.log('_actualizarCarmenStock: SKU no encontrado en Carmen: ' + sku);
   } catch(e) { Logger.log('_actualizarCarmenStock: ' + e); }
+}
+
+// Restaura la fórmula de Carmen STOCK col C en todas las filas que tienen un número plano.
+// Ejecutar UNA VEZ desde el editor de Apps Script después de actualizar el código.
+// La fórmula asume: col A = SKU, col F = stock base, pivots 'Entreg dinámica' y 'Recib dinámica'.
+function restaurarFormulasCarmenStock() {
+  try {
+    var hoja = _getCarmenSS().getSheetByName('STOCK');
+    if (!hoja) return { ok: false, error: 'Hoja STOCK no encontrada en Carmen' };
+    var lastRow = hoja.getLastRow();
+    if (lastRow < 2) return { ok: true, restauradas: 0 };
+    var formulas  = hoja.getRange(2, 3, lastRow - 1, 1).getFormulas();
+    var newForms  = [];
+    var restauradas = 0;
+    for (var i = 0; i < formulas.length; i++) {
+      var row = i + 2;
+      if (!formulas[i][0]) {
+        // Celda sin fórmula (número plano) — restaurar
+        newForms.push(['=F' + row + '-(SI.ERROR(BUSCARV(A' + row + ',\'Entreg dinámica\'!A:B,2,0),0))+(SI.ERROR(BUSCARV(A' + row + ',\'Recib dinámica\'!A:B,2,0),0))']);
+        restauradas++;
+      } else {
+        newForms.push([formulas[i][0]]); // ya tiene fórmula, no tocar
+      }
+    }
+    hoja.getRange(2, 3, lastRow - 1, 1).setFormulas(newForms);
+    SpreadsheetApp.flush();
+    Logger.log('restaurarFormulasCarmenStock: ' + restauradas + ' filas restauradas de ' + (lastRow - 1) + ' totales');
+    return { ok: true, restauradas: restauradas, total: lastRow - 1 };
+  } catch(e) {
+    Logger.log('restaurarFormulasCarmenStock ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 // ── ASEGURAR HOJAS ───────────────────────────────────────────
@@ -1330,15 +1362,7 @@ function recibirMercaderia(cas, items, operador, deposito) {
     for (var na = 0; na < nuevasFila.length; na++) {
       hojaStr.appendRow(nuevasFila[na]);
     }
-    // Sincronizar stock actual en Carmen para cada ítem recibido
-    for (var sc = 0; sc < items.length; sc++) {
-      var scCod  = String(items[sc].codigo || '').trim().toUpperCase();
-      var scCant = parseInt(items[sc].cantRecibida) || 0;
-      if (!scCod || scCant <= 0) continue;
-      var scFila = stockIdx[scCod];
-      var scNuevo = scFila ? (parseInt(dStr[scFila - 1][2]) || 0) : scCant;
-      _actualizarCarmenStock(scCod, scNuevo);
-    }
+    // Carmen se actualiza vía _escribirEnRecibidos más abajo — no tocar col C directamente
     // Cruzar con RESERVAS activas para este CAS
     var hojaRes  = getSheet(SCHEMA.SHEETS.RESERVAS);
     var dRes     = hojaRes ? getSheetValues(hojaRes) : [];
@@ -3023,8 +3047,7 @@ function registrarEventoLedgerSeguro(params) {
     if (delta > 0) hojaStr.getRange(filaIdx + 1, S.ULTIMA_ENTRADA + 1).setValue(ahora);
     if (delta < 0) hojaStr.getRange(filaIdx + 1, S.ULTIMA_SALIDA  + 1).setValue(ahora);
 
-    // Sincronizar Carmen — fuente de verdad para stock actual
-    _actualizarCarmenStock(sku, saldoNuevo);
+    // Carmen se actualiza vía Entregados/Recibidos + fórmula en col C — no tocar con setValue
 
     // 6. Invalidar caché de getSheetValues para que la próxima lectura sea fresca
     invalidateSheetValues(SCHEMA.SHEETS.STOCK);
