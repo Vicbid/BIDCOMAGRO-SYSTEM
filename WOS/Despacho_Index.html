@@ -1,4 +1,4 @@
-<!-- @version 3.6 -->
+<!-- @version 3.7 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2200,7 +2200,7 @@ function abrirModalDespacho(numero) {
     var esBackorder = it.estado === 'Backorder';
 
     if (!esCancelado) {
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp });
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku });
     }
 
     if (esCancelado) {
@@ -2241,6 +2241,7 @@ function abrirModalDespacho(numero) {
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
+        '<div id="mdi-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
       '</div>';
     } else {
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
@@ -2262,6 +2263,7 @@ function abrirModalDespacho(numero) {
           '<span class="caja-lbl">Va en:</span>' +
           '<select class="caja-sel" id="mdi-caja-' + it.row + '"><option value="0">Bulto 1</option></select>' +
         '</div>' +
+        '<div id="mdi-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
       '</div>';
     }
   }
@@ -2332,7 +2334,53 @@ function abrirModalDespacho(numero) {
       }
     }
   }
-  document.getElementById('modal-desp').style.display     = 'flex';
+  document.getElementById('modal-desp').style.display = 'flex';
+
+  // Cargar ubicaciones WMS para los ítems activos
+  var _skusActivos = [];
+  for (var ai = 0; ai < _modalDesp.items.length; ai++) {
+    if (_modalDesp.items[ai].sku) _skusActivos.push(_modalDesp.items[ai].sku);
+  }
+  if (_skusActivos.length) {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r.ok) return;
+        _inyectarUbicaciones(r.map);
+      })
+      .withFailureHandler(function() {
+        // Silencioso — las ubicaciones son opcionales
+        for (var fi = 0; fi < _modalDesp.items.length; fi++) {
+          var fw = document.getElementById('mdi-ubic-wrap-' + _modalDesp.items[fi].row);
+          if (fw) fw.innerHTML = '';
+        }
+      })
+      .WOS_cargarUbicacionesPedido(_skusActivos);
+  }
+}
+
+function _inyectarUbicaciones(map) {
+  for (var i = 0; i < _modalDesp.items.length; i++) {
+    var it  = _modalDesp.items[i];
+    var wrap = document.getElementById('mdi-ubic-wrap-' + it.row);
+    if (!wrap) continue;
+    var locs = (it.sku && map[it.sku.toUpperCase()]) ? map[it.sku.toUpperCase()] : [];
+    if (!locs.length) {
+      wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicación en WMS</span>';
+      continue;
+    }
+    var opts = '';
+    for (var li = 0; li < locs.length; li++) {
+      var loc = locs[li];
+      var lbl = (li === 0 ? '★ ' : '') + escH(loc.ubicacion) + ' (' + loc.cantidad + 'u.)';
+      opts += '<option value="' + escH(loc.ubicacion) + '"' + (li === 0 ? ' selected' : '') + '>' + lbl + '</option>';
+    }
+    opts += '<option value="">— Sin especificar</option>';
+    wrap.innerHTML =
+      '<div class="caja-wrap" style="margin-top:2px">' +
+        '<span class="caja-lbl">Ubicación:</span>' +
+        '<select class="caja-sel" id="mdi-ubic-' + it.row + '">' + opts + '</select>' +
+      '</div>';
+  }
 }
 
 function _toggleSeriales(row) {
@@ -2525,7 +2573,9 @@ function confirmarDespacho() {
     }
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
-    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
+    var ubicEl  = document.getElementById('mdi-ubic-' + it.row);
+    var ubicVal = ubicEl ? ubicEl.value : '';
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx, ubicacion: ubicVal });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;
@@ -2687,11 +2737,22 @@ function abrirPickTicket(numero) {
     var cantTarget = it.cantPend > 0 ? it.cantPend : it.cantSol;
     var estadoBadge = '<span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:10px;padding:2px 7px">' +
       escH(_ptLbl[it.estado] || it.estado || '—') + '</span>';
+    // Ubicación: mostrar la primera (recomendación) en negrita, el resto en gris
+    var ubicStr = it.ubicacion || '—';
+    var ubicDisplay = ubicStr;
+    if (ubicStr.indexOf(' · ') >= 0) {
+      var _partes = ubicStr.split(' · ');
+      ubicDisplay = '<strong>' + escH(_partes[0]) + '</strong>' +
+        ' <span style="color:#aaa;font-size:9px">' + escH(_partes.slice(1).join(' · ')) + '</span>';
+    } else if (ubicStr !== '—') {
+      ubicDisplay = '<strong>' + escH(ubicStr) + '</strong>';
+    }
     filas += '<tr>' +
       '<td class="pt-sku">' + escH(it.sku) + '</td>' +
       '<td>' + escH(it.desc) + '</td>' +
       '<td style="text-align:center;font-weight:700">' + cantTarget + '</td>' +
       '<td style="text-align:center">' + estadoBadge + '</td>' +
+      '<td style="font-size:10px;line-height:1.3">' + ubicDisplay + '</td>' +
       '<td style="text-align:center"><span class="pt-chk"></span></td>' +
     '</tr>';
   }
@@ -2710,7 +2771,7 @@ function abrirPickTicket(numero) {
     '</div>' +
     (ped.obs ? '<div style="background:#fffbe6;border:1px solid #f9d95a;border-radius:6px;padding:7px 10px;font-size:11px;margin-bottom:10px"><strong>Obs:</strong> ' + escH(ped.obs) + '</div>' : '') +
     '<table class="pt-table">' +
-      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Estado</th><th style="text-align:center">Picking</th></tr></thead>' +
+      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Estado</th><th>Ubicación</th><th style="text-align:center">Picking</th></tr></thead>' +
       '<tbody>' + filas + '</tbody>' +
     '</table>' +
     '<div class="pt-firma">' +

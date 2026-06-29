@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.7 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v2.8 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -717,6 +717,25 @@ function guardarUbicacionInicial(sku, ubicacion, cantidadInicial) {
     }
     hojaUbic.appendRow([codKey, ubicKey, cantIni]); // PN | Ubicación | Cantidad (número)
     return { ok: true };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// Retorna todos los ítems registrados en una ubicación específica
+function cargarUbicacionesSector(ubicacion) {
+  try {
+    var ubicKey  = String(ubicacion).trim().toUpperCase();
+    var hojaUbic = _getCarmenSS().getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: true, items: [] };
+    var d   = hojaUbic.getDataRange().getValues();
+    var out = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim().toUpperCase() !== ubicKey) continue;
+      out.push({
+        sku:      String(d[i][0] || '').trim(),
+        cantidad: parseFloat(d[i][2]) || 0
+      });
+    }
+    return { ok: true, items: out };
   } catch(e) { return { ok: false, error: e.message }; }
 }
 

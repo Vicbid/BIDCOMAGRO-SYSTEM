@@ -41,6 +41,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Despacho_Index.html | 3.7 | Modal despacho: selector de ubicacion WMS por item (recomendacion = mayor stock); pick ticket muestra ubicacion sugerida en negrita |
+| WOS_GmailFlow.js | 1.8 | WOS_despacharCompleto: escribe ubicacion en col H de Entregados y resta cantidad de UBICACIONES |
+| Despacho_Código.js | 2.9 | WOS_cargarUbicacionesPedido(skus): carga ubicaciones WMS de multiples SKUs en una lectura, ordenadas desc por cantidad |
 | Despacho_Código.js | 3.0 | CANT_CANCEL col Z: demanda perdida usa CANT_CANCEL con fallback a CANCELADO viejo | Optimizaciones: elimina funciones duplicadas (_lookupResellerEmail, _emailHead/_emailFoot), unifica cache key CARMEN, enCaminoMap en WOS_cargarStock llama a WOS_getEnCaminoMap(), alinea lógica de compras activas en reporteBackorder, batch writes en WOS_revertirAPreparado, elimina logs debug |
 | Despacho_Index.html | 3.0 | Pick ticket: columna Estado + fix multi-página al imprimir (position:fixed→static) |
 | Despacho_Index.html | 3.6 | Pick ticket: badge de cada ítem usa it.estado real (mismo que la tarjeta de pedido); print-color-adjust para colores en impresión |
@@ -54,6 +57,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| SM_Index.html | 2.7 | WMS modo sector: toggle Por item / Por sector; conteo rapido por rack con autocomplete y lista editable |
+| Sm_Código.js | 2.8 | cargarUbicacionesSector(): devuelve todos los items de una ubicacion especifica |
 | SM_Index.html | 2.6 | WMS: advertencia B cuando total asignado supera stock Carmen; barra de estado Asignado/Sin asignar/Todo asignado |
 | Sm_Código.js | 2.7 | UBICACIONES sin formula: guardarUbicacionInicial y _registrarMovimientoCarmen usan numero directo en col C; STOCK col C de Carmen nunca se toca |
 | SM_Index.html | 2.5 | WMS tab: tabla Ubicacion/Cantidad sin columna Inicial; edicion directa de cantidad |

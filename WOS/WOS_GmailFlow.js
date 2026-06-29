@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.7
+// @version 1.8
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -561,14 +561,22 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var despMap    = {};
     var serialMap  = {};
     var cajaMap    = {};
+    var ubicMap    = {};
     for (var d = 0; d < despachos.length; d++) {
       despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
       serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
       cajaMap[despachos[d].row]   = despachos[d].cajaIdx !== undefined ? Number(despachos[d].cajaIdx) : 0;
+      ubicMap[despachos[d].row]   = String(despachos[d].ubicacion || '').trim();
     }
 
-    var carmenHoja = null;
-    try { carmenHoja = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('Entregados'); } catch(eC) {}
+    var carmenSS    = null;
+    var carmenHoja  = null;
+    var carmenUbicH = null;
+    try {
+      carmenSS    = SpreadsheetApp.openById(CARMEN_SS_ID);
+      carmenHoja  = carmenSS.getSheetByName('Entregados');
+      carmenUbicH = carmenSS.getSheetByName(CARMEN_UBICACIONES_TAB);
+    } catch(eC) {}
 
     // Calcular número de nota antes del loop para poder escribirlo en col P por ítem
     var notaNumStr   = _wosNextNotaNum(numero);
@@ -601,11 +609,21 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       }
 
       if (dispNow > 0 && carmenHoja) {
-        carmenHoja.appendRow([
-          String(ped.datos[i][COL.SKU]  || '').trim().toUpperCase(),
-          String(ped.datos[i][COL.DESC] || ''),
-          dispNow, String(numero || ''), '', '', fecha
-        ]);
+        var _skuDesp  = String(ped.datos[i][COL.SKU]  || '').trim().toUpperCase();
+        var _ubicDesp = ubicMap[i + 1] || '';
+        carmenHoja.appendRow([_skuDesp, String(ped.datos[i][COL.DESC] || ''), dispNow, String(numero || ''), '', '', fecha, _ubicDesp]);
+        // Restar de UBICACIONES si hay ubicación seleccionada
+        if (_ubicDesp && carmenUbicH) {
+          var _dU = carmenUbicH.getDataRange().getValues();
+          for (var ui = 1; ui < _dU.length; ui++) {
+            if (String(_dU[ui][0] || '').trim().toUpperCase() === _skuDesp &&
+                String(_dU[ui][1] || '').trim().toUpperCase() === _ubicDesp.toUpperCase()) {
+              var _nueva = Math.max(0, (parseFloat(_dU[ui][2]) || 0) - dispNow);
+              carmenUbicH.getRange(ui + 1, 3).setValue(_nueva);
+              break;
+            }
+          }
+        }
       }
 
       if (dispNow > 0) {

@@ -1,4 +1,4 @@
-// @version 2.8
+// @version 2.9
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -620,6 +620,31 @@ function WOS_getEnCaminoMap() {
     return { ok: true, map: enCaminoMap, stockMap: stockMap };
   } catch(e) {
     Logger.log('WOS_getEnCaminoMap ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.
+// Devuelve { ok, map: { SKU: [{ubicacion, cantidad}] } } con locs ordenadas desc por cantidad.
+function WOS_cargarUbicacionesPedido(skus) {
+  try {
+    var hojaUbic = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: true, map: {} };
+    var d   = hojaUbic.getDataRange().getValues();
+    var set = {};
+    for (var s = 0; s < skus.length; s++) set[String(skus[s]).trim().toUpperCase()] = true;
+    var map = {};
+    for (var i = 1; i < d.length; i++) {
+      var sku  = String(d[i][0] || '').trim().toUpperCase();
+      var ubic = String(d[i][1] || '').trim();
+      var cant = parseFloat(d[i][2]) || 0;
+      if (!sku || !ubic || !set[sku]) continue;
+      if (!map[sku]) map[sku] = [];
+      map[sku].push({ ubicacion: ubic, cantidad: cant });
+    }
+    for (var k in map) map[k].sort(function(a, b) { return b.cantidad - a.cantidad; });
+    return { ok: true, map: map };
+  } catch(e) {
     return { ok: false, error: e.toString() };
   }
 }
