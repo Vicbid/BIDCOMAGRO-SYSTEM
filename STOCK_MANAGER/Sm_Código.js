@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.1 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v2.2 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -434,8 +434,17 @@ function cargarCatalogoBorrador() {
 //  STOCK
 function cargarStock(filtro) {
   try {
-    var d         = getSheetValues(SCHEMA.SHEETS.STOCK);
-    var carmenMap = _getCarmenStockMap();
+    // Carmen es la fuente primaria de ítems y stock actual
+    var hojaCarmen = _getCarmenSS().getSheetByName('STOCK');
+    var dCarmen    = hojaCarmen ? hojaCarmen.getDataRange().getValues() : [];
+    // STOCK_REPUESTOS provee metadata (mínimo, categoría, ubicación, etc.)
+    var dMaster    = getSheetValues(SCHEMA.SHEETS.STOCK);
+    var S          = SCHEMA.STOCK_REPUESTOS;
+    var masterMap  = {};
+    for (var mi = 1; mi < dMaster.length; mi++) {
+      var mk = String(dMaster[mi][S.CODIGO] || '').trim().toUpperCase();
+      if (mk) masterMap[mk] = dMaster[mi];
+    }
     var out = [];
     var q   = filtro ? filtro.toLowerCase().trim() : "";
 
@@ -539,25 +548,33 @@ function cargarStock(filtro) {
       }
     } catch(eC) { Logger.log('cargarStock enCamino: ' + eC); }
 
-    for (var i = 1; i < d.length; i++) {
-      var f  = d[i];
-      var cod = String(f[0]||""), desc = String(f[1]||"");
-      if (q && cod.toLowerCase().indexOf(q)===-1 && desc.toLowerCase().indexOf(q)===-1) continue;
-      var codKey = cod.trim().toUpperCase();
-      // Stock actual: Carmen es la fuente de verdad; fallback bins WMS o campo MASTER
-      var act = (carmenMap[codKey] !== undefined) ? carmenMap[codKey]
-              : ((binTotalMap[codKey] !== undefined) ? binTotalMap[codKey] : (parseInt(f[2])||0));
-      var min = parseInt(f[3])||0;
-      var estado = act <= 0 ? "CRÍTICO" : (act <= min ? "BAJO" : "OK");
-      var cEntry = lastCountMap[codKey];
+    // Cols Carmen STOCK: 0=PN, 1=Descripción, 2=Stock Actual, 3=Modelo, 4=Serie
+    for (var i = 1; i < dCarmen.length; i++) {
+      var cod  = String(dCarmen[i][0] || '').trim();
+      var desc = String(dCarmen[i][1] || '').trim();
+      if (!cod || !desc) continue;
+      if (q && cod.toLowerCase().indexOf(q) === -1 && desc.toLowerCase().indexOf(q) === -1) continue;
+      var codKey = cod.toUpperCase();
+      // Stock: Carmen col 2 es la fuente; fallback bins WMS
+      var act = (binTotalMap[codKey] !== undefined) ? binTotalMap[codKey] : (parseInt(dCarmen[i][2]) || 0);
+      // Metadata desde STOCK_REPUESTOS (si existe)
+      var mf  = masterMap[codKey];
+      var min = mf ? (parseInt(mf[S.STOCK_MINIMO]) || 0) : 0;
+      var cat = mf ? String(mf[S.CATEGORIA]  || '') : '';
+      var ubi = mf ? String(mf[S.UBICACION]  || '') : '';
+      var mod = mf ? String(mf[S.MODELOS]    || '') : String(dCarmen[i][4] || '');
+      var uEnt = mf ? _fmtFecha(mf[S.ULTIMA_ENTRADA]) : '—';
+      var uSal = mf ? _fmtFecha(mf[S.ULTIMA_SALIDA])  : '—';
+      var reqSN = mf ? mf[S.REQUIERE_SN] === true : false;
+      var estado = act <= 0 ? 'CRÍTICO' : (act <= min ? 'BAJO' : 'OK');
+      var cEntry   = lastCountMap[codKey];
       var diasStock = diasMap.hasOwnProperty(codKey) ? diasMap[codKey] : undefined;
       out.push({
         fila: i+1, codigo: cod, descripcion: desc,
         stockActual: act, stockMinimo: min,
-        categoria: String(f[4]||""), ubicacion: String(f[5]||""),
-        modelos: String(f[6]||""),
-        ultimaEntrada: _fmtFecha(f[7]), ultimaSalida: _fmtFecha(f[8]),
-        requireSN: f[9] === true,
+        categoria: cat, ubicacion: ubi, modelos: mod,
+        ultimaEntrada: uEnt, ultimaSalida: uSal,
+        requireSN: reqSN,
         estado: estado,
         fechaConteo: cEntry ? _fmtFecha(cEntry.fecha) : '—',
         diasDesdeConteo: cEntry ? cEntry.dias : 9999,

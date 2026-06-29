@@ -52,6 +52,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| Sm_Código.js | 2.2 | cargarStock(): fuente primaria cambiada a Carmen STOCK (5428 ítems) en lugar de STOCK_REPUESTOS; STOCK_REPUESTOS sigue proveyendo metadata (mínimo, categoría, ubicación) |
 | Sm_Código.js | 2.1 | cargarCatalogoBorrador(): lee sheet externo CATALOGO_REPUESTOS_ID, devuelve codigo/codigoCorto/descripcion/modelo/precio |
 | Env.js | 1.1 | Agrega CATALOGO_REPUESTOS_ID con ID del sheet externo de catálogo DJI |
 | SM_Index.html | 1.8 | Borrador de pedido: buscador interactivo con dropdown (código+descripción+stock), navegación por teclado ↑↓/Enter, igual al portal reseller |
