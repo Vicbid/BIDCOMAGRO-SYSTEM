@@ -1,4 +1,4 @@
-<!-- @version 1.9 -->
+<!-- @version 2.0 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1220,7 +1220,7 @@ var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto recha
 var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
 var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
 var EST_RP = ['Abierto','Pedido de repuesto para reparar','En reparacion','Aprobado DJI · Repuestos en preparación','En cierre','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
-var EST_RPB = ['Abierto','Aprobado por DJI','Finalizado'];
+var EST_BAT = ['Abierto','Caso Enviado','Aprobado por DJI','Rechazado DJI','Scrap Enviado (Evidencias)','Bateria enviada a reseller','Sin respuesta · Cerrado','Finalizado'];
 
 // ── UI HELPERS ────────────────────────────────────────────────
 function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
@@ -1479,7 +1479,7 @@ function render() {
     var keyEst  = c.circuito + '-' + c.garantia;
     var dEst    = diasEst[keyEst] || 10;
     var fechaEstHTML = '';
-    var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado';
+    var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado' || c.estado === 'CANCELADO' || c.estado === 'Rechazado DJI' || c.estado === 'Sin respuesta · Cerrado';
     if (!esTerminal && c.dias <= dEst) {
       var restante = dEst - c.dias;
       fechaEstHTML = '<span style="font-size:10px;color:' + (restante<=2?'var(--red)':(restante<=5?'var(--yellow)':'var(--tx-d)')) + '">' + restante + 'd</span>';
@@ -2117,7 +2117,7 @@ function renderEst(){
   updBadge(v);
   // Mostrar/ocultar campo técnico según circuito
   document.getElementById('tec-row').style.display = (v==='Taller') ? '' : 'none';
-  var list=v==='Reseller'?EST_R:(v==='Reseller Propio'?(esBateriaActual?EST_RPB:EST_RP):(actual&&actual.garantia==='IW'?EST_T_IW:EST_T));
+  var list=esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T)));
   var ai=list.indexOf(estadoAct),h='';
   for(var i=0;i<list.length;i++){
     var cls='st-step'+(list[i]===estadoAct?' active':(i<ai?' done':''));
@@ -2132,7 +2132,7 @@ function renderEst(){
 function dispararLogicaDeFlujoAutomatico() {
   if (!actual) return;
   var circ = document.getElementById('f-circ').value || actual.circuito || 'Taller';
-  esBateriaActual = (circ === 'Reseller Propio' && actual.esBateria === true);
+  esBateriaActual = (actual.esBateria === true);
   renderEst(); // actualiza badge, visibilidad tec-row y stepper de estados
 }
 

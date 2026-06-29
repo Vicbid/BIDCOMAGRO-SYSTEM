@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14 — Codigo.gs - ¿FUNCIONAL?
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.0
+// @version 2.1
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -112,7 +112,8 @@ var CONFIG = {
   ESTADOS_NOTIFICAR_RESELLER: [
     "Abierto","Presupuesto rechazado",
     "Presupuesto aceptado","Espera de repuestos",
-    "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado"
+    "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado",
+    "Caso Enviado","Bateria enviada a reseller"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
   ESTADOS_NOTIFICAR_SUPERVISOR: ["Finalizado"],
@@ -1063,8 +1064,8 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
     var tieneBackorder = detectarBackorder(data.repuestos);
     Logger.log("=== NOTIF " + data.ot + " | " + estadoAnterior + " → " + estadoNuevo + " ===");
 
-    // 0. REPOSICIÓN BATERÍA — automático al llegar a "Aprobacion DJI"
-    if (estadoNuevo === "Aprobado por DJI" && estadoAnterior !== "Aprobado por DJI") {
+    // 0. REPOSICIÓN BATERÍA — se dispara al confirmar el envío del scrap a DJI
+    if (estadoNuevo === "Scrap Enviado (Evidencias)" && estadoAnterior !== "Scrap Enviado (Evidencias)") {
       if (esBateria(data.equipo)) {
         enviarEmailReposicionBateria(data);
       }

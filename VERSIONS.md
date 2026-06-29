@@ -10,9 +10,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-| HUB_Código.js | 2.0 | crearNuevaOT acepta datos (reseller, equipo, sn, garantia, circuito, tecnico, trabajo, fechaActivacion, prioridad) en lugar de crear fila en blanco |
-| Index.html | 1.9 | Modal "Nueva OT" con todos los campos; auto-abre la OT recién creada al terminar load() |
-| GUIA_FLUJOS.html | 1.2 | Badges de turno (⚽ Bidcom / ⚽ Reseller / ⏳ DJI) en headers de todos los cards; estado Sin respuesta · Cerrado en ambas secciones Reseller |
+| HUB_Código.js | 2.1 | Flujo batería unificado: trigger reposición mueve de "Aprobado por DJI" a "Scrap Enviado (Evidencias)"; nuevos estados Caso Enviado y Bateria enviada a reseller en ESTADOS_NOTIFICAR_RESELLER |
+| Index.html | 2.0 | EST_BAT reemplaza EST_RPB con 7 estados; detección batería sin restricción de circuito; esTerminal incluye Rechazado DJI y Sin respuesta · Cerrado |
+| GUIA_FLUJOS.html | 1.3 | Flujo batería: tab renombrado, sección reescrita con nuevos 7 estados; aplica a Reseller Común y Propio |
 | Env.js | 1.2 | Agrega SCHEMA.EQUIPOS (NOMBRE, TIPO, PREFIJO, MESES) |
 
 ## PORTAL_RESELLER

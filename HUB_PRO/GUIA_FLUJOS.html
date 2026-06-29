@@ -1,4 +1,4 @@
-<!-- @version 1.2 -->
+<!-- @version 1.3 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -155,7 +155,7 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
   <div class="tab" onclick="setTab('taller-oow')">Taller · OOW</div>
   <div class="tab" onclick="setTab('reseller-comun')">Reseller Común</div>
   <div class="tab" onclick="setTab('reseller-propio')">Reseller Propio</div>
-  <div class="tab" onclick="setTab('bateria')">Batería (RP)</div>
+  <div class="tab" onclick="setTab('bateria')">Batería</div>
 </div>
 
 <div class="legend">
@@ -231,11 +231,11 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <td style="color:var(--tx-m)">Abierto → Pedido de repuesto para reparar → En reparacion → En cierre → Finalizado / Sin respuesta · Cerrado</td>
       </tr>
       <tr>
-        <td><span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
+        <td><span class="actor-badge a-reseller">Reseller Común</span> <span style="font-size:10px;color:var(--tx-d)">o</span> <span class="actor-badge a-purple" style="background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.35);color:var(--purple)">Reseller Propio</span></td>
         <td><span class="state-badge s-ok">IW</span></td>
-        <td>Batería</td>
-        <td>~3 días</td>
-        <td style="color:var(--tx-m)">Abierto → Aprobado por DJI → Finalizado</td>
+        <td>Batería (cualquier circuito)</td>
+        <td>~3-5 días</td>
+        <td style="color:var(--tx-m)">Abierto → Caso Enviado → Aprobado por DJI → Scrap Enviado (Evidencias) → Bateria enviada a reseller → Finalizado / Rechazado DJI</td>
       </tr>
     </tbody>
   </table>
@@ -953,16 +953,16 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
 </div>
 
 <!-- ════════════════════════════════════════
-     BATERÍA (RESELLER PROPIO)
+     BATERÍA
 ════════════════════════════════════════ -->
 <div class="flow-section" id="sec-bateria">
   <div class="flow-hdr">
-    <h2>Batería — Reseller Propio</h2>
-    <p>Flujo simplificado exclusivo para equipos tipo batería con circuito Reseller Propio. DJI aprueba directamente sin proceso de taller.</p>
+    <h2>Batería</h2>
+    <p>Flujo unificado para cualquier equipo tipo batería, independientemente de si el reseller es Común o Propio. Bidcom gestiona todo el trámite ante DJI: carga del caso, espera de aprobación, envío de scrap como evidencia y despacho de la batería de reemplazo.</p>
     <div class="flow-tags">
-      <span class="flow-tag circ">Circuito: Reseller Propio</span>
+      <span class="flow-tag circ">Circuito: Reseller Común o Reseller Propio</span>
       <span class="flow-tag gar">Tipo: Batería</span>
-      <span class="flow-tag dias">⏱ ~3 días estimados</span>
+      <span class="flow-tag dias">⏱ ~3-5 días estimados</span>
     </div>
   </div>
 
@@ -974,13 +974,45 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <div class="tl-card-head">
           <span class="state-badge s-bidcom">Abierto</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
-          <span class="tl-name">Caso registrado y aprobado por Bidcom</span>
+          <span class="tl-name">Caso ingresado y aprobado por Bidcom</span>
           <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso de batería ingresa y Bidcom lo aprueba. Bidcom gestiona directamente la aprobación ante DJI sin que el reseller intervenga en el proceso técnico.</span></div>
-          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Abrir el caso en portal DJI AfterSales. Esperar aprobación de DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El caso de batería ingresa al sistema. Bidcom lo aprueba y toma a cargo la gestión completa ante DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Validar modelo de batería, S/N y garantía. Confirmar el ingreso cambiando el estado a <strong>Abierto</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Registramos tu caso. Estamos gestionando la aprobación ante DJI."</span></div>
         </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Caso Enviado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Bidcom cargó el caso en el portal DJI AfterSales</span>
+          <span class="turno-dji">⏳ DJI</span><span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Bidcom ingresó el caso en el portal DJI AfterSales con toda la documentación (S/N, fotos, descripción). El caso está en espera de resolución por parte de DJI.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar el CAS/FWR una vez disponible. Hacer seguimiento del portal DJI hasta obtener respuesta.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Enviamos el caso a DJI. Estamos esperando su respuesta."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="branch">
+      <div class="branch-title">⑂ Bifurcación — Resolución de DJI</div>
+      <div class="branch-cols">
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--green)">✅ DJI aprueba → continúa el flujo</div>
+          <p>DJI aprobó el reemplazo. Bidcom procede con el envío del scrap como evidencia y luego despacha la batería de reemplazo.</p>
+        </div>
+        <div class="branch-col">
+          <div class="branch-col-title" style="color:var(--red)">❌ DJI rechaza → Rechazado DJI (terminal)</div>
+          <p>DJI no aprobó el caso. El reseller es notificado. El caso se cierra en este estado — no va a CANCELADO.</p>
+        </div>
       </div>
     </div><div class="tl-gap"></div>
 
@@ -990,13 +1022,80 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <div class="tl-card-head">
           <span class="state-badge s-dji">Aprobado por DJI</span>
           <span class="actor-badge a-dji">DJI</span>
-          <span class="tl-name">DJI aprobó el reemplazo de batería</span>
+          <span class="tl-name">DJI aprobó el reemplazo — preparar envío de scrap</span>
           <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó el caso en su portal. Bidcom procede al despacho de la batería de reemplazo al reseller.</span></div>
-          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Verificar aprobación, preparar y despachar la batería. Cerrar el caso.</span></div>
-          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "DJI aprobó el caso." Recibirá la batería de reemplazo.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI aprobó el caso. Para completar el proceso, DJI requiere recibir la batería defectuosa como evidencia (scrap). Bidcom coordina el retiro o envío del scrap.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Coordinar con el reseller el envío de la batería defectuosa. Una vez enviada, cambiar a <strong>Scrap Enviado (Evidencias)</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "DJI aprobó el caso. Necesitamos que envíes la batería defectuosa como evidencia."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Rechazado DJI</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">DJI rechazó — caso cerrado</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">DJI no aprobó el caso de batería. Este estado es terminal — el caso queda cerrado en este punto, sin pasar por CANCELADO.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar el motivo del rechazo en la nota técnica. El caso pasa al histórico.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación: "DJI rechazó el caso de batería."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Scrap Enviado (Evidencias)</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Scrap enviado a DJI — logística prepara el reemplazo</span>
+          <span class="turno-bid">⚽ Bidcom</span><span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La batería defectuosa fue enviada a DJI como evidencia. El sistema notifica automáticamente a Logística para que prepare y despache la batería de reemplazo al reseller.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Confirmar el envío del scrap. El email a Logística se dispara automáticamente al cambiar a este estado.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Ve en portal: "Recibimos el scrap. Estamos preparando tu batería de reemplazo."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item">
+      <div class="tl-dot d-bidcom">B</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-bidcom">Bateria enviada a reseller</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Batería de reemplazo despachada</span>
+          <span class="turno-res">⚽ Reseller</span><span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">Logística despachó la batería de reemplazo al reseller. El reseller la recibe y confirma.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Registrar tracking del envío. Una vez confirmada la recepción por el reseller, pasar a <strong>Finalizado</strong>.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Reseller</span><span class="tl-row-val">Recibe notificación de envío con tracking. Ve en portal: "Tu batería de reemplazo está en camino."</span></div>
+        </div></div>
+      </div>
+    </div><div class="tl-gap"></div>
+
+    <div class="tl-item" style="opacity:.8">
+      <div class="tl-dot d-cancel">✕</div>
+      <div class="tl-card" onclick="togCard(this)">
+        <div class="tl-card-head">
+          <span class="state-badge s-cancel">Sin respuesta · Cerrado</span>
+          <span class="actor-badge a-bidcom">Bidcom</span>
+          <span class="tl-name">Reseller dejó de responder — cierre por inactividad</span>
+          <span class="tl-chv">▶</span>
+        </div>
+        <div class="tl-card-body"><div class="tl-body-inner">
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller dejó de responder en algún punto del flujo (ej: no envió el scrap). El caso queda cerrado por inactividad.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">HUB PRO</span><span class="tl-row-val">Documentar en la nota técnica el punto donde se perdió la respuesta.</span></div>
         </div></div>
       </div>
     </div><div class="tl-gap"></div>
@@ -1007,19 +1106,15 @@ body { background: var(--bg); color: var(--tx); font-family: -apple-system, Blin
         <div class="tl-card-head">
           <span class="state-badge s-ok">Finalizado</span>
           <span class="actor-badge a-bidcom">Bidcom</span>
-          <span class="tl-name">Caso cerrado — batería despachada</span>
+          <span class="tl-name">Caso cerrado — reemplazo entregado</span>
           <span class="tl-chv">▶</span>
         </div>
         <div class="tl-card-body"><div class="tl-body-inner">
-          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">La batería de reemplazo fue despachada al reseller. El caso queda cerrado.</span></div>
+          <div class="tl-row"><span class="tl-row-lbl">Qué pasa</span><span class="tl-row-val">El reseller confirmó la recepción de la batería de reemplazo. El caso queda cerrado definitivamente.</span></div>
         </div></div>
       </div>
     </div>
 
-  </div>
-
-  <div class="nota">
-    <strong>Nota:</strong> El flujo de batería para Reseller Común no está contemplado actualmente en el sistema. Si un Reseller Común tiene un caso de batería, se gestiona como flujo Reseller Común estándar.
   </div>
 </div>
 
