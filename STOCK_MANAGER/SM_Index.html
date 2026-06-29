@@ -144,12 +144,6 @@ tr:last-child td{border-bottom:none}
 .drop-zone i{font-size:32px;color:var(--tx-d);margin-bottom:10px;display:block}
 .drop-zone p{font-size:12px;color:var(--tx-m)}
 
-/* ── DESPACHO ITEMS ─────────────────────── */
-.desp-item{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 14px;margin-bottom:8px}
-.desp-item.sin-stock{border-color:rgba(214,48,49,.3);background:#fff9f9}
-.desp-item.ok-stock{border-color:rgba(26,158,74,.2)}
-.desp-qty{width:70px;background:#fff;border:1px solid var(--brd);color:var(--tx);border-radius:var(--r);padding:5px 8px;font-size:13px;text-align:center}
-.desp-qty:focus{outline:none;border-color:var(--blue)}
 
 /* ── TOAST / SPINNER ─────────────────────── */
 #toasts{position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:5px}
@@ -313,10 +307,7 @@ tr:last-child td{border-bottom:none}
       <button class="nav-tab" id="nt-stock" onclick="showTab('stock','nt-stock')">
         <i class="fa fa-boxes"></i><span>Stock</span>
       </button>
-      <button class="nav-tab" id="nt-desp" onclick="showTab('desp','nt-desp')">
-        <i class="fa fa-dolly"></i><span>Despachos</span>
-        <span class="badge-count" id="badge-desp" style="display:none">0</span>
-      </button>
+
       <span class="sb-section-lbl">Compras &amp; Ventas</span>
       <button class="nav-tab" id="nt-comp" onclick="showTab('comp','nt-comp')">
         <i class="fa fa-plane-departure"></i><span>Compras DJI</span>
@@ -426,7 +417,6 @@ tr:last-child td{border-bottom:none}
       <div class="card">
         <div class="card-head">
           <div class="card-head-left"><i class="fa fa-inbox" style="color:var(--orange)"></i> Solicitudes pendientes del HUB</div>
-          <button class="btn-s blue" onclick="showTab('desp','nt-desp')"><i class="fa fa-arrow-right"></i> Ver todas</button>
         </div>
         <div id="dash-solic-wrap">
           <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
@@ -448,7 +438,6 @@ tr:last-child td{border-bottom:none}
       <div class="card" id="card-ot-tracking" style="display:none">
         <div class="card-head">
           <div class="card-head-left"><i class="fa fa-link" style="color:var(--indigo)"></i> OTs bloqueadas — trazabilidad de abastecimiento</div>
-          <button class="btn-s blue" onclick="showTab('desp','nt-desp')"><i class="fa fa-arrow-right"></i> Ver despachos</button>
         </div>
         <div id="ot-tracking-wrap">
           <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
@@ -534,26 +523,7 @@ tr:last-child td{border-bottom:none}
 
     </div><!-- /stock -->
 
-    <!-- ══ DESPACHOS ══════════════════════════ -->
-    <div class="tab-view" id="tab-desp">
 
-  <div style="display:flex; gap:10px; margin-bottom:15px; align-items:center; flex-wrap:wrap;">
-    <button class="btn-p amber" onclick="generarPickingPDF()">
-      <i class="fa fa-file-pdf"></i> Generar Picking List (PDF)
-    </button>
-    <button class="btn-p" style="background:var(--indigo)" onclick="abrirPickingConsolidado()">
-      <i class="fa fa-map-marker-alt"></i> Picking por ubicación
-    </button>
-    <button class="btn-p" style="background:var(--red);margin-left:auto" onclick="limpiarDespachosHuerfanos()" title="Cancela solicitudes pendientes de OTs ya Finalizadas/Entregadas/Canceladas">
-      <i class="fa fa-broom"></i> Limpiar huérfanos
-    </button>
-    <span style="font-size:11px; color:var(--tx-m)">Genera un PDF con todo lo "Pendiente" para imprimir</span>
-  </div>
-  <div id="desp-wrap">
-    <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
-  </div>
-
-</div>
     <!-- ══ COMPRAS DJI ════════════════════════ -->
     <div class="tab-view" id="tab-comp">
 
@@ -1603,7 +1573,6 @@ function showTab(id, btnId) {
     if (!stockData.length) cargarStockTab();
     setTimeout(function(){ var sb=document.getElementById('stock-buscar'); if(sb) sb.focus(); }, 120);
   }
-  if (id==='desp')  cargarDespachosTab();
   if (id==='comp')  cargarComprasTab();
   if (id==='vent')  cargarVentasTab();
   if (id==='mov')   cargarMovimientosTab();
@@ -1819,10 +1788,6 @@ function renderDashboard(d) {
 
   // Solicitudes pendientes
   var solic = d.solicPendientes || [];
-  var badgeDesp = document.getElementById('badge-desp');
-  if (solic.length) {
-    badgeDesp.style.display='inline'; badgeDesp.textContent=solic.length;
-  } else { badgeDesp.style.display='none'; }
   renderSolicitesDashboard(solic);
 
   // CAS en tránsito
@@ -2178,85 +2143,6 @@ function cargarTopRotacion() {
     .obtenerTopRotacion();
 }
 
-function abrirPickingConsolidado() {
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(ots) {
-      sp(false);
-      var items = [];
-      for (var o = 0; o < ots.length; o++) {
-        var ot = ots[o];
-        for (var j = 0; j < ot.items.length; j++) {
-          var it = ot.items[j];
-          var falta = it.cantSolicitada - it.cantDespachada;
-          if (falta <= 0) continue;
-          items.push({
-            ot: ot.ot, reseller: ot.reseller,
-            codigo: it.codigo, descripcion: it.descripcion,
-            falta: falta, ubicacion: it.ubicacion,
-            stockDisponible: it.stockDisponible
-          });
-        }
-      }
-      // Consolidar por código (suma cantidades de distintas OTs)
-      var consolMap = {};
-      for (var cx = 0; cx < items.length; cx++) {
-        var ci = items[cx];
-        var ck = ci.codigo;
-        if (!consolMap[ck]) {
-          consolMap[ck] = { codigo: ci.codigo, descripcion: ci.descripcion,
-            ubicacion: ci.ubicacion || '', stockDisponible: ci.stockDisponible,
-            falta: 0, ots: [] };
-        }
-        consolMap[ck].falta += ci.falta;
-        if (consolMap[ck].ots.indexOf(ci.ot) === -1) consolMap[ck].ots.push(ci.ot);
-        if (!consolMap[ck].ubicacion && ci.ubicacion) consolMap[ck].ubicacion = ci.ubicacion;
-      }
-      items = [];
-      for (var ckey in consolMap) items.push(consolMap[ckey]);
-
-      items.sort(function(a, b) {
-        var ua = String(a.ubicacion || '').trim();
-        var ub = String(b.ubicacion || '').trim();
-        if (!ua && !ub) return 0;
-        if (!ua) return 1;
-        if (!ub) return -1;
-        return ua < ub ? -1 : (ua > ub ? 1 : 0);
-      });
-      document.getElementById('pick-consol-info').textContent =
-        items.length + ' ítem' + (items.length !== 1 ? 's' : '') + ' pendientes de despacho';
-      if (!items.length) {
-        document.getElementById('tbody-pick-consol').innerHTML =
-          '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--tx-d)"><i class="fa fa-check-circle" style="color:var(--green);margin-right:6px"></i>No hay pendientes de despacho</td></tr>';
-        modal('modal-picking-consolidado').show();
-        return;
-      }
-      var h = '';
-      for (var i = 0; i < items.length; i++) {
-        var r = items[i];
-        var ubic = String(r.ubicacion || '').trim();
-        var ubicCell = ubic
-          ? '<span class="b-loc" title="' + _ubicTooltip(ubic) + '">' + ubic + '</span>'
-          : '<span class="b-warn" style="font-size:10px">SIN POSICIÓN</span>';
-        var sinStock = r.stockDisponible < r.falta;
-        var rowStyle = sinStock ? ' style="background:rgba(214,48,49,.04)"' : '';
-        h += '<tr' + rowStyle + '>' +
-          '<td style="color:var(--tx-d);font-size:11px;text-align:center">' + (i + 1) + '</td>' +
-          '<td>' + ubicCell + '</td>' +
-          '<td><span class="b-info">' + r.codigo + '</span></td>' +
-          '<td style="font-size:12px">' + r.descripcion + '</td>' +
-          '<td style="font-size:11px;color:var(--tx-m)">' + (r.ots ? r.ots.join(', ') : r.ot) + '</td>' +
-          '<td style="font-size:11px;color:var(--tx-m);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.reseller || '') + '</td>' +
-          '<td style="text-align:center;font-weight:700' + (sinStock ? ';color:var(--red)' : '') + '">' + r.falta + '</td>' +
-          '<td style="text-align:center;font-size:12px;font-weight:600;color:' + (sinStock ? 'var(--red)' : 'var(--green)') + '">' + r.stockDisponible + '</td>' +
-        '</tr>';
-      }
-      document.getElementById('tbody-pick-consol').innerHTML = h;
-      modal('modal-picking-consolidado').show();
-    })
-    .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
-    .cargarSolicitudesDespacho();
-}
 
 function _pickSortKey(item) {
   // Usa el bin WMS de menor ruta si existen, si no la ubicación estática
@@ -2777,126 +2663,6 @@ function descargarPlantillaXLS() {
   toast('Plantilla descargada', 'ok');
 }
 
-// ══════════════════════════════════════════
-//  DESPACHOS
-// ══════════════════════════════════════════
-function cargarDespachosTab() {
-  sp(true, 'Cargando despachos…');
-  var el = document.getElementById('desp-wrap');
-  el.innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i><p style="margin-top:8px;font-size:12px;color:var(--tx-d)">Cargando despachos…</p></div>';
-  google.script.run
-    .withSuccessHandler(function(d) { sp(false); renderDespachos(d); })
-    .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-    .cargarSolicitudesDespacho();
-}
-
-function renderDespachos(lista) {
-  solicData = lista;
-  var el = document.getElementById('desp-wrap');
-  if (!lista.length) {
-    el.innerHTML = '<div class="empty-state"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin solicitudes pendientes del HUB</p></div>';
-    return;
-  }
-  var urgentes = lista.filter(function(s){ return s.urgencia === 'URGENTE'; }).length;
-  var h = '';
-  if (urgentes) {
-    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(214,48,49,.06);border:1px solid rgba(214,48,49,.2);border-radius:var(--rm)">' +
-         '<i class="fa fa-exclamation-triangle" style="color:var(--red)"></i>' +
-         '<span style="font-size:12px;font-weight:600;color:var(--red)">' + urgentes + ' solicitud' + (urgentes > 1 ? 'es' : '') + ' URGENTE' + (urgentes > 1 ? 'S' : '') + ' — atención inmediata</span>' +
-         '</div>';
-  }
-  lista.forEach(function(sol, idx) {
-    var isUrgent = sol.urgencia === 'URGENTE';
-    var borderColor = isUrgent ? '#d63031' : '#d4890a';
-    var urgBadge = isUrgent
-      ? '<span class="b-crit" style="font-size:11px;font-weight:700">⚡ URGENTE</span>'
-      : '<span class="b-warn" style="font-size:11px">NORMAL</span>';
-    var waitColor = sol.diasEspera > 5 ? 'var(--red)' : (sol.diasEspera > 2 ? 'var(--yellow)' : 'var(--tx-d)');
-
-    h += '<div class="dispatch-card" style="border-left:4px solid ' + borderColor + '">';
-    // Header row
-    h += '<div class="dc-header">';
-    h += '<div class="dc-header-left">';
-    h += '<span class="dc-ot"><i class="fa fa-dolly" style="font-size:11px;margin-right:6px;color:var(--blue)"></i>' + sol.ot + '</span>';
-    h += '<span class="dc-reseller">' + sol.reseller + '</span>';
-    h += urgBadge;
-    h += '</div>';
-    h += '<div class="dc-header-right">';
-    h += '<span class="dc-wait" style="color:' + waitColor + '"><i class="fa fa-clock" style="margin-right:3px"></i>' + sol.diasEspera + 'd esperando</span>';
-    h += '<button class="btn-s" style="margin-right:4px" onclick="despacharTodoUI(' + idx + ')"><i class="fa fa-check-double"></i> Despachar todo</button>';
-    h += '<button class="btn-p' + (isUrgent ? ' red' : '') + '" onclick="procesarDespachoUI(' + idx + ')"><i class="fa fa-truck"></i> Procesar despacho</button>';
-    h += '</div></div>'; // dc-header
-
-    // Items table
-    h += '<div class="dc-items"><div class="tbl-wrap"><table>';
-    h += '<thead><tr><th>Código</th><th>Descripción</th><th>Ubicación</th><th style="text-align:center">Solic.</th><th style="text-align:center">Stock</th><th style="text-align:center">Despachar</th><th>Acción</th></tr></thead><tbody>';
-    sol.items.forEach(function(item) {
-      var haySt = item.stockDisponible >= item.cantSolicitada;
-      var stColor = haySt ? 'var(--green)' : (item.stockDisponible > 0 ? 'var(--yellow)' : 'var(--red)');
-      var rowBg = !haySt ? ' style="background:rgba(214,48,49,.04)"' : '';
-      var ubicCell = item.ubicacion
-        ? '<span class="b-loc">' + item.ubicacion + '</span>'
-        : '<span style="color:var(--tx-d);font-size:10px">—</span>';
-      h += '<tr' + rowBg + ' id="desp-item-' + item.fila + '">';
-      h += '<td><span class="b-info">' + item.codigo + '</span></td>';
-      h += '<td style="font-size:12px">' + item.descripcion + '</td>';
-      h += '<td>' + ubicCell + '</td>';
-      h += '<td style="text-align:center;font-weight:700">' + item.cantSolicitada + '</td>';
-      h += '<td style="text-align:center;font-weight:700;color:' + stColor + '">' + item.stockDisponible + '</td>';
-      h += '<td style="text-align:center"><input type="number" class="desp-qty" id="qty-' + item.fila + '" value="' + Math.min(item.cantSolicitada, item.stockDisponible) + '" min="0" max="' + item.stockDisponible + '"></td>';
-      h += '<td style="white-space:nowrap">' +
-           '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">' +
-           '<input type="radio" name="accion-' + item.fila + '" value="despachar" checked> Despachar</label>' +
-           '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">' +
-           '<input type="radio" name="accion-' + item.fila + '" value="cancelar"> Cancelar</label></td>';
-      h += '</tr>';
-    });
-    h += '</tbody></table></div></div></div>'; // dc-items + dispatch-card
-  });
-  el.innerHTML = h;
-}
-
-function procesarDespachoUI(idx) {
-  var sol = solicData[idx];
-  if (!sol) return;
-  var items = sol.items.map(function(item) {
-    var accion = document.querySelector('input[name="accion-'+item.fila+'"]:checked');
-    var qty    = document.getElementById('qty-'+item.fila);
-    return {
-      fila:         item.fila,
-      codigo:       item.codigo,
-      descripcion:  item.descripcion,
-      cantDespachar: qty ? parseInt(qty.value)||0 : 0,
-      accion:       accion ? accion.value : 'despachar',
-      ot:           sol.ot,
-      reseller:     sol.reseller
-    };
-  });
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(res) {
-      sp(false);
-      if (res.ok) {
-        toast('Despacho procesado correctamente','ok');
-        cargarDespachosTab();
-        load(); // Refrescar dashboard
-      } else toast(res.msg||'Error al procesar','err');
-    })
-    .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-    .procesarDespacho(items, 'Jeremías Silvestre');
-}
-
-function despacharTodoUI(idx) {
-  var sol = solicData[idx];
-  if (!sol) return;
-  sol.items.forEach(function(item) {
-    var qty = document.getElementById('qty-' + item.fila);
-    if (qty) qty.value = Math.min(item.cantSolicitada, item.stockDisponible);
-    var radio = document.querySelector('input[name="accion-' + item.fila + '"][value="despachar"]');
-    if (radio) radio.checked = true;
-  });
-  procesarDespachoUI(idx);
-}
 
 // ══════════════════════════════════════════
 //  OT TRACKING — trazabilidad de abastecimiento
@@ -4439,47 +4205,6 @@ function confirmarFactura() {
     })
     .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
     .completarFactura(nOrden, nFact);
-}
-function limpiarDespachosHuerfanos() {
-  if (!confirm('¿Cancelar todas las solicitudes pendientes de OTs ya Finalizadas/Entregadas/Canceladas?')) return;
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(r) {
-      sp(false);
-      if (r && r.error) { toast('Error: ' + r.error, 'err'); return; }
-      toast((r.cerradas || 0) + ' solicitudes huérfanas canceladas', 'ok');
-      cargarDespachos();
-    })
-    .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
-    .limpiarSolicitudesDeOTsCerradas();
-}
-
-function generarPickingPDF() {
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(res) {
-      sp(false);
-      if (!res || res.error) {
-        toast('Error al generar PDF: ' + (res ? res.error : 'desconocido'), 'err');
-        return;
-      }
-      if (res.vacio) {
-        toast('No hay solicitudes pendientes de despacho', 'inf');
-        return;
-      }
-      var a = document.createElement('a');
-      a.href = 'data:application/pdf;base64,' + res.base64;
-      a.download = res.nombre + '.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      toast('PDF descargado', 'ok');
-    })
-    .withFailureHandler(function(err) {
-      sp(false);
-      toast('Error al generar PDF: ' + err.message, 'err');
-    })
-    .generarReportePendientesPDF();
 }
 
 // ── AUTO-RESTOCK TOGGLE ────────────────────────────────────────

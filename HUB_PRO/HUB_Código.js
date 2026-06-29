@@ -1,5 +1,5 @@
 // ============================================================
-//  DJI HUB PRO v14 — Codigo.gs - ¿FUNCIONAL?
+//  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
 // @version 2.1
@@ -36,17 +36,18 @@ function _tokenAprobacion(ot, action) {
 }
 
 var WOS_SS_ID    = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-var WOS_HOJA_PED = 'Pedidos_resellers';
+var WOS_HOJA_PED = 'Pedidos_OTs';
 
 function HUB_generarPedidoRepuestos(data) {
   try {
     var hoja  = SpreadsheetApp.openById(WOS_SS_ID).getSheetByName(WOS_HOJA_PED);
+    if (!hoja) return { ok: false, error: 'Hoja Pedidos_OTs no encontrada en el WOS.' };
     var todos = hoja.getDataRange().getValues();
-    var numero = 'REP-OT-' + String(data.ot || '').trim();
+    var numero = 'OT-' + String(data.ot || '').trim();
 
     for (var ci = 1; ci < todos.length; ci++) {
       if (String(todos[ci][0] || '').trim() === numero) {
-        return { ok: false, error: 'Ya existe el pedido ' + numero + ' en el WOS.' };
+        return { ok: false, error: 'Ya existe el pedido ' + numero + ' en Pedidos_OTs.' };
       }
     }
 
@@ -54,25 +55,31 @@ function HUB_generarPedidoRepuestos(data) {
     if (!items.length) return { ok: false, error: 'No hay ítems para pedir.' };
 
     var aprobado = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ PENDIENTE APROBACIÓN DJI';
-    var obs = 'HUB | OT: ' + data.ot + ' | ' + aprobado + (data.cas ? ' | CAS: ' + data.cas : '') + (data.garantia ? ' | ' + data.garantia : '');
-    var fecha = new Date();
+    var nota     = aprobado + (data.garantia ? ' | ' + data.garantia : '');
+    var idVenGar = String(data.cas || data.garantia || '').trim();
+    var fecha    = new Date();
 
     for (var j = 0; j < items.length; j++) {
       var it = items[j];
       if (!it.cod || !it.desc) continue;
-      var fila = new Array(24).fill('');
+      var qty  = Number(it.qty) || 1;
+      var fila = new Array(16).fill('');
       fila[0]  = numero;
       fila[1]  = String(data.reseller || '');
       fila[2]  = String(it.cod  || '').trim().toUpperCase();
       fila[3]  = String(it.desc || '').trim();
-      fila[4]  = Number(it.qty) || 1;
-      fila[5]  = 0;
-      fila[7]  = 0;
-      fila[9]  = 'Pedido';
-      fila[10] = fecha;
-      fila[11] = 'Retiro en Planta';
-      fila[12] = 'Cargo HUB';
-      fila[13] = obs;
+      fila[4]  = qty;
+      fila[5]  = 0;            // Qty preparada
+      fila[6]  = qty;          // Qty pendiente de entrega
+      fila[7]  = 'Pedido';     // Estado
+      fila[8]  = fecha;        // Fecha de carga
+      fila[9]  = '';           // Urgente
+      fila[10] = '';           // Nota de Salida
+      fila[11] = idVenGar;     // ID Venta o Garantia?
+      fila[12] = '';           // Descontado de Cardex!
+      fila[13] = 'OT';         // Tipo Vta Rptos /Vta Acc u OT
+      fila[14] = nota;         // Nota
+      fila[15] = '';           // Qty dias (calculado por sheet)
       hoja.appendRow(fila);
     }
     SpreadsheetApp.flush();

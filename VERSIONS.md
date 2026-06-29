@@ -10,6 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: escribe en Pedidos_OTs en lugar de Pedidos_resellers; columnas remapeadas para la nueva hoja (16 cols); numero pasa de REP-OT-X a OT-X |
 | HUB_Código.js | 2.1 | Flujo batería unificado: trigger reposición mueve de "Aprobado por DJI" a "Scrap Enviado (Evidencias)"; nuevos estados Caso Enviado y Bateria enviada a reseller en ESTADOS_NOTIFICAR_RESELLER |
 | Index.html | 2.0 | EST_BAT reemplaza EST_RPB con 7 estados; detección batería sin restricción de circuito; esTerminal incluye Rechazado DJI y Sin respuesta · Cerrado |
 | GUIA_FLUJOS.html | 1.3 | Flujo batería: tab renombrado, sección reescrita con nuevos 7 estados; aplica a Reseller Común y Propio |
@@ -58,6 +59,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
 | SM_Index.html | 2.9 | WMS panel Sin mapear: tercer modo con lista de items con stock pero sin ubicacion, badge con conteo, click abre modo Por item pre-cargado |
+| Sm_Código.js | 3.1 | Despachos eliminados: funciones cargarSolicitudesDespacho, limpiarSolicitudesDeOTsCerradas, generarReportePendientesPDF, procesarDespacho, _actualizarEnviadosEnRep, _notificarDespacho removidas; todo el despacho pasa por WOS |
 | Sm_Código.js | 3.0 | cargarSinMapear(): cruza Carmen STOCK vs UBICACIONES, devuelve hasta 200 items sin ubicacion ordenados desc por stock |
 | SM_Index.html | 2.8 | Ingreso DJI: campo Destino WMS en modal detalle-cas y modal estado-cas; ubicacion se pasa a cada item al recibir |
 | Sm_Código.js | 2.9 | _escribirEnRecibidos: escribe ubicacion en col I de Recibidos y suma cantidad a UBICACIONES tally |
