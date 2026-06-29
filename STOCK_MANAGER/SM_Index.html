@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.7 -->
+<!-- @version 1.8 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3842,52 +3842,159 @@ function _borradorRender() {
     });
     h += '</tbody></table>';
   } else {
-    h += '<div style="padding:18px 16px;color:var(--tx-d);font-size:12px;font-style:italic">El borrador está vacío — agregá ítems abajo.</div>';
+    h += '<div style="padding:18px 16px;color:var(--tx-d);font-size:12px;font-style:italic">El borrador está vacío — buscá ítems abajo.</div>';
   }
 
-  var dlOpts = stockData.map(function(r) { return '<option value="' + escH(r.codigo) + '">'; }).join('');
-  h += '<div style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--brd);align-items:center;flex-wrap:wrap">' +
-    '<datalist id="borrador-sku-dl">' + dlOpts + '</datalist>' +
-    '<input id="borrador-add-sku" type="text" placeholder="Part Number / Código" list="borrador-sku-dl"' +
-      ' style="flex:1;min-width:160px;font-family:monospace;font-size:13px;text-transform:uppercase"' +
-      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_borradorAdd();}">' +
-    '<input id="borrador-add-qty" type="number" min="1" value="1" placeholder="Cant."' +
-      ' style="width:76px;text-align:center;font-size:13px;font-weight:700"' +
-      ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_borradorAdd();}">' +
-    '<button class="btn-p" onclick="_borradorAdd()"><i class="fa fa-plus"></i> Agregar</button>' +
+  h += '<div style="padding:10px 14px;border-top:1px solid var(--brd)">' +
+    '<div style="display:flex;gap:6px;align-items:center">' +
+      '<div style="flex:1;position:relative">' +
+        '<input id="borrador-add-sku" type="text" placeholder="Código o nombre del repuesto…"' +
+          ' style="width:100%;font-size:13px" autocomplete="off"' +
+          ' oninput="_borradorBuscar()"' +
+          ' onkeydown="_borradorKeyNav(event)">' +
+        '<div id="borrador-results" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:1050;background:var(--surf);border:1px solid var(--brd2);border-radius:var(--rl);box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:260px;overflow-y:auto"></div>' +
+      '</div>' +
+      '<input id="borrador-add-qty" type="number" min="1" value="1" placeholder="Cant."' +
+        ' style="width:76px;text-align:center;font-size:13px;font-weight:700"' +
+        ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();_borradorAddManual();}">' +
+      '<button class="btn-p" onclick="_borradorAddManual()"><i class="fa fa-plus"></i> Agregar</button>' +
+    '</div>' +
   '</div>';
 
   body.innerHTML = h;
+  var inp = document.getElementById('borrador-add-sku');
+  if (inp) setTimeout(function() { inp.focus(); }, 60);
 }
 
-function _borradorAdd() {
+var _borradorFocusIdx = -1;
+
+function _borradorBuscar() {
+  var q = (document.getElementById('borrador-add-sku').value || '').trim();
+  var resDiv = document.getElementById('borrador-results');
+  if (!resDiv) return;
+  _borradorFocusIdx = -1;
+  if (q.length < 2 || !stockData.length) { resDiv.style.display = 'none'; return; }
+  var qL = q.toLowerCase();
+  var matches = [];
+  for (var i = 0; i < stockData.length; i++) {
+    var r = stockData[i];
+    var cL = r.codigo.toLowerCase(), dL = r.descripcion.toLowerCase();
+    var score;
+    if      (cL === qL)               score = 10;
+    else if (cL.indexOf(qL) === 0)    score = 6;
+    else if (dL.indexOf(qL) === 0)    score = 4;
+    else if (cL.indexOf(qL) !== -1 || dL.indexOf(qL) !== -1) score = 1;
+    else continue;
+    matches.push({ r: r, score: score });
+  }
+  matches.sort(function(a, b) { return b.score - a.score; });
+  matches = matches.slice(0, 12);
+  if (!matches.length) {
+    resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)">Sin resultados</div>';
+    resDiv.style.display = 'block';
+    return;
+  }
+  var h = '';
+  matches.forEach(function(m, idx) {
+    var r = m.r;
+    var stk = r.stockActual;
+    var stkColor = stk <= 0 ? 'var(--red)' : (stk <= (r.stockMinimo || 0) ? '#e67e22' : 'var(--green)');
+    var stkTxt   = stk <= 0 ? 'Sin stock' : stk + ' en stock';
+    h += '<div class="borrador-ri" data-bsku="' + escH(r.codigo) + '" data-bdesc="' + escH(r.descripcion) + '"' +
+      ' style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--brd)">' +
+      '<div>' +
+        '<div style="font-family:monospace;font-size:11px;font-weight:700;color:var(--blue)">' + escH(r.codigo) + '</div>' +
+        '<div style="font-size:12px;color:var(--tx)">' + escH(r.descripcion) + '</div>' +
+      '</div>' +
+      '<span style="font-size:11px;font-weight:600;color:' + stkColor + ';white-space:nowrap;flex-shrink:0">' + stkTxt + '</span>' +
+    '</div>';
+  });
+  resDiv.innerHTML = h;
+  resDiv.style.display = 'block';
+  resDiv.onclick = function(e) {
+    var row = e.target.closest('[data-bsku]');
+    if (!row) return;
+    _borradorAddFromResult(row.dataset.bsku, row.dataset.bdesc);
+  };
+}
+
+function _borradorKeyNav(e) {
+  var resDiv = document.getElementById('borrador-results');
+  var items = resDiv ? resDiv.querySelectorAll('.borrador-ri') : [];
+  if (!items.length) {
+    if (e.key === 'Enter') { e.preventDefault(); _borradorAddManual(); }
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _borradorFocusIdx = Math.min(_borradorFocusIdx + 1, items.length - 1);
+    _borradorHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _borradorFocusIdx = Math.max(_borradorFocusIdx - 1, 0);
+    _borradorHighlight(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_borradorFocusIdx >= 0 && items[_borradorFocusIdx]) {
+      var row = items[_borradorFocusIdx];
+      _borradorAddFromResult(row.dataset.bsku, row.dataset.bdesc);
+    } else {
+      _borradorAddManual();
+    }
+  } else if (e.key === 'Escape') {
+    resDiv.style.display = 'none';
+    _borradorFocusIdx = -1;
+  }
+}
+
+function _borradorHighlight(items) {
+  for (var i = 0; i < items.length; i++) {
+    items[i].style.background = i === _borradorFocusIdx ? 'var(--blue-l)' : '';
+  }
+  if (items[_borradorFocusIdx]) items[_borradorFocusIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function _borradorAddFromResult(sku, desc) {
+  var qtyInp = document.getElementById('borrador-add-qty');
+  var qty = parseInt((qtyInp && qtyInp.value) || 1) || 1;
+  _borradorAddItem(sku, desc, qty);
+  document.getElementById('borrador-add-sku').value = '';
+  if (qtyInp) qtyInp.value = '1';
+  var resDiv = document.getElementById('borrador-results');
+  if (resDiv) resDiv.style.display = 'none';
+  _borradorFocusIdx = -1;
+  _borradorRender();
+}
+
+function _borradorAddManual() {
   var skuInp = document.getElementById('borrador-add-sku');
   var qtyInp = document.getElementById('borrador-add-qty');
-  if (!skuInp || !qtyInp) return;
-  var sku = skuInp.value.trim().toUpperCase();
-  var qty = parseInt(qtyInp.value) || 1;
-  if (!sku) { skuInp.focus(); return; }
-  if (qty < 1) qty = 1;
+  var sku = (skuInp && skuInp.value.trim().toUpperCase()) || '';
+  var qty = parseInt((qtyInp && qtyInp.value) || 1) || 1;
+  if (!sku) { if (skuInp) skuInp.focus(); return; }
+  _borradorAddItem(sku, _borradorLookupDesc(sku), qty);
+  if (skuInp) skuInp.value = '';
+  if (qtyInp) qtyInp.value = '1';
+  var resDiv = document.getElementById('borrador-results');
+  if (resDiv) resDiv.style.display = 'none';
+  _borradorRender();
+}
 
+function _borradorAddItem(sku, desc, qty) {
+  sku = sku.trim().toUpperCase();
+  qty = Math.max(1, parseInt(qty) || 1);
   var existing = -1;
   for (var i = 0; i < _borradorDJI.length; i++) {
     if (_borradorDJI[i].sku === sku) { existing = i; break; }
   }
-
   if (existing >= 0) {
     _borradorDJI[existing].qty += qty;
     toast(sku + ': total → ' + _borradorDJI[existing].qty, 'ok');
   } else {
-    _borradorDJI.push({ sku: sku, desc: _borradorLookupDesc(sku), qty: qty });
+    _borradorDJI.push({ sku: sku, desc: desc || '', qty: qty });
     toast('Agregado: ' + sku, 'ok');
   }
-
   _borradorSave();
-  skuInp.value = '';
-  qtyInp.value = '1';
-  _borradorRender();
-  var newInp = document.getElementById('borrador-add-sku');
-  if (newInp) newInp.focus();
 }
 
 function _borradorSetQty(idx, val) {
