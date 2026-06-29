@@ -353,7 +353,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.5 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.6 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -664,10 +664,12 @@ tr:last-child td{border-bottom:none}
             <div id="wms-desc" style="font-size:13px;font-weight:700;color:var(--tx-m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:10px;color:var(--tx-d)">Stock total</div>
+            <div style="font-size:10px;color:var(--tx-d)">Stock Carmen</div>
             <div id="wms-stock-total" style="font-size:22px;font-weight:800;color:var(--accent)">—</div>
           </div>
         </div>
+
+        <div id="wms-asign-status" style="display:none;margin-bottom:10px;padding:7px 10px;border-radius:var(--r);font-size:11px"></div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.05em">UBICACIONES ASIGNADAS</div>
@@ -4651,6 +4653,32 @@ function _wmsCargar(cod) {
 
 function _wmsRender(ubicaciones) {
   var wrap = document.getElementById('wms-ubic-wrap');
+  var statusEl = document.getElementById('wms-asign-status');
+
+  // Calcular totales y mostrar status
+  if (_wmsItem) {
+    var totalAsig = 0;
+    for (var t = 0; t < ubicaciones.length; t++) totalAsig += ubicaciones[t].cantidad;
+    var stockReal = _wmsItem.stockActual;
+    var libre     = stockReal - totalAsig;
+    if (ubicaciones.length === 0) {
+      statusEl.style.display = 'none';
+    } else if (totalAsig > stockReal) {
+      statusEl.style.display = '';
+      statusEl.style.background = 'rgba(220,53,69,.08)';
+      statusEl.style.border = '1px solid rgba(220,53,69,.25)';
+      statusEl.style.color = 'var(--red)';
+      statusEl.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Total asignado: <strong>' + totalAsig + ' u.</strong> — supera el stock de Carmen (<strong>' + stockReal + ' u.</strong>) por ' + (totalAsig - stockReal) + ' u. Verificá el conteo.';
+    } else {
+      statusEl.style.display = '';
+      statusEl.style.background = 'rgba(26,158,74,.06)';
+      statusEl.style.border = '1px solid rgba(26,158,74,.2)';
+      statusEl.style.color = 'var(--tx-m)';
+      var libreStr = libre > 0 ? ' · <span style="color:var(--tx-d)">Sin asignar: ' + libre + ' u.</span>' : ' · <span style="color:var(--green)">✓ Todo asignado</span>';
+      statusEl.innerHTML = 'Asignado: <strong>' + totalAsig + ' u.</strong> de <strong>' + stockReal + ' u.</strong>' + libreStr;
+    }
+  }
+
   if (!ubicaciones.length) {
     wrap.innerHTML = '<div class="empty-state" style="padding:24px"><i class="fa fa-map-marker-alt" style="opacity:.25;font-size:22px"></i><br>Sin ubicaciones asignadas</div>';
     return;

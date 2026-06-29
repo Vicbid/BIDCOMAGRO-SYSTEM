@@ -54,6 +54,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| SM_Index.html | 2.6 | WMS: advertencia B cuando total asignado supera stock Carmen; barra de estado Asignado/Sin asignar/Todo asignado |
 | Sm_Código.js | 2.7 | UBICACIONES sin formula: guardarUbicacionInicial y _registrarMovimientoCarmen usan numero directo en col C; STOCK col C de Carmen nunca se toca |
 | SM_Index.html | 2.5 | WMS tab: tabla Ubicacion/Cantidad sin columna Inicial; edicion directa de cantidad |
 | Sm_Código.js | 2.6 | WMS: cargarUbicacionesItem, guardarUbicacionInicial, eliminarUbicacion |
