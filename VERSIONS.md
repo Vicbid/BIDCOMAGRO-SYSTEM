@@ -54,7 +54,10 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
-| Sm_Código.js | 2.6 | WMS: cargarUbicacionesItem, guardarUbicacionInicial, eliminarUbicacion; formula UBICACIONES incluye D (Inicial) |
+| Sm_Código.js | 2.7 | UBICACIONES sin formula: guardarUbicacionInicial y _registrarMovimientoCarmen usan numero directo en col C; STOCK col C de Carmen nunca se toca |
+| SM_Index.html | 2.5 | WMS tab: tabla Ubicacion/Cantidad sin columna Inicial; edicion directa de cantidad |
+| Sm_Código.js | 2.6 | WMS: cargarUbicacionesItem, guardarUbicacionInicial, eliminarUbicacion |
+| SM_Index.html | 2.4 | Modal ubicaciones SKU: reemplaza cargarBinsSKU (TABLA_POSICIONES) por cargarUbicacionesItem (Carmen WMS) |
 | SM_Index.html | 2.3 | Tab WMS: busqueda de repuesto, asignacion de ubicaciones con cantidad inicial, edicion inline, eliminacion |
 | Sm_Código.js | 2.5 | WMS Opcion A: _registrarMovimientoCarmen() appendea a Entregados/Recibidos segun diff; asegura fila con formula SUMIFS en UBICACIONES; ajustarInventario ya no llama _actualizarCarmenStock (Stock Actual es formula en Carmen) |
 | Env.js | 1.3 | Agrega CARMEN_ENTREGADOS_TAB y CARMEN_RECIBIDOS_TAB |

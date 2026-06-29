@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.6 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v2.7 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -72,8 +72,9 @@ function _getCarmenUbicMap() {
   return m;
 }
 
-// Registra un movimiento de stock en Carmen (Entregados/Recibidos) y asegura fila en UBICACIONES
+// Registra un movimiento en Carmen (Entregados/Recibidos) y actualiza tally en UBICACIONES
 // diff > 0 → entrada (Recibidos); diff < 0 → salida (Entregados)
+// UBICACIONES col C = número directo (tally); STOCK col C de Carmen = fórmula de Carmen, nunca se toca
 function _registrarMovimientoCarmen(sku, desc, ubicacion, diff, referencia) {
   try {
     var ss      = _getCarmenSS();
@@ -85,33 +86,28 @@ function _registrarMovimientoCarmen(sku, desc, ubicacion, diff, referencia) {
     var fecha   = new Date();
 
     if (diff < 0) {
-      // Salida → Entregados: p/n | Desc | Cant | Comprobante | Stock? | error | Fecha | Ubicación
       var hojaEnt = ss.getSheetByName(CARMEN_ENTREGADOS_TAB);
       if (hojaEnt) hojaEnt.appendRow([codKey, descStr, cant, refStr, '', '', fecha, ubicKey]);
     } else if (diff > 0) {
-      // Entrada → Recibidos: PN | Desc | Cant | Origen | Fecha | Comprobante | (vac) | Aparece Inv | Ubicación
       var hojaRec = ss.getSheetByName(CARMEN_RECIBIDOS_TAB);
       if (hojaRec) hojaRec.appendRow([codKey, descStr, cant, refStr, fecha, '', '', '', ubicKey]);
     }
 
-    // Asegurar fila en UBICACIONES con fórmula SUMIFS (solo si tiene ubicacion)
-    if (ubicKey) {
+    // Actualizar tally en UBICACIONES (col C = número directo, sin fórmula)
+    if (ubicKey && diff !== 0) {
       var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
       if (hojaUbic) {
         var dU = hojaUbic.getDataRange().getValues();
-        var existe = false;
         for (var i = 1; i < dU.length; i++) {
           if (String(dU[i][0] || '').trim().toUpperCase() === codKey &&
-              String(dU[i][1] || '').trim() === ubicKey) { existe = true; break; }
+              String(dU[i][1] || '').trim().toUpperCase() === ubicKey) {
+            var nueva = Math.max(0, (parseFloat(dU[i][2]) || 0) + diff);
+            hojaUbic.getRange(i + 1, 3).setValue(nueva);
+            return;
+          }
         }
-        if (!existe) {
-          hojaUbic.appendRow([codKey, ubicKey, '']);
-          var nr = hojaUbic.getLastRow();
-          hojaUbic.getRange(nr, 3).setFormula(
-            '=D' + nr + '+SUMIFS(Recibidos!C:C,Recibidos!A:A,A' + nr + ',Recibidos!I:I,B' + nr + ')' +
-            '-SUMIFS(Entregados!C:C,Entregados!A:A,A' + nr + ',Entregados!H:H,B' + nr + ')'
-          );
-        }
+        // Fila nueva
+        hojaUbic.appendRow([codKey, ubicKey, Math.max(0, diff)]);
       }
     }
   } catch(e) { Logger.log('_registrarMovimientoCarmen: ' + e); }
@@ -696,8 +692,7 @@ function cargarUbicacionesItem(sku) {
       if (String(d[i][0] || '').trim().toUpperCase() !== codKey) continue;
       out.push({
         ubicacion: String(d[i][1] || '').trim(),
-        cantidad:  parseFloat(d[i][2]) || 0,
-        inicial:   parseFloat(d[i][3]) || 0
+        cantidad:  parseFloat(d[i][2]) || 0
       });
     }
     return { ok: true, ubicaciones: out };
@@ -716,16 +711,11 @@ function guardarUbicacionInicial(sku, ubicacion, cantidadInicial) {
     for (var i = 1; i < d.length; i++) {
       if (String(d[i][0] || '').trim().toUpperCase() === codKey &&
           String(d[i][1] || '').trim().toUpperCase() === ubicKey) {
-        hojaUbic.getRange(i + 1, 4).setValue(cantIni);
+        hojaUbic.getRange(i + 1, 3).setValue(cantIni); // col C directo, sin fórmula
         return { ok: true };
       }
     }
-    hojaUbic.appendRow([codKey, ubicKey, '', cantIni]);
-    var nr = hojaUbic.getLastRow();
-    hojaUbic.getRange(nr, 3).setFormula(
-      '=D' + nr + '+SUMIFS(Recibidos!C:C,Recibidos!A:A,A' + nr + ',Recibidos!I:I,B' + nr + ')' +
-      '-SUMIFS(Entregados!C:C,Entregados!A:A,A' + nr + ',Entregados!H:H,B' + nr + ')'
-    );
+    hojaUbic.appendRow([codKey, ubicKey, cantIni]); // PN | Ubicación | Cantidad (número)
     return { ok: true };
   } catch(e) { return { ok: false, error: e.message }; }
 }

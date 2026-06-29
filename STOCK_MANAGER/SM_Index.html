@@ -353,7 +353,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.3 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.5 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -2467,96 +2467,55 @@ function verUbicacionesSKU(cod) {
   body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin"></i></div>';
   modal('modal-ubicaciones-sku').show();
 
-  // Intentar cargar bins WMS frescos del servidor
+  // Cargar ubicaciones WMS desde Carmen
   google.script.run
     .withSuccessHandler(function(res) {
-      var bins     = (res && res.bins && res.bins.length) ? res.bins : null;
-      var fallback = item.ubicaciones || [];
+      var ubics = (res && res.ok && res.ubicaciones) ? res.ubicaciones : [];
       var h = '';
-
-      if (bins && bins.length) {
-        // Vista WMS con bins de TABLA_POSICIONES
+      if (ubics.length) {
         var total = 0;
-        h = '<div style="font-size:10px;color:var(--tx-d);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Desglose por Bin · Ruta de Recolección</div>';
-        h += '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
-             '<thead><tr style="background:var(--surf)">' +
-             '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase">Bin ID</th>' +
-             '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase">Tipo</th>' +
-             '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:right">Cant.</th>' +
-             '</tr></thead><tbody>';
-        for (var b = 0; b < bins.length; b++) {
-          var bn = bins[b];
-          total += bn.cantidad;
-          var barWidth = item.stockActual > 0 ? Math.round((bn.cantidad / item.stockActual) * 100) : 0;
+        h = '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
+            '<thead><tr style="background:var(--surf)">' +
+            '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:left">Ubicación</th>' +
+            '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:right">Total actual</th>' +
+            '</tr></thead><tbody>';
+        for (var i = 0; i < ubics.length; i++) {
+          var u = ubics[i];
+          total += u.cantidad;
+          var barW = item.stockActual > 0 ? Math.round((u.cantidad / item.stockActual) * 100) : 0;
+          var cantColor = u.cantidad > 0 ? 'var(--green)' : (u.cantidad < 0 ? 'var(--red)' : 'var(--tx-d)');
           h += '<tr style="border-top:1px solid var(--brd)">' +
                '<td style="padding:7px 10px">' +
-                 '<span class="b-loc">' + bn.binId + '</span>' +
+                 '<span class="b-loc">' + escH(u.ubicacion) + '</span>' +
                  '<div style="margin-top:4px;height:3px;background:var(--brd);border-radius:2px">' +
-                   '<div style="height:3px;width:' + barWidth + '%;background:var(--blue);border-radius:2px"></div>' +
+                   '<div style="height:3px;width:' + barW + '%;background:var(--accent);border-radius:2px"></div>' +
                  '</div>' +
                '</td>' +
-               '<td style="padding:7px 10px">' + _wmsTipoBadge(bn.tipoAlmacen) + '</td>' +
-               '<td style="padding:7px 10px;text-align:right;font-weight:700">' + bn.cantidad + '</td>' +
+               '<td style="padding:7px 10px;text-align:right;font-weight:700;color:' + cantColor + '">' + u.cantidad + '</td>' +
                '</tr>';
         }
         h += '<tr style="border-top:2px solid var(--brd2);background:var(--surf)">' +
-             '<td colspan="2" style="padding:7px 10px;font-weight:600;font-size:11px;color:var(--tx-m)">Total en bins</td>' +
-             '<td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--blue)">' + total + '</td></tr>';
+             '<td style="padding:7px 10px;font-weight:600;font-size:11px;color:var(--tx-m)">Total mapeado</td>' +
+             '<td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--accent)">' + total + '</td></tr>';
         h += '</tbody></table>';
-        if (total !== item.stockActual) {
-          var diff = item.stockActual - total;
+        var sinAsignar = item.stockActual - total;
+        if (sinAsignar > 0) {
           h += '<div style="margin-top:8px;font-size:10px;color:var(--yellow);padding:6px 10px;background:rgba(212,137,10,.06);border-radius:var(--r)">' +
-               '<i class="fa fa-exclamation-triangle"></i> Stock total: ' + item.stockActual +
-               ' · En bins: ' + total + (diff > 0 ? ' · Sin asignar: ' + diff : '') + '</div>';
+               '<i class="fa fa-exclamation-triangle"></i> ' + sinAsignar + ' u. aún sin ubicación asignada</div>';
         }
-        // Botón transferir desde este SKU
-        h += '<div style="margin-top:12px;text-align:right">' +
-             '<button class="btn-p green" style="font-size:11px;padding:6px 12px" onclick="modal(\'modal-ubicaciones-sku\').hide();setTimeout(function(){abrirTransferenciaInterna(\'' + cod + '\');},200)">' +
-               '<i class="fa fa-exchange-alt"></i> Transferir desde este bin' +
-             '</button></div>';
-      } else if (fallback.length) {
-        // Vista legacy de STOCK_UBICACIONES
-        h = '<div style="font-size:10px;color:var(--tx-d);margin-bottom:8px">Desglose por ubicación (legacy)</div>';
-        h += '<table style="width:100%;font-size:12px;border-collapse:collapse">' +
-             '<thead><tr style="background:var(--surf)">' +
-             '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:left">Ubicación</th>' +
-             '<th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:right">Cant.</th>' +
-             '</tr></thead><tbody>';
-        var tot2 = 0;
-        for (var j = 0; j < fallback.length; j++) {
-          var uf = fallback[j];
-          tot2 += uf.cantidad;
-          h += '<tr style="border-top:1px solid var(--brd)">' +
-               '<td style="padding:7px 10px">' + _renderUbic(uf.ubicacion) + '</td>' +
-               '<td style="padding:7px 10px;text-align:right;font-weight:700">' + uf.cantidad + '</td></tr>';
-        }
-        h += '<tr style="border-top:2px solid var(--brd2);background:var(--surf)">' +
-             '<td style="padding:7px 10px;font-weight:600;font-size:11px;color:var(--tx-m)">Total rastreado</td>' +
-             '<td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--blue)">' + tot2 + '</td></tr>';
-        h += '</tbody></table>';
       } else {
-        h = '<div style="text-align:center;padding:20px 0;color:var(--tx-d);font-size:12px">' +
-            '<i class="fa fa-map-marked-alt" style="font-size:28px;display:block;margin-bottom:10px;color:var(--brd2)"></i>' +
-            '<strong style="display:block;margin-bottom:6px">Sin bins registrados</strong>' +
-            'Cargá datos en TABLA_POSICIONES para activar el mapa WMS.' +
+        h = '<div style="text-align:center;padding:24px 0;color:var(--tx-d);font-size:12px">' +
+            '<i class="fa fa-map-marker-alt" style="font-size:28px;display:block;margin-bottom:10px;opacity:.25"></i>' +
+            '<strong style="display:block;margin-bottom:6px">Sin ubicaciones asignadas</strong>' +
+            'Usá la pestaña <strong>WMS → Ubicaciones</strong> para asignar este repuesto a un rack.' +
             '</div>';
       }
       body.innerHTML = h;
     })
-    .withFailureHandler(function() {
-      // Si falla la llamada al server, usar datos en memoria
-      var ubicaciones = item.ubicaciones || [];
-      if (!ubicaciones.length) {
-        body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px"><i class="fa fa-map-marker-alt" style="font-size:22px;display:block;margin-bottom:8px;color:var(--brd2)"></i>Sin desglose registrado.</div>';
-      } else {
-        var hf = '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surf)"><th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase">Ubicación</th><th style="padding:7px 10px;font-size:10px;font-weight:600;color:var(--tx-m);text-transform:uppercase;text-align:right">Cant.</th></tr></thead><tbody>';
-        var totF = 0;
-        for (var k = 0; k < ubicaciones.length; k++) { totF += ubicaciones[k].cantidad; hf += '<tr style="border-top:1px solid var(--brd)"><td style="padding:7px 10px">' + _renderUbic(ubicaciones[k].ubicacion) + '</td><td style="padding:7px 10px;text-align:right;font-weight:700">' + ubicaciones[k].cantidad + '</td></tr>'; }
-        hf += '<tr style="border-top:2px solid var(--brd2);background:var(--surf)"><td style="padding:7px 10px;font-weight:600;font-size:11px;color:var(--tx-m)">Total</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--blue)">' + totF + '</td></tr></tbody></table>';
-        body.innerHTML = hf;
-      }
+    .withFailureHandler(function(e) {
+      body.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px"><i class="fa fa-exclamation-circle"></i> Error: ' + escH(e.message) + '</div>';
     })
-    .cargarBinsSKU(cod);
+    .cargarUbicacionesItem(cod);
 }
 
 // ── TRANSFERENCIA INTERNA ─────────────────────────────────────
@@ -4699,26 +4658,23 @@ function _wmsRender(ubicaciones) {
   var h = '<table style="width:100%;border-collapse:collapse">' +
     '<thead><tr style="border-bottom:2px solid var(--brd)">' +
     '<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--tx-d)">UBICACIÓN</th>' +
-    '<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--tx-d)">INICIAL</th>' +
-    '<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--tx-d)">TOTAL ACTUAL</th>' +
+    '<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--tx-d)">CANTIDAD</th>' +
     '<th style="width:60px"></th>' +
     '</tr></thead><tbody>';
   ubicaciones.forEach(function(u) {
-    var canDelete = u.cantidad === u.inicial;
-    var totalColor = u.cantidad > 0 ? 'var(--green)' : (u.cantidad < 0 ? 'var(--red)' : 'var(--tx-d)');
+    var cantColor = u.cantidad > 0 ? 'var(--green)' : (u.cantidad < 0 ? 'var(--red)' : 'var(--tx-d)');
     h += '<tr style="border-bottom:1px solid var(--brd)" data-ubic="' + escH(u.ubicacion) + '">' +
       '<td style="padding:7px 8px;font-family:monospace;font-size:12px;font-weight:700">' + escH(u.ubicacion) + '</td>' +
-      '<td style="padding:7px 8px;text-align:right;font-size:12px">' +
-        '<span id="wms-ini-lbl-' + escH(u.ubicacion) + '">' + u.inicial + '</span>' +
+      '<td style="padding:7px 8px;text-align:right;font-size:14px;font-weight:700;color:' + cantColor + '">' +
+        '<span id="wms-cant-lbl-' + escH(u.ubicacion) + '">' + u.cantidad + '</span>' +
       '</td>' +
-      '<td style="padding:7px 8px;text-align:right;font-size:14px;font-weight:700;color:' + totalColor + '">' + u.cantidad + '</td>' +
       '<td style="padding:7px 8px;text-align:right">' +
         '<button class="btn-s" style="padding:3px 7px;font-size:10px;margin-right:4px" ' +
-          'onclick="_wmsEditarInicial(\'' + escH(u.ubicacion) + '\',' + u.inicial + ')" title="Editar inicial">' +
+          'onclick="_wmsEditarInicial(\'' + escH(u.ubicacion) + '\',' + u.cantidad + ')" title="Editar cantidad">' +
           '<i class="fa fa-pen"></i></button>' +
-        (canDelete ? '<button class="btn-s" style="padding:3px 7px;font-size:10px;color:var(--red)" ' +
+        '<button class="btn-s" style="padding:3px 7px;font-size:10px;color:var(--red)" ' +
           'onclick="_wmsEliminar(\'' + escH(u.ubicacion) + '\')" title="Eliminar">' +
-          '<i class="fa fa-trash"></i></button>' : '') +
+          '<i class="fa fa-trash"></i></button>' +
       '</td></tr>';
   });
   h += '</tbody></table>';
@@ -4753,7 +4709,7 @@ function _wmsGuardarNuevo() {
 }
 
 function _wmsEditarInicial(ubic, cantActual) {
-  var lbl = document.getElementById('wms-ini-lbl-' + ubic);
+  var lbl = document.getElementById('wms-cant-lbl-' + ubic);
   if (!lbl) return;
   var inp = document.createElement('input');
   inp.type  = 'number'; inp.min = '0';
