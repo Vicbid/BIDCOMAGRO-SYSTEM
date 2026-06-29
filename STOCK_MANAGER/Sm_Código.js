@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.8 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v3.0 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -755,6 +755,38 @@ function eliminarUbicacion(sku, ubicacion) {
       }
     }
     return { ok: false, error: 'Ubicación no encontrada' };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// Devuelve ítems con stock en Carmen que no tienen ninguna ubicación en UBICACIONES.
+// Ordenados desc por stock. Limita a 200 ítems para no saturar.
+function cargarSinMapear() {
+  try {
+    var ss       = _getCarmenSS();
+    var hojaStk  = ss.getSheetByName('STOCK');
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaStk) return { ok: false, error: 'Hoja STOCK no encontrada en Carmen' };
+
+    // Set de SKUs ya mapeados
+    var mapeados = {};
+    if (hojaUbic) {
+      var dU = hojaUbic.getDataRange().getValues();
+      for (var u = 1; u < dU.length; u++) {
+        var sk = String(dU[u][0] || '').trim().toUpperCase();
+        if (sk) mapeados[sk] = true;
+      }
+    }
+
+    var dS  = hojaStk.getDataRange().getValues();
+    var out = [];
+    for (var i = 1; i < dS.length; i++) {
+      var cod   = String(dS[i][0] || '').trim().toUpperCase();
+      var stock = parseFloat(dS[i][2]) || 0;
+      if (!cod || stock <= 0 || mapeados[cod]) continue;
+      out.push({ sku: cod, descripcion: String(dS[i][1] || ''), stock: stock });
+    }
+    out.sort(function(a, b) { return b.stock - a.stock; });
+    return { ok: true, items: out.slice(0, 200), total: out.length };
   } catch(e) { return { ok: false, error: e.message }; }
 }
 
@@ -1818,19 +1850,32 @@ function _escribirEnRecibidos(cas, items, observaciones) {
       }
     } catch(eObs) { Logger.log('_escribirEnRecibidos obs lookup: ' + eObs); }
 
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+
     for (var i = 0; i < items.length; i++) {
-      var it   = items[i];
-      var cant = parseInt(it.cantRecibida) || 0;
+      var it       = items[i];
+      var cant     = parseInt(it.cantRecibida) || 0;
       if (cant <= 0) continue;
-      hoja.appendRow([
-        String(it.codigo      || '').trim().toUpperCase(),
-        String(it.descripcion || ''),
-        cant,
-        casStr,
-        fechaStr,
-        '',
-        obs
-      ]);
+      var codKey  = String(it.codigo    || '').trim().toUpperCase();
+      var ubicKey = String(it.ubicacion || '').trim().toUpperCase();
+
+      // PN | Desc | Cant | Origen | Fecha | Comprobante | obs | Aparece Inv | Ubicación
+      hoja.appendRow([codKey, String(it.descripcion || ''), cant, casStr, fechaStr, '', obs, '', ubicKey]);
+
+      // Sumar a UBICACIONES si se indicó ubicación
+      if (ubicKey && hojaUbic) {
+        var dU    = hojaUbic.getDataRange().getValues();
+        var found = false;
+        for (var ui = 1; ui < dU.length; ui++) {
+          if (String(dU[ui][0] || '').trim().toUpperCase() === codKey &&
+              String(dU[ui][1] || '').trim().toUpperCase() === ubicKey) {
+            hojaUbic.getRange(ui + 1, 3).setValue((parseFloat(dU[ui][2]) || 0) + cant);
+            found = true;
+            break;
+          }
+        }
+        if (!found) hojaUbic.appendRow([codKey, ubicKey, cant]);
+      }
     }
   } catch(e) {
     Logger.log('_escribirEnRecibidos: ' + e);

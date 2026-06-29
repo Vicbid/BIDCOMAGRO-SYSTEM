@@ -353,7 +353,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.7 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.9 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -653,6 +653,9 @@ tr:last-child td{border-bottom:none}
         <button id="wms-btn-sector" class="btn-s" style="flex:1;font-size:12px" onclick="_wmsModo('sector')">
           <i class="fa fa-th-large"></i> Por sector
         </button>
+        <button id="wms-btn-sinmapear" class="btn-s" style="flex:1;font-size:12px" onclick="_wmsModo('sinmapear')">
+          <i class="fa fa-exclamation-triangle"></i> Sin mapear <span id="wms-sm-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:3px"></span>
+        </button>
       </div>
 
       <!-- MODO ÍTEM -->
@@ -706,6 +709,26 @@ tr:last-child td{border-bottom:none}
 
           <!-- Lista de ítems en el sector -->
           <div id="wms-sector-lista"></div>
+        </div>
+      </div>
+
+      <!-- MODO SIN MAPEAR -->
+      <div id="wms-panel-sinmapear" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--tx-m)">Ítems con stock sin ubicación asignada</div>
+              <div style="font-size:11px;color:var(--tx-d)" id="wms-sm-sub">Cargando…</div>
+            </div>
+            <button class="btn-s" style="font-size:11px;padding:5px 10px" onclick="_smCargar()">
+              <i class="fa fa-sync-alt"></i>
+            </button>
+          </div>
+          <div id="wms-sm-lista">
+            <div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">
+              <i class="fa fa-circle-notch fa-spin"></i>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -817,6 +840,11 @@ tr:last-child td{border-bottom:none}
         <button class="btn-s" data-bs-dismiss="modal">Cerrar</button>
         <button id="btn-cancelar-recibo" class="btn-s" onclick="verDetalleCAS(_detalleCasActual)" style="display:none"><i class="fa fa-arrow-left" style="margin-right:4px"></i>Volver</button>
         <div style="flex:1"></div>
+        <div id="recep-ubic-cas-wrap" style="display:none;align-items:center;gap:6px">
+          <label style="font-size:11px;font-weight:600;color:var(--tx-d);white-space:nowrap;margin:0"><i class="fa fa-map-marker-alt" style="margin-right:3px"></i>Destino:</label>
+          <input id="recep-ubic-cas" type="text" placeholder="ej: 3-1-A" autocomplete="off"
+            style="width:82px;padding:4px 8px;font-size:12px;border:1.5px solid var(--brd);border-radius:var(--rm);font-family:var(--f);text-transform:uppercase">
+        </div>
         <button class="btn-p green" onclick="exportarPackingListCAS()"><i class="fa fa-file-excel"></i> Exportar</button>
         <button id="btn-recibir-parcial" class="btn-s" onclick="recibirCASParcial()" style="display:none"><i class="fa fa-pencil-alt" style="margin-right:4px"></i>Recibir parcial</button>
         <button id="btn-recibir-todo" class="btn-p" onclick="recibirCASCompleto()" style="display:none"><i class="fa fa-check-double" style="margin-right:4px"></i>Recibir todo</button>
@@ -1258,11 +1286,14 @@ tr:last-child td{border-bottom:none}
           <div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:10px">
             <i class="fa fa-box me-1"></i> Registrar cantidades recibidas
           </div>
-          <div class="mb-2" style="display:flex;align-items:center;gap:8px">
+          <div class="mb-2" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <label class="flbl" style="margin-bottom:0;white-space:nowrap"><i class="fa fa-warehouse" style="margin-right:4px"></i>Depósito destino</label>
             <select id="recepcion-deposito" class="form-select" style="max-width:180px">
               <option value="BA">BA — Buenos Aires</option>
             </select>
+            <label class="flbl" style="margin-bottom:0;white-space:nowrap;margin-left:8px"><i class="fa fa-map-marker-alt" style="margin-right:3px"></i>Ubicación WMS</label>
+            <input id="recepcion-ubicacion" type="text" class="form-control" placeholder="ej: 3-1-A (opcional)" autocomplete="off"
+              style="max-width:150px;text-transform:uppercase">
           </div>
           <div id="recepcion-items"></div>
         </div>
@@ -3118,6 +3149,8 @@ function verDetalleCAS(idCas) {
   document.getElementById('btn-recibir-parcial').style.display = 'none';
   document.getElementById('btn-confirmar-recibo').style.display = 'none';
   document.getElementById('btn-cancelar-recibo').style.display  = 'none';
+  document.getElementById('recep-ubic-cas-wrap').style.display  = 'none';
+  document.getElementById('recep-ubic-cas').value = '';
   modal('modal-detalle-cas').show();
   google.script.run
     .withSuccessHandler(function(d) { _detalleCasData = d; _renderDetalleCAS(d); })
@@ -3161,9 +3194,11 @@ function _renderDetalleCAS(d) {
     h += '</tbody></table></div></div>';
     document.getElementById('btn-recibir-todo').style.display    = hasPending ? '' : 'none';
     document.getElementById('btn-recibir-parcial').style.display = hasPending ? '' : 'none';
+    document.getElementById('recep-ubic-cas-wrap').style.display = hasPending ? 'flex' : 'none';
   } else {
     document.getElementById('btn-recibir-todo').style.display    = 'none';
     document.getElementById('btn-recibir-parcial').style.display = 'none';
+    document.getElementById('recep-ubic-cas-wrap').style.display = 'none';
   }
   document.getElementById('btn-confirmar-recibo').style.display = 'none';
   document.getElementById('btn-cancelar-recibo').style.display  = 'none';
@@ -3249,11 +3284,12 @@ function exportarPackingListCAS() {
 
 function recibirCASCompleto() {
   if (!_detalleCasData || !_detalleCasData.manifest || !_detalleCasData.manifest.length) return toast('Sin manifiesto cargado','err');
+  var loc   = ((document.getElementById('recep-ubic-cas') || {}).value || '').trim().toUpperCase();
   var items = [];
   for (var i = 0; i < _detalleCasData.manifest.length; i++) {
     var m = _detalleCasData.manifest[i];
     var delta = m.cantPedida - m.cantRecibida;
-    if (delta > 0) items.push({ codigo: m.sku, descripcion: m.descripcion, cantRecibida: delta });
+    if (delta > 0) items.push({ codigo: m.sku, descripcion: m.descripcion, cantRecibida: delta, ubicacion: loc });
   }
   if (!items.length) return toast('Todo ya fue recibido', 'ok');
   var op = document.getElementById('est-cas-op') ? document.getElementById('est-cas-op').value : 'Sistema';
@@ -3308,10 +3344,11 @@ function recibirCASParcial() {
 }
 
 function confirmarReciboParcial() {
+  var loc   = ((document.getElementById('recep-ubic-cas') || {}).value || '').trim().toUpperCase();
   var items = [];
   document.querySelectorAll('#recep-parcial-items .recep-item').forEach(function(row) {
     var qty = parseInt(row.querySelector('.recep-qty').value)||0;
-    if (qty > 0) items.push({ codigo: row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty });
+    if (qty > 0) items.push({ codigo: row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty, ubicacion: loc });
   });
   if (!items.length) return toast('Ingresá al menos una cantidad para recibir','err');
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
@@ -3485,12 +3522,14 @@ function confirmarEstadoCAS() {
 
   if (estado === 'En depósito') {
     // Recopilar cantidades recibidas y depósito destino
+    var loc   = ((document.getElementById('recepcion-ubicacion') || {}).value || '').trim().toUpperCase();
     var items = [];
     document.querySelectorAll('.recep-item').forEach(function(row) {
       items.push({
         codigo:       row.dataset.codigo,
         descripcion:  row.dataset.desc,
-        cantRecibida: parseInt(row.querySelector('.recep-qty').value)||0
+        cantRecibida: parseInt(row.querySelector('.recep-qty').value)||0,
+        ubicacion:    loc
       });
     });
     var depSel = document.getElementById('recepcion-deposito');
@@ -4620,6 +4659,8 @@ function _wmsTabAbierto() {
       document.getElementById('wms-loading').style.display = 'none';
     });
   }
+  // Cargar el conteo de sin mapear en segundo plano para mostrar el badge
+  if (!_smCargado) _smCargar();
 }
 
 function _wmsBuscar(q) {
@@ -4835,17 +4876,18 @@ var _scDDTimer    = null;
 var _scSkuSel     = ''; // SKU seleccionado en el autocomplete
 
 function _wmsModo(modo) {
-  var esItem = modo === 'item';
-  document.getElementById('wms-panel-item').style.display   = esItem ? '' : 'none';
-  document.getElementById('wms-panel-sector').style.display = esItem ? 'none' : '';
-  document.getElementById('wms-btn-item').className   = esItem ? 'btn-p' : 'btn-s';
-  document.getElementById('wms-btn-sector').className = esItem ? 'btn-s' : 'btn-p';
-  // aplicar el mismo flex:1 y font-size a ambos botones
-  ['wms-btn-item','wms-btn-sector'].forEach(function(id){
+  document.getElementById('wms-panel-item').style.display      = modo === 'item'      ? '' : 'none';
+  document.getElementById('wms-panel-sector').style.display    = modo === 'sector'    ? '' : 'none';
+  document.getElementById('wms-panel-sinmapear').style.display = modo === 'sinmapear' ? '' : 'none';
+  document.getElementById('wms-btn-item').className      = modo === 'item'      ? 'btn-p' : 'btn-s';
+  document.getElementById('wms-btn-sector').className    = modo === 'sector'    ? 'btn-p' : 'btn-s';
+  document.getElementById('wms-btn-sinmapear').className = modo === 'sinmapear' ? 'btn-p' : 'btn-s';
+  ['wms-btn-item','wms-btn-sector','wms-btn-sinmapear'].forEach(function(id){
     document.getElementById(id).style.flex     = '1';
     document.getElementById(id).style.fontSize = '12px';
   });
-  if (!esItem) setTimeout(function(){ document.getElementById('wms-sector-q').focus(); }, 80);
+  if (modo === 'sector')    setTimeout(function(){ document.getElementById('wms-sector-q').focus(); }, 80);
+  if (modo === 'sinmapear') _smCargar();
 }
 
 function _sectorCargar() {
@@ -5009,6 +5051,79 @@ function _scEliminar(sku) {
     })
     .withFailureHandler(function(e) { toast(e.message, 'err'); })
     .eliminarUbicacion(sku, _scSector);
+}
+
+// ══════════════════════════════════════════
+//  WMS — MODO SIN MAPEAR
+// ══════════════════════════════════════════
+var _smCargado = false;
+
+function _smCargar() {
+  if (_smCargado) return; // ya cargado, no recargar salvo refresh manual
+  _smCargado = false;
+  document.getElementById('wms-sm-sub').textContent  = 'Consultando Carmen…';
+  document.getElementById('wms-sm-lista').innerHTML  =
+    '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i></div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error al cargar', 'err'); return; }
+      _smCargado = true;
+      _smRender(r.items || [], r.total || 0);
+      // Mostrar badge en el botón
+      var badge = document.getElementById('wms-sm-badge');
+      if (r.total > 0) {
+        badge.textContent = r.total;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .cargarSinMapear();
+}
+
+function _smRender(items, total) {
+  var sub  = document.getElementById('wms-sm-sub');
+  var list = document.getElementById('wms-sm-lista');
+  if (!items.length) {
+    sub.textContent  = 'Todo el stock con ubicación asignada ✓';
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--green);font-size:13px;font-weight:700">' +
+      '<i class="fa fa-check-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>Sin ítems pendientes de mapeo</div>';
+    return;
+  }
+  sub.textContent = total + ' ítem' + (total !== 1 ? 's' : '') + ' sin ubicación' +
+    (total > items.length ? ' (mostrando los ' + items.length + ' con mayor stock)' : '');
+
+  var h = '<table style="width:100%;border-collapse:collapse">' +
+    '<thead><tr style="border-bottom:2px solid var(--brd)">' +
+    '<th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--tx-d)">CÓDIGO</th>' +
+    '<th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--tx-d)">DESCRIPCIÓN</th>' +
+    '<th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--tx-d)">STOCK</th>' +
+    '<th style="width:30px"></th>' +
+    '</tr></thead><tbody>';
+
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    h += '<tr style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="_smAsignar(\'' + escH(it.sku) + '\',\'' + escH(it.descripcion) + '\',' + it.stock + ')">' +
+      '<td style="padding:7px 8px;font-family:monospace;font-size:11px;color:var(--accent)">' + escH(it.sku) + '</td>' +
+      '<td style="padding:7px 8px;font-size:11px;color:var(--tx-d);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escH(it.descripcion) + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-weight:700;font-size:13px;color:var(--orange)">' + it.stock + '</td>' +
+      '<td style="padding:7px 8px">' +
+        '<button class="btn-s" style="padding:2px 8px;font-size:10px" title="Asignar ubicación" ' +
+          'onclick="event.stopPropagation();_smAsignar(\'' + escH(it.sku) + '\',\'' + escH(it.descripcion) + '\',' + it.stock + ')">' +
+          '<i class="fa fa-map-marker-alt"></i></button>' +
+      '</td></tr>';
+  }
+  h += '</tbody></table>';
+  list.innerHTML = h;
+}
+
+function _smAsignar(sku, desc, stock) {
+  // Cambiar a modo ítem y pre-cargar el SKU seleccionado
+  _wmsModo('item');
+  _wmsSelItem(sku, desc, stock);
+  // Limpiar badge y marcar para recargar la próxima vez
+  _smCargado = false;
 }
 </script>
 </body>

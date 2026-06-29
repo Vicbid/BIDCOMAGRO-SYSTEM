@@ -57,6 +57,10 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| SM_Index.html | 2.9 | WMS panel Sin mapear: tercer modo con lista de items con stock pero sin ubicacion, badge con conteo, click abre modo Por item pre-cargado |
+| Sm_Código.js | 3.0 | cargarSinMapear(): cruza Carmen STOCK vs UBICACIONES, devuelve hasta 200 items sin ubicacion ordenados desc por stock |
+| SM_Index.html | 2.8 | Ingreso DJI: campo Destino WMS en modal detalle-cas y modal estado-cas; ubicacion se pasa a cada item al recibir |
+| Sm_Código.js | 2.9 | _escribirEnRecibidos: escribe ubicacion en col I de Recibidos y suma cantidad a UBICACIONES tally |
 | SM_Index.html | 2.7 | WMS modo sector: toggle Por item / Por sector; conteo rapido por rack con autocomplete y lista editable |
 | Sm_Código.js | 2.8 | cargarUbicacionesSector(): devuelve todos los items de una ubicacion especifica |
 | SM_Index.html | 2.6 | WMS: advertencia B cuando total asignado supera stock Carmen; barra de estado Asignado/Sin asignar/Todo asignado |
