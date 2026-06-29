@@ -20,6 +20,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
 | RS_Pedidos.js | 1.5 | Fórmula CANT_PEND col G incluye -Z (CANT_CANCEL) al crear filas | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
+| RS_OTs.js | 1.7 | Fix threading: replyHtml→replyAll en agregarComentario y aprobarPresupuestoPortal (replyHtml no existe en GmailThread, siempre fallback a sendEmail nuevo) |
 | RS_OTs.js | 1.6 | Flujo batería unificado: detección esBateriaOT antes de ramas de flujo; 7 estados nuevos con paso/quePasa propios; esBateria en return usa variable en lugar de IIFE duplicado |
 | Index.html | 1.3 | Stepper batería: 4 pasos (Registro→Caso DJI→Aprobado DJI→Finalizado); detección esBat aplica a cualquier circuito (no solo Reseller Propio); btn-repuestos oculto para baterías |
 | RS_Auth.js | 1.1 | Perfil: agrega provincia (col 5) en obtener y actualizar |

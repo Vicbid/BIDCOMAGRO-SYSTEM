@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.6
+// @version 1.7
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -538,9 +538,9 @@ function agregarComentario(ot, comentario, autor) {
           try {
             var hilo = GmailApp.getThreadById(supThreadId);
             if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyHtml(htmlComent, { name: PORTAL_CONFIG.NOMBRE_REMITENTE, to: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+            hilo.replyAll('', { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
           } catch(eRep) {
-            Logger.log('agregarComentario replyHtml: ' + eRep + ' — fallback');
+            Logger.log('agregarComentario replyAll: ' + eRep + ' — fallback');
             GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
           }
         } else {
@@ -610,10 +610,10 @@ function aprobarPresupuestoPortal(ot, decision, observaciones) {
           try {
             var hilo = GmailApp.getThreadById(supThreadId);
             if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyHtml(html, { name: PORTAL_CONFIG.NOMBRE_REMITENTE, to: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+            hilo.replyAll('', { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
             _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", supThreadId);
           } catch(eRep) {
-            Logger.log('aprobarPresupuestoPortal replyHtml: ' + eRep + ' — fallback');
+            Logger.log('aprobarPresupuestoPortal replyAll: ' + eRep + ' — fallback');
             GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
             _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
           }
