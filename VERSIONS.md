@@ -52,6 +52,12 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | SM_Index.html | 2.0 | Borrador: buscador usa catálogo completo DJI (1372 repuestos del sheet externo) en lugar de solo STOCK_REPUESTOS; muestra modelo y precio en resultados |
+| Sm_Código.js | 2.6 | WMS: cargarUbicacionesItem, guardarUbicacionInicial, eliminarUbicacion; formula UBICACIONES incluye D (Inicial) |
+| SM_Index.html | 2.3 | Tab WMS: busqueda de repuesto, asignacion de ubicaciones con cantidad inicial, edicion inline, eliminacion |
+| Sm_Código.js | 2.5 | WMS Opcion A: _registrarMovimientoCarmen() appendea a Entregados/Recibidos segun diff; asegura fila con formula SUMIFS en UBICACIONES; ajustarInventario ya no llama _actualizarCarmenStock (Stock Actual es formula en Carmen) |
+| Env.js | 1.3 | Agrega CARMEN_ENTREGADOS_TAB y CARMEN_RECIBIDOS_TAB |
+| Sm_Código.js | 2.4 | Multi-ubicación WMS en Carmen: _getCarmenUbicMap() + _actualizarCarmenUbicacion() leen/escriben tab UBICACIONES de Carmen; cargarStock y ajustarInventario redirigidos a Carmen |
+| Env.js | 1.2 | Agrega CARMEN_UBICACIONES_TAB = 'UBICACIONES' |
 | Sm_Código.js | 2.3 | cargarCatalogoBorrador(): agrega stockActual cruzando con Carmen (_getCarmenStockMap), sin precio |
 | SM_Index.html | 2.2 | Pantallas de carga: spinner global con label dinámico, filas skeleton en stock y movimientos, texto de carga en despachos/compras/ventas, placeholder del borrador indica estado del catálogo |
 | Sm_Código.js | 2.2 | cargarStock(): fuente primaria cambiada a Carmen STOCK (5428 ítems) en lugar de STOCK_REPUESTOS; STOCK_REPUESTOS sigue proveyendo metadata (mínimo, categoría, ubicación) |

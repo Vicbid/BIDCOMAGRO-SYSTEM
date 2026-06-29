@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v2.3 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v2.6 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -51,6 +51,70 @@ function _getCarmenStockMap() {
     _carmenStockMapCache = m;
     return m;
   } catch(e) { Logger.log('_getCarmenStockMap: ' + e); return {}; }
+}
+
+// Retorna { SKU → [{ubicacion, cantidad}] } desde tab UBICACIONES de Carmen
+function _getCarmenUbicMap() {
+  var m = {};
+  try {
+    var hoja = _getCarmenSS().getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hoja) return m;
+    var d = hoja.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var sku  = String(d[i][0] || '').trim().toUpperCase();
+      var ubic = String(d[i][1] || '').trim();
+      var cant = parseInt(d[i][2]) || 0;
+      if (!sku || !ubic) continue;
+      if (!m[sku]) m[sku] = [];
+      m[sku].push({ ubicacion: ubic, cantidad: cant });
+    }
+  } catch(e) { Logger.log('_getCarmenUbicMap: ' + e); }
+  return m;
+}
+
+// Registra un movimiento de stock en Carmen (Entregados/Recibidos) y asegura fila en UBICACIONES
+// diff > 0 → entrada (Recibidos); diff < 0 → salida (Entregados)
+function _registrarMovimientoCarmen(sku, desc, ubicacion, diff, referencia) {
+  try {
+    var ss      = _getCarmenSS();
+    var codKey  = String(sku       || '').trim().toUpperCase();
+    var ubicKey = String(ubicacion || '').trim();
+    var refStr  = String(referencia || 'Ajuste').trim();
+    var descStr = String(desc      || '').trim();
+    var cant    = Math.abs(diff);
+    var fecha   = new Date();
+
+    if (diff < 0) {
+      // Salida → Entregados: p/n | Desc | Cant | Comprobante | Stock? | error | Fecha | Ubicación
+      var hojaEnt = ss.getSheetByName(CARMEN_ENTREGADOS_TAB);
+      if (hojaEnt) hojaEnt.appendRow([codKey, descStr, cant, refStr, '', '', fecha, ubicKey]);
+    } else if (diff > 0) {
+      // Entrada → Recibidos: PN | Desc | Cant | Origen | Fecha | Comprobante | (vac) | Aparece Inv | Ubicación
+      var hojaRec = ss.getSheetByName(CARMEN_RECIBIDOS_TAB);
+      if (hojaRec) hojaRec.appendRow([codKey, descStr, cant, refStr, fecha, '', '', '', ubicKey]);
+    }
+
+    // Asegurar fila en UBICACIONES con fórmula SUMIFS (solo si tiene ubicacion)
+    if (ubicKey) {
+      var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+      if (hojaUbic) {
+        var dU = hojaUbic.getDataRange().getValues();
+        var existe = false;
+        for (var i = 1; i < dU.length; i++) {
+          if (String(dU[i][0] || '').trim().toUpperCase() === codKey &&
+              String(dU[i][1] || '').trim() === ubicKey) { existe = true; break; }
+        }
+        if (!existe) {
+          hojaUbic.appendRow([codKey, ubicKey, '']);
+          var nr = hojaUbic.getLastRow();
+          hojaUbic.getRange(nr, 3).setFormula(
+            '=D' + nr + '+SUMIFS(Recibidos!C:C,Recibidos!A:A,A' + nr + ',Recibidos!I:I,B' + nr + ')' +
+            '-SUMIFS(Entregados!C:C,Entregados!A:A,A' + nr + ',Entregados!H:H,B' + nr + ')'
+          );
+        }
+      }
+    }
+  } catch(e) { Logger.log('_registrarMovimientoCarmen: ' + e); }
 }
 
 // Actualiza col C (stock actual) de un SKU en la hoja "STOCK" de Carmen
@@ -469,18 +533,7 @@ function cargarStock(filtro) {
     }
 
     var dUbic = [];
-    try { dUbic = getSheetValues(SCHEMA.SHEETS.STOCK_UBICACIONES); } catch(eu) {}
-    var SU = SCHEMA.STOCK_UBICACIONES;
-    var ubicMultiMap = {};
-    for (var u = 1; u < dUbic.length; u++) {
-      var uSku = String(dUbic[u][SU.SKU] || '').trim().toUpperCase();
-      if (!uSku) continue;
-      if (!ubicMultiMap[uSku]) ubicMultiMap[uSku] = [];
-      ubicMultiMap[uSku].push({
-        ubicacion: String(dUbic[u][SU.UBICACION] || ''),
-        cantidad:  parseInt(dUbic[u][SU.CANTIDAD]) || 0
-      });
-    }
+    var ubicMultiMap = _getCarmenUbicMap(); // tab UBICACIONES en Carmen
 
     // TABLA_POSICIONES: bins WMS con BIN_ID y TIPO_ALMACEN
     var dPos = [];
@@ -621,38 +674,79 @@ function ajustarInventario(codigo, cantNueva, motivo, operador, ubicacion) {
       var anterior = parseInt(d[i][2])||0;
       var nueva    = parseInt(cantNueva)||0;
       var diff     = nueva - anterior;
-      hoja.getRange(i+1, 3).setValue(nueva);
-      _actualizarCarmenStock(codigo, nueva);
+      // Stock Actual en Carmen es fórmula — no escribir ahí; solo registrar el movimiento
       _registrarMovimiento("AJUSTE_INVENTARIO", codigo, String(d[i][1]), diff, nueva,
         "Ajuste: "+motivo, operador||"Sistema");
-      if (ubicacion) {
-        var hojaUbic = getSheet(SCHEMA.SHEETS.STOCK_UBICACIONES);
-        if (hojaUbic) {
-          var dUbic2 = hojaUbic.getDataRange().getValues();
-          var SU2    = SCHEMA.STOCK_UBICACIONES;
-          var codKey = String(codigo).trim().toUpperCase();
-          var ubicKey = String(ubicacion).trim();
-          var foundRow = -1;
-          for (var u2 = 1; u2 < dUbic2.length; u2++) {
-            if (String(dUbic2[u2][SU2.SKU]).trim().toUpperCase() === codKey &&
-                String(dUbic2[u2][SU2.UBICACION]).trim() === ubicKey) {
-              foundRow = u2 + 1;
-              break;
-            }
-          }
-          if (foundRow > 0) {
-            var oldCant = parseInt(dUbic2[foundRow - 1][SU2.CANTIDAD]) || 0;
-            hojaUbic.getRange(foundRow, SU2.CANTIDAD + 1).setValue(Math.max(0, oldCant + diff));
-          } else if (diff > 0) {
-            hojaUbic.appendRow([codKey, ubicKey, diff]);
-          }
-          invalidateSheetValues(SCHEMA.SHEETS.STOCK_UBICACIONES);
-        }
-      }
+      _registrarMovimientoCarmen(codigo, String(d[i][1]), ubicacion, diff, motivo || 'Ajuste');
       return { ok: true, anterior: anterior, nueva: nueva };
     }
     return { ok: false, msg: "Código no encontrado" };
   } catch(e) { return { ok: false, msg: e.toString() }; }
+}
+
+// ── WMS — GESTIÓN DE UBICACIONES EN CARMEN ──────────────────
+function cargarUbicacionesItem(sku) {
+  try {
+    var codKey   = String(sku).trim().toUpperCase();
+    var hojaUbic = _getCarmenSS().getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: true, ubicaciones: [] };
+    var d = hojaUbic.getDataRange().getValues();
+    var out = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toUpperCase() !== codKey) continue;
+      out.push({
+        ubicacion: String(d[i][1] || '').trim(),
+        cantidad:  parseFloat(d[i][2]) || 0,
+        inicial:   parseFloat(d[i][3]) || 0
+      });
+    }
+    return { ok: true, ubicaciones: out };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function guardarUbicacionInicial(sku, ubicacion, cantidadInicial) {
+  try {
+    var ss       = _getCarmenSS();
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
+    var codKey  = String(sku).trim().toUpperCase();
+    var ubicKey = String(ubicacion).trim().toUpperCase();
+    var cantIni = Math.max(0, parseInt(cantidadInicial) || 0);
+    var d = hojaUbic.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toUpperCase() === codKey &&
+          String(d[i][1] || '').trim().toUpperCase() === ubicKey) {
+        hojaUbic.getRange(i + 1, 4).setValue(cantIni);
+        return { ok: true };
+      }
+    }
+    hojaUbic.appendRow([codKey, ubicKey, '', cantIni]);
+    var nr = hojaUbic.getLastRow();
+    hojaUbic.getRange(nr, 3).setFormula(
+      '=D' + nr + '+SUMIFS(Recibidos!C:C,Recibidos!A:A,A' + nr + ',Recibidos!I:I,B' + nr + ')' +
+      '-SUMIFS(Entregados!C:C,Entregados!A:A,A' + nr + ',Entregados!H:H,B' + nr + ')'
+    );
+    return { ok: true };
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+function eliminarUbicacion(sku, ubicacion) {
+  try {
+    var ss       = _getCarmenSS();
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe' };
+    var codKey  = String(sku).trim().toUpperCase();
+    var ubicKey = String(ubicacion).trim().toUpperCase();
+    var d = hojaUbic.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toUpperCase() === codKey &&
+          String(d[i][1] || '').trim().toUpperCase() === ubicKey) {
+        hojaUbic.deleteRow(i + 1);
+        return { ok: true };
+      }
+    }
+    return { ok: false, error: 'Ubicación no encontrada' };
+  } catch(e) { return { ok: false, error: e.message }; }
 }
 
 // ============================================================

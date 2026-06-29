@@ -328,6 +328,10 @@ tr:last-child td{border-bottom:none}
       <button class="nav-tab" id="nt-mov" onclick="showTab('mov','nt-mov')">
         <i class="fa fa-history"></i><span>Movimientos</span>
       </button>
+      <span class="sb-section-lbl">WMS</span>
+      <button class="nav-tab" id="nt-wms" onclick="showTab('wms','nt-wms')">
+        <i class="fa fa-map-marker-alt"></i><span>Ubicaciones</span>
+      </button>
     </nav>
     <div class="sb-footer">
       <button id="bell-btn" class="sb-footer-btn" onclick="showTab('stock','nt-stock');setEstante('');document.getElementById('stock-estado').value='CRÍTICO';filtrarStock()" title="Ítems en quiebre de stock" style="display:none">
@@ -349,7 +353,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.0 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.3 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -637,6 +641,75 @@ tr:last-child td{border-bottom:none}
       </div>
 
     </div><!-- /mov -->
+
+    <!-- ══ WMS — MAPEO DE UBICACIONES ════════════ -->
+    <div class="tab-view" id="tab-wms">
+
+      <div class="card" style="margin-bottom:14px">
+        <div style="font-size:13px;font-weight:700;color:var(--tx-m);margin-bottom:4px">
+          <i class="fa fa-map-marker-alt" style="color:var(--accent)"></i> Mapeo de ubicaciones
+        </div>
+        <div style="font-size:11px;color:var(--tx-d);margin-bottom:12px">Buscá un repuesto y asigná las cantidades por ubicación física. Podés hacerlo de a poco.</div>
+        <div style="position:relative">
+          <input type="text" id="wms-q" class="form-control" placeholder="Código o descripción del repuesto…"
+                 oninput="_wmsBuscar(this.value)" onkeydown="_wmsKeyNav(event)" autocomplete="off">
+          <div id="wms-dd" class="borr-dd" style="display:none"></div>
+        </div>
+      </div>
+
+      <div id="wms-item-card" style="display:none" class="card">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px">
+          <div style="flex:1;min-width:0">
+            <div id="wms-cod" style="font-size:10px;color:var(--tx-d);font-family:monospace"></div>
+            <div id="wms-desc" style="font-size:13px;font-weight:700;color:var(--tx-m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10px;color:var(--tx-d)">Stock total</div>
+            <div id="wms-stock-total" style="font-size:22px;font-weight:800;color:var(--accent)">—</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.05em">UBICACIONES ASIGNADAS</div>
+          <button class="btn-p" style="padding:4px 12px;font-size:11px" onclick="_wmsAgregarForm()">
+            <i class="fa fa-plus"></i> Agregar ubicación
+          </button>
+        </div>
+
+        <div id="wms-ubic-wrap">
+          <div class="empty-state" style="padding:24px">
+            <i class="fa fa-map-marker-alt" style="opacity:.25;font-size:22px"></i><br>Sin ubicaciones asignadas
+          </div>
+        </div>
+
+        <div id="wms-add-form" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)">
+          <div style="font-size:11px;font-weight:600;color:var(--tx-d);margin-bottom:8px">NUEVA UBICACIÓN</div>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:3px">UBICACIÓN</label>
+              <input type="text" id="wms-new-ubic" class="form-control" placeholder="Ej: 3-1-A"
+                     style="text-transform:uppercase" onkeydown="if(event.key==='Enter')_wmsGuardarNuevo()">
+            </div>
+            <div style="width:100px">
+              <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:3px">CANTIDAD ACTUAL</label>
+              <input type="number" id="wms-new-cant" class="form-control" min="0" placeholder="0"
+                     onkeydown="if(event.key==='Enter')_wmsGuardarNuevo()">
+            </div>
+            <button class="btn-p" onclick="_wmsGuardarNuevo()" title="Guardar">
+              <i class="fa fa-check"></i>
+            </button>
+            <button class="btn-s" onclick="_wmsCancelarForm()" title="Cancelar" style="padding:7px 10px">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="wms-loading" style="display:none" class="card">
+        <div class="empty-state"><i class="fa fa-circle-notch fa-spin" style="opacity:.4"></i><br>Cargando stock…</div>
+      </div>
+
+    </div><!-- /wms -->
 
     </div><!-- /ws-content -->
   </div><!-- /workspace -->
@@ -1449,6 +1522,7 @@ function showTab(id, btnId) {
   if (id==='comp')  cargarComprasTab();
   if (id==='vent')  cargarVentasTab();
   if (id==='mov')   cargarMovimientosTab();
+  if (id==='wms')   _wmsTabAbierto();
 }
 
 function modal(id) { return new bootstrap.Modal(document.getElementById(id)); }
@@ -4516,6 +4590,203 @@ function _cargarDepositosEnSelector() {
     };
   }
 })();
+
+// ══════════════════════════════════════════
+//  WMS — MAPEO DE UBICACIONES
+// ══════════════════════════════════════════
+var _wmsItem = null; // { codigo, descripcion, stockActual }
+var _wmsBuscTimer = null;
+var _wmsDDIdx = -1;
+
+function _wmsTabAbierto() {
+  if (!stockData.length) {
+    document.getElementById('wms-loading').style.display = '';
+    document.getElementById('wms-item-card').style.display = 'none';
+    cargarStockTab(function() {
+      document.getElementById('wms-loading').style.display = 'none';
+    });
+  }
+}
+
+function _wmsBuscar(q) {
+  clearTimeout(_wmsBuscTimer);
+  var dd = document.getElementById('wms-dd');
+  if (!q || q.length < 2) { dd.style.display = 'none'; return; }
+  _wmsBuscTimer = setTimeout(function() {
+    var up  = q.toUpperCase();
+    var res = [];
+    for (var i = 0; i < stockData.length && res.length < 8; i++) {
+      var r = stockData[i];
+      if ((r.codigo && r.codigo.toUpperCase().indexOf(up) >= 0) ||
+          (r.descripcion && r.descripcion.toUpperCase().indexOf(up) >= 0)) {
+        res.push(r);
+      }
+    }
+    if (!res.length) { dd.style.display = 'none'; return; }
+    _wmsDDIdx = -1;
+    var h = '';
+    res.forEach(function(r, idx) {
+      var stkColor = r.stockActual > 0 ? 'var(--green)' : 'var(--red)';
+      h += '<div class="borrador-ri" data-idx="' + idx + '" style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer" ' +
+           'data-cod="' + escH(r.codigo) + '" data-desc="' + escH(r.descripcion) + '" data-stk="' + (r.stockActual||0) + '">' +
+           '<div style="flex:1;min-width:0">' +
+           '<div style="font-size:10px;font-family:monospace;color:var(--tx-d)">' + escH(r.codigo) + '</div>' +
+           '<div style="font-size:12px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escH(r.descripcion) + '</div>' +
+           '</div>' +
+           '<span style="font-size:11px;font-weight:700;color:' + stkColor + '">' + (r.stockActual||0) + '</span>' +
+           '</div>';
+    });
+    dd.innerHTML = h;
+    dd.style.display = 'block';
+    dd.onclick = function(e) {
+      var row = e.target.closest('[data-cod]');
+      if (!row) return;
+      _wmsSelItem(row.dataset.cod, row.dataset.desc, parseInt(row.dataset.stk)||0);
+    };
+  }, 200);
+}
+
+function _wmsKeyNav(e) {
+  var dd    = document.getElementById('wms-dd');
+  var items = dd ? dd.querySelectorAll('.borrador-ri') : [];
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _wmsDDIdx = Math.min(_wmsDDIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _wmsDDIdx = Math.max(_wmsDDIdx - 1, 0);
+  } else if (e.key === 'Enter' && _wmsDDIdx >= 0) {
+    e.preventDefault();
+    var row = items[_wmsDDIdx];
+    _wmsSelItem(row.dataset.cod, row.dataset.desc, parseInt(row.dataset.stk)||0);
+    return;
+  } else return;
+  items.forEach(function(it, i) { it.style.background = i === _wmsDDIdx ? 'var(--hover)' : ''; });
+}
+
+function _wmsSelItem(cod, desc, stk) {
+  _wmsItem = { codigo: cod, descripcion: desc, stockActual: stk };
+  document.getElementById('wms-q').value = cod;
+  document.getElementById('wms-dd').style.display = 'none';
+  document.getElementById('wms-cod').textContent   = cod;
+  document.getElementById('wms-desc').textContent  = desc;
+  document.getElementById('wms-stock-total').textContent = stk;
+  document.getElementById('wms-item-card').style.display = '';
+  document.getElementById('wms-add-form').style.display  = 'none';
+  _wmsCargar(cod);
+}
+
+function _wmsCargar(cod) {
+  document.getElementById('wms-ubic-wrap').innerHTML =
+    '<div style="padding:12px;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error al cargar ubicaciones', 'err'); return; }
+      _wmsRender(r.ubicaciones);
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .cargarUbicacionesItem(cod);
+}
+
+function _wmsRender(ubicaciones) {
+  var wrap = document.getElementById('wms-ubic-wrap');
+  if (!ubicaciones.length) {
+    wrap.innerHTML = '<div class="empty-state" style="padding:24px"><i class="fa fa-map-marker-alt" style="opacity:.25;font-size:22px"></i><br>Sin ubicaciones asignadas</div>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse">' +
+    '<thead><tr style="border-bottom:2px solid var(--brd)">' +
+    '<th style="text-align:left;padding:6px 8px;font-size:10px;color:var(--tx-d)">UBICACIÓN</th>' +
+    '<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--tx-d)">INICIAL</th>' +
+    '<th style="text-align:right;padding:6px 8px;font-size:10px;color:var(--tx-d)">TOTAL ACTUAL</th>' +
+    '<th style="width:60px"></th>' +
+    '</tr></thead><tbody>';
+  ubicaciones.forEach(function(u) {
+    var canDelete = u.cantidad === u.inicial;
+    var totalColor = u.cantidad > 0 ? 'var(--green)' : (u.cantidad < 0 ? 'var(--red)' : 'var(--tx-d)');
+    h += '<tr style="border-bottom:1px solid var(--brd)" data-ubic="' + escH(u.ubicacion) + '">' +
+      '<td style="padding:7px 8px;font-family:monospace;font-size:12px;font-weight:700">' + escH(u.ubicacion) + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-size:12px">' +
+        '<span id="wms-ini-lbl-' + escH(u.ubicacion) + '">' + u.inicial + '</span>' +
+      '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-size:14px;font-weight:700;color:' + totalColor + '">' + u.cantidad + '</td>' +
+      '<td style="padding:7px 8px;text-align:right">' +
+        '<button class="btn-s" style="padding:3px 7px;font-size:10px;margin-right:4px" ' +
+          'onclick="_wmsEditarInicial(\'' + escH(u.ubicacion) + '\',' + u.inicial + ')" title="Editar inicial">' +
+          '<i class="fa fa-pen"></i></button>' +
+        (canDelete ? '<button class="btn-s" style="padding:3px 7px;font-size:10px;color:var(--red)" ' +
+          'onclick="_wmsEliminar(\'' + escH(u.ubicacion) + '\')" title="Eliminar">' +
+          '<i class="fa fa-trash"></i></button>' : '') +
+      '</td></tr>';
+  });
+  h += '</tbody></table>';
+  wrap.innerHTML = h;
+}
+
+function _wmsAgregarForm() {
+  document.getElementById('wms-add-form').style.display = '';
+  document.getElementById('wms-new-ubic').value = '';
+  document.getElementById('wms-new-cant').value = '';
+  setTimeout(function(){ document.getElementById('wms-new-ubic').focus(); }, 80);
+}
+
+function _wmsCancelarForm() {
+  document.getElementById('wms-add-form').style.display = 'none';
+}
+
+function _wmsGuardarNuevo() {
+  if (!_wmsItem) return;
+  var ubic = (document.getElementById('wms-new-ubic').value || '').trim().toUpperCase();
+  var cant = parseInt(document.getElementById('wms-new-cant').value) || 0;
+  if (!ubic) { toast('Ingresá una ubicación', 'err'); return; }
+  _wmsCancelarForm();
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error al guardar', 'err'); return; }
+      toast('Ubicación ' + ubic + ' guardada');
+      _wmsCargar(_wmsItem.codigo);
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .guardarUbicacionInicial(_wmsItem.codigo, ubic, cant);
+}
+
+function _wmsEditarInicial(ubic, cantActual) {
+  var lbl = document.getElementById('wms-ini-lbl-' + ubic);
+  if (!lbl) return;
+  var inp = document.createElement('input');
+  inp.type  = 'number'; inp.min = '0';
+  inp.value = cantActual;
+  inp.style.cssText = 'width:60px;padding:2px 4px;font-size:12px;border:1px solid var(--accent);border-radius:4px;text-align:right';
+  lbl.parentNode.replaceChild(inp, lbl);
+  inp.focus(); inp.select();
+  function guardar() {
+    var nueva = Math.max(0, parseInt(inp.value) || 0);
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+        toast('Guardado');
+        _wmsCargar(_wmsItem.codigo);
+      })
+      .withFailureHandler(function(e) { toast(e.message, 'err'); })
+      .guardarUbicacionInicial(_wmsItem.codigo, ubic, nueva);
+  }
+  inp.onblur   = guardar;
+  inp.onkeydown = function(e) { if (e.key === 'Enter') { e.preventDefault(); guardar(); } if (e.key === 'Escape') _wmsCargar(_wmsItem.codigo); };
+}
+
+function _wmsEliminar(ubic) {
+  if (!_wmsItem) return;
+  if (!confirm('¿Eliminar ubicación ' + ubic + '?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+      toast('Ubicación eliminada');
+      _wmsCargar(_wmsItem.codigo);
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .eliminarUbicacion(_wmsItem.codigo, ubic);
+}
 </script>
 </body>
 </html>

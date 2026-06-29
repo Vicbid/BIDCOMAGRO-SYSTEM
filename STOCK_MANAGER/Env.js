@@ -1,5 +1,8 @@
-var MASTER_SHEET_ID    = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
-var CATALOGO_REPUESTOS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
+var MASTER_SHEET_ID        = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
+var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
+var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab resumen WMS (fórmulas SUMIFS, solo lectura)
+var CARMEN_ENTREGADOS_TAB  = 'Entregados';  // log de salidas en Carmen
+var CARMEN_RECIBIDOS_TAB   = 'Recibidos';   // log de entradas en Carmen
 
 var SCHEMA = {
   SHEETS: {
