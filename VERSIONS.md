@@ -62,6 +62,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 3.5 | Panel "Compras en tránsito" → "En vuelo / en aduana"; KPI idem; filtro solo muestra esos 2 estados |
+| Sm_Código.js | 4.0 | cargarDashboard casTransito: filtro cambiado a CAS_ACTIVOS=['En vuelo','En aduana'] — ya no incluye Comprado/Pagado/Forwarder HK |
 | SM_Index.html | 3.4 | Top rotación: segundo panel "por valor" ($); _renderTopRotList helper unifica render de ambos; cargarTopRotacion maneja nuevo retorno {cantidad, valor} |
 | Sm_Código.js | 3.9 | obtenerTopRotacion: retorna {cantidad, valor} — ambos top-5 en una sola llamada; valor = suma CANT_SOL × PRECIO por SKU |
 | SM_Index.html | 3.3 | renderOTTracking: muestra cantPend por SKU con badge naranja/verde; header de cada OT siempre tiene _wosBadge (wos nunca null) |

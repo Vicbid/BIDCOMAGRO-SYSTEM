@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 3.4 -->
+<!-- @version 3.5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -426,7 +426,7 @@ tr:last-child td{border-bottom:none}
       <!-- CAS en tránsito -->
       <div class="card">
         <div class="card-head">
-          <div class="card-head-left"><i class="fa fa-plane" style="color:var(--blue)"></i> Compras en tránsito</div>
+          <div class="card-head-left"><i class="fa fa-plane" style="color:var(--blue)"></i> Compras en vuelo / en aduana</div>
           <button class="btn-s blue" onclick="showTab('comp','nt-comp')"><i class="fa fa-arrow-right"></i> Ver todas</button>
         </div>
         <div id="dash-cas-wrap">
@@ -1751,7 +1751,7 @@ function renderDashboard(d) {
     kpiHtml('BAJO · Cat. B', bm.B||0, bm.B>0?'warn':'ok') +
     kpiHtml('Bajo mínimo total', bm.total||0, bm.total>0?'warn':'ok') +
     kpiHtml('Pedidos WOS pendientes', (d.solicPendientes||[]).length, (d.solicPendientes||[]).length>0?'warn':'ok') +
-    kpiHtml('CAS en tránsito', (d.casTransito||[]).length, 'info') +
+    kpiHtml('CAS en vuelo/aduana', (d.casTransito||[]).length, (d.casTransito||[]).length>0?'info':'ok') +
     kpiHtml('Valor depósito', valDepStr, 'info') +
     kpiHtml('Lead time prom.', ltStr, m.leadTime>30?'crit':(m.leadTime>20?'warn':'info')) +
     kpiHtml('Días en aduana', adStr, m.aduana>15?'crit':(m.aduana>7?'warn':'info')) +

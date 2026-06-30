@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v3.9 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.0 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -456,12 +456,13 @@ function cargarDashboard() {
     }
     var rotacionMensual = (totalStockAct > 0) ? Math.round((totalSalidas30 / totalStockAct) * 100) / 100 : null;
 
-    // CAS en tránsito (excluye Borrador y En depósito)
+    // CAS en tránsito — solo los que están físicamente en movimiento
+    var CAS_ACTIVOS = ['En vuelo', 'En aduana'];
     var casTransito = [];
     for (var ct = 1; ct < dCom.length; ct++) {
       var fct    = dCom[ct];
-      var casEst = String(fct[2] || 'Comprado').trim();
-      if (casEst === 'En depósito' || casEst.indexOf('Borrador') !== -1) continue;
+      var casEst = String(fct[2] || '').trim();
+      if (CAS_ACTIVOS.indexOf(casEst) === -1) continue;
       casTransito.push({
         cas:        String(fct[0] || ''),
         fechaPedido:_fmtFecha(fct[1]),
