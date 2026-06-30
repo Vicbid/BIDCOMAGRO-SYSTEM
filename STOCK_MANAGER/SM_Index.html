@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.3 -->
+<!-- @version 5.4 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -244,6 +244,9 @@ tr:last-child td{border-bottom:none}
 .le-niv-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
 .le-niv-count{font-size:11px;color:var(--tx-d);width:24px;text-align:center}
 
+/* Detalle de bin — tarjetas de caja */
+.det-caja-card{background:var(--raise);border:1px solid var(--brd);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+
 /* ── CRUCE EXTERNO ──────────────────────── */
 .cruce-ext-panel{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .cruce-sect{border-radius:var(--rl);border:1px solid var(--brd);overflow:hidden}
@@ -413,7 +416,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.3 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.4 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -768,14 +771,22 @@ tr:last-child td{border-bottom:none}
             <div style="font-size:11px;font-weight:700;color:#27ae60;letter-spacing:.06em;margin-bottom:12px">
               <i class="fa fa-map-pin" style="margin-right:5px"></i>ASIGNAR A UBICACIÓN
             </div>
-            <div style="margin-bottom:10px">
-              <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:5px;font-weight:600">BIN</label>
-              <div style="position:relative">
-                <input type="text" id="wms-new-ubic" class="form-control bin-inp" placeholder="Ej: A-1-3"
-                       oninput="_binFilter('wms-new-ubic','wms-new-ubic-dd',null)"
-                       onkeydown="_binKeyNav(event,'wms-new-ubic','wms-new-ubic-dd',null,'wms-new-cant')"
-                       autocomplete="off" style="padding:11px 14px">
-                <div id="wms-new-ubic-dd" class="borr-dd" style="display:none"></div>
+            <div style="display:grid;grid-template-columns:1fr 76px;gap:8px;margin-bottom:10px;align-items:start">
+              <div>
+                <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:5px;font-weight:600">BIN</label>
+                <div style="position:relative">
+                  <input type="text" id="wms-new-ubic" class="form-control bin-inp" placeholder="Ej: 1-A-2"
+                         oninput="_binFilter('wms-new-ubic','wms-new-ubic-dd',null)"
+                         onkeydown="_binKeyNav(event,'wms-new-ubic','wms-new-ubic-dd',null,'wms-new-caja')"
+                         autocomplete="off" style="padding:11px 14px">
+                  <div id="wms-new-ubic-dd" class="borr-dd" style="display:none"></div>
+                </div>
+              </div>
+              <div>
+                <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:5px;font-weight:600">CAJA #</label>
+                <input type="number" id="wms-new-caja" class="form-control" value="1" min="1"
+                       style="padding:11px 8px;text-align:center"
+                       onkeydown="if(event.key==='Enter')_wmsGuardarNuevo()">
               </div>
             </div>
             <div style="margin-bottom:14px">
@@ -802,12 +813,20 @@ tr:last-child td{border-bottom:none}
             <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.06em">SELECCIONÁ EL BIN A CONTAR</div>
             <div id="cnt-bin-hint" style="font-size:10px;color:var(--tx-d)"></div>
           </div>
-          <div style="position:relative;margin-bottom:10px">
-            <input type="text" id="cnt-bin" class="form-control bin-inp" placeholder="Escribí para buscar o elegí de la lista…"
-                   oninput="_binFilter('cnt-bin','cnt-bin-dd',null)"
-                   onkeydown="_binKeyNav(event,'cnt-bin','cnt-bin-dd',null,null)"
-                   autocomplete="off" style="padding:11px 14px">
-            <div id="cnt-bin-dd" class="borr-dd" style="display:none"></div>
+          <div style="display:grid;grid-template-columns:1fr 76px;gap:8px;margin-bottom:10px;align-items:start">
+            <div style="position:relative">
+              <input type="text" id="cnt-bin" class="form-control bin-inp" placeholder="Elegí bin del layout…"
+                     oninput="_binFilter('cnt-bin','cnt-bin-dd',null)"
+                     onkeydown="_binKeyNav(event,'cnt-bin','cnt-bin-dd',null,'cnt-caja')"
+                     autocomplete="off" style="padding:11px 14px">
+              <div id="cnt-bin-dd" class="borr-dd" style="display:none"></div>
+            </div>
+            <div>
+              <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:5px;font-weight:600">CAJA #</label>
+              <input type="number" id="cnt-caja" class="form-control" value="1" min="1"
+                     style="padding:11px 8px;text-align:center"
+                     onkeydown="if(event.key==='Enter')_cntCargar()">
+            </div>
           </div>
           <button onclick="_cntCargar()" class="btn-action blue" style="padding:11px" id="cnt-cargar-btn">
             <i class="fa fa-search" style="margin-right:7px"></i>Cargar bin
@@ -920,12 +939,20 @@ tr:last-child td{border-bottom:none}
               </div>
               <div>
                 <label style="font-size:10px;color:var(--tx-d);display:block;margin-bottom:5px;font-weight:600">BIN DESTINO</label>
-                <div style="position:relative">
-                  <input type="text" id="mv-destino" class="form-control bin-inp" placeholder="Bin destino…"
-                         oninput="_binFilter('mv-destino','mv-destino-dd',null)"
-                         onkeydown="_binKeyNav(event,'mv-destino','mv-destino-dd',null,null)"
-                         autocomplete="off" style="padding:9px 12px">
-                  <div id="mv-destino-dd" class="borr-dd" style="display:none"></div>
+                <div style="display:grid;grid-template-columns:1fr 62px;gap:6px">
+                  <div style="position:relative">
+                    <input type="text" id="mv-destino" class="form-control bin-inp" placeholder="Bin (ej: 2-B-1)"
+                           oninput="_binFilter('mv-destino','mv-destino-dd',null)"
+                           onkeydown="_binKeyNav(event,'mv-destino','mv-destino-dd',null,'mv-destino-caja')"
+                           autocomplete="off" style="padding:9px 12px">
+                    <div id="mv-destino-dd" class="borr-dd" style="display:none"></div>
+                  </div>
+                  <div>
+                    <label style="font-size:9px;color:var(--tx-d);display:block;margin-bottom:3px">CAJA</label>
+                    <input type="number" id="mv-destino-caja" class="form-control" value="1" min="1"
+                           style="padding:9px 6px;text-align:center"
+                           onkeydown="if(event.key==='Enter')_mvConfirmar()">
+                  </div>
                 </div>
               </div>
             </div>
@@ -5025,11 +5052,13 @@ function _wmsAdjCant(delta) {
 
 function _wmsGuardarNuevo() {
   if (!_wmsItem) return;
-  var ubic = (document.getElementById('wms-new-ubic').value || '').trim().toUpperCase();
-  var cant = parseInt(document.getElementById('wms-new-cant').value) || 0;
-  if (!ubic) { toast('Elegí una ubicación de la lista', 'err'); document.getElementById('wms-new-ubic').focus(); return; }
+  var ubic3 = (document.getElementById('wms-new-ubic').value || '').trim().toUpperCase();
+  var caja  = (document.getElementById('wms-new-caja').value || '1').trim();
+  var ubic  = ubic3 + '-' + caja;
+  var cant  = parseInt(document.getElementById('wms-new-cant').value) || 0;
+  if (!ubic3) { toast('Elegí un bin de la lista', 'err'); document.getElementById('wms-new-ubic').focus(); return; }
   var allBins = _getAllBins();
-  if (allBins.length && allBins.indexOf(ubic) === -1) {
+  if (allBins.length && allBins.indexOf(ubic3) === -1) {
     toast('Ese bin no existe en el layout. Elegí uno de la lista.', 'err');
     document.getElementById('wms-new-ubic').focus(); return;
   }
@@ -5040,8 +5069,9 @@ function _wmsGuardarNuevo() {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:7px"></i>Guardar ubicación'; }
       if (!r.ok) { toast(r.error || 'Error al guardar', 'err'); return; }
       toast('✓ ' + ubic + ' — ' + cant + ' u. guardadas');
-      document.getElementById('wms-new-ubic').value = '';
-      document.getElementById('wms-new-cant').value = '0';
+      document.getElementById('wms-new-ubic').value  = '';
+      document.getElementById('wms-new-caja').value  = '1';
+      document.getElementById('wms-new-cant').value  = '0';
       document.getElementById('wms-new-ubic-dd').style.display = 'none';
       setTimeout(function(){ document.getElementById('wms-new-ubic').focus(); }, 80);
       _wmsCargar(_wmsItem.codigo);
@@ -5149,10 +5179,12 @@ function _cntActualizarHint() {
 }
 
 function _cntCargar() {
-  var v = (document.getElementById('cnt-bin').value || '').trim().toUpperCase();
-  if (!v) { toast('Elegí un bin de la lista', 'err'); document.getElementById('cnt-bin').focus(); return; }
+  var bin3 = (document.getElementById('cnt-bin').value || '').trim().toUpperCase();
+  var caja = ((document.getElementById('cnt-caja')||{}).value || '1').trim();
+  var v    = bin3 + '-' + caja;
+  if (!bin3) { toast('Elegí un bin de la lista', 'err'); document.getElementById('cnt-bin').focus(); return; }
   var allBins = _getAllBins();
-  if (allBins.length && allBins.indexOf(v) === -1) {
+  if (allBins.length && allBins.indexOf(bin3) === -1) {
     toast('Ese bin no existe en el layout. Elegí uno de la lista.', 'err');
     document.getElementById('cnt-bin').focus();
     return;
@@ -5496,6 +5528,7 @@ function _mvSelItem(cod, desc, stk) {
   document.getElementById('mv-item-card').style.display = '';
   document.getElementById('mv-origen').value  = '';
   document.getElementById('mv-destino').value = '';
+  var mvdcEl = document.getElementById('mv-destino-caja'); if(mvdcEl) mvdcEl.value = '1';
   document.getElementById('mv-cant').value    = '1';
   // Cargar chips de ubicaciones actuales
   var chips = document.getElementById('mv-origen-chips');
@@ -5539,17 +5572,20 @@ function _mvAdjCant(delta) {
 
 function _mvConfirmar() {
   if (!_mvItem) return;
-  var origen  = (document.getElementById('mv-origen').value  || '').trim().toUpperCase();
-  var destino = (document.getElementById('mv-destino').value || '').trim().toUpperCase();
-  var cant    = parseInt(document.getElementById('mv-cant').value) || 0;
-  if (!origen)  { toast('Indicá el bin de origen', 'err');  document.getElementById('mv-origen').focus();  return; }
-  if (!destino) { toast('Indicá el bin de destino', 'err'); document.getElementById('mv-destino').focus(); return; }
-  if (cant < 1) { toast('La cantidad debe ser al menos 1', 'err'); document.getElementById('mv-cant').focus(); return; }
+  var origen    = (document.getElementById('mv-origen').value   || '').trim().toUpperCase();
+  var destino3  = (document.getElementById('mv-destino').value  || '').trim().toUpperCase();
+  var cajaDest  = ((document.getElementById('mv-destino-caja')||{}).value || '1').trim();
+  var destino   = destino3 + '-' + cajaDest;
+  var cant      = parseInt(document.getElementById('mv-cant').value) || 0;
+  if (!origen)   { toast('Indicá el bin de origen', 'err');  document.getElementById('mv-origen').focus();  return; }
+  if (!destino3) { toast('Indicá el bin de destino', 'err'); document.getElementById('mv-destino').focus(); return; }
+  if (cant < 1)  { toast('La cantidad debe ser al menos 1', 'err'); document.getElementById('mv-cant').focus(); return; }
   if (origen === destino) { toast('Origen y destino son el mismo bin', 'err'); return; }
   var allBins = _getAllBins();
   if (allBins.length) {
-    if (allBins.indexOf(origen)  === -1) { toast('Bin de origen no está en el layout', 'err');  document.getElementById('mv-origen').focus();  return; }
-    if (allBins.indexOf(destino) === -1) { toast('Bin de destino no está en el layout', 'err'); document.getElementById('mv-destino').focus(); return; }
+    var origenBase = origen.split('-').slice(0, 3).join('-');
+    if (allBins.indexOf(origenBase) === -1) { toast('Bin de origen no está en el layout', 'err'); document.getElementById('mv-origen').focus(); return; }
+    if (allBins.indexOf(destino3)   === -1) { toast('Bin de destino no está en el layout', 'err'); document.getElementById('mv-destino').focus(); return; }
   }
   var btn = document.getElementById('mv-confirmar-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:8px"></i>Moviendo…'; }
@@ -5580,7 +5616,7 @@ function _smAsignar(sku, desc, stock) {
 // ══════════════════════════════════════════════════════════
 
 var _mapaLayout    = [];   // [{ estante, orden, panos:[{ pano, orden, alturas }] }]
-var _mapaBinStock  = {};   // 'EST-PANO-ALTURA' → { tipos:{}, skus:[], total }
+var _mapaBinStock  = {};   // 'EST-PANO-ALT' → { tipos:{}, total, cajas:{ '1':{skus,total}, … } }
 var _mapaCargado   = false;
 
 function _mapaCargar() {
@@ -5606,9 +5642,9 @@ function _mapaRefrescar() {
   _mapaCargar();
 }
 
-// Construye _mapaBinStock desde stockData (ya en memoria)
-// Usa item.ubicaciones (tab UBICACIONES de Carmen — fuente real del WMS Recibir/Contar/Mover),
-// NO item.bins (TABLA_POSICIONES, hoja legacy que el WMS actual no escribe)
+// Construye _mapaBinStock desde stockData.
+// Agrupa por 3-part bin (ESTANTE-PAÑO-ALTURA); el 4to segmento es el número de caja.
+// BIN IDs de 3 partes (legacy) caen bajo caja virtual '—'.
 function _mapaConstruirBinStock() {
   _mapaBinStock = {};
   if (!stockData || !stockData.length) return;
@@ -5619,10 +5655,15 @@ function _mapaConstruirBinStock() {
       var u   = item.ubicaciones[j];
       var bid = String(u.ubicacion || '').trim().toUpperCase();
       if (!bid || !u.cantidad) continue;
-      if (!_mapaBinStock[bid]) _mapaBinStock[bid] = { tipos: {}, skus: [], total: 0 };
-      _mapaBinStock[bid].tipos['PICKING'] = true;
-      _mapaBinStock[bid].skus.push({ sku: item.codigo, desc: item.descripcion, cant: u.cantidad });
-      _mapaBinStock[bid].total += u.cantidad;
+      var parts  = bid.split('-');
+      var binKey = parts.length >= 4 ? parts.slice(0, 3).join('-') : bid;
+      var caja   = parts.length >= 4 ? parts.slice(3).join('-') : '—';
+      if (!_mapaBinStock[binKey]) _mapaBinStock[binKey] = { tipos: {}, total: 0, cajas: {} };
+      _mapaBinStock[binKey].tipos['PICKING'] = true;
+      _mapaBinStock[binKey].total += u.cantidad;
+      if (!_mapaBinStock[binKey].cajas[caja]) _mapaBinStock[binKey].cajas[caja] = { skus: [], total: 0 };
+      _mapaBinStock[binKey].cajas[caja].skus.push({ sku: item.codigo, desc: item.descripcion, cant: u.cantidad, binFull: bid });
+      _mapaBinStock[binKey].cajas[caja].total += u.cantidad;
     }
   }
 }
@@ -5727,38 +5768,295 @@ function _mapaRenderGrid() {
   cont.innerHTML = h;
 }
 
+// ── DETALLE DE BIN — estado y helpers ────────────────────────
+var _detEstante = '';
+var _detPano    = '';
+var _detAlturas = 0;
+var _detSkuSel  = {};  // cajaFull → sku seleccionado en el autocompletado
+var _detDDTimer = {};
+
+function _detRefrescar() {
+  _mapaConstruirBinStock();
+  _mapaVerDetalle(_detEstante, _detPano, _detAlturas);
+}
+
 function _mapaVerDetalle(estante, pano, alturas) {
-  var det = document.getElementById('mapa-detalle');
+  _detEstante = estante; _detPano = pano; _detAlturas = alturas;
+  var det  = document.getElementById('mapa-detalle');
   det.style.display = '';
-  document.getElementById('mapa-det-titulo').textContent = 'Estante ' + estante + ', Paño ' + pano;
+  document.getElementById('mapa-det-titulo').textContent = 'EST ' + estante + ' · PAÑO ' + pano;
   var body = document.getElementById('mapa-det-body');
   var h = '';
   for (var a = 1; a <= alturas; a++) {
-    var binKey = (estante + '-' + pano + '-' + a).toUpperCase();
-    var bs = _mapaBinStock[binKey];
-    h += '<div style="margin-bottom:10px">' +
-         '<div style="font-size:11px;font-weight:700;font-family:monospace;color:var(--tx-m);margin-bottom:3px">' + escH(binKey) + '</div>';
-    if (!bs || !bs.skus.length) {
-      h += '<div style="font-size:11px;color:var(--tx-d);padding:4px 0">Bin vacío — sin stock</div>';
-    } else {
-      var tiposArr = Object.keys(bs.tipos);
-      var tipoCls  = _mapaTipoClase(bs.tipos);
-      var tipoBadge = tiposArr.length ? '<span class="wms-tipo-' + tipoCls + '" style="margin-left:4px;font-size:10px">' + tiposArr.join('/') + '</span>' : '';
-      h += '<table style="width:100%;font-size:12px;border-collapse:collapse">';
-      for (var si = 0; si < bs.skus.length; si++) {
-        var sk = bs.skus[si];
-        h += '<tr style="border-top:1px solid var(--brd)">' +
-             '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:var(--accent);white-space:nowrap">' + escH(sk.sku) + '</td>' +
-             '<td style="padding:5px 8px;font-size:11px;color:var(--tx-d)">' + escH(sk.desc) + '</td>' +
-             '<td style="padding:5px 8px;font-weight:700;font-size:12px;color:var(--tx-m);white-space:nowrap">' + sk.cant + ' u.' + (si === bs.skus.length - 1 ? tipoBadge : '') + '</td>' +
-             '</tr>';
-      }
-      h += '</table>';
-    }
+    var binKey3 = (estante + '-' + pano + '-' + a).toUpperCase();
+    var bstock  = _mapaBinStock[binKey3];
+    h += '<div style="margin-bottom:16px">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    h += '<div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--tx-d)">ALTURA ' + a +
+         ' <span style="font-family:monospace;font-weight:400">— ' + escH(binKey3) + '</span></div>';
+    h += '<button onclick="_detAgregarCaja(\'' + escH(binKey3) + '\')" ' +
+         'style="font-size:10px;color:var(--accent);background:none;border:1px dashed var(--accent);border-radius:4px;padding:2px 8px;cursor:pointer">' +
+         '<i class="fa fa-plus"></i> Agregar caja</button>';
     h += '</div>';
+    if (!bstock || !Object.keys(bstock.cajas).length) {
+      h += '<div style="font-size:11px;color:var(--tx-d);padding:10px;text-align:center;border:1px dashed var(--brd);border-radius:var(--r);font-style:italic">' +
+           'Sin stock — usá "Agregar caja" para registrar mercadería</div>';
+    } else {
+      var cajaKeys = Object.keys(bstock.cajas).sort(function(x,y){
+        var nx=parseFloat(x),ny=parseFloat(y);
+        return (!isNaN(nx)&&!isNaN(ny))?nx-ny:String(x).localeCompare(String(y));
+      });
+      for (var ci = 0; ci < cajaKeys.length; ci++) {
+        var caja    = cajaKeys[ci];
+        var cs      = bstock.cajas[caja];
+        var sinCaja = caja === '—';
+        var cajaFull = sinCaja ? binKey3 : binKey3 + '-' + caja;
+        h += '<div class="det-caja-card" id="det-caja-' + escH(cajaFull) + '">';
+        // ─ Encabezado de caja
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+             '<i class="fa fa-cube" style="color:var(--accent);font-size:12px"></i>';
+        if (sinCaja) {
+          h += '<span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--tx-m);flex:1">' + escH(binKey3) + '</span>';
+        } else {
+          h += '<span style="flex:1;font-size:12px;font-weight:700;font-family:monospace;color:var(--tx-m)">' +
+               'Caja ' + escH(caja) +
+               '<span style="font-size:9px;font-weight:400;color:var(--tx-d);margin-left:5px">(' + escH(cajaFull) + ')</span></span>';
+        }
+        h += '<span style="font-size:12px;font-weight:900;color:var(--accent)">' + cs.total + ' u.</span>';
+        if (!sinCaja) {
+          h += '<button class="btn-s" style="padding:2px 8px;font-size:10px;color:var(--orange)" ' +
+               'onclick="_detMoverCaja(\'' + escH(cajaFull) + '\')" title="Mover caja entera a otro bin">' +
+               '<i class="fa fa-truck"></i></button>';
+        }
+        h += '</div>';
+        // ─ Tabla de SKUs
+        if (cs.skus.length) {
+          h += '<table style="width:100%;font-size:11px;border-collapse:collapse;margin-bottom:8px">';
+          for (var si = 0; si < cs.skus.length; si++) {
+            var sk    = cs.skus[si];
+            var qtyId = 'det-qty-' + escH(cajaFull) + '-' + escH(sk.sku);
+            h += '<tr style="border-top:1px solid var(--brd)">' +
+                 '<td style="padding:5px 6px;font-family:monospace;font-size:10px;color:var(--accent);white-space:nowrap">' + escH(sk.sku) + '</td>' +
+                 '<td style="padding:5px 6px;font-size:10px;color:var(--tx-d);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escH(sk.desc) + '</td>' +
+                 '<td style="padding:5px 6px;text-align:right;white-space:nowrap">' +
+                   '<span id="' + escH(qtyId) + '" onclick="_detEditarQty(\'' + escH(sk.sku) + '\',\'' + escH(sk.binFull) + '\',' + sk.cant + ')" ' +
+                         'style="font-size:13px;font-weight:700;color:var(--tx-m);cursor:pointer;padding:1px 6px;border-radius:4px;border:1px dashed var(--brd2)" title="Click para editar">' +
+                   sk.cant + ' u.</span></td>' +
+                 '<td style="padding:5px 4px;text-align:right">' +
+                   '<button onclick="_detEliminarSku(\'' + escH(sk.sku) + '\',\'' + escH(sk.binFull) + '\')" ' +
+                           'style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:2px 3px"><i class="fa fa-times"></i></button>' +
+                 '</td></tr>';
+          }
+          h += '</table>';
+        }
+        // ─ Agregar SKU a esta caja
+        h += '<div style="padding-top:6px;border-top:1px dashed var(--brd)">' +
+             '<div style="display:flex;gap:6px;align-items:center">' +
+             '<div style="flex:1;position:relative">' +
+               '<input type="text" id="det-add-sku-' + escH(cajaFull) + '" class="form-control" placeholder="Agregar SKU…" ' +
+                      'oninput="_detBuscarSku(this,\'' + escH(cajaFull) + '\')" ' +
+                      'onkeydown="_detSkuKeyNav(event,\'' + escH(cajaFull) + '\')" ' +
+                      'autocomplete="off" style="font-size:11px;padding:5px 8px">' +
+               '<div id="det-add-dd-' + escH(cajaFull) + '" class="borr-dd" style="display:none"></div>' +
+             '</div>' +
+             '<input type="number" id="det-add-cant-' + escH(cajaFull) + '" class="form-control" value="1" min="1" ' +
+                    'style="width:52px;font-size:11px;padding:5px 4px;text-align:center" ' +
+                    'onkeydown="if(event.key===\'Enter\')_detGuardarSku(\'' + escH(cajaFull) + '\')">' +
+             '<button onclick="_detGuardarSku(\'' + escH(cajaFull) + '\')" ' +
+                     'style="background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:5px 10px;cursor:pointer;white-space:nowrap">' +
+               '<i class="fa fa-plus"></i></button>' +
+             '</div></div>';
+        h += '</div>'; // /det-caja-card
+      }
+    }
+    h += '</div>'; // /altura section
+    if (a < alturas) h += '<hr style="border:none;border-top:1px solid var(--brd);margin:4px 0 14px">';
   }
   body.innerHTML = h;
   setTimeout(function() { det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
+}
+
+function _detEditarQty(sku, binFull, cantActual) {
+  var qtyId = 'det-qty-' + binFull + '-' + sku;
+  var el = document.getElementById(qtyId);
+  if (!el) return;
+  var inp = document.createElement('input');
+  inp.type = 'number'; inp.min = '0'; inp.value = cantActual;
+  inp.style.cssText = 'width:64px;padding:2px 6px;font-size:12px;border:1px solid var(--accent);border-radius:4px;text-align:right;font-weight:700';
+  el.parentNode.replaceChild(inp, el);
+  inp.focus(); inp.select();
+  function guardar() {
+    var nueva = Math.max(0, parseInt(inp.value) || 0);
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+        toast('✓ Guardado'); _detRefrescar();
+      })
+      .withFailureHandler(function(e) { toast(e.message, 'err'); })
+      .guardarUbicacionInicial(sku, binFull, nueva);
+  }
+  inp.onblur = guardar;
+  inp.onkeydown = function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); guardar(); }
+    if (e.key === 'Escape') _detRefrescar();
+  };
+}
+
+function _detEliminarSku(sku, binFull) {
+  if (!confirm('¿Quitar ' + sku + ' de ' + binFull + '?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+      toast('Eliminado'); _detRefrescar();
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .eliminarUbicacion(sku, binFull);
+}
+
+function _detBuscarSku(inputEl, cajaFull) {
+  clearTimeout(_detDDTimer[cajaFull]);
+  var dd = document.getElementById('det-add-dd-' + cajaFull);
+  if (!dd) return;
+  var q = (inputEl.value || '').toUpperCase().trim();
+  _detSkuSel[cajaFull] = '';
+  if (!q || q.length < 2) { dd.style.display = 'none'; return; }
+  _detDDTimer[cajaFull] = setTimeout(function() {
+    var res = [];
+    for (var i = 0; i < stockData.length && res.length < 8; i++) {
+      var r = stockData[i];
+      if ((r.codigo&&r.codigo.toUpperCase().indexOf(q)>=0)||(r.descripcion&&r.descripcion.toUpperCase().indexOf(q)>=0)) res.push(r);
+    }
+    if (!res.length) { dd.style.display = 'none'; return; }
+    var h = '';
+    res.forEach(function(r) {
+      h += '<div class="borrador-ri" style="padding:7px 10px;cursor:pointer" data-cod="' + escH(r.codigo) + '">' +
+           '<span style="font-size:10px;font-family:monospace;color:var(--accent)">' + escH(r.codigo) + '</span>' +
+           '<span style="font-size:10px;color:var(--tx-d);margin-left:6px">' + escH(r.descripcion) + '</span>' +
+           '</div>';
+    });
+    dd.innerHTML = h; dd.style.display = 'block';
+    dd.onclick = function(e) {
+      var row = e.target.closest('[data-cod]');
+      if (!row) return;
+      _detSkuSel[cajaFull] = row.dataset.cod;
+      inputEl.value = row.dataset.cod;
+      dd.style.display = 'none';
+      var cantEl = document.getElementById('det-add-cant-' + cajaFull);
+      if (cantEl) { cantEl.focus(); cantEl.select(); }
+    };
+  }, 180);
+}
+
+function _detSkuKeyNav(e, cajaFull) {
+  var dd = document.getElementById('det-add-dd-' + cajaFull);
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (dd && dd.style.display !== 'none') {
+      var first = dd.querySelector('[data-cod]');
+      if (first) {
+        _detSkuSel[cajaFull] = first.dataset.cod;
+        var inp = document.getElementById('det-add-sku-' + cajaFull);
+        if (inp) inp.value = first.dataset.cod;
+        dd.style.display = 'none';
+        var cantEl = document.getElementById('det-add-cant-' + cajaFull);
+        if (cantEl) { cantEl.focus(); cantEl.select(); }
+        return;
+      }
+    }
+    _detGuardarSku(cajaFull);
+  }
+}
+
+function _detGuardarSku(cajaFull) {
+  var skuInp  = document.getElementById('det-add-sku-' + cajaFull);
+  var cantInp = document.getElementById('det-add-cant-' + cajaFull);
+  if (!skuInp || !cantInp) return;
+  var sku  = (_detSkuSel[cajaFull] || skuInp.value || '').trim().toUpperCase();
+  var cant = Math.max(1, parseInt(cantInp.value) || 1);
+  if (!sku) { toast('Buscá y seleccioná un repuesto', 'err'); skuInp.focus(); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+      toast('✓ ' + sku + ' agregado a ' + cajaFull); _detRefrescar();
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .guardarUbicacionInicial(sku, cajaFull, cant);
+}
+
+function _detAgregarCaja(binKey3) {
+  var bs = _mapaBinStock[binKey3];
+  var maxCaja = 0;
+  if (bs) {
+    Object.keys(bs.cajas).forEach(function(c) {
+      var n = parseInt(c); if (!isNaN(n) && n > maxCaja) maxCaja = n;
+    });
+  }
+  var nextCaja = String(maxCaja + 1);
+  _wmsModo('contar');
+  var binInp  = document.getElementById('cnt-bin');
+  var cajaInp = document.getElementById('cnt-caja');
+  if (binInp)  binInp.value  = binKey3;
+  if (cajaInp) cajaInp.value = nextCaja;
+  _cntCargar();
+}
+
+function _detMoverCaja(cajaFull) {
+  var card = document.getElementById('det-caja-' + cajaFull);
+  if (!card) return;
+  var formId = 'det-mv-form-' + cajaFull;
+  var existing = document.getElementById(formId);
+  if (existing) { existing.remove(); return; }
+  var div = document.createElement('div');
+  div.id = formId;
+  div.style.cssText = 'margin-top:8px;padding:8px 10px;border-top:1px solid var(--brd);background:rgba(212,137,10,.05);border-radius:var(--r)';
+  div.innerHTML =
+    '<div style="font-size:10px;font-weight:700;color:var(--orange);margin-bottom:6px">' +
+      '<i class="fa fa-truck" style="margin-right:4px"></i>MOVER CAJA A OTRO BIN</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 62px;gap:6px;margin-bottom:6px">' +
+      '<div style="position:relative">' +
+        '<input type="text" id="det-mv-bin-' + escH(cajaFull) + '" class="form-control bin-inp" placeholder="Bin destino (ej: 2-B-1)" ' +
+               'oninput="_binFilter(\'det-mv-bin-' + escH(cajaFull) + '\',\'det-mv-bin-dd-' + escH(cajaFull) + '\',null)" ' +
+               'autocomplete="off" style="font-size:11px;padding:7px 10px">' +
+        '<div id="det-mv-bin-dd-' + escH(cajaFull) + '" class="borr-dd" style="display:none"></div>' +
+      '</div>' +
+      '<div><label style="font-size:9px;color:var(--tx-d);display:block;margin-bottom:2px">CAJA</label>' +
+           '<input type="number" id="det-mv-caja-' + escH(cajaFull) + '" class="form-control" value="' + (cajaFull.split('-').pop()) + '" min="1" ' +
+                  'style="font-size:11px;padding:7px 5px;text-align:center" ' +
+                  'onkeydown="if(event.key===\'Enter\')_detMoverCajaConf(\'' + escH(cajaFull) + '\')"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px">' +
+      '<button onclick="_detMoverCajaConf(\'' + escH(cajaFull) + '\')" ' +
+              'style="flex:1;background:var(--orange);color:#fff;border:none;border-radius:var(--r);padding:7px;font-size:12px;font-weight:700;cursor:pointer">' +
+        '<i class="fa fa-truck" style="margin-right:5px"></i>Confirmar</button>' +
+      '<button onclick="document.getElementById(\'' + escH(formId) + '\').remove()" ' +
+              'style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:7px 12px;cursor:pointer;font-size:11px">Cancelar</button>' +
+    '</div>';
+  card.appendChild(div);
+  setTimeout(function(){ var b=document.getElementById('det-mv-bin-'+cajaFull); if(b)b.focus(); }, 60);
+}
+
+function _detMoverCajaConf(cajaFull) {
+  var binInp  = document.getElementById('det-mv-bin-' + cajaFull);
+  var cajaInp = document.getElementById('det-mv-caja-' + cajaFull);
+  if (!binInp || !cajaInp) return;
+  var destBin3 = (binInp.value || '').trim().toUpperCase();
+  var destCaja = (cajaInp.value || '1').trim();
+  var destFull = destBin3 + '-' + destCaja;
+  if (!destBin3) { toast('Elegí un bin destino', 'err'); binInp.focus(); return; }
+  var allBins = _getAllBins();
+  if (allBins.length && allBins.indexOf(destBin3) === -1) {
+    toast('Ese bin no está en el layout', 'err'); binInp.focus(); return;
+  }
+  if (destFull === cajaFull) { toast('El destino es el mismo que el origen', 'err'); return; }
+  if (!confirm('¿Mover caja ' + cajaFull + ' → ' + destFull + '? Se mueven todos los ítems.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.ok) { toast(r.error || 'Error', 'err'); return; }
+      toast('✓ Caja movida a ' + destFull);
+      _detRefrescar(); _mapaRenderGrid();
+    })
+    .withFailureHandler(function(e) { toast(e.message, 'err'); })
+    .SM_moverCaja(cajaFull, destFull);
 }
 
 // ══════════════════════════════════════════════════════════
