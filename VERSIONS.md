@@ -52,6 +52,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Despacho_Código.js | 3.1 | WOS despacha todo: WOS_cargarPedidos fusiona Pedidos_resellers + Pedidos_OTs; _procesarFilasPedidos extrae loop; todas las funciones per-numero (cancelar, cambiarEstado, reactivar, revertir, obs, etiqueta) usan _getHojaPorNumero; WOS_buscarBackorderPorSKU + WOS_recibirMercaderia + WOS_reporteBackorder + WOS_checkCambios + WOS_getResumenEnvios escanean ambas hojas; WOS_actualizarValidacion aplica a ambas; WOS_migrarPedidosOTs() función one-time que recrea Pedidos_OTs con 26 cols |
+| WOS_GmailFlow.js | 2.3 | Fix: _esDJIAprobado y formaPago se declaraban DESPUÉS de usarlas en adminHtml (hoisting var → undefined); movidas al bloque previo a tituloAdmin |
 | WOS_GmailFlow.js | 2.2 | WOS_despacharCompleto: email admin muestra "Sin costo — DJI aprobado" (verde) o "A 30 días" según OBS del pedido OT; PR mantiene campo PAGO existente |
 | WOS_GmailFlow.js | 2.1 | WOS_despacharCompleto: al despachar OT-, actualiza E: por SKU en col Q (REPUESTOS) del HUB PRO + estado "Repuestos enviados" solo si despacho completo (sin backorder) |
 | WOS_GmailFlow.js | 1.9 | _wosLeerPedido usa _getHojaPorNumero(numero); WOS_recuperarThreadIds escanea ambas hojas con hoja-por-numero; WOS_procesarRespuestaManual usa _getHojaPorNumero |

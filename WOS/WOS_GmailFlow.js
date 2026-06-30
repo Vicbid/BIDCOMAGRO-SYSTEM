@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.2
+// @version 2.3
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -808,6 +808,11 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       tablaHtml + totalHtml + chipsHtml + rastrearBtn + driveBtn + obsHtml + confirmEntregaHtml;
 
     // ── Sección para administración (incluida al pie del mismo email) ─
+    // Forma de pago: OT con DJI aprobado → sin costo; OT sin aprobar → 30 días; PR → campo PAGO
+    var _esDJIAprobado = _esNumeroOT(numero) && ped.obs.indexOf('DJI ✓ Aprobado') !== -1;
+    var formaPago = _esNumeroOT(numero)
+      ? (_esDJIAprobado ? 'Sin costo — DJI aprobado' : 'A 30 días')
+      : (ped.pago || 'N/E');
     var tituloAdmin = hayDespPrevio
       ? "Facturar 2\xba env\xedo — Pedido " + numero + (hayBackorderPostDesp ? " <span style='font-weight:400;color:#b8860b'>(a\xfan hay pendientes)</span>" : "")
       : (hayBackorderPostDesp
@@ -857,11 +862,6 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       : (hayBackorderPostDesp
         ? '1\xba env\xedo de tu pedido ' + numero + ': despachamos los \xedtems disponibles.\nLos \xedtems en backorder llegar\xe1n en un 2\xba env\xedo cuando el stock est\xe9 disponible.'
         : 'Tu pedido ' + numero + ' fue despachado.');
-    // Forma de pago: OT con DJI aprobado → sin costo; OT sin aprobar → 30 días; PR → campo PAGO
-    var _esDJIAprobado = _esNumeroOT(numero) && ped.obs.indexOf('DJI ✓ Aprobado') !== -1;
-    var formaPago = _esNumeroOT(numero)
-      ? (_esDJIAprobado ? 'Sin costo — DJI aprobado' : 'A 30 días')
-      : (ped.pago || 'N/E');
 
     var plainAdminTitulo = hayDespPrevio
       ? 'Facturar 2\xba env\xedo' + (hayBackorderPostDesp ? ' (a\xfan hay pendientes)' : '') + ' — Pedido '
