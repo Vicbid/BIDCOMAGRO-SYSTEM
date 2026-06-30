@@ -66,6 +66,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | WOS_GmailFlow.js | 1.7 | Nota de entrega agrupa items por caja con fila separadora Caja N + tracking cuando hay multi-bulto; Fix 1.6: fila TOTAL en col 6 |
 | Despacho_Código.js | 2.8 | WOS_cargarStock: lee ubicaciones desde Carmen UBICACIONES tab (multi-ubicacion WMS); fallback a STOCK_REPUESTOS para items sin mapear |
 | Despacho_Env.js | 1.1 | Agrega CARMEN_UBICACIONES_TAB = 'UBICACIONES' |
+| Despacho_Index.html | 3.9 | Batch despacho: checkbox incluye Backorder; en abrirBatchDespacho items de BO renderizan con value=0 + hint ámbar + borde ámbar; badge BACKORDER en separador de sección; ítems cancelados/ya-enviados excluidos del batch |
 | Despacho_Index.html | 3.8 | Badges WMS en tabla de ítems: columna "Ubicación WMS" con wosPintarBadgesUbicacion(); CSS .wms-bin picking/reserva (tokens nativos); snapshot cargado post-render via _cargarWmsSnapshot() + _actualizarBadgesWms() sin bloquear UI |
 | WOS_StockSnapshot.js | 1.1 | WOS_obtenerStockSnapshot() función pública para google.script.run; devuelve stockMap serializable al frontend |
 | WOS_StockSnapshot.js | 1.0 | Módulo read-only WMS: _wosCargarStockSnapshot() triple in-memory mapping (Carmen STOCK + UBICACIONES + MASTER TABLA_POSICIONES); sort PICKING-first + alfanumérico natural; _wosStockBySku() helper de consulta |

@@ -1,4 +1,4 @@
-<!-- @version 3.8 -->
+<!-- @version 3.9 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2017,8 +2017,8 @@ function renderCard(p) {
   return '<div class="pedido-card' + (isSlaWarn ? ' sla-warn' : '') + '" id="card-' + escH(p.numero) + '">' +
 
     '<div class="card-head est-' + clsEst + '" onclick="toggleCard(\'' + escH(p.numero) + '\')">' +
-      ((est === 'Preparado' || est === 'Preparado Parcial')
-        ? '<input type="checkbox" class="batch-chk" id="bchk-' + escH(p.numero) + '" onclick="event.stopPropagation()" onchange="toggleBatch(\'' + escH(p.numero) + '\',this.checked)" title="Seleccionar para despachar junto con otros">'
+      ((est === 'Preparado' || est === 'Preparado Parcial' || est === 'Backorder')
+        ? '<input type="checkbox" class="batch-chk" id="bchk-' + escH(p.numero) + '" onclick="event.stopPropagation()" onchange="toggleBatch(\'' + escH(p.numero) + '\',this.checked)" title="' + (est === 'Backorder' ? 'Incluir este backorder en un despacho conjunto' : 'Seleccionar para despachar junto con otros') + '">'
         : '') +
       '<span class="card-num">' + escH(p.numero) + '</span>' +
       '<span class="card-reseller">' + escH(p.reseller) + '</span>' +
@@ -3632,20 +3632,31 @@ function abrirBatchDespacho() {
   for (var n = 0; n < numeros.length; n++) {
     var ped = _buscarPedido(numeros[n]);
     if (!ped) continue;
-    html += '<div class="batch-sep-head">' + escH(numeros[n]) + ' · ' + escH(ped.reseller) + '</div>';
+    var pedEsBO = ped.estado === 'Backorder';
+    var badgeBO = pedEsBO ? ' <span style="font-size:9px;font-weight:700;background:var(--yellow-l);color:var(--yellow);border:1px solid rgba(151,79,12,.25);border-radius:3px;padding:1px 5px;vertical-align:middle">BACKORDER</span>' : '';
+    html += '<div class="batch-sep-head">' + escH(numeros[n]) + ' · ' + escH(ped.reseller) + badgeBO + '</div>';
     for (var j = 0; j < ped.items.length; j++) {
       var it = ped.items[j];
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, numero: numeros[n] });
+      var esCancelado = it.estado === 'Cancelado';
+      var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
+      var esItemBO    = pedEsBO || it.estado === 'Backorder';
+
+      if (esCancelado || yaEnviado) continue; // ítems cerrados no se incluyen en batch
+
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, numero: numeros[n] });
+
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
-        (it.cantDesp > 0 ? ' &nbsp;·&nbsp; Ya desp.: <strong style="color:var(--teal)">' + it.cantDesp + '</strong>' : '') +
-        ' &nbsp;·&nbsp; Pend.: <strong>' + it.cantPend + '</strong>';
-      html += '<div class="modal-item-row">' +
+        (it.cantDesp > 0 ? ' \xa0·\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
+        ' \xa0·\xa0 Pend.: <strong>' + it.cantPend + '</strong>';
+      if (esItemBO) metaLine += ' \xa0<span style="color:var(--amber-m);font-weight:700;font-size:10px">▶ BACKORDER — ingresá cuánto despacharás ahora</span>';
+
+      html += '<div class="modal-item-row" style="' + (esItemBO ? 'border-left:3px solid var(--amber-m)' : '') + '">' +
         '<div class="modal-item-info">' +
           '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
           '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
           '<div class="modal-item-sol">' + metaLine + '</div>' +
         '</div>' +
-        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '">' +
+        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + (esItemBO ? '0' : it.cantPend) + '">' +
       '</div>';
     }
   }
