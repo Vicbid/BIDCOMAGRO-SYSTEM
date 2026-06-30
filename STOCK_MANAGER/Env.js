@@ -162,7 +162,9 @@ var SCHEMA = {
   LAYOUT_ALMACEN: {
     ESTANTE:       0,
     ORDEN_ESTANTE: 1,
-    NUM_NIVELES:   2
+    PANO:          2,
+    ORDEN_PANO:    3,
+    NUM_ALTURAS:   4
   }
 };
 

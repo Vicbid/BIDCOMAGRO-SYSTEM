@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.5 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.6 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -176,7 +176,7 @@ function asegurarHojas() {
     "SOLICITUDES_DESPACHO": ["ID","Fecha","OT","Reseller","Código","Descripción","Cant. solicitada","Cant. despachada","Estado","Urgencia","Fecha despacho","Operador","Observaciones"],
     "STOCK_UBICACIONES":    ["SKU","Ubicación","Cantidad"],
     "TABLA_POSICIONES":     ["SKU","BIN_ID","CANTIDAD","TIPO_ALMACEN"],
-    "LAYOUT_ALMACEN":       ["ESTANTE","ORDEN_ESTANTE","NUM_NIVELES"]
+    "LAYOUT_ALMACEN":       ["ESTANTE","ORDEN_ESTANTE","PAÑO","ORDEN_PAÑO","NUM_ALTURAS"]
   };
   var keys = Object.keys(hojas);
   for (var i = 0; i < keys.length; i++) {
@@ -4153,7 +4153,8 @@ function transferirEntreDepositos(sku, cantidad, depositoOrigen, depositoDestino
 }
 
 // ============================================================
-//  LAYOUT DE ALMACÉN — mapa de estantes y niveles (sin pasillo)
+//  LAYOUT DE ALMACÉN — mapa de estantes, paños y alturas
+//  BIN_ID = ESTANTE-PAÑO-ALTURA (ej: "1-A-2")
 // ============================================================
 
 function SM_cargarLayout() {
@@ -4162,22 +4163,32 @@ function SM_cargarLayout() {
     if (!hoja) return { ok: true, estantes: [] };
     var d  = hoja.getDataRange().getValues();
     var LA = SCHEMA.LAYOUT_ALMACEN;
-    var estantes = [];
+    var map = {};
     for (var i = 1; i < d.length; i++) {
-      var raw = d[i][LA.ESTANTE];
-      // Si Sheets convirtió el valor a Date, la fila está corrupta — saltear
-      if (raw instanceof Date) continue;
-      var est    = String(raw || '').trim();
-      var ordEst = Number(d[i][LA.ORDEN_ESTANTE]) || 0;
-      var niv    = Math.max(1, Number(d[i][LA.NUM_NIVELES]) || 1);
-      if (!est) continue;
-      estantes.push({ estante: est, orden: ordEst, niveles: niv });
+      var rawEst  = d[i][LA.ESTANTE];
+      var rawPano = d[i][LA.PANO];
+      // Si Sheets convirtió algún valor a Date, la fila está corrupta — saltear
+      if (rawEst instanceof Date || rawPano instanceof Date) continue;
+      var est     = String(rawEst  || '').trim();
+      var ordEst  = Number(d[i][LA.ORDEN_ESTANTE]) || 0;
+      var pano    = String(rawPano || '').trim();
+      var ordPano = Number(d[i][LA.ORDEN_PANO]) || 0;
+      var alt     = Math.max(1, Number(d[i][LA.NUM_ALTURAS]) || 1);
+      if (!est || !pano) continue;
+      if (!map[est]) map[est] = { estante: est, orden: ordEst, panos: [] };
+      map[est].panos.push({ pano: pano, orden: ordPano, alturas: alt });
     }
+    var estantes = [];
+    var keys = Object.keys(map);
+    for (var k = 0; k < keys.length; k++) estantes.push(map[keys[k]]);
     estantes.sort(function(a, b) {
       var na = parseFloat(a.estante), nb = parseFloat(b.estante);
       if (!isNaN(na) && !isNaN(nb)) return na - nb;
       return a.orden - b.orden || String(a.estante).localeCompare(String(b.estante));
     });
+    for (var e = 0; e < estantes.length; e++) {
+      estantes[e].panos.sort(function(a, b) { return a.orden - b.orden || String(a.pano).localeCompare(String(b.pano)); });
+    }
     return { ok: true, estantes: estantes };
   } catch(e) {
     Logger.log('SM_cargarLayout: ' + e);
@@ -4191,19 +4202,28 @@ function SM_guardarLayout(estantes) {
     var hoja = ss.getSheetByName(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     if (!hoja) hoja = ss.insertSheet(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     hoja.clearContents();
-    // Forzar col A como texto antes de escribir para que Sheets no convierta
-    // valores numéricos o con guiones (ej: "1-1") a fechas automáticamente
+    // Forzar cols A y C como texto antes de escribir para que Sheets no
+    // convierta valores numéricos/alfanuméricos a fechas automáticamente
     hoja.getRange('A:A').setNumberFormat('@');
+    hoja.getRange('C:C').setNumberFormat('@');
     hoja.getRange(1, 1).setValue('ESTANTE');
     hoja.getRange(1, 2).setValue('ORDEN_ESTANTE');
-    hoja.getRange(1, 3).setValue('NUM_NIVELES');
-    hoja.getRange(1, 1, 1, 3).setFontWeight('bold');
+    hoja.getRange(1, 3).setValue('PAÑO');
+    hoja.getRange(1, 4).setValue('ORDEN_PAÑO');
+    hoja.getRange(1, 5).setValue('NUM_ALTURAS');
+    hoja.getRange(1, 1, 1, 5).setFontWeight('bold');
+    var lr = 2; // fila 1 = header
     for (var i = 0; i < estantes.length; i++) {
-      var e  = estantes[i];
-      var lr = i + 2; // fila 1 = header
-      hoja.getRange(lr, 1).setNumberFormat('@').setValue(String(e.estante || ''));
-      hoja.getRange(lr, 2).setValue(i + 1);
-      hoja.getRange(lr, 3).setValue(Math.max(1, Number(e.niveles) || 1));
+      var e = estantes[i];
+      for (var j = 0; j < e.panos.length; j++) {
+        var p = e.panos[j];
+        hoja.getRange(lr, 1).setNumberFormat('@').setValue(String(e.estante || ''));
+        hoja.getRange(lr, 2).setValue(i + 1);
+        hoja.getRange(lr, 3).setNumberFormat('@').setValue(String(p.pano || ''));
+        hoja.getRange(lr, 4).setValue(j + 1);
+        hoja.getRange(lr, 5).setValue(Math.max(1, Number(p.alturas) || 1));
+        lr++;
+      }
     }
     invalidateSheetValues(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     Logger.log('SM_guardarLayout: ' + estantes.length + ' estantes guardados');

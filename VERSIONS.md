@@ -79,6 +79,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 5.3 | Layout pasa a 3 niveles ESTANTE-PAÑO-ALTURA (ej "1-A-2"); editor reintroduce acordeón (estante=outer, paño=inner con stepper de alturas); mapa: rows=estantes, cols=paños únicos, celda agrega alturas con dots y total de stock; detalle de celda lista cada bin ESTANTE-PAÑO-ALTURA; _getAllBins genera "ESTANTE-PAÑO-ALTURA" |
+| Sm_Código.js | 4.6 | Layout 3 niveles: SM_cargarLayout devuelve {estantes:[{estante,orden,panos:[{pano,orden,alturas}]}]}; SM_guardarLayout(estantes) escribe esquema [ESTANTE,ORDEN_ESTANTE,PAÑO,ORDEN_PAÑO,NUM_ALTURAS] celda por celda con setNumberFormat('@') en cols A y C (evita auto-fecha) |
 | SM_Index.html | 5.2 | Fix bug raíz "todos los bins vacíos": _mapaConstruirBinStock leía item.bins (TABLA_POSICIONES, hoja legacy nunca escrita por el WMS actual) en vez de item.ubicaciones (tab UBICACIONES de Carmen, fuente real de Recibir/Contar/Mover); _wmsTabAbierto ahora llama _mapaConstruirBinStock apenas carga stockData (no solo al entrar a Mapa); todas las búsquedas de binKey uniformadas a .toUpperCase() |
 | SM_Index.html | 5.1 | Layout sin pasillo: estructura simplificada a ESTANTE-NIVEL (ej "1-3"); editor reemplaza acordeón de pasillos por lista plana de estantes; mapa renderiza rows=estantes, cols=niveles; detalle de celda muestra bin individual; _getAllBins genera "ESTANTE-NIVEL" |
 | Sm_Código.js | 4.5 | Fix fecha en layout: SM_guardarLayout fuerza col A a formato texto (@) + escribe celda por celda con setNumberFormat('@') — igual que fix UBICACIONES; SM_cargarLayout saltea filas donde el valor ESTANTE es Date (corruptas) |
