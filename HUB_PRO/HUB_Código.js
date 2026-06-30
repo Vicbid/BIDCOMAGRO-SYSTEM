@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.4
+// @version 2.5
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -94,27 +94,25 @@ function HUB_generarPedidoRepuestos(data) {
       }
     } catch(eRS) { Logger.log('HUB_generarPedidoRepuestos emailReseller: ' + eRS); }
 
-    // Crear hilo Gmail ancla — WOS_despacharCompleto lo necesita para responder al despachar
+    // Enviar dentro del hilo existente de la OT (o crear uno nuevo si es el primer contacto)
+    // WOS_despacharCompleto reutilizará este mismo threadId al despachar
     var threadId = '';
     try {
+      var ot     = String(data.ot || numero).trim();
       var asunto = '[' + numero + '] Repuestos — ' + reseller;
       var itemsText = '';
       for (var ii = 0; ii < items.length; ii++) {
         var itI = items[ii];
         itemsText += '• ' + String(itI.cod || '').trim() + ' · ' + String(itI.desc || '').trim() + ' (x' + (Number(itI.qty) || 1) + ')\n';
       }
-      var bodyPlain = 'Pedido de repuestos: ' + numero + '\nReseller: ' + reseller +
-        (idVenGar ? '\nReferencia: ' + idVenGar : '') + '\n\n' + itemsText;
       var bodyHtml =
-        '<p><strong>' + numero + '</strong> — Repuestos de reparación</p>' +
+        '<p><strong>' + numero + '</strong> — Solicitud de repuestos de reparación</p>' +
         '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
-        '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>' +
-        '<p style="font-size:11px;color:#888">Este email es el hilo ancla del pedido. El WOS responderá aquí al despachar.</p>';
+        '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>';
       var toAddr = emailReseller || CONFIG.EMAIL_SUPERVISOR;
-      var gmOpts = { name: CONFIG.NOMBRE_REMITENTE, cc: CONFIG.EMAIL_SUPERVISOR, htmlBody: bodyHtml };
-      var draft   = GmailApp.createDraft(toAddr, asunto, bodyPlain, gmOpts);
-      var sentMsg = draft.send();
-      threadId    = sentMsg.getThread().getId();
+      // _enviarConHilo busca el thread de la OT en EMAIL_LOGS y hace replyAll; si no existe, crea thread nuevo
+      threadId = _enviarConHilo(ot, toAddr, asunto, bodyHtml) || '';
+      if (threadId) registrarEmailLog(ot, toAddr, 'Repuestos', asunto, 'OK', threadId);
     } catch(eGm) { Logger.log('HUB_generarPedidoRepuestos Gmail: ' + eGm); }
 
     // Escribir filas con el schema de 26 cols (igual a Pedidos_resellers / COL)

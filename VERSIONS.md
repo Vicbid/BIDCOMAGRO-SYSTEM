@@ -11,6 +11,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 2.2 | Botón "Pedir Repuestos": visible para IW y OOW (antes solo OOW); condición cambiada a !esTerminal |
+| HUB_Código.js | 2.5 | HUB_generarPedidoRepuestos: usa _enviarConHilo para continuar el hilo Gmail existente de la OT en lugar de crear thread nuevo; WOS responde en el mismo hilo al despachar |
 | HUB_Código.js | 2.4 | HUB_generarPedidoRepuestos: lookup precio desde Lista_Repuestos (×0.60 precio reseller) al crear filas WOS; fallback a 0 si SKU no está en catálogo |
 | HUB_Código.js | 2.3 | HUB_generarPedidoRepuestos: lee data.envio y lo escribe en col L; OBS incluye "Taller · entrega técnico + nombre" cuando circuito=Taller |
 | Index.html | 2.1 | Modal "Pedir Repuestos": selector de modalidad de entrega — Taller muestra badge fijo "Entrega directa al técnico", Reseller muestra radio Envío/Retiro; envio y circuito se pasan al backend |
