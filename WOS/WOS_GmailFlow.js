@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.1
+// @version 2.2
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -829,7 +829,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
             "<tr><td style='padding:3px 0;color:#888'>Fecha despacho</td>" +
                 "<td style='font-weight:600;color:#1a1f2e'>" + fecha + "</td></tr>" +
             "<tr><td style='padding:3px 0;color:#888'>Forma de pago</td>" +
-                "<td style='font-weight:600;color:#1a1f2e'>" + (ped.pago || 'N/E') + "</td></tr>" +
+                "<td style='font-weight:600;color:" + (_esDJIAprobado ? '#1a9e4a' : '#1a1f2e') + "'>" + formaPago + "</td></tr>" +
             "<tr><td style='padding:3px 0;color:#888'>Transportista</td>" +
                 "<td style='font-weight:600;color:#1a1f2e'>" + (transp || 'N/E') + "</td></tr>" +
             (costo > 0 ?
@@ -857,6 +857,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       : (hayBackorderPostDesp
         ? '1\xba env\xedo de tu pedido ' + numero + ': despachamos los \xedtems disponibles.\nLos \xedtems en backorder llegar\xe1n en un 2\xba env\xedo cuando el stock est\xe9 disponible.'
         : 'Tu pedido ' + numero + ' fue despachado.');
+    // Forma de pago: OT con DJI aprobado → sin costo; OT sin aprobar → 30 días; PR → campo PAGO
+    var _esDJIAprobado = _esNumeroOT(numero) && ped.obs.indexOf('DJI ✓ Aprobado') !== -1;
+    var formaPago = _esNumeroOT(numero)
+      ? (_esDJIAprobado ? 'Sin costo — DJI aprobado' : 'A 30 días')
+      : (ped.pago || 'N/E');
+
     var plainAdminTitulo = hayDespPrevio
       ? 'Facturar 2\xba env\xedo' + (hayBackorderPostDesp ? ' (a\xfan hay pendientes)' : '') + ' — Pedido '
       : (hayBackorderPostDesp ? 'Facturar 1\xba env\xedo (despacho parcial) — Pedido ' : 'Generar factura / ID de venta — Pedido ');
@@ -873,7 +879,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       'N\xb0 de env\xedo: ' + Number(notaNumStr) + '\xaa factura (' + notaEntrega + ')\n' +
       'Reseller: ' + ped.reseller + '\n' +
       'Fecha: ' + fecha + '\n' +
-      'Forma de pago: ' + (ped.pago || 'N/E') + '\n' +
+      'Forma de pago: ' + formaPago + '\n' +
       (costo > 0 ? 'Costo de env\xedo: $ ' + _formatMoneda(costo) + '\n' : '') +
       'Total: USD ' + _formatMoneda(totalUSD);
 

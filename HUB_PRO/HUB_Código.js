@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.3
+// @version 2.4
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -68,6 +68,18 @@ function HUB_generarPedidoRepuestos(data) {
     var fecha    = new Date();
     var operario = Session.getActiveUser().getEmail();
 
+    // Mapa de precios desde Lista_Repuestos (precio reseller = lista × 0.60)
+    var priceMap = {};
+    try {
+      var masterSS   = SpreadsheetApp.openById(MASTER_SHEET_ID);
+      var listaData  = masterSS.getSheetByName('Lista_Repuestos').getDataRange().getValues();
+      for (var li = 1; li < listaData.length; li++) {
+        var lSku = String(listaData[li][0] || '').trim().toUpperCase();
+        var lPre = Number(listaData[li][4]) || 0;
+        if (lSku && lPre > 0) priceMap[lSku] = Math.round(lPre * 0.60 * 100) / 100;
+      }
+    } catch(ePM) { Logger.log('HUB_generarPedidoRepuestos priceMap: ' + ePM); }
+
     // Buscar email del reseller en MASTER para el hilo Gmail
     var emailReseller = '';
     try {
@@ -110,8 +122,9 @@ function HUB_generarPedidoRepuestos(data) {
     for (var j = 0; j < items.length; j++) {
       var it  = items[j];
       if (!it.cod || !it.desc) continue;
-      var qty    = Number(it.qty)    || 1;
-      var precio = Number(it.precio || it.price || 0);
+      var qty    = Number(it.qty) || 1;
+      var skuUp  = String(it.cod || '').trim().toUpperCase();
+      var precio = priceMap[skuUp] || Number(it.precio || it.price || 0);
       // 26 posiciones: índice 0=A … 25=Z
       var fila = ['','','','','','','','','','','','','','','','','','','','','','','','','',''];
       fila[0]  = numero;                                   // A NUMERO

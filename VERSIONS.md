@@ -11,6 +11,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 2.2 | Botón "Pedir Repuestos": visible para IW y OOW (antes solo OOW); condición cambiada a !esTerminal |
+| HUB_Código.js | 2.4 | HUB_generarPedidoRepuestos: lookup precio desde Lista_Repuestos (×0.60 precio reseller) al crear filas WOS; fallback a 0 si SKU no está en catálogo |
 | HUB_Código.js | 2.3 | HUB_generarPedidoRepuestos: lee data.envio y lo escribe en col L; OBS incluye "Taller · entrega técnico + nombre" cuando circuito=Taller |
 | Index.html | 2.1 | Modal "Pedir Repuestos": selector de modalidad de entrega — Taller muestra badge fijo "Entrega directa al técnico", Reseller muestra radio Envío/Retiro; envio y circuito se pasan al backend |
 | HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: 26 cols (COL schema igual a Pedidos_resellers); formula =E-F-Z en col G; hilo Gmail ancla via draft.send() guardado en col R; lookup email reseller en MASTER; estado inicial Confirmado |
@@ -46,6 +47,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Despacho_Código.js | 3.1 | WOS despacha todo: WOS_cargarPedidos fusiona Pedidos_resellers + Pedidos_OTs; _procesarFilasPedidos extrae loop; todas las funciones per-numero (cancelar, cambiarEstado, reactivar, revertir, obs, etiqueta) usan _getHojaPorNumero; WOS_buscarBackorderPorSKU + WOS_recibirMercaderia + WOS_reporteBackorder + WOS_checkCambios + WOS_getResumenEnvios escanean ambas hojas; WOS_actualizarValidacion aplica a ambas; WOS_migrarPedidosOTs() función one-time que recrea Pedidos_OTs con 26 cols |
+| WOS_GmailFlow.js | 2.2 | WOS_despacharCompleto: email admin muestra "Sin costo — DJI aprobado" (verde) o "A 30 días" según OBS del pedido OT; PR mantiene campo PAGO existente |
 | WOS_GmailFlow.js | 2.1 | WOS_despacharCompleto: al despachar OT-, actualiza E: por SKU en col Q (REPUESTOS) del HUB PRO + estado "Repuestos enviados" solo si despacho completo (sin backorder) |
 | WOS_GmailFlow.js | 1.9 | _wosLeerPedido usa _getHojaPorNumero(numero); WOS_recuperarThreadIds escanea ambas hojas con hoja-por-numero; WOS_procesarRespuestaManual usa _getHojaPorNumero |
 | Despacho_Env.js | 1.2 | HOJA_PEDIDOS_OT, _getHojaPedidosOT(), _esNumeroOT(), _getHojaPorNumero() — resolver de hoja por prefijo OT- vs resellers |
