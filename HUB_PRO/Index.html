@@ -1,4 +1,4 @@
-<!-- @version 2.4 -->
+<!-- @version 2.5 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2129,11 +2129,13 @@ function abrir(c){
   if (btnPresup) btnPresup.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-flex' : 'none';
   var selDest = document.getElementById('sel-dest');
   if (selDest) selDest.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-block' : 'none';
-  // Botón Piezas Recibidas: Reseller Estándar en estado "Informe de reparacion"
+  // Botón Piezas Recibidas: cualquier circuito Reseller, estado no terminal
   var btnPiezasRecv = document.getElementById('btn-piezas-recv');
   if (btnPiezasRecv) {
     var _circ = document.getElementById('f-circ').value || actual.circuito || '';
-    btnPiezasRecv.style.display = (_circ === 'Reseller' && actual.estado === 'Informe de reparacion') ? 'inline-flex' : 'none';
+    var _est  = actual.estado || '';
+    var _esTermPR = _est === 'Finalizado' || _est === 'Entregado' || _est === 'CANCELADO' || _est === 'Rechazado DJI' || _est === 'Sin respuesta · Cerrado';
+    btnPiezasRecv.style.display = (_circ.indexOf('Reseller') !== -1 && !_esTermPR) ? 'inline-flex' : 'none';
   }
   // Botón Solicitar Factura: OOW + tiene repuestos despachados
   var btnFactura = document.getElementById('btn-factura');
