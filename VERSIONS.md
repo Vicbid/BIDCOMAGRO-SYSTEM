@@ -62,6 +62,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 3.4 | Top rotación: segundo panel "por valor" ($); _renderTopRotList helper unifica render de ambos; cargarTopRotacion maneja nuevo retorno {cantidad, valor} |
+| Sm_Código.js | 3.9 | obtenerTopRotacion: retorna {cantidad, valor} — ambos top-5 en una sola llamada; valor = suma CANT_SOL × PRECIO por SKU |
 | SM_Index.html | 3.3 | renderOTTracking: muestra cantPend por SKU con badge naranja/verde; header de cada OT siempre tiene _wosBadge (wos nunca null) |
 | Sm_Código.js | 3.8 | obtenerOTsBloqueadasConCAS: fuente cambiada a Pedidos_OTs WOS (en lugar de HUB OT estado=Espera de repuestos); obtenerTopRotacion: lee Pedidos_resellers+Pedidos_OTs WOS (en lugar de MOVIMIENTOS_STOCK), cuenta CANT_SOL por SKU en últimos 7 días |
 | SM_Index.html | 3.2 | Dashboard: KPI y panel renombrados a "Pedidos WOS pendientes" — incluye Pedidos_resellers + Pedidos_OTs |

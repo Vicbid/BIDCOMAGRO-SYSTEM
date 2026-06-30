@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 3.3 -->
+<!-- @version 3.4 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -444,13 +444,24 @@ tr:last-child td{border-bottom:none}
         </div>
       </div>
 
-      <!-- Top Rotación -->
+      <!-- Top Rotación — por cantidad -->
       <div class="card">
         <div class="card-head">
           <div class="card-head-left"><i class="fa fa-fire" style="color:var(--orange)"></i> Top rotación — última semana</div>
-          <span style="font-size:10px;color:var(--tx-d)">SKUs más movidos · sugeridos para Estante 1</span>
+          <span style="font-size:10px;color:var(--tx-d)">SKUs más pedidos (unidades)</span>
         </div>
         <div id="top-rot-wrap" style="padding:14px 16px">
+          <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
+        </div>
+      </div>
+
+      <!-- Top Rotación — por valor -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-left"><i class="fa fa-dollar-sign" style="color:var(--green)"></i> Top rotación — última semana (por valor)</div>
+          <span style="font-size:10px;color:var(--tx-d)">SKUs más pedidos ($ total)</span>
+        </div>
+        <div id="top-rot-val-wrap" style="padding:14px 16px">
           <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
         </div>
       </div>
@@ -2118,38 +2129,54 @@ function renderStock(data) {
   document.getElementById('tbody-stock').innerHTML = h || '<tr><td colspan="11"><div class="empty-state"><i class="fa fa-search"></i><p>Sin resultados</p></div></td></tr>';
 }
 
+function _renderTopRotList(arr, wrapId, color, icon, getVal, fmtVal) {
+  var wrap = document.getElementById(wrapId);
+  if (!arr || !arr.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--tx-d);padding:4px 0">Sin datos en los últimos 7 días.</div>';
+    return;
+  }
+  var max = getVal(arr[0]);
+  var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+  for (var i = 0; i < arr.length; i++) {
+    var r = arr[i];
+    var v = getVal(r);
+    var pct = max > 0 ? Math.round((v / max) * 100) : 0;
+    h += '<div style="display:flex;align-items:center;gap:10px">' +
+      '<span style="width:16px;font-size:10px;font-weight:700;color:var(--tx-d);text-align:right">' + (i + 1) + '.</span>' +
+      '<span style="font-size:13px;line-height:1">' + icon + '</span>' +
+      '<span class="b-info" style="min-width:75px;text-align:center">' + r.codigo + '</span>' +
+      '<div style="flex:1;background:var(--raise);border-radius:4px;height:7px;overflow:hidden">' +
+        '<div style="width:' + pct + '%;background:' + color + ';height:100%;border-radius:4px"></div>' +
+      '</div>' +
+      '<span style="font-size:11px;font-weight:700;color:' + color + ';min-width:50px;text-align:right;white-space:nowrap">' + fmtVal(v) + '</span>' +
+      '<span style="font-size:11px;color:var(--tx-m);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.descripcion + '</span>' +
+    '</div>';
+  }
+  h += '</div>';
+  wrap.innerHTML = h;
+}
+
 function cargarTopRotacion() {
   google.script.run
-    .withSuccessHandler(function(top) {
-      var wrap = document.getElementById('top-rot-wrap');
-      if (!top || !top.length) {
-        wrap.innerHTML = '<div style="font-size:12px;color:var(--tx-d);padding:4px 0">Sin movimientos registrados en los últimos 7 días.</div>';
-        return;
-      }
+    .withSuccessHandler(function(res) {
+      var cant = res && res.cantidad ? res.cantidad : (Array.isArray(res) ? res : []);
+      var val  = res && res.valor   ? res.valor   : [];
+      // Actualiza hotItemsSet para resaltar en tabla de stock
       hotItemsSet = {};
-      for (var k = 0; k < top.length; k++) hotItemsSet[top[k].codigo.toUpperCase()] = top[k].movimientos;
+      for (var k = 0; k < cant.length; k++) hotItemsSet[cant[k].codigo.toUpperCase()] = cant[k].movimientos;
       if (stockData.length) filtrarStock();
-      var max = top[0].movimientos;
-      var h = '<div style="display:flex;flex-direction:column;gap:8px">';
-      for (var i = 0; i < top.length; i++) {
-        var r = top[i];
-        var pct = Math.round((r.movimientos / max) * 100);
-        h += '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="width:16px;font-size:10px;font-weight:700;color:var(--tx-d);text-align:right">' + (i + 1) + '.</span>' +
-          '<span style="font-size:13px;line-height:1">🔥</span>' +
-          '<span class="b-info" style="min-width:75px;text-align:center">' + r.codigo + '</span>' +
-          '<div style="flex:1;background:var(--raise);border-radius:4px;height:7px;overflow:hidden">' +
-            '<div style="width:' + pct + '%;background:var(--orange);height:100%;border-radius:4px"></div>' +
-          '</div>' +
-          '<span style="font-size:11px;font-weight:700;color:var(--orange);min-width:28px;text-align:right">' + r.movimientos + '</span>' +
-          '<span style="font-size:11px;color:var(--tx-m);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.descripcion + '</span>' +
-        '</div>';
-      }
-      h += '</div>';
-      wrap.innerHTML = h;
+      // Render por cantidad
+      _renderTopRotList(cant, 'top-rot-wrap',     'var(--orange)', '🔥',
+        function(r) { return r.movimientos; },
+        function(v) { return v + ' u'; });
+      // Render por valor
+      _renderTopRotList(val,  'top-rot-val-wrap',  'var(--green)',  '💰',
+        function(r) { return r.valor; },
+        function(v) { return '$' + Math.round(v).toLocaleString('es-AR'); });
     })
     .withFailureHandler(function() {
-      document.getElementById('top-rot-wrap').innerHTML = '<div style="font-size:11px;color:var(--tx-d)">No disponible.</div>';
+      document.getElementById('top-rot-wrap').innerHTML     = '<div style="font-size:11px;color:var(--tx-d)">No disponible.</div>';
+      document.getElementById('top-rot-val-wrap').innerHTML = '<div style="font-size:11px;color:var(--tx-d)">No disponible.</div>';
     })
     .obtenerTopRotacion();
 }

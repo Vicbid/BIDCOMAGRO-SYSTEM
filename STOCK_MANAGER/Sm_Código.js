@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v3.8 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v3.9 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -2554,7 +2554,7 @@ function generarHTMLPendientes() {
 function obtenerTopRotacion() {
   try {
     var corte = new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000);
-    var conteo = {}, descs = {};
+    var conteo = {}, valor = {}, descs = {};
     var wosSS = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
     var hojas = [wosSS.getSheetByName('Pedidos_resellers'), wosSS.getSheetByName('Pedidos_OTs')].filter(Boolean);
     for (var h = 0; h < hojas.length; h++) {
@@ -2565,18 +2565,25 @@ function obtenerTopRotacion() {
         if (!sku) continue;
         var fecha = d[i][10]; // COL K — FECHA pedido
         if (!(fecha instanceof Date) || fecha < corte) continue;
-        conteo[sku] = (conteo[sku] || 0) + (Number(d[i][4]) || 1); // CANT_SOL
+        var cant   = Number(d[i][4]) || 1;  // CANT_SOL
+        var precio = Number(d[i][7]) || 0;  // PRECIO
+        conteo[sku] = (conteo[sku] || 0) + cant;
+        valor[sku]  = (valor[sku]  || 0) + cant * precio;
         if (!descs[sku]) descs[sku] = String(d[i][3] || '');
       }
     }
-    var arr = [];
     var keys = Object.keys(conteo);
+    var byCant = [], byVal = [];
     for (var k = 0; k < keys.length; k++) {
-      arr.push({ codigo: keys[k], descripcion: descs[keys[k]] || keys[k], movimientos: conteo[keys[k]] });
+      var sku = keys[k];
+      var desc = descs[sku] || sku;
+      byCant.push({ codigo: sku, descripcion: desc, movimientos: conteo[sku] });
+      if (valor[sku] > 0) byVal.push({ codigo: sku, descripcion: desc, valor: valor[sku] });
     }
-    arr.sort(function(a, b) { return b.movimientos - a.movimientos; });
-    return arr.slice(0, 5);
-  } catch(e) { Logger.log('obtenerTopRotacion: ' + e); return []; }
+    byCant.sort(function(a, b) { return b.movimientos - a.movimientos; });
+    byVal.sort(function(a, b)  { return b.valor - a.valor; });
+    return { cantidad: byCant.slice(0, 5), valor: byVal.slice(0, 5) };
+  } catch(e) { Logger.log('obtenerTopRotacion: ' + e); return { cantidad: [], valor: [] }; }
 }
 
 // ============================================================
