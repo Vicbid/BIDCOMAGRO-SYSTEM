@@ -2553,7 +2553,7 @@ function generarHTMLPendientes() {
 // ============================================================
 function obtenerTopRotacion() {
   try {
-    var corte = new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000);
+    var corte = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
     var conteo = {}, valor = {}, descs = {};
     var wosSS = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
     var hojas = [wosSS.getSheetByName('Pedidos_resellers'), wosSS.getSheetByName('Pedidos_OTs')].filter(Boolean);
