@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 3.5 -->
+<!-- @version 4.0 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -174,6 +174,38 @@ tr:last-child td{border-bottom:none}
 .wms-tipo-sobrestock{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r);background:rgba(99,102,241,.1);color:var(--indigo);border:1px solid rgba(99,102,241,.2)}
 .wms-tipo-cuarentena{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r);background:rgba(214,48,49,.08);color:var(--red);border:1px solid rgba(214,48,49,.15)}
 .wms-tipo-default{font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--r);background:var(--raise);color:var(--tx-m);border:1px solid var(--brd2)}
+
+/* ── MAPA ALMACÉN ───────────────────────── */
+.mapa-wrap{overflow-x:auto;padding-bottom:8px}
+.mapa-grid{display:grid;gap:1px;width:max-content}
+.mapa-row{display:contents}
+.mapa-lbl-pasillo{display:flex;align-items:center;justify-content:flex-end;padding:0 10px 0 0;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--tx-d);white-space:nowrap;min-width:60px}
+.mapa-lbl-est{font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--tx-d);text-align:center;padding:0 0 4px}
+.mapa-celda{border-radius:6px;padding:6px 8px;cursor:pointer;min-width:72px;max-width:100px;border:1px solid transparent;transition:all .12s;position:relative}
+.mapa-celda:hover{filter:brightness(1.06);transform:scale(1.02)}
+.mapa-celda.vacio{background:var(--raise);border:1px dashed var(--brd2);cursor:default}
+.mapa-celda.picking{background:rgba(26,158,74,.10);border-color:rgba(26,158,74,.30)}
+.mapa-celda.sobrestock{background:rgba(99,102,241,.10);border-color:rgba(99,102,241,.30)}
+.mapa-celda.cuarentena{background:rgba(220,53,69,.08);border-color:rgba(220,53,69,.28)}
+.mapa-celda.mixto{background:rgba(212,137,10,.08);border-color:rgba(212,137,10,.35)}
+.mapa-celda-id{font-size:9px;font-weight:700;font-family:monospace;color:var(--tx-d);margin-bottom:3px}
+.mapa-niveles{display:flex;gap:2px;margin-bottom:3px;flex-wrap:wrap}
+.mapa-niv-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.mapa-niv-dot.lleno{background:var(--accent)}
+.mapa-niv-dot.vacio-dot{background:var(--brd2)}
+.mapa-celda-info{font-size:9px;color:var(--tx-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Layout Editor */
+.le-pasillo{border:1px solid var(--brd);border-radius:var(--rl);overflow:hidden;margin-bottom:8px}
+.le-pasillo-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surf);cursor:pointer;user-select:none}
+.le-pasillo-lbl{font-size:12px;font-weight:700;color:var(--tx-m);flex:1;font-family:monospace}
+.le-pasillo-body{padding:0 12px 10px;display:none}
+.le-pasillo-body.open{display:block}
+.le-est-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--brd)}
+.le-est-row:last-child{border-bottom:none}
+.le-est-lbl{font-size:11px;font-family:monospace;color:var(--tx-m);width:70px;flex-shrink:0}
+.le-niv-dots{display:flex;gap:2px;flex:1;flex-wrap:wrap}
+.le-niv-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.le-niv-count{font-size:11px;color:var(--tx-d);width:24px;text-align:center}
 
 /* ── CRUCE EXTERNO ──────────────────────── */
 .cruce-ext-panel{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
@@ -637,6 +669,67 @@ tr:last-child td{border-bottom:none}
         <button id="wms-btn-sinmapear" class="btn-s" style="flex:1;font-size:12px" onclick="_wmsModo('sinmapear')">
           <i class="fa fa-exclamation-triangle"></i> Sin mapear <span id="wms-sm-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:3px"></span>
         </button>
+        <button id="wms-btn-mapa" class="btn-s" style="flex:1;font-size:12px" onclick="_wmsModo('mapa')">
+          <i class="fa fa-map"></i> Mapa
+        </button>
+      </div>
+
+      <!-- MODO MAPA -->
+      <div id="wms-panel-mapa" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--tx-m)">Vista aérea del almacén</div>
+              <div style="font-size:11px;color:var(--tx-d)" id="mapa-sub">Cargando layout…</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-s" style="font-size:11px;padding:5px 10px" onclick="_mapaRefrescar()" title="Refrescar stock">
+                <i class="fa fa-sync-alt"></i>
+              </button>
+              <button class="btn-p" style="font-size:11px;padding:5px 12px" onclick="_abrirEditorLayout()">
+                <i class="fa fa-pencil-alt"></i> Editar layout
+              </button>
+            </div>
+          </div>
+          <!-- Leyenda -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tx-d)">
+              <span style="width:10px;height:10px;border-radius:2px;background:rgba(26,158,74,.25);border:1px solid rgba(26,158,74,.4);display:inline-block"></span>PICKING
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tx-d)">
+              <span style="width:10px;height:10px;border-radius:2px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);display:inline-block"></span>SOBRESTOCK
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tx-d)">
+              <span style="width:10px;height:10px;border-radius:2px;background:rgba(220,53,69,.12);border:1px solid rgba(220,53,69,.35);display:inline-block"></span>CUARENTENA
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tx-d)">
+              <span style="width:10px;height:10px;border-radius:2px;background:rgba(212,137,10,.12);border:1px solid rgba(212,137,10,.4);display:inline-block"></span>MIXTO
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--tx-d)">
+              <span style="width:10px;height:10px;border-radius:2px;background:var(--raise);border:1px dashed var(--brd2);display:inline-block"></span>VACÍO
+            </span>
+          </div>
+          <!-- Grid del mapa -->
+          <div class="mapa-wrap">
+            <div id="mapa-grid-cont">
+              <div style="text-align:center;padding:32px;color:var(--tx-d);font-size:12px">
+                <i class="fa fa-circle-notch fa-spin" style="font-size:20px;display:block;margin-bottom:10px"></i>
+                Cargando…
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel de detalle de bin (aparece al hacer click en una celda) -->
+        <div id="mapa-detalle" style="display:none" class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span id="mapa-det-titulo" style="font-size:13px;font-weight:700;font-family:monospace;color:var(--tx-m)"></span>
+            <button class="btn-s" style="padding:3px 8px;font-size:11px" onclick="document.getElementById('mapa-detalle').style.display='none'">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+          <div id="mapa-det-body"></div>
+        </div>
       </div>
 
       <!-- MODO ÍTEM -->
@@ -774,6 +867,37 @@ tr:last-child td{border-bottom:none}
 </div><!-- /app-shell -->
 
 <!-- ══ MODALES ════════════════════════════════════════════════ -->
+
+<!-- Modal: Editor de Layout de Almacén -->
+<div class="modal fade" id="modal-layout-editor" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:560px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
+        <span style="font-size:13px;font-weight:700;color:var(--tx-m)"><i class="fa fa-drafting-compass" style="margin-right:6px;color:var(--accent)"></i>Editor de Layout</span>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:16px;max-height:60vh;overflow-y:auto">
+        <div style="font-size:11px;color:var(--tx-d);margin-bottom:14px;line-height:1.6">
+          Definí la estructura física del depósito. Cada pasillo tiene estantes y cada estante tiene pisos (niveles).
+          El BIN resultante es <strong style="font-family:monospace">PASILLO-ESTANTE-NIVEL</strong>.
+        </div>
+        <div id="le-pasillos-wrap">
+          <!-- Pasillos se renderizan acá por JS -->
+        </div>
+        <button class="btn-s" style="width:100%;margin-top:6px;font-size:11px" onclick="_leAgregarPasillo()">
+          <i class="fa fa-plus"></i> Agregar Pasillo
+        </button>
+      </div>
+      <div class="modal-footer" style="padding:10px 16px;gap:8px">
+        <div style="font-size:10px;color:var(--tx-d);flex:1" id="le-status"></div>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="_leGuardar()">
+          <i class="fa fa-save" style="margin-right:5px"></i>Guardar Layout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal: Picking Consolidado por Ubicación -->
 <div class="modal fade" id="modal-picking-consolidado" tabindex="-1">
@@ -4719,15 +4843,18 @@ function _wmsModo(modo) {
   document.getElementById('wms-panel-item').style.display      = modo === 'item'      ? '' : 'none';
   document.getElementById('wms-panel-sector').style.display    = modo === 'sector'    ? '' : 'none';
   document.getElementById('wms-panel-sinmapear').style.display = modo === 'sinmapear' ? '' : 'none';
+  document.getElementById('wms-panel-mapa').style.display      = modo === 'mapa'      ? '' : 'none';
   document.getElementById('wms-btn-item').className      = modo === 'item'      ? 'btn-p' : 'btn-s';
   document.getElementById('wms-btn-sector').className    = modo === 'sector'    ? 'btn-p' : 'btn-s';
   document.getElementById('wms-btn-sinmapear').className = modo === 'sinmapear' ? 'btn-p' : 'btn-s';
-  ['wms-btn-item','wms-btn-sector','wms-btn-sinmapear'].forEach(function(id){
+  document.getElementById('wms-btn-mapa').className      = modo === 'mapa'      ? 'btn-p' : 'btn-s';
+  ['wms-btn-item','wms-btn-sector','wms-btn-sinmapear','wms-btn-mapa'].forEach(function(id){
     document.getElementById(id).style.flex     = '1';
     document.getElementById(id).style.fontSize = '12px';
   });
   if (modo === 'sector')    setTimeout(function(){ document.getElementById('wms-sector-q').focus(); }, 80);
   if (modo === 'sinmapear') _smCargar();
+  if (modo === 'mapa')      _mapaCargar();
 }
 
 function _sectorCargar() {
@@ -4964,6 +5091,382 @@ function _smAsignar(sku, desc, stock) {
   _wmsSelItem(sku, desc, stock);
   // Limpiar badge y marcar para recargar la próxima vez
   _smCargado = false;
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAPA DE ALMACÉN
+// ══════════════════════════════════════════════════════════
+
+var _mapaLayout    = [];   // [{ pasillo, estantes:[{ estante, niveles }] }]
+var _mapaBinStock  = {};   // 'PAS-EST-NIV' → { tipos:{}, skus:[], total }
+var _mapaCargado   = false;
+
+function _mapaCargar() {
+  if (_mapaCargado) { _mapaRenderGrid(); return; }
+  document.getElementById('mapa-sub').textContent = 'Cargando layout…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res.ok) { document.getElementById('mapa-sub').textContent = 'Error al cargar layout'; return; }
+      _mapaLayout = res.pasillos || [];
+      _mapaConstruirBinStock();
+      _mapaCargado = true;
+      _mapaRenderGrid();
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('mapa-sub').textContent = 'Error: ' + e.message;
+    })
+    .SM_cargarLayout();
+}
+
+function _mapaRefrescar() {
+  _mapaCargado = false;
+  _mapaBinStock = {};
+  _mapaCargar();
+}
+
+// Construye _mapaBinStock desde stockData (ya en memoria)
+function _mapaConstruirBinStock() {
+  _mapaBinStock = {};
+  if (!stockData || !stockData.length) return;
+  for (var i = 0; i < stockData.length; i++) {
+    var item = stockData[i];
+    if (!item.bins || !item.bins.length) continue;
+    for (var j = 0; j < item.bins.length; j++) {
+      var b   = item.bins[j];
+      var bid = String(b.binId || '').trim().toUpperCase();
+      if (!bid) continue;
+      if (!_mapaBinStock[bid]) _mapaBinStock[bid] = { tipos: {}, skus: [], total: 0 };
+      var tipo = String(b.tipoAlmacen || 'PICKING').toUpperCase();
+      _mapaBinStock[bid].tipos[tipo] = true;
+      _mapaBinStock[bid].skus.push({ sku: item.codigo, desc: item.descripcion, cant: b.cantidad });
+      _mapaBinStock[bid].total += b.cantidad;
+    }
+  }
+}
+
+function _mapaTipoClase(tipos) {
+  var ts = Object.keys(tipos);
+  if (!ts.length) return 'vacio';
+  if (ts.length > 1) return 'mixto';
+  var t = ts[0].toLowerCase();
+  if (t.indexOf('picking')    !== -1) return 'picking';
+  if (t.indexOf('sobrestock') !== -1 || t.indexOf('bulk') !== -1) return 'sobrestock';
+  if (t.indexOf('cuarentena') !== -1 || t.indexOf('damage') !== -1) return 'cuarentena';
+  return 'picking';
+}
+
+function _mapaRenderGrid() {
+  var cont = document.getElementById('mapa-grid-cont');
+  var sub  = document.getElementById('mapa-sub');
+
+  if (!_mapaLayout.length) {
+    cont.innerHTML =
+      '<div style="text-align:center;padding:40px 20px;color:var(--tx-d)">' +
+        '<i class="fa fa-map" style="font-size:32px;display:block;margin-bottom:12px;opacity:.2"></i>' +
+        '<div style="font-size:13px;font-weight:600;color:var(--tx-m);margin-bottom:6px">Layout no configurado</div>' +
+        '<div style="font-size:11px;margin-bottom:14px">Definí los pasillos, estantes y niveles de tu depósito.</div>' +
+        '<button class="btn-p" onclick="_abrirEditorLayout()" style="font-size:12px;padding:7px 18px">' +
+          '<i class="fa fa-pencil-alt" style="margin-right:5px"></i>Configurar Layout</button>' +
+      '</div>';
+    sub.textContent = 'Sin layout definido';
+    return;
+  }
+
+  // Calcular max estantes para dimensionar el grid
+  var maxEst = 0;
+  for (var i = 0; i < _mapaLayout.length; i++) {
+    if (_mapaLayout[i].estantes.length > maxEst) maxEst = _mapaLayout[i].estantes.length;
+  }
+
+  // Recolectar todos los estantes únicos (para encabezado de columnas)
+  var estMap = {};
+  for (var pi = 0; pi < _mapaLayout.length; pi++) {
+    var p = _mapaLayout[pi];
+    for (var ei = 0; ei < p.estantes.length; ei++) {
+      estMap[p.estantes[ei].estante] = true;
+    }
+  }
+  var estKeys = Object.keys(estMap).sort(function(a, b) {
+    var na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+
+  // Contar totales
+  var totalBins = 0, binsConStock = 0;
+  for (var pi2 = 0; pi2 < _mapaLayout.length; pi2++) {
+    var p2 = _mapaLayout[pi2];
+    for (var ei2 = 0; ei2 < p2.estantes.length; ei2++) {
+      var estObj = p2.estantes[ei2];
+      for (var ni = 1; ni <= estObj.niveles; ni++) {
+        totalBins++;
+        var bid2 = p2.pasillo + '-' + estObj.estante + '-' + ni;
+        if (_mapaBinStock[bid2]) binsConStock++;
+      }
+    }
+  }
+  sub.textContent = _mapaLayout.length + ' pasillos · ' + totalBins + ' bins · ' + binsConStock + ' con stock';
+
+  // Generar HTML del grid
+  // Grid: cols = 1 (label pasillo) + N estantes
+  var cols = 1 + estKeys.length;
+  var h = '<div class="mapa-grid" style="grid-template-columns:60px ' + Array(estKeys.length).fill('minmax(72px,100px)').join(' ') + '">';
+
+  // Fila encabezado de estantes
+  h += '<div class="mapa-lbl-pasillo" style="padding-bottom:4px"></div>';
+  for (var ek = 0; ek < estKeys.length; ek++) {
+    h += '<div class="mapa-lbl-est">EST ' + escH(String(estKeys[ek])) + '</div>';
+  }
+
+  // Filas de pasillos
+  for (var pi3 = 0; pi3 < _mapaLayout.length; pi3++) {
+    var p3 = _mapaLayout[pi3];
+    // Crear mapa rápido estante→info para este pasillo
+    var estInfo = {};
+    for (var ei3 = 0; ei3 < p3.estantes.length; ei3++) {
+      estInfo[p3.estantes[ei3].estante] = p3.estantes[ei3];
+    }
+
+    // Label pasillo
+    h += '<div class="mapa-lbl-pasillo" style="grid-row:span 1">' + escH(p3.pasillo) + '</div>';
+
+    // Celdas por estante
+    for (var ek2 = 0; ek2 < estKeys.length; ek2++) {
+      var estNombre = estKeys[ek2];
+      var info = estInfo[estNombre];
+      if (!info) {
+        // Este pasillo no tiene este estante — celda vacía bloqueada
+        h += '<div class="mapa-celda" style="background:transparent;border:none;cursor:default"></div>';
+        continue;
+      }
+      // Calcular estado del rack completo (todos los niveles)
+      var tiposRack = {}, totalRack = 0, nivelesConStock = 0;
+      for (var ni2 = 1; ni2 <= info.niveles; ni2++) {
+        var binKey = p3.pasillo + '-' + estNombre + '-' + ni2;
+        var bs = _mapaBinStock[binKey];
+        if (bs) {
+          nivelesConStock++;
+          totalRack += bs.total;
+          var tks = Object.keys(bs.tipos);
+          for (var tk = 0; tk < tks.length; tk++) tiposRack[tks[tk]] = true;
+        }
+      }
+      var clase = Object.keys(tiposRack).length ? _mapaTipoClase(tiposRack) : 'vacio';
+      var rackId = p3.pasillo + '-' + estNombre;
+      h += '<div class="mapa-celda ' + clase + '" onclick="_mapaVerDetalle(\'' + escH(rackId) + '\',' + info.niveles + ',' + JSON.stringify(p3.pasillo) + ',' + JSON.stringify(estNombre) + ')">';
+      h += '<div class="mapa-celda-id">' + escH(rackId) + '</div>';
+      // Dots de niveles (de arriba abajo = nivel N hacia nivel 1, como una estantería)
+      h += '<div class="mapa-niveles">';
+      for (var ni3 = info.niveles; ni3 >= 1; ni3--) {
+        var bk3 = p3.pasillo + '-' + estNombre + '-' + ni3;
+        var tieneStock = !!_mapaBinStock[bk3];
+        h += '<span class="mapa-niv-dot ' + (tieneStock ? 'lleno' : 'vacio-dot') + '" title="Nivel ' + ni3 + '"></span>';
+      }
+      h += '</div>';
+      if (totalRack > 0) {
+        h += '<div class="mapa-celda-info">' + totalRack + ' u.</div>';
+      }
+      h += '</div>';
+    }
+  }
+  h += '</div>';
+  cont.innerHTML = h;
+}
+
+function _mapaVerDetalle(rackId, niveles, pasillo, estante) {
+  var det = document.getElementById('mapa-detalle');
+  det.style.display = '';
+  document.getElementById('mapa-det-titulo').textContent = rackId;
+  var body = document.getElementById('mapa-det-body');
+  var h = '<table style="width:100%;font-size:12px;border-collapse:collapse">';
+  var hayAlgo = false;
+  for (var ni = niveles; ni >= 1; ni--) {
+    var binKey = pasillo + '-' + estante + '-' + ni;
+    var bs = _mapaBinStock[binKey];
+    h += '<tr style="border-top:1px solid var(--brd)">';
+    h += '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:var(--tx-d);white-space:nowrap;width:80px">NIV ' + ni + '</td>';
+    if (bs && bs.skus.length) {
+      hayAlgo = true;
+      var tiposArr = Object.keys(bs.tipos);
+      var tipoCls  = _mapaTipoClase(bs.tipos);
+      var tipoBadge = tiposArr.length ? '<span class="wms-tipo-' + tipoCls + '" style="margin-left:4px">' + tiposArr.join('/') + '</span>' : '';
+      h += '<td style="padding:5px 8px">';
+      for (var si = 0; si < bs.skus.length; si++) {
+        var sk = bs.skus[si];
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (si < bs.skus.length-1 ? '4px' : '0') + '">' +
+               '<span style="font-family:monospace;font-size:11px;color:var(--accent)">' + escH(sk.sku) + '</span>' +
+               '<span style="font-size:11px;color:var(--tx-d);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escH(sk.desc) + '</span>' +
+               '<span style="font-weight:700;font-size:12px;color:var(--tx-m);flex-shrink:0">' + sk.cant + ' u.</span>' +
+             '</div>';
+      }
+      h += tipoBadge + '</td>';
+    } else {
+      h += '<td style="padding:5px 8px;color:var(--tx-d);font-size:11px;font-style:italic">Vacío</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</table>';
+  if (!hayAlgo) {
+    h = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">' +
+        '<i class="fa fa-archive" style="opacity:.25;font-size:20px;display:block;margin-bottom:6px"></i>' +
+        'Rack vacío — sin stock en ningún nivel</div>';
+  }
+  body.innerHTML = h;
+  // Scroll al detalle
+  setTimeout(function() { det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
+}
+
+// ══════════════════════════════════════════════════════════
+//  EDITOR DE LAYOUT
+// ══════════════════════════════════════════════════════════
+
+var _leData = []; // copia editable del layout
+
+function _abrirEditorLayout() {
+  // Clonar layout actual en _leData para edición
+  _leData = JSON.parse(JSON.stringify(_mapaLayout));
+  _leRenderPasillos();
+  document.getElementById('le-status').textContent = '';
+  var m = new bootstrap.Modal(document.getElementById('modal-layout-editor'));
+  m.show();
+}
+
+function _leRenderPasillos() {
+  var wrap = document.getElementById('le-pasillos-wrap');
+  if (!_leData.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">Sin pasillos definidos. Agregá el primero.</div>';
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < _leData.length; i++) {
+    var p = _leData[i];
+    var pid = 'le-p-' + i;
+    h += '<div class="le-pasillo" id="' + pid + '">' +
+           '<div class="le-pasillo-head" onclick="_leTogglePasillo(' + i + ')">' +
+             '<i class="fa fa-chevron-down" id="le-ico-' + i + '" style="font-size:10px;color:var(--tx-d);transition:.15s"></i>' +
+             '<span class="le-pasillo-lbl">PASILLO ' + escH(p.pasillo) + '</span>' +
+             '<span style="font-size:10px;color:var(--tx-d)">' + p.estantes.length + ' estantes</span>' +
+             '<button class="btn-s" style="padding:2px 6px;font-size:10px;color:var(--red)" ' +
+               'onclick="event.stopPropagation();_leEliminarPasillo(' + i + ')" title="Eliminar pasillo">' +
+               '<i class="fa fa-trash"></i></button>' +
+           '</div>' +
+           '<div class="le-pasillo-body" id="le-body-' + i + '">';
+
+    // Estantes del pasillo
+    for (var j = 0; j < p.estantes.length; j++) {
+      var est = p.estantes[j];
+      h += '<div class="le-est-row" id="le-est-' + i + '-' + j + '">' +
+             '<span class="le-est-lbl">' + escH(p.pasillo) + '-' + escH(String(est.estante)) + '</span>' +
+             '<div class="le-niv-dots" id="le-dots-' + i + '-' + j + '">' + _leDots(est.niveles) + '</div>' +
+             '<span class="le-niv-count" id="le-nc-' + i + '-' + j + '">' + est.niveles + '</span>' +
+             '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',' + j + ',-1)" title="Quitar nivel"><i class="fa fa-minus"></i></button>' +
+             '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',' + j + ',1)" title="Agregar nivel"><i class="fa fa-plus"></i></button>' +
+             '<button class="btn-s" style="padding:2px 5px;font-size:10px;color:var(--red)" onclick="_leEliminarEstante(' + i + ',' + j + ')" title="Eliminar estante"><i class="fa fa-trash"></i></button>' +
+           '</div>';
+    }
+
+    h += '<button class="btn-s" style="font-size:10px;margin-top:8px;width:100%" onclick="_leAgregarEstante(' + i + ')">' +
+           '<i class="fa fa-plus"></i> Estante' +
+         '</button>' +
+         '</div>' + // /le-pasillo-body
+         '</div>'; // /le-pasillo
+  }
+  wrap.innerHTML = h;
+}
+
+function _leDots(n) {
+  var h = '';
+  for (var i = 0; i < Math.min(n, 20); i++) h += '<span class="le-niv-dot"></span>';
+  return h;
+}
+
+function _leTogglePasillo(idx) {
+  var body = document.getElementById('le-body-' + idx);
+  var ico  = document.getElementById('le-ico-' + idx);
+  var open = body.classList.toggle('open');
+  if (ico) ico.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+
+function _leAgregarPasillo() {
+  var nombre = prompt('Nombre del pasillo (ej: A, B, NORTE):');
+  if (!nombre) return;
+  nombre = nombre.trim().toUpperCase();
+  for (var i = 0; i < _leData.length; i++) {
+    if (_leData[i].pasillo === nombre) { toast('Ya existe el pasillo ' + nombre, 'err'); return; }
+  }
+  _leData.push({ pasillo: nombre, estantes: [] });
+  _leRenderPasillos();
+  // Auto-expandir el nuevo
+  setTimeout(function() { _leTogglePasillo(_leData.length - 1); }, 50);
+}
+
+function _leEliminarPasillo(idx) {
+  if (!confirm('¿Eliminar el pasillo ' + _leData[idx].pasillo + ' y todos sus estantes?')) return;
+  _leData.splice(idx, 1);
+  _leRenderPasillos();
+}
+
+function _leAgregarEstante(pIdx) {
+  var p = _leData[pIdx];
+  // Sugerir el siguiente número de estante
+  var siguiente = p.estantes.length + 1;
+  var nombre = prompt('Nombre/número del estante (ej: ' + siguiente + '):');
+  if (!nombre) return;
+  nombre = nombre.trim();
+  for (var j = 0; j < p.estantes.length; j++) {
+    if (String(p.estantes[j].estante) === nombre) { toast('Ya existe el estante ' + nombre + ' en este pasillo', 'err'); return; }
+  }
+  p.estantes.push({ estante: nombre, niveles: 4 });
+  _leRenderPasillos();
+  // Re-abrir el pasillo
+  setTimeout(function() {
+    var body = document.getElementById('le-body-' + pIdx);
+    if (body && !body.classList.contains('open')) _leTogglePasillo(pIdx);
+  }, 50);
+}
+
+function _leEliminarEstante(pIdx, eIdx) {
+  var est = _leData[pIdx].estantes[eIdx];
+  if (!confirm('¿Eliminar estante ' + _leData[pIdx].pasillo + '-' + est.estante + '?')) return;
+  _leData[pIdx].estantes.splice(eIdx, 1);
+  _leRenderPasillos();
+  setTimeout(function() {
+    var body = document.getElementById('le-body-' + pIdx);
+    if (body && !body.classList.contains('open')) _leTogglePasillo(pIdx);
+  }, 50);
+}
+
+function _leNiveles(pIdx, eIdx, delta) {
+  var est = _leData[pIdx].estantes[eIdx];
+  est.niveles = Math.max(1, Math.min(20, (est.niveles || 1) + delta));
+  var dotsEl = document.getElementById('le-dots-' + pIdx + '-' + eIdx);
+  var ncEl   = document.getElementById('le-nc-' + pIdx + '-' + eIdx);
+  if (dotsEl) dotsEl.innerHTML = _leDots(est.niveles);
+  if (ncEl)   ncEl.textContent = est.niveles;
+}
+
+function _leGuardar() {
+  if (!_leData.length) { toast('Agregá al menos un pasillo', 'err'); return; }
+  var status = document.getElementById('le-status');
+  status.textContent = 'Guardando…';
+  var btn = document.querySelector('#modal-layout-editor .btn-primary');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:5px"></i>Guardando…'; }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-save" style="margin-right:5px"></i>Guardar Layout'; }
+      if (!res.ok) { status.textContent = 'Error: ' + (res.error || ''); toast('Error al guardar', 'err'); return; }
+      _mapaLayout  = JSON.parse(JSON.stringify(_leData));
+      _mapaCargado = true;
+      bootstrap.Modal.getInstance(document.getElementById('modal-layout-editor')).hide();
+      toast('Layout guardado');
+      _mapaRenderGrid();
+    })
+    .withFailureHandler(function(e) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-save" style="margin-right:5px"></i>Guardar Layout'; }
+      status.textContent = 'Error: ' + e.message;
+      toast('Error de conexión', 'err');
+    })
+    .SM_guardarLayout(_leData);
 }
 </script>
 </body>

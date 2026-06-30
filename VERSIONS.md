@@ -78,6 +78,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 4.0 | Mapa aéreo del almacén: 4to botón "Mapa" en WMS toggle; panel wms-panel-mapa con grid por pasillo/estante; celdas por tipo (picking/sobrestock/cuarentena/mixto/vacío) con dots de niveles; click en celda abre detalle por nivel; modal Editor de Layout para definir pasillos, estantes y niveles de forma visual; SM_cargarLayout / SM_guardarLayout backend |
+| Sm_Código.js | 4.1 | SM_cargarLayout(): lee LAYOUT_ALMACEN, arma estructura {pasillos:[{pasillo,estantes:[{estante,niveles}]}]} ordenada; SM_guardarLayout(pasillos): reescribe hoja LAYOUT_ALMACEN completa e invalida caché |
 | SM_Index.html | 3.5 | Panel "Compras en tránsito" → "En vuelo / en aduana"; KPI idem; filtro solo muestra esos 2 estados |
 | Sm_Código.js | 4.0 | cargarDashboard casTransito: filtro cambiado a CAS_ACTIVOS=['En vuelo','En aduana'] — ya no incluye Comprado/Pagado/Forwarder HK |
 | SM_Index.html | 3.4 | Top rotación: segundo panel "por valor" ($); _renderTopRotList helper unifica render de ambos; cargarTopRotacion maneja nuevo retorno {cantidad, valor} |

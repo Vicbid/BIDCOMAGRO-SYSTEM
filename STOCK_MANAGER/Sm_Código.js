@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.0 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.1 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -175,7 +175,8 @@ function asegurarHojas() {
     "VENTAS_DIRECTAS":    ["Fecha","N° Orden entrega","N° Factura","Reseller","Código","Descripción","Cantidad","Precio USD","Observaciones"],
     "SOLICITUDES_DESPACHO": ["ID","Fecha","OT","Reseller","Código","Descripción","Cant. solicitada","Cant. despachada","Estado","Urgencia","Fecha despacho","Operador","Observaciones"],
     "STOCK_UBICACIONES":    ["SKU","Ubicación","Cantidad"],
-    "TABLA_POSICIONES":     ["SKU","BIN_ID","CANTIDAD","TIPO_ALMACEN"]
+    "TABLA_POSICIONES":     ["SKU","BIN_ID","CANTIDAD","TIPO_ALMACEN"],
+    "LAYOUT_ALMACEN":       ["PASILLO","ORDEN_PASILLO","ESTANTE","ORDEN_ESTANTE","NUM_NIVELES"]
   };
   var keys = Object.keys(hojas);
   for (var i = 0; i < keys.length; i++) {
@@ -4018,6 +4019,70 @@ function transferirEntreDepositos(sku, cantidad, depositoOrigen, depositoDestino
     return { ok: false, msg: e.toString() };
   } finally {
     try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
+  }
+}
+
+// ============================================================
+//  LAYOUT DE ALMACÉN — mapa visual de pasillos/estantes/niveles
+// ============================================================
+
+function SM_cargarLayout() {
+  try {
+    var hoja = getSheet(SCHEMA.SHEETS.LAYOUT_ALMACEN);
+    if (!hoja) return { ok: true, pasillos: [] };
+    var d  = hoja.getDataRange().getValues();
+    var LA = SCHEMA.LAYOUT_ALMACEN;
+    var map = {};
+    for (var i = 1; i < d.length; i++) {
+      var pas    = String(d[i][LA.PASILLO]       || '').trim().toUpperCase();
+      var ordPas = Number(d[i][LA.ORDEN_PASILLO]) || 0;
+      var est    = String(d[i][LA.ESTANTE]        || '').trim();
+      var ordEst = Number(d[i][LA.ORDEN_ESTANTE]) || 0;
+      var niv    = Math.max(1, Number(d[i][LA.NUM_NIVELES]) || 1);
+      if (!pas || !est) continue;
+      if (!map[pas]) map[pas] = { pasillo: pas, orden: ordPas, estantes: [] };
+      map[pas].estantes.push({ estante: est, orden: ordEst, niveles: niv });
+    }
+    var pasillos = [];
+    var keys = Object.keys(map);
+    for (var k = 0; k < keys.length; k++) pasillos.push(map[keys[k]]);
+    pasillos.sort(function(a, b) { return a.orden - b.orden || a.pasillo.localeCompare(b.pasillo); });
+    for (var p = 0; p < pasillos.length; p++) {
+      pasillos[p].estantes.sort(function(a, b) { return a.orden - b.orden || String(a.estante).localeCompare(String(b.estante)); });
+    }
+    return { ok: true, pasillos: pasillos };
+  } catch(e) {
+    Logger.log('SM_cargarLayout: ' + e);
+    return { ok: false, error: e.message };
+  }
+}
+
+function SM_guardarLayout(pasillos) {
+  try {
+    var ss   = getSS();
+    var hoja = ss.getSheetByName(SCHEMA.SHEETS.LAYOUT_ALMACEN);
+    if (!hoja) hoja = ss.insertSheet(SCHEMA.SHEETS.LAYOUT_ALMACEN);
+    hoja.clearContents();
+    hoja.appendRow(['PASILLO','ORDEN_PASILLO','ESTANTE','ORDEN_ESTANTE','NUM_NIVELES']);
+    for (var i = 0; i < pasillos.length; i++) {
+      var p = pasillos[i];
+      for (var j = 0; j < p.estantes.length; j++) {
+        var e = p.estantes[j];
+        hoja.appendRow([
+          String(p.pasillo || '').toUpperCase(),
+          i + 1,
+          String(e.estante || ''),
+          j + 1,
+          Math.max(1, Number(e.niveles) || 1)
+        ]);
+      }
+    }
+    invalidateSheetValues(SCHEMA.SHEETS.LAYOUT_ALMACEN);
+    Logger.log('SM_guardarLayout: ' + pasillos.length + ' pasillos guardados');
+    return { ok: true };
+  } catch(e) {
+    Logger.log('SM_guardarLayout: ' + e);
+    return { ok: false, error: e.message };
   }
 }
 
