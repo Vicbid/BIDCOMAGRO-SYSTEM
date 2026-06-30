@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.9
+// @version 2.1
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -925,6 +925,49 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       }
     }
     SpreadsheetApp.flush();
+
+    // Actualizar HUB PRO OT: E: en REPUESTOS (col Q) + estado si completo
+    if (_esNumeroOT(numero)) {
+      try {
+        var otNum = numero.replace(/^OT-/, '');
+        // SKU → total despachado (previo + este despacho)
+        var skuDespMap = {};
+        for (var di = 1; di < ped.datos.length; di++) {
+          if (String(ped.datos[di][COL.NUMERO] || '').trim() !== numero) continue;
+          var dSku = String(ped.datos[di][COL.SKU] || '').trim().toUpperCase();
+          if (!dSku) continue;
+          var totalDi = (Number(ped.datos[di][COL.CANT_DESP]) || 0) +
+                        ((despMap[di + 1] !== undefined) ? (Number(despMap[di + 1]) || 0) : 0);
+          skuDespMap[dSku] = (skuDespMap[dSku] || 0) + totalDi;
+        }
+        var hubHoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Ordenes de trabajo');
+        if (hubHoja) {
+          var hubD = hubHoja.getDataRange().getValues();
+          for (var hi = 1; hi < hubD.length; hi++) {
+            if (String(hubD[hi][2] || '').trim() !== otNum) continue;
+            // Actualizar E: en campo REPUESTOS (col Q = índice 16, rango = col 17)
+            var repStr = String(hubD[hi][16] || '').trim();
+            if (repStr) {
+              var repPartes = repStr.split(' ; ');
+              var repNuevas = [];
+              for (var rpi = 0; rpi < repPartes.length; rpi++) {
+                var rpCols = repPartes[rpi].split(' | ');
+                var rpSku  = String(rpCols[0] || '').trim().toUpperCase();
+                if (rpSku && skuDespMap[rpSku] !== undefined) {
+                  var pedVal = String(rpCols[2] || '').split(' E:')[0].replace('P:', '') || '0';
+                  rpCols[2]  = 'P:' + pedVal + ' E:' + skuDespMap[rpSku];
+                }
+                repNuevas.push(rpCols.join(' | '));
+              }
+              hubHoja.getRange(hi + 1, 17).setValue(repNuevas.join(' ; '));
+            }
+            // Estado: solo pasa a "Repuestos enviados" si el despacho fue completo
+            if (!hayBackorder) hubHoja.getRange(hi + 1, 5).setValue('Repuestos enviados');
+            break;
+          }
+        }
+      } catch(eHub) { Logger.log('WOS_despacharCompleto HUB update: ' + eHub); }
+    }
 
     var logExtra = (hayBackorder ? 'parcial+backorder' : 'completo') + ' transp=' + transp + ' track=' + track;
     _wosLogAccion('Despacho: ' + notaEntrega + ' → ' + estadoDesp, numero, ped.reseller, operario, logExtra);
