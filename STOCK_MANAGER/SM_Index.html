@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.1 -->
+<!-- @version 5.2 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -413,7 +413,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.1 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.2 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -4779,7 +4779,10 @@ function _wmsTabAbierto() {
     document.getElementById('wms-loading').style.display = '';
     cargarStockTab(function() {
       document.getElementById('wms-loading').style.display = 'none';
+      _mapaConstruirBinStock();
     });
+  } else {
+    _mapaConstruirBinStock();
   }
   if (!_smCargado) _smCargar();
   if (!_mapaCargado) {
@@ -4801,7 +4804,7 @@ function _getAllBins() {
   for (var ei = 0; ei < _mapaLayout.length; ei++) {
     var e = _mapaLayout[ei];
     for (var ni = 1; ni <= e.niveles; ni++) {
-      bins.push(e.estante + '-' + ni);
+      bins.push((e.estante + '-' + ni).toUpperCase());
     }
   }
   return bins;
@@ -5601,21 +5604,22 @@ function _mapaRefrescar() {
 }
 
 // Construye _mapaBinStock desde stockData (ya en memoria)
+// Usa item.ubicaciones (tab UBICACIONES de Carmen — fuente real del WMS Recibir/Contar/Mover),
+// NO item.bins (TABLA_POSICIONES, hoja legacy que el WMS actual no escribe)
 function _mapaConstruirBinStock() {
   _mapaBinStock = {};
   if (!stockData || !stockData.length) return;
   for (var i = 0; i < stockData.length; i++) {
     var item = stockData[i];
-    if (!item.bins || !item.bins.length) continue;
-    for (var j = 0; j < item.bins.length; j++) {
-      var b   = item.bins[j];
-      var bid = String(b.binId || '').trim().toUpperCase();
-      if (!bid) continue;
+    if (!item.ubicaciones || !item.ubicaciones.length) continue;
+    for (var j = 0; j < item.ubicaciones.length; j++) {
+      var u   = item.ubicaciones[j];
+      var bid = String(u.ubicacion || '').trim().toUpperCase();
+      if (!bid || !u.cantidad) continue;
       if (!_mapaBinStock[bid]) _mapaBinStock[bid] = { tipos: {}, skus: [], total: 0 };
-      var tipo = String(b.tipoAlmacen || 'PICKING').toUpperCase();
-      _mapaBinStock[bid].tipos[tipo] = true;
-      _mapaBinStock[bid].skus.push({ sku: item.codigo, desc: item.descripcion, cant: b.cantidad });
-      _mapaBinStock[bid].total += b.cantidad;
+      _mapaBinStock[bid].tipos['PICKING'] = true;
+      _mapaBinStock[bid].skus.push({ sku: item.codigo, desc: item.descripcion, cant: u.cantidad });
+      _mapaBinStock[bid].total += u.cantidad;
     }
   }
 }
@@ -5683,7 +5687,7 @@ function _mapaRenderGrid() {
         h += '<div class="mapa-celda" style="background:transparent;border:none;cursor:default"></div>';
         continue;
       }
-      var binKey = e.estante + '-' + nc;
+      var binKey = (e.estante + '-' + nc).toUpperCase();
       var bs = _mapaBinStock[binKey];
       var clase = bs ? _mapaTipoClase(bs.tipos) : 'vacio';
       h += '<div class="mapa-celda ' + clase + '" onclick="_mapaVerDetalle(\'' + escH(String(e.estante)) + '\',' + nc + ')">';
@@ -5701,7 +5705,7 @@ function _mapaRenderGrid() {
 function _mapaVerDetalle(estante, nivel) {
   var det = document.getElementById('mapa-detalle');
   det.style.display = '';
-  var binKey = estante + '-' + nivel;
+  var binKey = (estante + '-' + nivel).toUpperCase();
   document.getElementById('mapa-det-titulo').textContent = 'Bin ' + binKey + ' — Estante ' + estante + ', Nivel ' + nivel;
   var body = document.getElementById('mapa-det-body');
   var bs   = _mapaBinStock[binKey];

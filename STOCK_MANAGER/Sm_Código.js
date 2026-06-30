@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.4 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.5 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -4164,7 +4164,10 @@ function SM_cargarLayout() {
     var LA = SCHEMA.LAYOUT_ALMACEN;
     var estantes = [];
     for (var i = 1; i < d.length; i++) {
-      var est    = String(d[i][LA.ESTANTE]       || '').trim();
+      var raw = d[i][LA.ESTANTE];
+      // Si Sheets convirtió el valor a Date, la fila está corrupta — saltear
+      if (raw instanceof Date) continue;
+      var est    = String(raw || '').trim();
       var ordEst = Number(d[i][LA.ORDEN_ESTANTE]) || 0;
       var niv    = Math.max(1, Number(d[i][LA.NUM_NIVELES]) || 1);
       if (!est) continue;
@@ -4188,14 +4191,19 @@ function SM_guardarLayout(estantes) {
     var hoja = ss.getSheetByName(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     if (!hoja) hoja = ss.insertSheet(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     hoja.clearContents();
-    hoja.appendRow(['ESTANTE','ORDEN_ESTANTE','NUM_NIVELES']);
+    // Forzar col A como texto antes de escribir para que Sheets no convierta
+    // valores numéricos o con guiones (ej: "1-1") a fechas automáticamente
+    hoja.getRange('A:A').setNumberFormat('@');
+    hoja.getRange(1, 1).setValue('ESTANTE');
+    hoja.getRange(1, 2).setValue('ORDEN_ESTANTE');
+    hoja.getRange(1, 3).setValue('NUM_NIVELES');
+    hoja.getRange(1, 1, 1, 3).setFontWeight('bold');
     for (var i = 0; i < estantes.length; i++) {
-      var e = estantes[i];
-      hoja.appendRow([
-        String(e.estante || ''),
-        i + 1,
-        Math.max(1, Number(e.niveles) || 1)
-      ]);
+      var e  = estantes[i];
+      var lr = i + 2; // fila 1 = header
+      hoja.getRange(lr, 1).setNumberFormat('@').setValue(String(e.estante || ''));
+      hoja.getRange(lr, 2).setValue(i + 1);
+      hoja.getRange(lr, 3).setValue(Math.max(1, Number(e.niveles) || 1));
     }
     invalidateSheetValues(SCHEMA.SHEETS.LAYOUT_ALMACEN);
     Logger.log('SM_guardarLayout: ' + estantes.length + ' estantes guardados');
