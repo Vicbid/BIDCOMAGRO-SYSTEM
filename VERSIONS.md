@@ -78,6 +78,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 5.0 | WMS rediseñado: 3 tareas grandes (Recibir/Contar/Mover) reemplazan los modos abstractos "Por ítem"/"Por sector"; bin picker con autocomplete del layout en todos los campos de ubicación; RECIBIR con qty stepper y guardar en un click; CONTAR muestra ítems del bin con +/− inline y "Guardar conteo completo"; MOVER: buscar repuesto→chips de ubicaciones→bin destino→confirmar (SM_moverStock); layout se pre-carga en background al abrir WMS |
+| Sm_Código.js | 4.2 | SM_moverStock(sku,origen,destino,cant): mueve unidades entre bins de UBICACIONES de Carmen atómicamente; guardarConteoUbicacion(ubicacion,items): reescribe el conteo completo de un bin (update+delete+insert en un solo paso) |
 | SM_Index.html | 4.0 | Mapa aéreo del almacén: 4to botón "Mapa" en WMS toggle; panel wms-panel-mapa con grid por pasillo/estante; celdas por tipo (picking/sobrestock/cuarentena/mixto/vacío) con dots de niveles; click en celda abre detalle por nivel; modal Editor de Layout para definir pasillos, estantes y niveles de forma visual; SM_cargarLayout / SM_guardarLayout backend |
 | Sm_Código.js | 4.1 | SM_cargarLayout(): lee LAYOUT_ALMACEN, arma estructura {pasillos:[{pasillo,estantes:[{estante,niveles}]}]} ordenada; SM_guardarLayout(pasillos): reescribe hoja LAYOUT_ALMACEN completa e invalida caché |
 | SM_Index.html | 3.5 | Panel "Compras en tránsito" → "En vuelo / en aduana"; KPI idem; filtro solo muestra esos 2 estados |

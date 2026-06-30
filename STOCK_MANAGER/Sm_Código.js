@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.1 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.2 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -820,6 +820,97 @@ function eliminarUbicacion(sku, ubicacion) {
     }
     return { ok: false, error: 'Ubicación no encontrada' };
   } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// Mueve `cant` unidades de un SKU de una ubicación a otra en UBICACIONES de Carmen.
+function SM_moverStock(sku, origen, destino, cant) {
+  try {
+    var ss       = _getCarmenSS();
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
+    var codKey = String(sku).trim().toUpperCase();
+    var orgKey = String(origen).trim().toUpperCase();
+    var dstKey = String(destino).trim().toUpperCase();
+    cant       = Math.max(1, parseInt(cant) || 0);
+    if (orgKey === dstKey) return { ok: false, error: 'Origen y destino son el mismo bin' };
+    var d = hojaUbic.getDataRange().getValues();
+    var orgRow = -1, dstRow = -1, orgCant = 0, dstCant = 0;
+    for (var i = 1; i < d.length; i++) {
+      var rowSku  = String(d[i][0] || '').trim().toUpperCase();
+      var rowUbic = String(d[i][1] || '').trim().toUpperCase();
+      if (rowSku !== codKey) continue;
+      if (rowUbic === orgKey) { orgRow = i + 1; orgCant = parseFloat(d[i][2]) || 0; }
+      if (rowUbic === dstKey) { dstRow = i + 1; dstCant = parseFloat(d[i][2]) || 0; }
+    }
+    if (orgRow < 0) return { ok: false, error: 'El SKU no está en el bin de origen' };
+    if (cant > orgCant) return { ok: false, error: 'Cantidad a mover (' + cant + ') supera el stock en origen (' + orgCant + ')' };
+    var newOrgCant = orgCant - cant;
+    if (newOrgCant === 0) {
+      hojaUbic.deleteRow(orgRow);
+      // Si dstRow estaba después del orgRow, su índice bajó uno
+      if (dstRow > orgRow) dstRow--;
+    } else {
+      hojaUbic.getRange(orgRow, 3).setValue(newOrgCant);
+    }
+    if (dstRow > 0) {
+      hojaUbic.getRange(dstRow, 3).setValue(dstCant + cant);
+    } else {
+      hojaUbic.appendRow([codKey, dstKey, dstCant + cant]);
+    }
+    Logger.log('SM_moverStock: ' + codKey + ' ' + cant + 'u. ' + orgKey + ' → ' + dstKey);
+    return { ok: true, msg: cant + ' u. movidas de ' + orgKey + ' a ' + dstKey };
+  } catch(e) {
+    Logger.log('SM_moverStock: ' + e);
+    return { ok: false, error: e.message };
+  }
+}
+
+// Escribe el conteo completo de una ubicación: sobrescribe la cantidad de cada SKU provisto,
+// elimina SKUs no incluidos. `items` = [{sku, cantidad}]
+function guardarConteoUbicacion(ubicacion, items) {
+  try {
+    var ss       = _getCarmenSS();
+    var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
+    var ubicKey = String(ubicacion).trim().toUpperCase();
+    // Construir mapa de nuevas cantidades
+    var nuevoMapa = {};
+    for (var k = 0; k < items.length; k++) {
+      var s = String(items[k].sku || '').trim().toUpperCase();
+      var c = Math.max(0, parseInt(items[k].cantidad) || 0);
+      if (s) nuevoMapa[s] = c;
+    }
+    var d = hojaUbic.getDataRange().getValues();
+    // Procesar filas existentes (en reversa para poder eliminar)
+    var procesadas = {};
+    for (var i = d.length - 1; i >= 1; i--) {
+      var rowSku  = String(d[i][0] || '').trim().toUpperCase();
+      var rowUbic = String(d[i][1] || '').trim().toUpperCase();
+      if (rowUbic !== ubicKey) continue;
+      if (nuevoMapa.hasOwnProperty(rowSku)) {
+        if (nuevoMapa[rowSku] === 0) {
+          hojaUbic.deleteRow(i + 1);
+        } else {
+          hojaUbic.getRange(i + 1, 3).setValue(nuevoMapa[rowSku]);
+        }
+        procesadas[rowSku] = true;
+      } else {
+        // SKU no incluido en el conteo → eliminar
+        hojaUbic.deleteRow(i + 1);
+      }
+    }
+    // Agregar SKUs nuevos (no existían antes)
+    var keys = Object.keys(nuevoMapa);
+    for (var m = 0; m < keys.length; m++) {
+      if (!procesadas[keys[m]] && nuevoMapa[keys[m]] > 0) {
+        hojaUbic.appendRow([keys[m], ubicKey, nuevoMapa[keys[m]]]);
+      }
+    }
+    return { ok: true };
+  } catch(e) {
+    Logger.log('guardarConteoUbicacion: ' + e);
+    return { ok: false, error: e.message };
+  }
 }
 
 // Devuelve ítems con stock en Carmen que no tienen ninguna ubicación en UBICACIONES.
