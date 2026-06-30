@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.0 -->
+<!-- @version 5.1 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -413,7 +413,7 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v2.9 · WMS</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.1 · WMS</div>
     </div>
     <div class="ws-content">
 
@@ -1037,14 +1037,14 @@ tr:last-child td{border-bottom:none}
       </div>
       <div class="modal-body" style="padding:16px;max-height:60vh;overflow-y:auto">
         <div style="font-size:11px;color:var(--tx-d);margin-bottom:14px;line-height:1.6">
-          Definí la estructura física del depósito. Cada pasillo tiene estantes y cada estante tiene pisos (niveles).
-          El BIN resultante es <strong style="font-family:monospace">PASILLO-ESTANTE-NIVEL</strong>.
+          Definí los estantes del depósito y cuántos niveles (alturas) tiene cada uno.
+          El BIN resultante es <strong style="font-family:monospace">ESTANTE-NIVEL</strong> (ej: <strong style="font-family:monospace">1-3</strong>).
         </div>
-        <div id="le-pasillos-wrap">
-          <!-- Pasillos se renderizan acá por JS -->
+        <div id="le-estantes-wrap">
+          <!-- Estantes se renderizan acá por JS -->
         </div>
-        <button class="btn-s" style="width:100%;margin-top:6px;font-size:11px" onclick="_leAgregarPasillo()">
-          <i class="fa fa-plus"></i> Agregar Pasillo
+        <button class="btn-s" style="width:100%;margin-top:6px;font-size:11px" onclick="_leAgregarEstante()">
+          <i class="fa fa-plus"></i> Agregar Estante
         </button>
       </div>
       <div class="modal-footer" style="padding:10px 16px;gap:8px">
@@ -4785,7 +4785,7 @@ function _wmsTabAbierto() {
   if (!_mapaCargado) {
     google.script.run
       .withSuccessHandler(function(res) {
-        if (res.ok) { _mapaLayout = res.pasillos || []; _mapaCargado = true; _cntActualizarHint(); }
+        if (res.ok) { _mapaLayout = res.estantes || []; _mapaCargado = true; _cntActualizarHint(); }
       })
       .SM_cargarLayout();
   }
@@ -4798,13 +4798,10 @@ var _binDDIdx = {};
 
 function _getAllBins() {
   var bins = [];
-  for (var pi = 0; pi < _mapaLayout.length; pi++) {
-    var p = _mapaLayout[pi];
-    for (var ei = 0; ei < p.estantes.length; ei++) {
-      var e = p.estantes[ei];
-      for (var ni = 1; ni <= e.niveles; ni++) {
-        bins.push(p.pasillo + '-' + e.estante + '-' + ni);
-      }
+  for (var ei = 0; ei < _mapaLayout.length; ei++) {
+    var e = _mapaLayout[ei];
+    for (var ni = 1; ni <= e.niveles; ni++) {
+      bins.push(e.estante + '-' + ni);
     }
   }
   return bins;
@@ -5576,8 +5573,8 @@ function _smAsignar(sku, desc, stock) {
 //  MAPA DE ALMACÉN
 // ══════════════════════════════════════════════════════════
 
-var _mapaLayout    = [];   // [{ pasillo, estantes:[{ estante, niveles }] }]
-var _mapaBinStock  = {};   // 'PAS-EST-NIV' → { tipos:{}, skus:[], total }
+var _mapaLayout    = [];   // [{ estante, orden, niveles }]
+var _mapaBinStock  = {};   // 'EST-NIV' → { tipos:{}, skus:[], total }
 var _mapaCargado   = false;
 
 function _mapaCargar() {
@@ -5586,7 +5583,7 @@ function _mapaCargar() {
   google.script.run
     .withSuccessHandler(function(res) {
       if (!res.ok) { document.getElementById('mapa-sub').textContent = 'Error al cargar layout'; return; }
-      _mapaLayout = res.pasillos || [];
+      _mapaLayout = res.estantes || [];
       _mapaConstruirBinStock();
       _mapaCargado = true;
       _mapaRenderGrid();
@@ -5643,7 +5640,7 @@ function _mapaRenderGrid() {
       '<div style="text-align:center;padding:40px 20px;color:var(--tx-d)">' +
         '<i class="fa fa-map" style="font-size:32px;display:block;margin-bottom:12px;opacity:.2"></i>' +
         '<div style="font-size:13px;font-weight:600;color:var(--tx-m);margin-bottom:6px">Layout no configurado</div>' +
-        '<div style="font-size:11px;margin-bottom:14px">Definí los pasillos, estantes y niveles de tu depósito.</div>' +
+        '<div style="font-size:11px;margin-bottom:14px">Definí los estantes y niveles de tu depósito.</div>' +
         '<button class="btn-p" onclick="_abrirEditorLayout()" style="font-size:12px;padding:7px 18px">' +
           '<i class="fa fa-pencil-alt" style="margin-right:5px"></i>Configurar Layout</button>' +
       '</div>';
@@ -5651,99 +5648,48 @@ function _mapaRenderGrid() {
     return;
   }
 
-  // Calcular max estantes para dimensionar el grid
-  var maxEst = 0;
+  // Max niveles para dimensionar columnas
+  var maxNiv = 0;
   for (var i = 0; i < _mapaLayout.length; i++) {
-    if (_mapaLayout[i].estantes.length > maxEst) maxEst = _mapaLayout[i].estantes.length;
+    if (_mapaLayout[i].niveles > maxNiv) maxNiv = _mapaLayout[i].niveles;
   }
 
-  // Recolectar todos los estantes únicos (para encabezado de columnas)
-  var estMap = {};
-  for (var pi = 0; pi < _mapaLayout.length; pi++) {
-    var p = _mapaLayout[pi];
-    for (var ei = 0; ei < p.estantes.length; ei++) {
-      estMap[p.estantes[ei].estante] = true;
-    }
-  }
-  var estKeys = Object.keys(estMap).sort(function(a, b) {
-    var na = parseFloat(a), nb = parseFloat(b);
-    if (!isNaN(na) && !isNaN(nb)) return na - nb;
-    return a.localeCompare(b);
-  });
-
-  // Contar totales
+  // Totales
   var totalBins = 0, binsConStock = 0;
-  for (var pi2 = 0; pi2 < _mapaLayout.length; pi2++) {
-    var p2 = _mapaLayout[pi2];
-    for (var ei2 = 0; ei2 < p2.estantes.length; ei2++) {
-      var estObj = p2.estantes[ei2];
-      for (var ni = 1; ni <= estObj.niveles; ni++) {
-        totalBins++;
-        var bid2 = p2.pasillo + '-' + estObj.estante + '-' + ni;
-        if (_mapaBinStock[bid2]) binsConStock++;
-      }
+  for (var i2 = 0; i2 < _mapaLayout.length; i2++) {
+    var est2 = _mapaLayout[i2];
+    totalBins += est2.niveles;
+    for (var ni = 1; ni <= est2.niveles; ni++) {
+      if (_mapaBinStock[est2.estante + '-' + ni]) binsConStock++;
     }
   }
-  sub.textContent = _mapaLayout.length + ' pasillos · ' + totalBins + ' bins · ' + binsConStock + ' con stock';
+  sub.textContent = _mapaLayout.length + ' estantes · ' + totalBins + ' bins · ' + binsConStock + ' con stock';
 
-  // Generar HTML del grid
-  // Grid: cols = 1 (label pasillo) + N estantes
-  var cols = 1 + estKeys.length;
-  var h = '<div class="mapa-grid" style="grid-template-columns:60px ' + Array(estKeys.length).fill('minmax(72px,100px)').join(' ') + '">';
+  // Grid: col 0 = label estante, cols 1..maxNiv = bins por nivel
+  var h = '<div class="mapa-grid" style="grid-template-columns:64px ' + Array(maxNiv).fill('minmax(72px,1fr)').join(' ') + '">';
 
-  // Fila encabezado de estantes
-  h += '<div class="mapa-lbl-pasillo" style="padding-bottom:4px"></div>';
-  for (var ek = 0; ek < estKeys.length; ek++) {
-    h += '<div class="mapa-lbl-est">EST ' + escH(String(estKeys[ek])) + '</div>';
+  // Fila encabezado de niveles
+  h += '<div class="mapa-lbl-pasillo"></div>';
+  for (var nh = 1; nh <= maxNiv; nh++) {
+    h += '<div class="mapa-lbl-est">Niv ' + nh + '</div>';
   }
 
-  // Filas de pasillos
-  for (var pi3 = 0; pi3 < _mapaLayout.length; pi3++) {
-    var p3 = _mapaLayout[pi3];
-    // Crear mapa rápido estante→info para este pasillo
-    var estInfo = {};
-    for (var ei3 = 0; ei3 < p3.estantes.length; ei3++) {
-      estInfo[p3.estantes[ei3].estante] = p3.estantes[ei3];
-    }
-
-    // Label pasillo
-    h += '<div class="mapa-lbl-pasillo" style="grid-row:span 1">' + escH(p3.pasillo) + '</div>';
-
-    // Celdas por estante
-    for (var ek2 = 0; ek2 < estKeys.length; ek2++) {
-      var estNombre = estKeys[ek2];
-      var info = estInfo[estNombre];
-      if (!info) {
-        // Este pasillo no tiene este estante — celda vacía bloqueada
+  // Una fila por estante
+  for (var ei = 0; ei < _mapaLayout.length; ei++) {
+    var e = _mapaLayout[ei];
+    h += '<div class="mapa-lbl-pasillo">EST ' + escH(String(e.estante)) + '</div>';
+    for (var nc = 1; nc <= maxNiv; nc++) {
+      if (nc > e.niveles) {
         h += '<div class="mapa-celda" style="background:transparent;border:none;cursor:default"></div>';
         continue;
       }
-      // Calcular estado del rack completo (todos los niveles)
-      var tiposRack = {}, totalRack = 0, nivelesConStock = 0;
-      for (var ni2 = 1; ni2 <= info.niveles; ni2++) {
-        var binKey = p3.pasillo + '-' + estNombre + '-' + ni2;
-        var bs = _mapaBinStock[binKey];
-        if (bs) {
-          nivelesConStock++;
-          totalRack += bs.total;
-          var tks = Object.keys(bs.tipos);
-          for (var tk = 0; tk < tks.length; tk++) tiposRack[tks[tk]] = true;
-        }
-      }
-      var clase = Object.keys(tiposRack).length ? _mapaTipoClase(tiposRack) : 'vacio';
-      var rackId = p3.pasillo + '-' + estNombre;
-      h += '<div class="mapa-celda ' + clase + '" onclick="_mapaVerDetalle(\'' + escH(rackId) + '\',' + info.niveles + ',' + JSON.stringify(p3.pasillo) + ',' + JSON.stringify(estNombre) + ')">';
-      h += '<div class="mapa-celda-id">' + escH(rackId) + '</div>';
-      // Dots de niveles (de arriba abajo = nivel N hacia nivel 1, como una estantería)
-      h += '<div class="mapa-niveles">';
-      for (var ni3 = info.niveles; ni3 >= 1; ni3--) {
-        var bk3 = p3.pasillo + '-' + estNombre + '-' + ni3;
-        var tieneStock = !!_mapaBinStock[bk3];
-        h += '<span class="mapa-niv-dot ' + (tieneStock ? 'lleno' : 'vacio-dot') + '" title="Nivel ' + ni3 + '"></span>';
-      }
-      h += '</div>';
-      if (totalRack > 0) {
-        h += '<div class="mapa-celda-info">' + totalRack + ' u.</div>';
+      var binKey = e.estante + '-' + nc;
+      var bs = _mapaBinStock[binKey];
+      var clase = bs ? _mapaTipoClase(bs.tipos) : 'vacio';
+      h += '<div class="mapa-celda ' + clase + '" onclick="_mapaVerDetalle(\'' + escH(String(e.estante)) + '\',' + nc + ')">';
+      h += '<div class="mapa-celda-id">' + escH(String(e.estante)) + '-' + nc + '</div>';
+      if (bs && bs.total > 0) {
+        h += '<div class="mapa-celda-info">' + bs.total + ' u.</div>';
       }
       h += '</div>';
     }
@@ -5752,46 +5698,35 @@ function _mapaRenderGrid() {
   cont.innerHTML = h;
 }
 
-function _mapaVerDetalle(rackId, niveles, pasillo, estante) {
+function _mapaVerDetalle(estante, nivel) {
   var det = document.getElementById('mapa-detalle');
   det.style.display = '';
-  document.getElementById('mapa-det-titulo').textContent = rackId;
+  var binKey = estante + '-' + nivel;
+  document.getElementById('mapa-det-titulo').textContent = 'Bin ' + binKey + ' — Estante ' + estante + ', Nivel ' + nivel;
   var body = document.getElementById('mapa-det-body');
+  var bs   = _mapaBinStock[binKey];
+  if (!bs || !bs.skus.length) {
+    body.innerHTML =
+      '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">' +
+        '<i class="fa fa-archive" style="opacity:.25;font-size:20px;display:block;margin-bottom:6px"></i>' +
+        'Bin vacío — sin stock</div>';
+    setTimeout(function() { det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
+    return;
+  }
+  var tiposArr = Object.keys(bs.tipos);
+  var tipoCls  = _mapaTipoClase(bs.tipos);
+  var tipoBadge = tiposArr.length ? '<span class="wms-tipo-' + tipoCls + '" style="margin-left:4px;font-size:10px">' + tiposArr.join('/') + '</span>' : '';
   var h = '<table style="width:100%;font-size:12px;border-collapse:collapse">';
-  var hayAlgo = false;
-  for (var ni = niveles; ni >= 1; ni--) {
-    var binKey = pasillo + '-' + estante + '-' + ni;
-    var bs = _mapaBinStock[binKey];
-    h += '<tr style="border-top:1px solid var(--brd)">';
-    h += '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:var(--tx-d);white-space:nowrap;width:80px">NIV ' + ni + '</td>';
-    if (bs && bs.skus.length) {
-      hayAlgo = true;
-      var tiposArr = Object.keys(bs.tipos);
-      var tipoCls  = _mapaTipoClase(bs.tipos);
-      var tipoBadge = tiposArr.length ? '<span class="wms-tipo-' + tipoCls + '" style="margin-left:4px">' + tiposArr.join('/') + '</span>' : '';
-      h += '<td style="padding:5px 8px">';
-      for (var si = 0; si < bs.skus.length; si++) {
-        var sk = bs.skus[si];
-        h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (si < bs.skus.length-1 ? '4px' : '0') + '">' +
-               '<span style="font-family:monospace;font-size:11px;color:var(--accent)">' + escH(sk.sku) + '</span>' +
-               '<span style="font-size:11px;color:var(--tx-d);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escH(sk.desc) + '</span>' +
-               '<span style="font-weight:700;font-size:12px;color:var(--tx-m);flex-shrink:0">' + sk.cant + ' u.</span>' +
-             '</div>';
-      }
-      h += tipoBadge + '</td>';
-    } else {
-      h += '<td style="padding:5px 8px;color:var(--tx-d);font-size:11px;font-style:italic">Vacío</td>';
-    }
-    h += '</tr>';
+  for (var si = 0; si < bs.skus.length; si++) {
+    var sk = bs.skus[si];
+    h += '<tr style="border-top:1px solid var(--brd)">' +
+         '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:var(--accent);white-space:nowrap">' + escH(sk.sku) + '</td>' +
+         '<td style="padding:5px 8px;font-size:11px;color:var(--tx-d)">' + escH(sk.desc) + '</td>' +
+         '<td style="padding:5px 8px;font-weight:700;font-size:12px;color:var(--tx-m);white-space:nowrap">' + sk.cant + ' u.' + (si === bs.skus.length - 1 ? tipoBadge : '') + '</td>' +
+         '</tr>';
   }
   h += '</table>';
-  if (!hayAlgo) {
-    h = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">' +
-        '<i class="fa fa-archive" style="opacity:.25;font-size:20px;display:block;margin-bottom:6px"></i>' +
-        'Rack vacío — sin stock en ningún nivel</div>';
-  }
   body.innerHTML = h;
-  // Scroll al detalle
   setTimeout(function() { det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 80);
 }
 
@@ -5799,56 +5734,33 @@ function _mapaVerDetalle(rackId, niveles, pasillo, estante) {
 //  EDITOR DE LAYOUT
 // ══════════════════════════════════════════════════════════
 
-var _leData = []; // copia editable del layout
+var _leData = []; // copia editable del layout: [{ estante, orden, niveles }]
 
 function _abrirEditorLayout() {
-  // Clonar layout actual en _leData para edición
   _leData = JSON.parse(JSON.stringify(_mapaLayout));
-  _leRenderPasillos();
+  _leRenderEstantes();
   document.getElementById('le-status').textContent = '';
   var m = new bootstrap.Modal(document.getElementById('modal-layout-editor'));
   m.show();
 }
 
-function _leRenderPasillos() {
-  var wrap = document.getElementById('le-pasillos-wrap');
+function _leRenderEstantes() {
+  var wrap = document.getElementById('le-estantes-wrap');
   if (!_leData.length) {
-    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">Sin pasillos definidos. Agregá el primero.</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">Sin estantes definidos. Agregá el primero.</div>';
     return;
   }
   var h = '';
   for (var i = 0; i < _leData.length; i++) {
-    var p = _leData[i];
-    var pid = 'le-p-' + i;
-    h += '<div class="le-pasillo" id="' + pid + '">' +
-           '<div class="le-pasillo-head" onclick="_leTogglePasillo(' + i + ')">' +
-             '<i class="fa fa-chevron-down" id="le-ico-' + i + '" style="font-size:10px;color:var(--tx-d);transition:.15s"></i>' +
-             '<span class="le-pasillo-lbl">PASILLO ' + escH(p.pasillo) + '</span>' +
-             '<span style="font-size:10px;color:var(--tx-d)">' + p.estantes.length + ' estantes</span>' +
-             '<button class="btn-s" style="padding:2px 6px;font-size:10px;color:var(--red)" ' +
-               'onclick="event.stopPropagation();_leEliminarPasillo(' + i + ')" title="Eliminar pasillo">' +
-               '<i class="fa fa-trash"></i></button>' +
-           '</div>' +
-           '<div class="le-pasillo-body" id="le-body-' + i + '">';
-
-    // Estantes del pasillo
-    for (var j = 0; j < p.estantes.length; j++) {
-      var est = p.estantes[j];
-      h += '<div class="le-est-row" id="le-est-' + i + '-' + j + '">' +
-             '<span class="le-est-lbl">' + escH(p.pasillo) + '-' + escH(String(est.estante)) + '</span>' +
-             '<div class="le-niv-dots" id="le-dots-' + i + '-' + j + '">' + _leDots(est.niveles) + '</div>' +
-             '<span class="le-niv-count" id="le-nc-' + i + '-' + j + '">' + est.niveles + '</span>' +
-             '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',' + j + ',-1)" title="Quitar nivel"><i class="fa fa-minus"></i></button>' +
-             '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',' + j + ',1)" title="Agregar nivel"><i class="fa fa-plus"></i></button>' +
-             '<button class="btn-s" style="padding:2px 5px;font-size:10px;color:var(--red)" onclick="_leEliminarEstante(' + i + ',' + j + ')" title="Eliminar estante"><i class="fa fa-trash"></i></button>' +
-           '</div>';
-    }
-
-    h += '<button class="btn-s" style="font-size:10px;margin-top:8px;width:100%" onclick="_leAgregarEstante(' + i + ')">' +
-           '<i class="fa fa-plus"></i> Estante' +
-         '</button>' +
-         '</div>' + // /le-pasillo-body
-         '</div>'; // /le-pasillo
+    var e = _leData[i];
+    h += '<div class="le-est-row" id="le-est-' + i + '">' +
+           '<span class="le-est-lbl">EST ' + escH(String(e.estante)) + '</span>' +
+           '<div class="le-niv-dots" id="le-dots-' + i + '">' + _leDots(e.niveles) + '</div>' +
+           '<span class="le-niv-count" id="le-nc-' + i + '">' + e.niveles + '</span>' +
+           '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',-1)" title="Quitar nivel"><i class="fa fa-minus"></i></button>' +
+           '<button class="btn-s" style="padding:2px 5px;font-size:10px" onclick="_leNiveles(' + i + ',1)" title="Agregar nivel"><i class="fa fa-plus"></i></button>' +
+           '<button class="btn-s" style="padding:2px 5px;font-size:10px;color:var(--red)" onclick="_leEliminarEstante(' + i + ')" title="Eliminar estante"><i class="fa fa-trash"></i></button>' +
+         '</div>';
   }
   wrap.innerHTML = h;
 }
@@ -5859,73 +5771,34 @@ function _leDots(n) {
   return h;
 }
 
-function _leTogglePasillo(idx) {
-  var body = document.getElementById('le-body-' + idx);
-  var ico  = document.getElementById('le-ico-' + idx);
-  var open = body.classList.toggle('open');
-  if (ico) ico.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
-}
-
-function _leAgregarPasillo() {
-  var nombre = prompt('Nombre del pasillo (ej: A, B, NORTE):');
-  if (!nombre) return;
-  nombre = nombre.trim().toUpperCase();
-  for (var i = 0; i < _leData.length; i++) {
-    if (_leData[i].pasillo === nombre) { toast('Ya existe el pasillo ' + nombre, 'err'); return; }
-  }
-  _leData.push({ pasillo: nombre, estantes: [] });
-  _leRenderPasillos();
-  // Auto-expandir el nuevo
-  setTimeout(function() { _leTogglePasillo(_leData.length - 1); }, 50);
-}
-
-function _leEliminarPasillo(idx) {
-  if (!confirm('¿Eliminar el pasillo ' + _leData[idx].pasillo + ' y todos sus estantes?')) return;
-  _leData.splice(idx, 1);
-  _leRenderPasillos();
-}
-
-function _leAgregarEstante(pIdx) {
-  var p = _leData[pIdx];
-  // Sugerir el siguiente número de estante
-  var siguiente = p.estantes.length + 1;
-  var nombre = prompt('Nombre/número del estante (ej: ' + siguiente + '):');
+function _leAgregarEstante() {
+  var siguiente = _leData.length + 1;
+  var nombre = prompt('Número del estante (ej: ' + siguiente + '):');
   if (!nombre) return;
   nombre = nombre.trim();
-  for (var j = 0; j < p.estantes.length; j++) {
-    if (String(p.estantes[j].estante) === nombre) { toast('Ya existe el estante ' + nombre + ' en este pasillo', 'err'); return; }
+  for (var j = 0; j < _leData.length; j++) {
+    if (String(_leData[j].estante) === nombre) { toast('Ya existe el estante ' + nombre, 'err'); return; }
   }
-  p.estantes.push({ estante: nombre, niveles: 4 });
-  _leRenderPasillos();
-  // Re-abrir el pasillo
-  setTimeout(function() {
-    var body = document.getElementById('le-body-' + pIdx);
-    if (body && !body.classList.contains('open')) _leTogglePasillo(pIdx);
-  }, 50);
+  _leData.push({ estante: nombre, orden: _leData.length + 1, niveles: 4 });
+  _leRenderEstantes();
 }
 
-function _leEliminarEstante(pIdx, eIdx) {
-  var est = _leData[pIdx].estantes[eIdx];
-  if (!confirm('¿Eliminar estante ' + _leData[pIdx].pasillo + '-' + est.estante + '?')) return;
-  _leData[pIdx].estantes.splice(eIdx, 1);
-  _leRenderPasillos();
-  setTimeout(function() {
-    var body = document.getElementById('le-body-' + pIdx);
-    if (body && !body.classList.contains('open')) _leTogglePasillo(pIdx);
-  }, 50);
+function _leEliminarEstante(idx) {
+  if (!confirm('¿Eliminar estante ' + _leData[idx].estante + '?')) return;
+  _leData.splice(idx, 1);
+  _leRenderEstantes();
 }
 
-function _leNiveles(pIdx, eIdx, delta) {
-  var est = _leData[pIdx].estantes[eIdx];
-  est.niveles = Math.max(1, Math.min(20, (est.niveles || 1) + delta));
-  var dotsEl = document.getElementById('le-dots-' + pIdx + '-' + eIdx);
-  var ncEl   = document.getElementById('le-nc-' + pIdx + '-' + eIdx);
-  if (dotsEl) dotsEl.innerHTML = _leDots(est.niveles);
-  if (ncEl)   ncEl.textContent = est.niveles;
+function _leNiveles(idx, delta) {
+  _leData[idx].niveles = Math.max(1, Math.min(20, (_leData[idx].niveles || 1) + delta));
+  var dotsEl = document.getElementById('le-dots-' + idx);
+  var ncEl   = document.getElementById('le-nc-' + idx);
+  if (dotsEl) dotsEl.innerHTML = _leDots(_leData[idx].niveles);
+  if (ncEl)   ncEl.textContent = _leData[idx].niveles;
 }
 
 function _leGuardar() {
-  if (!_leData.length) { toast('Agregá al menos un pasillo', 'err'); return; }
+  if (!_leData.length) { toast('Agregá al menos un estante', 'err'); return; }
   var status = document.getElementById('le-status');
   status.textContent = 'Guardando…';
   var btn = document.querySelector('#modal-layout-editor .btn-primary');
@@ -5939,6 +5812,7 @@ function _leGuardar() {
       bootstrap.Modal.getInstance(document.getElementById('modal-layout-editor')).hide();
       toast('Layout guardado');
       _mapaRenderGrid();
+      _cntActualizarHint();
     })
     .withFailureHandler(function(e) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-save" style="margin-right:5px"></i>Guardar Layout'; }

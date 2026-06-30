@@ -160,11 +160,9 @@ var SCHEMA = {
     TIPO_ALMACEN: 3
   },
   LAYOUT_ALMACEN: {
-    PASILLO:       0,
-    ORDEN_PASILLO: 1,
-    ESTANTE:       2,
-    ORDEN_ESTANTE: 3,
-    NUM_NIVELES:   4
+    ESTANTE:       0,
+    ORDEN_ESTANTE: 1,
+    NUM_NIVELES:   2
   }
 };
 

@@ -79,6 +79,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 5.1 | Layout sin pasillo: estructura simplificada a ESTANTE-NIVEL (ej "1-3"); editor reemplaza acordeón de pasillos por lista plana de estantes; mapa renderiza rows=estantes, cols=niveles; detalle de celda muestra bin individual; _getAllBins genera "ESTANTE-NIVEL" |
+| Sm_Código.js | 4.4 | Layout sin pasillo: SM_cargarLayout devuelve {estantes:[{estante,orden,niveles}]}; SM_guardarLayout(estantes) escribe esquema plano; asegurarHojas() actualiza headers LAYOUT_ALMACEN a [ESTANTE,ORDEN_ESTANTE,NUM_NIVELES] |
 | SM_Index.html | 5.0 | WMS rediseñado: 3 tareas grandes (Recibir/Contar/Mover) reemplazan los modos abstractos "Por ítem"/"Por sector"; bin picker con autocomplete del layout en todos los campos de ubicación; RECIBIR con qty stepper y guardar en un click; CONTAR muestra ítems del bin con +/− inline y "Guardar conteo completo"; MOVER: buscar repuesto→chips de ubicaciones→bin destino→confirmar (SM_moverStock); layout se pre-carga en background al abrir WMS |
 | Sm_Código.js | 4.3 | Fix fecha: guardarUbicacionInicial / guardarConteoUbicacion / SM_moverStock usan setNumberFormat('@') en col B de UBICACIONES — evita que Sheets auto-convierta "1-1" a fecha; SM_repararFormatoUbicaciones() para reparar filas ya corrompidas |
 | Sm_Código.js | 4.2 | SM_moverStock(sku,origen,destino,cant): mueve unidades entre bins de UBICACIONES de Carmen atómicamente; guardarConteoUbicacion(ubicacion,items): reescribe el conteo completo de un bin (update+delete+insert en un solo paso) |
