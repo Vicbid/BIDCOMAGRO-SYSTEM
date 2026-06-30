@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.3 -->
+<!-- @version 1.4 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -500,6 +500,27 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <label class="flbl">CUIT</label>
             <input type="text" id="reg-cuit" class="form-control" placeholder="20-12345678-9">
           </div>
+
+          <div id="reg-titulo-direccion" style="display:none;font-size:10px;font-weight:700;color:var(--tx-d);letter-spacing:.06em;text-transform:uppercase;margin:16px 0 10px;padding-top:4px;border-top:1px solid var(--brd)">Dirección fiscal</div>
+          <div id="reg-campo-direccion" style="display:none;margin-bottom:12px">
+            <label class="flbl">Calle y número <span style="color:var(--red)">*</span></label>
+            <input type="text" id="reg-direccion" class="form-control" placeholder="Av. Corrientes 1234">
+          </div>
+          <div id="reg-row-cp-loc" style="display:none;gap:8px;margin-bottom:12px">
+            <div style="flex:0 0 90px">
+              <label class="flbl">C.P.</label>
+              <input type="text" id="reg-cp" class="form-control" placeholder="1043">
+            </div>
+            <div style="flex:1">
+              <label class="flbl">Localidad</label>
+              <input type="text" id="reg-localidad" class="form-control" placeholder="Buenos Aires">
+            </div>
+          </div>
+          <div id="reg-campo-provincia" style="display:none;margin-bottom:12px">
+            <label class="flbl">Provincia</label>
+            <input type="text" id="reg-provincia" class="form-control" placeholder="Buenos Aires">
+          </div>
+
           <div style="margin-bottom:16px">
             <label class="flbl">Mensaje (opcional)</label>
             <textarea id="reg-notas" class="form-control" rows="2" placeholder="Algo que quieras aclararnos..." style="resize:none"></textarea>
@@ -5184,13 +5205,23 @@ function _regAvanzar() {
       // Mostrar paso 2 con solo los campos que faltan
       _regEmpresaActual = r.empresa;
       document.getElementById('reg-empresa-titulo').textContent = r.empresa;
-      document.getElementById('reg-campo-email').style.display = r.campos.email    ? 'block' : 'none';
-      document.getElementById('reg-campo-tel').style.display   = r.campos.telefono ? 'block' : 'none';
-      document.getElementById('reg-campo-cuit').style.display  = r.campos.cuit     ? 'block' : 'none';
-      document.getElementById('reg-email').value    = '';
-      document.getElementById('reg-telefono').value = '';
-      document.getElementById('reg-cuit').value     = '';
-      document.getElementById('reg-notas').value    = '';
+      document.getElementById('reg-campo-email').style.display    = r.campos.email     ? 'block' : 'none';
+      document.getElementById('reg-campo-tel').style.display      = r.campos.telefono  ? 'block' : 'none';
+      document.getElementById('reg-campo-cuit').style.display     = r.campos.cuit      ? 'block' : 'none';
+      document.getElementById('reg-campo-direccion').style.display= r.campos.direccion ? 'block' : 'none';
+      document.getElementById('reg-campo-provincia').style.display= r.campos.provincia ? 'block' : 'none';
+      var cpOLoc = r.campos.cp || r.campos.localidad;
+      document.getElementById('reg-row-cp-loc').style.display     = cpOLoc            ? 'flex'  : 'none';
+      var anyDir = r.campos.direccion || r.campos.cp || r.campos.localidad || r.campos.provincia;
+      document.getElementById('reg-titulo-direccion').style.display = anyDir           ? 'block' : 'none';
+      document.getElementById('reg-email').value     = '';
+      document.getElementById('reg-telefono').value  = '';
+      document.getElementById('reg-cuit').value      = '';
+      document.getElementById('reg-direccion').value = '';
+      document.getElementById('reg-cp').value        = '';
+      document.getElementById('reg-localidad').value = '';
+      document.getElementById('reg-provincia').value = '';
+      document.getElementById('reg-notas').value     = '';
       document.getElementById('reg-error').style.display = 'none';
       document.getElementById('reg-paso1').style.display = 'none';
       document.getElementById('reg-paso2').style.display = 'block';
@@ -5217,12 +5248,22 @@ function enviarRegistro() {
     err.textContent = 'Ingresá un email válido.'; err.style.display = 'block'; return;
   }
 
+  var dirVisible = document.getElementById('reg-campo-direccion').style.display !== 'none';
+  var dirVal     = dirVisible ? document.getElementById('reg-direccion').value.trim() : '';
+  if (dirVisible && !dirVal) {
+    err.textContent = 'Ingresá la dirección fiscal.'; err.style.display = 'block'; return;
+  }
+
   var params = {
-    empresa:  _regEmpresaActual,
-    email:    email,
-    telefono: document.getElementById('reg-campo-tel').style.display  !== 'none' ? document.getElementById('reg-telefono').value.trim() : '',
-    cuit:     document.getElementById('reg-campo-cuit').style.display !== 'none' ? document.getElementById('reg-cuit').value.trim()     : '',
-    notas:    document.getElementById('reg-notas').value.trim()
+    empresa:   _regEmpresaActual,
+    email:     email,
+    telefono:  document.getElementById('reg-campo-tel').style.display   !== 'none' ? document.getElementById('reg-telefono').value.trim() : '',
+    cuit:      document.getElementById('reg-campo-cuit').style.display  !== 'none' ? document.getElementById('reg-cuit').value.trim()     : '',
+    direccion: dirVal,
+    cp:        document.getElementById('reg-row-cp-loc').style.display  !== 'none' ? document.getElementById('reg-cp').value.trim()        : '',
+    localidad: document.getElementById('reg-row-cp-loc').style.display  !== 'none' ? document.getElementById('reg-localidad').value.trim() : '',
+    provincia: document.getElementById('reg-campo-provincia').style.display !== 'none' ? document.getElementById('reg-provincia').value.trim() : '',
+    notas:     document.getElementById('reg-notas').value.trim()
   };
 
   err.style.display = 'none';

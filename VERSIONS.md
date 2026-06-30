@@ -27,6 +27,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Archivo | Versión | Notas |
 |---------|---------|-------|
 | Index.html | 1.1 | Fix enviarPedido() → generarPedidoRepuestosPortal |
+| Index.html | 1.4 | Registro: 4 campos de dirección (Calle, CP, Localidad, Provincia) — se muestran solo si están vacíos en el sheet; Calle es requerida si visible; sección "Dirección fiscal" con separador; CP+Localidad en row flex |
+| RS_Registro.js | 1.1 | REG_obtenerCamposVacios: expone campos direccion/cp/localidad/provincia; REG_solicitarAcceso: acepta y persiste los 4 campos en SOLICITUDES_RESELLER (cols J-M); _REG_procesarDecision: los escribe en hoja Resellers al aprobar; email admin muestra dirección consolidada |
 | RS_Pedidos.js | 1.5 | Fórmula CANT_PEND col G incluye -Z (CANT_CANCEL) al crear filas | Fix PDF: total ocupa cols 6-7 merge (160px) en vez de col 7 sola (80px) |
 | RS_OTs.js | 1.7 | Fix threading: replyHtml→replyAll en agregarComentario y aprobarPresupuestoPortal (replyHtml no existe en GmailThread, siempre fallback a sendEmail nuevo) |
 | RS_OTs.js | 1.6 | Flujo batería unificado: detección esBateriaOT antes de ramas de flujo; 7 estados nuevos con paso/quePasa propios; esBateria en return usa variable en lugar de IIFE duplicado |
@@ -64,6 +66,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | WOS_GmailFlow.js | 1.7 | Nota de entrega agrupa items por caja con fila separadora Caja N + tracking cuando hay multi-bulto; Fix 1.6: fila TOTAL en col 6 |
 | Despacho_Código.js | 2.8 | WOS_cargarStock: lee ubicaciones desde Carmen UBICACIONES tab (multi-ubicacion WMS); fallback a STOCK_REPUESTOS para items sin mapear |
 | Despacho_Env.js | 1.1 | Agrega CARMEN_UBICACIONES_TAB = 'UBICACIONES' |
+| Despacho_Index.html | 3.8 | Badges WMS en tabla de ítems: columna "Ubicación WMS" con wosPintarBadgesUbicacion(); CSS .wms-bin picking/reserva (tokens nativos); snapshot cargado post-render via _cargarWmsSnapshot() + _actualizarBadgesWms() sin bloquear UI |
+| WOS_StockSnapshot.js | 1.1 | WOS_obtenerStockSnapshot() función pública para google.script.run; devuelve stockMap serializable al frontend |
+| WOS_StockSnapshot.js | 1.0 | Módulo read-only WMS: _wosCargarStockSnapshot() triple in-memory mapping (Carmen STOCK + UBICACIONES + MASTER TABLA_POSICIONES); sort PICKING-first + alfanumérico natural; _wosStockBySku() helper de consulta |
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER

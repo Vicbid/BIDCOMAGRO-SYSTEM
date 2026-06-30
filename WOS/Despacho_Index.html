@@ -1,4 +1,4 @@
-<!-- @version 3.7 -->
+<!-- @version 3.8 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -231,6 +231,17 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .stock-low{background:var(--yellow-l);color:var(--yellow);border:1px solid rgba(255,139,0,.3)}
 .stock-out{background:var(--red-l);color:var(--red);border:1px solid rgba(222,53,11,.25)}
 .pend-warn{color:var(--orange-m);font-weight:700}
+
+/* ── WMS BADGES ─────────────────────────────────────────── */
+.wms-badges{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.wms-bin{display:inline-flex;flex-direction:column;padding:4px 8px;border-radius:var(--r);gap:1px;min-width:0;flex-shrink:0}
+.wms-bin.picking{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue)}
+.wms-bin.reserva{background:var(--surf);color:var(--tx-m);border:1px dotted var(--brd)}
+.wms-bin-id{font-family:var(--f-mono);font-size:12px;font-weight:700;white-space:nowrap}
+.wms-bin-qty{font-size:10px;font-weight:600;white-space:nowrap}
+.wms-bin-tipo{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75}
+.badge-wms.alert-critica{display:inline-flex;align-items:center;gap:4px;background:var(--red-l);color:var(--red);border:1px solid var(--red-m);padding:3px 8px;border-radius:var(--r);font-size:10px;font-weight:700;white-space:nowrap}
+.wms-loading{color:var(--tx-d);font-size:10px;font-style:italic}
 .pend-zero{color:var(--green-m);font-weight:700}
 
 /* ── CARD ACTIONS ─────────────────────────────────────── */
@@ -946,6 +957,7 @@ var _pedidos      = [];
 var _lcRows       = [];
 var _pickState    = {}; // { numero: { itemIdx: cantPickeada } } — client-side only, no persistence
 var _filtroEst    = '';
+var _wmsSnapshot  = null; // snapshot read-only de Carmen+Master; cargado post-render
 var _selBatch     = {};
 var _ultimoLoadMs    = 0;
 var _pollingTimer    = null;
@@ -1416,6 +1428,59 @@ function _tiempoHace(ms) {
   return 'hace ' + Math.floor(hrs / 24) + 'd';
 }
 
+// ── WMS Snapshot — badges de ubicación en la tabla de ítems ──
+
+function wosPintarBadgesUbicacion(sku, cantidadSolicitada) {
+  if (!_wmsSnapshot || !_wmsSnapshot.stockMap) {
+    return '<span class="wms-loading"><i class="fa fa-circle-notch fa-spin" style="font-size:10px"></i></span>';
+  }
+  var skuKey = String(sku || '').trim().toUpperCase();
+  var entry  = _wmsSnapshot.stockMap[skuKey] || null;
+
+  if (!entry || entry.stock_neto_total <= 0) {
+    return '<span class="badge-wms alert-critica">⚠ SIN STOCK EN SISTEMA</span>';
+  }
+
+  var cajas = entry.cajas_disponibles || [];
+  if (!cajas.length) {
+    return '<span style="font-size:10px;color:var(--tx-d)">Sin ubicaci\xf3n WMS</span>';
+  }
+
+  var html = '<div class="wms-badges">';
+  for (var c = 0; c < cajas.length; c++) {
+    var caja   = cajas[c];
+    var isPick = caja.tipo_almacen === 'PICKING';
+    html += '<div class="wms-bin ' + (isPick ? 'picking' : 'reserva') + '">' +
+      '<span class="wms-bin-id">'   + escH(caja.bin_id)         + '</span>' +
+      '<span class="wms-bin-qty">'  + caja.cantidad_en_caja + ' u. disp.</span>' +
+      '<span class="wms-bin-tipo">' + escH(caja.tipo_almacen)   + '</span>' +
+    '</div>';
+  }
+  return html + '</div>';
+}
+
+function _actualizarBadgesWms() {
+  var cells = document.querySelectorAll('.wms-badge-cell');
+  for (var i = 0; i < cells.length; i++) {
+    var cell = cells[i];
+    var sku  = cell.getAttribute('data-sku')  || '';
+    var cant = parseInt(cell.getAttribute('data-cant')) || 0;
+    cell.innerHTML = wosPintarBadgesUbicacion(sku, cant);
+  }
+}
+
+function _cargarWmsSnapshot() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        _wmsSnapshot = res;
+        _actualizarBadgesWms();
+      }
+    })
+    .withFailureHandler(function() {}) // falla silenciosa — snapshot es best-effort
+    .WOS_obtenerStockSnapshot();
+}
+
 // ── Carga inicial ─────────────────────────────────────────────
 function cargar() {
   wosLoadStart(STEPS_CARGAR);
@@ -1431,6 +1496,7 @@ function cargar() {
       actualizarStats();
       actualizarKPI();
       renderPedidos();
+      _cargarWmsSnapshot();
       var now = new Date();
       document.getElementById('last-refresh').textContent =
         'Actualizado ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
@@ -1922,6 +1988,9 @@ function renderCard(p) {
       '<td class="num-cell ' + pendClass + '">' + it.cantPend + '</td>' +
       '<td class="num-cell">' + it.cantDesp + '</td>' +
       '<td class="num-cell" style="text-align:center">' + stkActCell + '</td>' +
+      '<td class="wms-badge-cell" data-sku="' + escH(it.sku) + '" data-cant="' + it.cantPend + '">' +
+        wosPintarBadgesUbicacion(it.sku, it.cantPend) +
+      '</td>' +
       '<td class="price-cell">' + (it.precio > 0 ? fmtUSD(it.precio) : '—') + '</td>' +
       (p.esMixto ? '<td><span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:8px;padding:2px 5px">' + escH(it.estado || '—') + '</span></td>' : '') +
     '</tr>';
@@ -1990,6 +2059,7 @@ function renderCard(p) {
           '<th style="text-align:center" title="Cantidad pendiente de despacho">Pend.</th>' +
           '<th style="text-align:center" title="Cantidad ya despachada">Enviado</th>' +
           '<th style="text-align:center" title="Stock disponible en Carmen al momento de la carga">Stock</th>' +
+          '<th title="Ubicación WMS: bins de picking y reserva ordenados por prioridad">Ubicación WMS</th>' +
           '<th style="text-align:right">Precio</th>' +
           (p.esMixto ? '<th>Estado</th>' : '') +
         '</tr></thead><tbody>' + tbody + '</tbody></table>' +
