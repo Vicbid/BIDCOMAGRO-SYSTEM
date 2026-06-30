@@ -1,5 +1,5 @@
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.2 — SM_Codigo.gs
+//  STOCK MANAGER BIDCOMAGRO v4.3 — SM_Codigo.gs
 //  Proyecto: Stock Manager
 //
 //  Comparte el mismo Google Sheet que HUB PRO y Portal.
@@ -775,11 +775,15 @@ function guardarUbicacionInicial(sku, ubicacion, cantidadInicial) {
     for (var i = 1; i < d.length; i++) {
       if (String(d[i][0] || '').trim().toUpperCase() === codKey &&
           String(d[i][1] || '').trim().toUpperCase() === ubicKey) {
-        hojaUbic.getRange(i + 1, 3).setValue(cantIni); // col C directo, sin fórmula
+        hojaUbic.getRange(i + 1, 3).setValue(cantIni);
         return { ok: true };
       }
     }
-    hojaUbic.appendRow([codKey, ubicKey, cantIni]); // PN | Ubicación | Cantidad (número)
+    // Escribir fila nueva con col B forzada a texto para evitar auto-conversión a fecha (ej: "1-1" → 1 ene)
+    var lr = hojaUbic.getLastRow() + 1;
+    hojaUbic.getRange(lr, 1).setValue(codKey);
+    hojaUbic.getRange(lr, 2).setNumberFormat('@').setValue(ubicKey);
+    hojaUbic.getRange(lr, 3).setValue(cantIni);
     return { ok: true };
   } catch(e) { return { ok: false, error: e.message }; }
 }
@@ -822,6 +826,35 @@ function eliminarUbicacion(sku, ubicacion) {
   } catch(e) { return { ok: false, error: e.message }; }
 }
 
+// Repara la columna B (ubicacion) de Carmen UBICACIONES: fuerza formato texto en todas las filas
+// para corregir valores que Sheets auto-convirtió a fechas (ej: "1-1" → 1-ene-2001).
+function SM_repararFormatoUbicaciones() {
+  try {
+    var hoja = _getCarmenSS().getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hoja) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
+    var lastRow = hoja.getLastRow();
+    if (lastRow < 2) return { ok: true, reparadas: 0 };
+    var rangeB = hoja.getRange(2, 2, lastRow - 1, 1);
+    var vals   = rangeB.getValues();
+    // Forzar formato texto en toda la columna B de datos
+    rangeB.setNumberFormat('@');
+    // Detectar y corregir celdas que se guardaron como Date (número serial)
+    var corregidas = 0;
+    for (var i = 0; i < vals.length; i++) {
+      var v = vals[i][0];
+      if (v instanceof Date) {
+        // Era una fecha → no podemos recuperar el texto original, marcar para revisión manual
+        hoja.getRange(i + 2, 2).setValue('⚠ REVISAR');
+        corregidas++;
+      }
+    }
+    Logger.log('SM_repararFormatoUbicaciones: ' + corregidas + ' celdas con fecha detectadas');
+    return { ok: true, reparadas: corregidas };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 // Mueve `cant` unidades de un SKU de una ubicación a otra en UBICACIONES de Carmen.
 function SM_moverStock(sku, origen, destino, cant) {
   try {
@@ -855,7 +888,10 @@ function SM_moverStock(sku, origen, destino, cant) {
     if (dstRow > 0) {
       hojaUbic.getRange(dstRow, 3).setValue(dstCant + cant);
     } else {
-      hojaUbic.appendRow([codKey, dstKey, dstCant + cant]);
+      var lrMv = hojaUbic.getLastRow() + 1;
+      hojaUbic.getRange(lrMv, 1).setValue(codKey);
+      hojaUbic.getRange(lrMv, 2).setNumberFormat('@').setValue(dstKey);
+      hojaUbic.getRange(lrMv, 3).setValue(dstCant + cant);
     }
     Logger.log('SM_moverStock: ' + codKey + ' ' + cant + 'u. ' + orgKey + ' → ' + dstKey);
     return { ok: true, msg: cant + ' u. movidas de ' + orgKey + ' a ' + dstKey };
@@ -903,7 +939,10 @@ function guardarConteoUbicacion(ubicacion, items) {
     var keys = Object.keys(nuevoMapa);
     for (var m = 0; m < keys.length; m++) {
       if (!procesadas[keys[m]] && nuevoMapa[keys[m]] > 0) {
-        hojaUbic.appendRow([keys[m], ubicKey, nuevoMapa[keys[m]]]);
+        var lr2 = hojaUbic.getLastRow() + 1;
+        hojaUbic.getRange(lr2, 1).setValue(keys[m]);
+        hojaUbic.getRange(lr2, 2).setNumberFormat('@').setValue(ubicKey);
+        hojaUbic.getRange(lr2, 3).setValue(nuevoMapa[keys[m]]);
       }
     }
     return { ok: true };

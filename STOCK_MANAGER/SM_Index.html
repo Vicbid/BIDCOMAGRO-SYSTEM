@@ -798,15 +798,18 @@ tr:last-child td{border-bottom:none}
       <div id="wms-panel-contar" style="display:none">
         <!-- Selector de bin -->
         <div class="card task-border-contar" style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.06em;margin-bottom:8px">SELECCIONÁ EL BIN A CONTAR</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.06em">SELECCIONÁ EL BIN A CONTAR</div>
+            <div id="cnt-bin-hint" style="font-size:10px;color:var(--tx-d)"></div>
+          </div>
           <div style="position:relative;margin-bottom:10px">
-            <input type="text" id="cnt-bin" class="form-control bin-inp" placeholder="Ej: A-1-3  —  escribí para buscar"
+            <input type="text" id="cnt-bin" class="form-control bin-inp" placeholder="Escribí para buscar o elegí de la lista…"
                    oninput="_binFilter('cnt-bin','cnt-bin-dd',null)"
                    onkeydown="_binKeyNav(event,'cnt-bin','cnt-bin-dd',null,null)"
                    autocomplete="off" style="padding:11px 14px">
             <div id="cnt-bin-dd" class="borr-dd" style="display:none"></div>
           </div>
-          <button onclick="_cntCargar()" class="btn-action blue" style="padding:11px">
+          <button onclick="_cntCargar()" class="btn-action blue" style="padding:11px" id="cnt-cargar-btn">
             <i class="fa fa-search" style="margin-right:7px"></i>Cargar bin
           </button>
         </div>
@@ -4782,7 +4785,7 @@ function _wmsTabAbierto() {
   if (!_mapaCargado) {
     google.script.run
       .withSuccessHandler(function(res) {
-        if (res.ok) { _mapaLayout = res.pasillos || []; _mapaCargado = true; }
+        if (res.ok) { _mapaLayout = res.pasillos || []; _mapaCargado = true; _cntActualizarHint(); }
       })
       .SM_cargarLayout();
   }
@@ -5021,7 +5024,12 @@ function _wmsGuardarNuevo() {
   if (!_wmsItem) return;
   var ubic = (document.getElementById('wms-new-ubic').value || '').trim().toUpperCase();
   var cant = parseInt(document.getElementById('wms-new-cant').value) || 0;
-  if (!ubic) { toast('Ingresá una ubicación (ej: A-1-3)', 'err'); document.getElementById('wms-new-ubic').focus(); return; }
+  if (!ubic) { toast('Elegí una ubicación de la lista', 'err'); document.getElementById('wms-new-ubic').focus(); return; }
+  var allBins = _getAllBins();
+  if (allBins.length && allBins.indexOf(ubic) === -1) {
+    toast('Ese bin no existe en el layout. Elegí uno de la lista.', 'err');
+    document.getElementById('wms-new-ubic').focus(); return;
+  }
   var btn = document.getElementById('wms-guardar-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:7px"></i>Guardando…'; }
   google.script.run
@@ -5111,15 +5119,41 @@ function _wmsModo(modo) {
     if (el) { el.style.flex = '1'; el.style.fontSize = '11px'; }
   });
   if (modo === 'recibir') setTimeout(function(){ var q=document.getElementById('wms-q'); if(q)q.focus(); }, 80);
-  if (modo === 'contar')  setTimeout(function(){ var b=document.getElementById('cnt-bin'); if(b)b.focus(); }, 80);
+  if (modo === 'contar')  setTimeout(function(){
+    _cntActualizarHint();
+    var b = document.getElementById('cnt-bin'); if(b) b.focus();
+  }, 80);
   if (modo === 'mover')   setTimeout(function(){ var q=document.getElementById('mv-q'); if(q)q.focus(); }, 80);
   if (modo === 'sinmapear') _smCargar();
   if (modo === 'mapa')      _mapaCargar();
 }
 
+function _cntActualizarHint() {
+  var n    = _getAllBins().length;
+  var hint = document.getElementById('cnt-bin-hint');
+  var inp  = document.getElementById('cnt-bin');
+  var btn  = document.getElementById('cnt-cargar-btn');
+  if (hint) {
+    if (n) {
+      hint.innerHTML = '<i class="fa fa-check-circle" style="color:var(--green);margin-right:3px"></i>' + n + ' bins disponibles';
+    } else {
+      hint.innerHTML = '<a onclick="_wmsModo(\'mapa\')" style="color:var(--orange);cursor:pointer">' +
+                       '<i class="fa fa-exclamation-triangle" style="margin-right:3px"></i>Configurá el layout en Mapa</a>';
+    }
+  }
+  if (inp)  inp.placeholder  = n ? 'Escribí para buscar o elegí de la lista…' : 'Primero configurá el layout del depósito';
+  if (btn)  btn.disabled     = !n && _mapaCargado;
+}
+
 function _cntCargar() {
   var v = (document.getElementById('cnt-bin').value || '').trim().toUpperCase();
-  if (!v) { toast('Ingresá o elegí un bin', 'err'); return; }
+  if (!v) { toast('Elegí un bin de la lista', 'err'); document.getElementById('cnt-bin').focus(); return; }
+  var allBins = _getAllBins();
+  if (allBins.length && allBins.indexOf(v) === -1) {
+    toast('Ese bin no existe en el layout. Elegí uno de la lista.', 'err');
+    document.getElementById('cnt-bin').focus();
+    return;
+  }
   _cntBin = v;
   _scSector = v; // compatibilidad
   document.getElementById('cnt-bin-dd').style.display = 'none';
@@ -5509,6 +5543,11 @@ function _mvConfirmar() {
   if (!destino) { toast('Indicá el bin de destino', 'err'); document.getElementById('mv-destino').focus(); return; }
   if (cant < 1) { toast('La cantidad debe ser al menos 1', 'err'); document.getElementById('mv-cant').focus(); return; }
   if (origen === destino) { toast('Origen y destino son el mismo bin', 'err'); return; }
+  var allBins = _getAllBins();
+  if (allBins.length) {
+    if (allBins.indexOf(origen)  === -1) { toast('Bin de origen no está en el layout', 'err');  document.getElementById('mv-origen').focus();  return; }
+    if (allBins.indexOf(destino) === -1) { toast('Bin de destino no está en el layout', 'err'); document.getElementById('mv-destino').focus(); return; }
+  }
   var btn = document.getElementById('mv-confirmar-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:8px"></i>Moviendo…'; }
   google.script.run
