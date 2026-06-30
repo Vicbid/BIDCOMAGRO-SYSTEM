@@ -1,4 +1,4 @@
-<!-- @version 2.2 -->
+<!-- @version 2.3 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -3337,8 +3337,8 @@ function abrirModalRepWos() {
   }
 
   document.getElementById('rep-wos-subtitle').textContent = 'OT: ' + actual.ot + ' · ' + actual.reseller;
-  document.getElementById('rep-wos-num-preview').textContent = 'REP-OT-' + actual.ot;
-  document.getElementById('rep-wos-aprobado').checked = !!actual.cas;
+  document.getElementById('rep-wos-num-preview').textContent = 'OT-' + actual.ot;
+  document.getElementById('rep-wos-aprobado').checked = !!(actual.estado && actual.estado.indexOf('Aprobado') !== -1);
 
   // Modalidad de entrega según circuito
   var circuito = String(actual.circuito || '').trim();
@@ -3416,7 +3416,13 @@ function _repWosConfirmar() {
       btn.innerHTML = '<i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS';
       bootstrap.Modal.getInstance(document.getElementById('modal-rep-wos')).hide();
       if (r.ok) {
-        toast('Pedido creado en WOS: ' + r.numero, 'ok');
+        toast('Pedido enviado a WOS: ' + r.numero, 'ok');
+        var bRepWos = document.getElementById('btn-rep-wos');
+        if (bRepWos) {
+          bRepWos.style.borderColor = 'var(--green)';
+          bRepWos.style.color = 'var(--green)';
+          bRepWos.innerHTML = '<i class="fa fa-check-circle"></i> WOS: ' + r.numero;
+        }
       } else {
         toast('Error: ' + r.error, 'err');
       }

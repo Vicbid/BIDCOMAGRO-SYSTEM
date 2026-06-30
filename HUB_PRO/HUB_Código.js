@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.5
+// @version 2.6
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -45,17 +45,29 @@ function HUB_generarPedidoRepuestos(data) {
     var todos = hoja.getDataRange().getValues();
     var numero = 'OT-' + String(data.ot || '').trim();
 
+    // Recopilar SKUs ya pedidos y threadId existente para este NUMERO
+    var existingSKUs = {}, existingThreadId = '';
     for (var ci = 1; ci < todos.length; ci++) {
-      if (String(todos[ci][0] || '').trim() === numero) {
-        return { ok: false, error: 'Ya existe el pedido ' + numero + ' en Pedidos_OTs.' };
-      }
+      if (String(todos[ci][0] || '').trim() !== numero) continue;
+      var eSku = String(todos[ci][2] || '').trim().toUpperCase();
+      if (eSku) existingSKUs[eSku] = true;
+      if (!existingThreadId) existingThreadId = String(todos[ci][17] || '').trim();
     }
 
     var items = data.items || [];
     if (!items.length) return { ok: false, error: 'No hay ítems para pedir.' };
 
+    // Solo agregar SKUs que no estén ya en el pedido
+    var itemsNuevos = [];
+    for (var fi = 0; fi < items.length; fi++) {
+      var fSku = String(items[fi].cod || '').trim().toUpperCase();
+      if (!existingSKUs[fSku]) itemsNuevos.push(items[fi]);
+    }
+    if (!itemsNuevos.length) return { ok: false, error: 'Todos los ítems ya están en el pedido ' + numero + '.' };
+    items = itemsNuevos;
+
     var reseller  = String(data.reseller  || '').trim();
-    var idVenGar  = String(data.cas || data.garantia || '').trim();
+    var idVenGar  = String(data.cas || '').trim();
     var envio     = String(data.envio     || 'Retiro').trim();
     var circuito  = String(data.circuito  || 'Taller').trim();
     var esTaller  = !circuito || circuito === 'Taller' || circuito.toLowerCase() === 'taller';
@@ -68,11 +80,14 @@ function HUB_generarPedidoRepuestos(data) {
     var fecha    = new Date();
     var operario = Session.getActiveUser().getEmail();
 
+    // Abrir MASTER una sola vez para precios y email del reseller
+    var masterSS = null;
+    try { masterSS = SpreadsheetApp.openById(MASTER_SHEET_ID); } catch(eMSS) { Logger.log('MASTER open: ' + eMSS); }
+
     // Mapa de precios desde Lista_Repuestos (precio reseller = lista × 0.60)
     var priceMap = {};
-    try {
-      var masterSS   = SpreadsheetApp.openById(MASTER_SHEET_ID);
-      var listaData  = masterSS.getSheetByName('Lista_Repuestos').getDataRange().getValues();
+    if (masterSS) try {
+      var listaData = masterSS.getSheetByName('Lista_Repuestos').getDataRange().getValues();
       for (var li = 1; li < listaData.length; li++) {
         var lSku = String(listaData[li][0] || '').trim().toUpperCase();
         var lPre = Number(listaData[li][4]) || 0;
@@ -80,11 +95,10 @@ function HUB_generarPedidoRepuestos(data) {
       }
     } catch(ePM) { Logger.log('HUB_generarPedidoRepuestos priceMap: ' + ePM); }
 
-    // Buscar email del reseller en MASTER para el hilo Gmail
+    // Buscar email del reseller en MASTER
     var emailReseller = '';
-    try {
-      var rsData = SpreadsheetApp.openById(MASTER_SHEET_ID)
-                    .getSheetByName(SCHEMA.SHEETS.RESELLERS).getDataRange().getValues();
+    if (masterSS) try {
+      var rsData = masterSS.getSheetByName(SCHEMA.SHEETS.RESELLERS).getDataRange().getValues();
       var rNom = reseller.toLowerCase();
       for (var ri = 1; ri < rsData.length; ri++) {
         if (String(rsData[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rNom) {
@@ -94,9 +108,8 @@ function HUB_generarPedidoRepuestos(data) {
       }
     } catch(eRS) { Logger.log('HUB_generarPedidoRepuestos emailReseller: ' + eRS); }
 
-    // Enviar dentro del hilo existente de la OT (o crear uno nuevo si es el primer contacto)
-    // WOS_despacharCompleto reutilizará este mismo threadId al despachar
-    var threadId = '';
+    // Notificar al reseller — continúa en el hilo de la OT si ya existía, nuevo si es el primer pedido
+    var threadId = existingThreadId;
     try {
       var ot     = String(data.ot || numero).trim();
       var asunto = '[' + numero + '] Repuestos — ' + reseller;
@@ -105,14 +118,15 @@ function HUB_generarPedidoRepuestos(data) {
         var itI = items[ii];
         itemsText += '• ' + String(itI.cod || '').trim() + ' · ' + String(itI.desc || '').trim() + ' (x' + (Number(itI.qty) || 1) + ')\n';
       }
-      var bodyHtml =
-        '<p><strong>' + numero + '</strong> — Solicitud de repuestos de reparación</p>' +
-        '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
-        '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>';
+      var bodyHtml = existingThreadId
+        ? '<p>Ítems adicionales agregados a <strong>' + numero + '</strong>:</p>' +
+          '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>'
+        : '<p><strong>' + numero + '</strong> — Solicitud de repuestos de reparación</p>' +
+          '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
+          '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>';
       var toAddr = emailReseller || CONFIG.EMAIL_SUPERVISOR;
-      // _enviarConHilo busca el thread de la OT en EMAIL_LOGS y hace replyAll; si no existe, crea thread nuevo
-      threadId = _enviarConHilo(ot, toAddr, asunto, bodyHtml) || '';
-      if (threadId) registrarEmailLog(ot, toAddr, 'Repuestos', asunto, 'OK', threadId);
+      threadId = _enviarConHilo(ot, toAddr, asunto, bodyHtml) || threadId;
+      if (threadId && !existingThreadId) registrarEmailLog(ot, toAddr, 'Repuestos', asunto, 'OK', threadId);
     } catch(eGm) { Logger.log('HUB_generarPedidoRepuestos Gmail: ' + eGm); }
 
     // Escribir filas con el schema de 26 cols (igual a Pedidos_resellers / COL)
@@ -151,11 +165,20 @@ function HUB_generarPedidoRepuestos(data) {
       hoja.getRange(f, 7).setFormula('=E' + f + '-F' + f + '-Z' + f);
     }
 
+    // Backfill threadId en filas preexistentes que no lo tenían
+    if (threadId && !existingThreadId) {
+      for (var bi = 1; bi < todos.length; bi++) {
+        if (String(todos[bi][0] || '').trim() === numero && !String(todos[bi][17] || '').trim()) {
+          hoja.getRange(bi + 1, 18).setValue(threadId);
+        }
+      }
+    }
+
     SpreadsheetApp.flush();
 
     registrarLog(data.ot, '', operario,
       'PEDIDO REP', data.estado || '', data.estado || '',
-      'Generado ' + numero + ' — ' + items.length + ' ítem(s)' + (threadId ? ' [hilo Gmail OK]' : ' [SIN hilo Gmail]'));
+      'Generado ' + numero + ' — ' + items.length + ' ítem(s) nuevo(s)' + (threadId ? ' [hilo Gmail OK]' : ' [SIN hilo Gmail]'));
 
     return { ok: true, numero: numero, threadId: threadId };
   } catch(e) {
