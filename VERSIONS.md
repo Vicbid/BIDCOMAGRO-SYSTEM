@@ -10,6 +10,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Index.html | 2.2 | Botón "Pedir Repuestos": visible para IW y OOW (antes solo OOW); condición cambiada a !esTerminal |
 | HUB_Código.js | 2.3 | HUB_generarPedidoRepuestos: lee data.envio y lo escribe en col L; OBS incluye "Taller · entrega técnico + nombre" cuando circuito=Taller |
 | Index.html | 2.1 | Modal "Pedir Repuestos": selector de modalidad de entrega — Taller muestra badge fijo "Entrega directa al técnico", Reseller muestra radio Envío/Retiro; envio y circuito se pasan al backend |
 | HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: 26 cols (COL schema igual a Pedidos_resellers); formula =E-F-Z en col G; hilo Gmail ancla via draft.send() guardado en col R; lookup email reseller en MASTER; estado inicial Confirmado |

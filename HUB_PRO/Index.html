@@ -1,4 +1,4 @@
-<!-- @version 2.1 -->
+<!-- @version 2.2 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2085,7 +2085,7 @@ function abrir(c){
   // Botón Pedir Repuestos al WOS: OOW + orden activa
   var btnRepWos = document.getElementById('btn-rep-wos');
   var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO' || actual.estado === 'Rechazado DJI' || actual.estado === 'Sin respuesta · Cerrado');
-  if (btnRepWos) btnRepWos.style.display = (esOOW && !_esTerminalHub) ? 'inline-flex' : 'none';
+  if (btnRepWos) btnRepWos.style.display = !_esTerminalHub ? 'inline-flex' : 'none';
 
   // Botones presupuesto: solo OOW + estado "En Revision" o "Presupuesto enviado"
   var _mostrarPresup = esOOW && (actual.estado === 'En Revision' || actual.estado === 'Presupuesto enviado');
