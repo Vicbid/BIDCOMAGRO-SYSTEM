@@ -1,4 +1,4 @@
-<!-- @version 2.3 -->
+<!-- @version 2.4 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -542,6 +542,37 @@ body.compact tbody td{padding:6px 14px!important}
   </div>
 </div>
 
+<!-- MODAL REGISTRAR PIEZAS RECIBIDAS -->
+<div class="modal fade" id="modal-piezas-recv" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-box-open" style="color:var(--orange);margin-right:8px"></i>Registrar piezas recibidas</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px">
+        <p style="font-size:12px;color:var(--tx-d);margin:0 0 14px;line-height:1.6">
+          Describí qué piezas dañadas trajo el reseller. Se registra en notas internas y
+          el estado pasa a <strong style="color:var(--orange)">Piezas dañadas recibidas</strong>.
+        </p>
+        <label style="font-size:12px;font-weight:600;color:var(--tx-m);display:block;margin-bottom:6px">Piezas recibidas</label>
+        <textarea id="piezas-recv-desc" rows="5"
+          class="form-control"
+          placeholder="Ej: Módulo gimbal · Motor CW dañado · Shell superior con crack"
+          style="font-size:13px;resize:vertical;border-color:var(--brd);background:var(--surf);color:var(--tx)"></textarea>
+        <p id="piezas-recv-err" style="display:none;font-size:11px;color:var(--red);margin:6px 0 0"></p>
+      </div>
+      <div class="modal-footer" style="padding:12px 20px;gap:8px">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btn-piezas-recv-ok" class="btn btn-primary" onclick="_confirmarPiezasRecibidas()"
+          style="background:var(--orange);border-color:var(--orange)">
+          <i class="fa fa-check" style="margin-right:6px"></i>Confirmar recepción
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONFIRMAR SALIR SIN GUARDAR -->
 <div class="modal fade" id="modal-confirm" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1009,6 +1040,9 @@ body.compact tbody td{padding:6px 14px!important}
         </button>
         <button id="btn-rep-wos" class="btn-rem" onclick="abrirModalRepWos()" style="display:none;border-color:var(--indigo);color:var(--indigo)">
           <i class="fa fa-boxes-stacking"></i> Pedir Repuestos
+        </button>
+        <button id="btn-piezas-recv" class="btn-rem" onclick="abrirModalPiezasRecibidas()" style="display:none;border-color:var(--orange);color:var(--orange)">
+          <i class="fa fa-box-open"></i> Piezas Recibidas
         </button>
         <button id="btn-factura" class="btn-rem" onclick="solicitarFacturaManual()" style="display:none;border-color:var(--blue);color:var(--blue)">
           <i class="fa fa-file-invoice-dollar"></i> Solicitar Factura
@@ -2095,6 +2129,12 @@ function abrir(c){
   if (btnPresup) btnPresup.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-flex' : 'none';
   var selDest = document.getElementById('sel-dest');
   if (selDest) selDest.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-block' : 'none';
+  // Botón Piezas Recibidas: Reseller Estándar en estado "Informe de reparacion"
+  var btnPiezasRecv = document.getElementById('btn-piezas-recv');
+  if (btnPiezasRecv) {
+    var _circ = document.getElementById('f-circ').value || actual.circuito || '';
+    btnPiezasRecv.style.display = (_circ === 'Reseller' && actual.estado === 'Informe de reparacion') ? 'inline-flex' : 'none';
+  }
   // Botón Solicitar Factura: OOW + tiene repuestos despachados
   var btnFactura = document.getElementById('btn-factura');
   if (btnFactura) {
@@ -3554,6 +3594,57 @@ function _tieneRepuestosDespachados(repStr) {
     if ((parseInt(p[2].split('E:')[1]) || 0) > 0) return true;
   }
   return false;
+}
+
+// ── REGISTRAR PIEZAS RECIBIDAS ────────────────────────────────
+function abrirModalPiezasRecibidas() {
+  if (!actual) return;
+  var ta  = document.getElementById('piezas-recv-desc');
+  var err = document.getElementById('piezas-recv-err');
+  if (ta)  ta.value = '';
+  if (err) err.style.display = 'none';
+  var btn = document.getElementById('btn-piezas-recv-ok');
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Confirmar recepción'; }
+  var m = new bootstrap.Modal(document.getElementById('modal-piezas-recv'));
+  m.show();
+  setTimeout(function() { if (ta) ta.focus(); }, 300);
+}
+
+function _confirmarPiezasRecibidas() {
+  var ta  = document.getElementById('piezas-recv-desc');
+  var err = document.getElementById('piezas-recv-err');
+  var desc = ta ? ta.value.trim() : '';
+  if (!desc) {
+    if (err) { err.textContent = 'Describí al menos una pieza recibida.'; err.style.display = 'block'; }
+    return;
+  }
+  var btn = document.getElementById('btn-piezas-recv-ok');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Guardando...'; }
+
+  // Armar entrada de nota con fecha
+  var tz   = new Date();
+  var dd   = ('0' + tz.getDate()).slice(-2);
+  var mm   = ('0' + (tz.getMonth() + 1)).slice(-2);
+  var yyyy = tz.getFullYear();
+  var entrada = '📦 Piezas recibidas [' + dd + '/' + mm + '/' + yyyy + ']: ' + desc;
+
+  // Agregar a notas internas
+  var fNotas = document.getElementById('f-notas');
+  var notasActuales = fNotas ? fNotas.value.trim() : '';
+  if (fNotas) fNotas.value = notasActuales ? notasActuales + '\n' + entrada : entrada;
+
+  // Cambiar estado a "Piezas dañadas recibidas" en el stepper
+  var steps = document.querySelectorAll('.st-step');
+  for (var i = 0; i < steps.length; i++) {
+    if (steps[i].textContent.trim() === 'Piezas dañadas recibidas') {
+      setE(steps[i], 'Piezas dañadas recibidas');
+      break;
+    }
+  }
+
+  // Cerrar modal y guardar
+  bootstrap.Modal.getInstance(document.getElementById('modal-piezas-recv')).hide();
+  guardar();
 }
 
 function solicitarFacturaManual() {
