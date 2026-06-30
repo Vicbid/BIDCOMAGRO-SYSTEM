@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.2
+// @version 2.3
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -54,10 +54,17 @@ function HUB_generarPedidoRepuestos(data) {
     var items = data.items || [];
     if (!items.length) return { ok: false, error: 'No hay ítems para pedir.' };
 
-    var reseller = String(data.reseller || '').trim();
-    var idVenGar = String(data.cas || data.garantia || '').trim();
-    var aprobado = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ SIN APROBACIÓN DJI';
-    var obs      = aprobado + (data.garantia ? ' | ' + data.garantia : '') + (idVenGar ? ' | CAS: ' + idVenGar : '');
+    var reseller  = String(data.reseller  || '').trim();
+    var idVenGar  = String(data.cas || data.garantia || '').trim();
+    var envio     = String(data.envio     || 'Retiro').trim();
+    var circuito  = String(data.circuito  || 'Taller').trim();
+    var esTaller  = !circuito || circuito === 'Taller' || circuito.toLowerCase() === 'taller';
+    var tecnico   = String(data.tecnico   || '').trim();
+    var aprobado  = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ SIN APROBACIÓN DJI';
+    var obs = aprobado +
+      (data.garantia ? ' | ' + data.garantia : '') +
+      (idVenGar ? ' | CAS: ' + idVenGar : '') +
+      (esTaller ? ' | Taller · entrega técnico' + (tecnico ? ' ' + tecnico : '') : '');
     var fecha    = new Date();
     var operario = Session.getActiveUser().getEmail();
 
@@ -118,7 +125,7 @@ function HUB_generarPedidoRepuestos(data) {
       fila[8]  = '';                                       // I STOCK_ORI (desconocido al crear)
       fila[9]  = 'Confirmado';                             // J ESTADO
       fila[10] = fecha;                                    // K FECHA
-      fila[11] = '';                                       // L ENVIO (se define al despachar)
+      fila[11] = envio;                                     // L ENVIO (Envío / Retiro)
       fila[12] = '';                                       // M PAGO
       fila[13] = obs;                                      // N OBS
       fila[17] = threadId;                                 // R THREAD_ID

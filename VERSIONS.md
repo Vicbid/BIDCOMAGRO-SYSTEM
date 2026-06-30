@@ -10,6 +10,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| HUB_Código.js | 2.3 | HUB_generarPedidoRepuestos: lee data.envio y lo escribe en col L; OBS incluye "Taller · entrega técnico + nombre" cuando circuito=Taller |
+| Index.html | 2.1 | Modal "Pedir Repuestos": selector de modalidad de entrega — Taller muestra badge fijo "Entrega directa al técnico", Reseller muestra radio Envío/Retiro; envio y circuito se pasan al backend |
 | HUB_Código.js | 2.2 | HUB_generarPedidoRepuestos: 26 cols (COL schema igual a Pedidos_resellers); formula =E-F-Z en col G; hilo Gmail ancla via draft.send() guardado en col R; lookup email reseller en MASTER; estado inicial Confirmado |
 | HUB_Código.js | 2.1 | Flujo batería unificado: trigger reposición mueve de "Aprobado por DJI" a "Scrap Enviado (Evidencias)"; nuevos estados Caso Enviado y Bateria enviada a reseller en ESTADOS_NOTIFICAR_RESELLER |
 | Index.html | 2.0 | EST_BAT reemplaza EST_RPB con 7 estados; detección batería sin restricción de circuito; esTerminal incluye Rechazado DJI y Sin respuesta · Cerrado |
@@ -60,6 +62,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| SM_Index.html | 3.3 | renderOTTracking: muestra cantPend por SKU con badge naranja/verde; header de cada OT siempre tiene _wosBadge (wos nunca null) |
+| Sm_Código.js | 3.8 | obtenerOTsBloqueadasConCAS: fuente cambiada a Pedidos_OTs WOS (en lugar de HUB OT estado=Espera de repuestos); obtenerTopRotacion: lee Pedidos_resellers+Pedidos_OTs WOS (en lugar de MOVIMIENTOS_STOCK), cuenta CANT_SOL por SKU en últimos 7 días |
 | SM_Index.html | 3.2 | Dashboard: KPI y panel renombrados a "Pedidos WOS pendientes" — incluye Pedidos_resellers + Pedidos_OTs |
 | Sm_Código.js | 3.7 | cargarDashboard: solicPendientes fusiona Pedidos_resellers + Pedidos_OTs del WOS (ambos tipos de pedido tratan igual al stock); SOLICITUDES_DESPACHO deprecada removida |
 | SM_Index.html | 3.1 | Dashboard: panel "Solicitudes pendientes HUB" reemplazado por "Pedidos OT pendientes (WOS)" — lee Pedidos_OTs del WOS (estado, cantPend, diasEspera); renderOTTracking muestra badge de estado WOS por OT (_wosBadge) |

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 3.0 -->
+<!-- @version 3.3 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2727,9 +2727,13 @@ function renderOTTracking(lista) {
          casTag + _wosBadge(wos) +
          '</div>';
     ot.skus.forEach(function(s) {
+      var pendLabel = s.cantPend > 0
+        ? '<span style="font-size:10px;font-weight:700;color:var(--orange);white-space:nowrap">⏳ ' + s.cantPend + ' pend.</span>'
+        : '<span style="font-size:10px;color:var(--green);white-space:nowrap">✓ despachado</span>';
       h += '<div class="ot-track-sku">';
       h += '<span style="font-size:11px;font-weight:600;color:var(--tx)">' + s.sku + '</span>';
       h += '<span style="font-size:11px;color:var(--tx-m);flex:1">' + (s.desc || '—') + '</span>';
+      h += pendLabel;
       if (s.cas && s.cas.length) {
         s.cas.forEach(function(c) {
           var stColor = c.estado === 'En vuelo'      ? 'var(--orange)' :

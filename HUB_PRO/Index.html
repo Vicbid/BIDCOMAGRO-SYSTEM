@@ -1,4 +1,4 @@
-<!-- @version 2.0 -->
+<!-- @version 2.1 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -485,11 +485,44 @@ body.compact tbody td{padding:6px 14px!important}
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body" style="padding:16px 20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--surf);border-radius:6px;border:1px solid var(--brd)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--surf);border-radius:6px;border:1px solid var(--brd)">
           <input type="checkbox" id="rep-wos-aprobado" style="width:16px;height:16px;cursor:pointer">
           <label for="rep-wos-aprobado" style="font-size:13px;font-weight:600;cursor:pointer;margin:0">Caso DJI aprobado</label>
           <span style="font-size:11px;color:var(--tx-d);margin-left:auto">Desmarcá si el cliente aún no tiene aprobación</span>
         </div>
+
+        <!-- Modalidad de entrega -->
+        <div style="margin-bottom:14px">
+          <!-- Taller: entrega en mano al técnico (sin elección) -->
+          <div id="rep-wos-entrega-taller" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(99,102,241,.07);border:1.5px solid rgba(99,102,241,.25);border-radius:8px">
+            <i class="fa fa-user-cog" style="color:var(--indigo);font-size:16px"></i>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--indigo)">Entrega directa al técnico</div>
+              <div style="font-size:11px;color:var(--tx-d)">Reparación en taller — sin envío externo</div>
+            </div>
+          </div>
+          <!-- Reseller: elegir envío o retiro -->
+          <div id="rep-wos-entrega-envio" style="display:none;flex-direction:column;gap:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.05em">Modalidad de entrega</div>
+            <div style="display:flex;gap:8px">
+              <label id="lbl-rep-env-envio" style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surf);border:1.5px solid var(--brd);border-radius:8px;cursor:pointer">
+                <input type="radio" name="rep-wos-envio" id="rep-wos-env-envio" value="Envío" style="width:15px;height:15px" onchange="_repWosActualizarEnvioUI()">
+                <div>
+                  <div style="font-size:12px;font-weight:700">Envío al reseller</div>
+                  <div style="font-size:11px;color:var(--tx-d)">WOS coordina el transporte</div>
+                </div>
+              </label>
+              <label id="lbl-rep-env-retiro" style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surf);border:1.5px solid var(--brd);border-radius:8px;cursor:pointer">
+                <input type="radio" name="rep-wos-envio" id="rep-wos-env-retiro" value="Retiro" style="width:15px;height:15px" onchange="_repWosActualizarEnvioUI()">
+                <div>
+                  <div style="font-size:12px;font-weight:700">Retiro en local</div>
+                  <div style="font-size:11px;color:var(--tx-d)">El reseller pasa a buscar</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div id="rep-wos-items" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <input id="rep-wos-add-cod"  type="text" placeholder="Código" class="form-control" style="width:130px;font-size:12px;font-family:monospace">
@@ -3306,6 +3339,18 @@ function abrirModalRepWos() {
   document.getElementById('rep-wos-subtitle').textContent = 'OT: ' + actual.ot + ' · ' + actual.reseller;
   document.getElementById('rep-wos-num-preview').textContent = 'REP-OT-' + actual.ot;
   document.getElementById('rep-wos-aprobado').checked = !!actual.cas;
+
+  // Modalidad de entrega según circuito
+  var circuito = String(actual.circuito || '').trim();
+  var esTaller = !circuito || circuito === 'Taller' || circuito.toLowerCase() === 'taller';
+  document.getElementById('rep-wos-entrega-taller').style.display = esTaller ? '' : 'none';
+  var envioDiv = document.getElementById('rep-wos-entrega-envio');
+  envioDiv.style.display = esTaller ? 'none' : 'flex';
+  if (!esTaller) {
+    document.getElementById('rep-wos-env-envio').checked = true;
+    _repWosActualizarEnvioUI();
+  }
+
   _repWosRenderItems();
   new bootstrap.Modal(document.getElementById('modal-rep-wos')).show();
 }
@@ -3330,6 +3375,18 @@ function _repWosRenderItems() {
 }
 
 function _repWosQuitarItem(i) { _repWosItems.splice(i, 1); _repWosRenderItems(); }
+
+function _repWosActualizarEnvioUI() {
+  var envChk = document.getElementById('rep-wos-env-envio');
+  var retChk = document.getElementById('rep-wos-env-retiro');
+  var lblE   = document.getElementById('lbl-rep-env-envio');
+  var lblR   = document.getElementById('lbl-rep-env-retiro');
+  if (!envChk || !retChk) return;
+  var activo = 'flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--blue);background:rgba(59,130,246,.07);border-radius:8px;cursor:pointer';
+  var normal = 'flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--brd);background:var(--surf);border-radius:8px;cursor:pointer';
+  lblE.style.cssText = envChk.checked ? activo : normal;
+  lblR.style.cssText = retChk.checked ? activo : normal;
+}
 
 function _repWosAgregarItem() {
   var cod  = (document.getElementById('rep-wos-add-cod').value  || '').trim().toUpperCase();
@@ -3375,7 +3432,14 @@ function _repWosConfirmar() {
       garantia:     actual.garantia,
       cas:          actual.cas || '',
       estado:       actual.estado || '',
+      circuito:     actual.circuito || 'Taller',
+      tecnico:      actual.tecnico  || '',
       aprobadoDJI:  document.getElementById('rep-wos-aprobado').checked,
+      envio:        (function() {
+        var circ = String(actual.circuito || '').trim();
+        if (!circ || circ === 'Taller' || circ.toLowerCase() === 'taller') return 'Retiro';
+        return document.getElementById('rep-wos-env-envio').checked ? 'Envío' : 'Retiro';
+      })(),
       items:        _repWosItems
     });
 }
