@@ -1,4 +1,4 @@
-<!-- @version 3.9 -->
+<!-- @version 3.10 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -3056,8 +3056,8 @@ function _renderListaCompras(ecMap, stockMap, loading) {
     var bo  = bySkuMap[sku].cantBO;
     var ec  = (ecMap && ecMap[sku]) ? ecMap[sku].total : 0;
     var ecOcs = (ecMap && ecMap[sku] && ecMap[sku].ocs) ? Object.keys(ecMap[sku].ocs) : [];
-    var aComprar = Math.max(0, bo - ec);
-    var stk = (stockMap[sku] !== undefined) ? stockMap[sku] : null;
+    var stk      = (stockMap[sku] !== undefined) ? stockMap[sku] : null;
+    var aComprar = Math.max(0, bo - ec - Math.max(0, stk || 0));
     rows.push({ sku: sku, desc: bySkuMap[sku].desc, cantBO: bo, enCamino: ec, ecOcs: ecOcs, aComprar: aComprar, resellers: bySkuMap[sku].resellers, stockActual: stk });
   }
   // Ordenar: primero los que más hay que comprar, luego los cubiertos por en-camino
