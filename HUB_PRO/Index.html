@@ -1,4 +1,4 @@
-<!-- @version 2.5 -->
+<!-- @version 2.6 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2810,7 +2810,7 @@ function impRemito(){
           var cr=p2[2]?(p2[2].indexOf('E:')!==-1?p2[2].split('E:')[1]:p2[2]):'';
           rows2.push([cod2,des2,cr.replace(/[^0-9]/g,'')]);
         }
-        doc.autoTable({startY:fY+4,head:[['Código','Descripción','Cant.']],body:rows2,theme:'striped',headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{2:{halign:'center',cellWidth:18}}});
+        doc.autoTable({startY:fY+4,head:[['Código','Descripción','Cant.']],body:rows2,theme:'striped',styles:{fontSize:9,overflow:'linebreak',valign:'middle'},headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{0:{cellWidth:38},1:{cellWidth:120,overflow:'linebreak'},2:{halign:'center',cellWidth:18}}});
       } else {doc.setFont(undefined,'normal');doc.text('Sin cambios de repuestos.',15,fY+8);doc.lastAutoTable={finalY:fY+14};}
       var tY=doc.lastAutoTable.finalY+10;
       doc.setFont(undefined,'bold');doc.setFontSize(9);doc.text('TRABAJO TÉCNICO REALIZADO',15,tY);

@@ -1,4 +1,4 @@
-<!-- @version 3.10 -->
+<!-- @version 3.11 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -965,6 +965,7 @@ var _filtroReseller  = '';
 var _pendingAccion   = null; // { timer, interval, toastEl, execute, revert }
 var _vistaCompacta   = false;
 var _modalDesp = null;
+var _ubicAlloc = {}; // row → { locs:[{ubicacion,cantidad}], cantTotal:N }
 var _modalFalt = null;
 var _usuario   = { email: '', nombre: '', tipo: '' };
 
@@ -2428,9 +2429,21 @@ function abrirModalDespacho(numero) {
   }
 }
 
+function _autoAlocar(locs, cantTotal) {
+  // locs ya vienen ordenados ASC por el backend; vaciar los más chicos primero
+  var remaining = cantTotal;
+  var result = [];
+  for (var i = 0; i < locs.length && remaining > 0; i++) {
+    var take = Math.min(locs[i].cantidad, remaining);
+    if (take > 0) { result.push({ bin: locs[i].ubicacion, cant: take }); remaining -= take; }
+  }
+  return result;
+}
+
 function _inyectarUbicaciones(map) {
+  _ubicAlloc = {};
   for (var i = 0; i < _modalDesp.items.length; i++) {
-    var it  = _modalDesp.items[i];
+    var it   = _modalDesp.items[i];
     var wrap = document.getElementById('mdi-ubic-wrap-' + it.row);
     if (!wrap) continue;
     var locs = (it.sku && map[it.sku.toUpperCase()]) ? map[it.sku.toUpperCase()] : [];
@@ -2438,19 +2451,115 @@ function _inyectarUbicaciones(map) {
       wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicación en WMS</span>';
       continue;
     }
-    var opts = '';
-    for (var li = 0; li < locs.length; li++) {
-      var loc = locs[li];
-      var lbl = (li === 0 ? '★ ' : '') + escH(loc.ubicacion) + ' (' + loc.cantidad + 'u.)';
-      opts += '<option value="' + escH(loc.ubicacion) + '"' + (li === 0 ? ' selected' : '') + '>' + lbl + '</option>';
-    }
-    opts += '<option value="">— Sin especificar</option>';
-    wrap.innerHTML =
-      '<div class="caja-wrap" style="margin-top:2px">' +
-        '<span class="caja-lbl">Ubicación:</span>' +
-        '<select class="caja-sel" id="mdi-ubic-' + it.row + '">' + opts + '</select>' +
-      '</div>';
+    var inp = document.getElementById('mdi-' + it.row);
+    var cantTotal = inp ? (parseInt(inp.value) || 0) : (it.cantPend || 0);
+    _ubicAlloc[it.row] = { locs: locs, cantTotal: cantTotal };
+    _renderBinAlloc(it.row, locs, _autoAlocar(locs, cantTotal), cantTotal);
   }
+}
+
+function _renderBinAlloc(row, locs, alloc, cantTotal) {
+  var wrap = document.getElementById('mdi-ubic-wrap-' + row);
+  if (!wrap) return;
+  var allocMap = {};
+  for (var a = 0; a < alloc.length; a++) allocMap[alloc[a].bin.toUpperCase()] = alloc[a].cant;
+  if (locs.length === 1) {
+    var loc = locs[0];
+    var warn = cantTotal > loc.cantidad
+      ? ' <span style="color:var(--red-m);font-weight:700">⚠ solo ' + loc.cantidad + ' disponibles</span>' : '';
+    wrap.innerHTML =
+      '<div style="font-size:10px;color:var(--tx-d);display:flex;align-items:center;gap:6px;margin-top:4px">' +
+        '<span style="font-weight:700;color:var(--blue);font-family:var(--f-mono)">' + escH(loc.ubicacion) + '</span>' +
+        '<span>(' + loc.cantidad + ' en stock)</span>' + warn +
+      '</div>';
+    return;
+  }
+  var totalAlloc = alloc.reduce(function(s, a) { return s + a.cant; }, 0);
+  var ok = totalAlloc === cantTotal;
+  var html =
+    '<div style="margin-top:4px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' +
+        '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d)">Bins</span>' +
+        '<button type="button" onclick="_binAllocAuto(' + row + ')" ' +
+          'style="font-size:10px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0 3px;line-height:1.4;border-radius:3px;border:1px solid var(--blue-l)">Auto</button>' +
+      '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<tr style="color:var(--tx-d);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">' +
+          '<td style="padding:1px 4px">Bin</td>' +
+          '<td style="padding:1px 4px;text-align:right">Stock</td>' +
+          '<td style="padding:1px 4px;text-align:right;width:64px">Sacar</td>' +
+        '</tr>';
+  for (var li = 0; li < locs.length; li++) {
+    var loc = locs[li];
+    var v   = allocMap[loc.ubicacion.toUpperCase()] || 0;
+    html +=
+      '<tr style="border-top:1px solid var(--surf)">' +
+        '<td style="padding:2px 4px;font-family:var(--f-mono);font-weight:700;color:var(--blue);font-size:10px">' + escH(loc.ubicacion) + '</td>' +
+        '<td style="padding:2px 4px;text-align:right;color:var(--tx-d)">' + loc.cantidad + '</td>' +
+        '<td style="padding:2px 4px">' +
+          '<input type="number" min="0" max="' + loc.cantidad + '" value="' + v + '" ' +
+            'id="bin-alloc-' + row + '-' + li + '" ' +
+            'oninput="_binAllocCheck(' + row + ',' + cantTotal + ')" ' +
+            'style="width:56px;padding:2px 5px;border:1.5px solid var(--brd);border-radius:4px;font-size:12px;font-weight:700;text-align:center;outline:none">' +
+        '</td>' +
+      '</tr>';
+  }
+  html +=
+      '</table>' +
+      '<div id="bin-alloc-total-' + row + '" style="font-size:10px;margin-top:2px;font-weight:' + (ok ? '600' : '700') + ';color:' + (ok ? 'var(--green-m)' : 'var(--red-m)') + '">' +
+        'Total asignado: ' + totalAlloc + ' / ' + cantTotal +
+      '</div>' +
+    '</div>';
+  wrap.innerHTML = html;
+}
+
+function _binAllocAuto(row) {
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  var inp = document.getElementById('mdi-' + row);
+  var cantTotal = inp ? (parseInt(inp.value) || 0) : d.cantTotal;
+  _ubicAlloc[row].cantTotal = cantTotal;
+  var auto = _autoAlocar(d.locs, cantTotal);
+  var allocMap = {};
+  for (var a = 0; a < auto.length; a++) allocMap[auto[a].bin.toUpperCase()] = auto[a].cant;
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    if (el) el.value = allocMap[d.locs[li].ubicacion.toUpperCase()] || 0;
+  }
+  _binAllocCheck(row, cantTotal);
+}
+
+function _binAllocCheck(row, cantTotal) {
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  var total = 0;
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    total += el ? (parseInt(el.value) || 0) : 0;
+  }
+  var totalEl = document.getElementById('bin-alloc-total-' + row);
+  if (!totalEl) return;
+  var ok = total === cantTotal;
+  totalEl.textContent  = 'Total asignado: ' + total + ' / ' + cantTotal;
+  totalEl.style.color  = ok ? 'var(--green-m)' : 'var(--red-m)';
+  totalEl.style.fontWeight = ok ? '600' : '700';
+}
+
+function _getBinAllocForRow(row) {
+  var d = _ubicAlloc[row];
+  if (!d) return [];
+  if (d.locs.length === 1) {
+    var inp = document.getElementById('mdi-' + row);
+    var cant = inp ? (parseInt(inp.value) || 0) : 0;
+    return cant > 0 ? [{ bin: d.locs[0].ubicacion, cant: cant }] : [];
+  }
+  var result = [];
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    var cant = el ? (parseInt(el.value) || 0) : 0;
+    if (cant > 0) result.push({ bin: d.locs[li].ubicacion, cant: cant });
+  }
+  return result;
 }
 
 function _toggleSeriales(row) {
@@ -2643,9 +2752,7 @@ function confirmarDespacho() {
     }
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
-    var ubicEl  = document.getElementById('mdi-ubic-' + it.row);
-    var ubicVal = ubicEl ? ubicEl.value : '';
-    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx, ubicacion: ubicVal });
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx, ubicaciones: _getBinAllocForRow(it.row) });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;

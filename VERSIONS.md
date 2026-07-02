@@ -7,9 +7,68 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 
 ---
 
+## ComandasPedidos
+| Archivo | Versión | Notas |
+|---------|---------|-------|
+| CP_Index.html | 1.14 | Más barreras: aviso si no se cargó ningún ítem (todo 0); si la venta ya fue cargada por otro (yaCargada) pide confirmar sobrescribir (_marcarEnviar con force); botón mail deshabilitado "Sin destinatario" cuando no hay mail de reseller/RTV/fijos; "Volver a pendientes" oculto si ya se envió el mail |
+| CP_Código.js | 1.16 | Barreras backend: CP_marcarCargado con force + respuesta yaCargada si ya estaba cargada; CP_desmarcarCargado bloquea si Email Enviado; CP_getComandas adjunta cargado.destino/tieneDestino (reseller/RTV/fijos) |
+| CP_Index.html | 1.13 | Barreras anti-error al cargar: botones ✓/"Marcar" deshabilitados hasta comanda válida; input filtra a dígitos y / (validarComanda); valida formato (comandaValida); confirma si se marca con faltantes; avisa si la comanda ya se usó en otra venta (comandaDuplicada) |
+| CP_Código.js | 1.15 | Validación defensiva del N° de comanda en CP_marcarCargado (regex dígitos con / opcional) |
+| CP_Index.html | 1.12 | Faltantes se definen al cargar: el control de carga editable aparece también en Pendientes; al marcar (✓ header, Enter o botón "Marcar como cargado" del cuerpo) se envían comanda + faltantes juntos (leerFaltantesCard); toast indica cuántos faltantes quedaron |
+| CP_Código.js | 1.14 | CP_marcarCargado(idVenta, comanda, faltantes): guarda comanda y faltantes en un solo paso; helper _cpFaltantesJson compartido con CP_setFaltantes; return incluye conFaltante |
+| CP_Index.html | 1.11 | Despachar con faltantes por ítem: en comandas cargadas el panel pasa a "Control de carga" con input por componente (cuánto cargué → falta lo que resta, en vivo); tercera solapa "Con faltantes" con contador; badge "Incompleta"; guardarFaltantes()/ccMark()/fmtCant() (reemplaza nota libre setPendiente) |
+| CP_Código.js | 1.13 | Faltantes estructurados: CARGADOS col J = JSON {SKU:cant} (_cpParseFaltantes); CP_setFaltantes() reemplaza CP_setPendiente; c.cargado.faltantes/conFaltante; CP_getComandas separa cargadosCount vs faltantesCount; mail a reseller+RTV incluye bloque "Pendiente de enviar (faltante)"; cargar/detalle agregan cantNum |
+| CP_Index.html | 1.10 | Paso 5: botón "Enviar mail al reseller + RTV"; si ya se envió, pasa a "Reenviar" con confirmación de advertencia (anti-duplicado); toast muestra a quién se envió |
+| CP_Código.js | 1.12 | Resellers tab confirmada: _cpResellerMap() lee B=Reseller/C=RTV/J=Email → saca mail del reseller Y nombre del RTV de la misma hoja (fallback Ventas col Z); CP_poblarRtvDesdeResellers() pre-carga la hoja RTV con los nombres; setup lo corre solo |
+| CP_Código.js | 1.11 | Paso 5 completo: destinatarios reseller (pestaña Resellers, _cpResellerMailMap con detección de columnas) + RTV (hoja RTV en log, _cpRtvMailMap) + fijos _CONFIG; _cpEnviarDespachoCore compartido; envío automático opcional CP_autoMailDespacho (trigger horario, AUTO_MAIL_DESPACHO=SI) con anti-duplicado por Email Enviado; CP_setupAutoMail; _cpDetalleVenta agrega rtv; CP_debugMails; setup crea hojas CARGADOS/_CONFIG/RTV |
+| CP_Index.html | 1.9 | Aviso a Sole en el toast al cargar; editor "¿Quedó algo pendiente?" en cada comanda cargada (input + Guardar → CP_setPendiente) + badge rojo "Falta" en el header cuando hay faltante; setPendiente() |
+| CP_Código.js | 1.10 | Paso 4 mail a Sole automático al marcar cargado (MAIL_APROBACION en _CONFIG, asunto APROBAR MC, con PDF+detalle, _cpMailAprobacionHtml); _CONFIG auto-completa claves nuevas (CP_CONFIG_DEFAULTS); faltante: col Pendiente en CARGADOS + CP_setPendiente() + cargado.pendiente |
+| CP_Index.html | 1.8 | Link al PDF de la comanda en la vista Cargados (chip rojo) — resuelto automáticamente por N° de comanda desde Drive |
+| CP_Código.js | 1.9 | _cpBuscarPdf(): busca el PDF de la comanda en CP_PDF_FOLDER_ID por nombre que empieza con el N°; adjunta cargado.pdfs y lo incluye en el mail (fila "PDF comanda") |
+| Env.js | 1.8 | CP_PDF_FOLDER_ID: carpeta Drive con los PDF de comandas (nombre empieza con el N°) |
+| CP_Index.html | 1.7 | Despacho: en Cargados, si la comanda figura DESPACHADO en Comandas Master muestra estado, transportista y guía OCA (con link tracking) + botón "Enviar mail" (Reenviar si ya se mandó); si no, "En espera de despacho"; función enviarMail() |
+| CP_Código.js | 1.8 | Step 2 despacho+mail: _cpMasterMap() lee "Comandas Master" (idComprobante col A → estado F/guía K/transportista B); CP_getComandas enriquece cargados con despachado/guiasLinks; _cpConfig()/_cpConfigHoja() (_CONFIG con MAIL_DESTINATARIOS/CC/ASUNTO/OCA_TRACKING_URL); _cpDetalleVenta(); CP_enviarMailDespacho() vía GmailApp + _cpMailHtml(); _cpMarcarEmailEnviado() persiste estado/guía/fecha/email en CARGADOS |
+| Env.js | 1.7 | CP_MASTER_TAB ("Comandas Master") + CP_DESPACHADO + CP_CONFIG_TAB ("_CONFIG") |
+| CP_Index.html | 1.6 | Marcar como cargado: input N° comanda + ✓ en el header de cada pendiente (Enter o botón) → CP_marcarCargado; sale de Pendientes; tabs Pendientes/Cargados con contadores; vista Cargados con badge de comanda, detalle y "Volver a pendientes" (CP_desmarcarCargado); toast; jsq() para escapar ID en onclick |
+| CP_Código.js | 1.7 | Estado "cargado": hoja CARGADOS en sheet de log (ID_Venta/Comanda/Fecha/Operador/Estado/Guia/Transportista/Fecha Despacho/Email); CP_marcarCargado (upsert) / CP_desmarcarCargado (no si despachado) / _cpCargadosHoja / _cpCargadosMap; CP_getComandas adjunta c.cargado y separa pendientes de cargados (ventas=pendientes, cargadosCount) |
+| Env.js | 1.6 | CP_CARGADOS_TAB ("CARGADOS") en el sheet de log: comandas cargadas por el operador |
+| CP_Index.html | 1.5 | Contador de antigüedad (SLA) por comanda: badge en el header (visible colapsado) con tiempo pendiente desde CARGAR, color verde/amarillo/rojo (umbrales AGING 4h/24h), actualización en vivo cada 30s (tickAging), pulso en rojo; ordena las más antiguas arriba; hero muestra "más antigua: hace X"; s/f si no hay registro |
+| CP_Index.html | 1.4 | Panel "Qué cargar en Masterchief": explota cada KIT en sus componentes reales (código+desc+cantidad) con botón Copiar (portapapeles); rótulo "Pedido (lo facturado)" en las líneas de kit; marca "directo" si el SKU no está en la tabla de kits |
+| CP_Código.js | 1.5 | Explosión de kits: _cpKitMap() lee sheet BOM (KIT col C → componentes col A, cantidad = filas repetidas); CP_getComandas adjunta c.cargar (componentes agregados a nivel comanda, cantidad = comp × cant kits); _kitKey/_addCargar; CP_debugKits(); línea marca esKit |
+| CP_Código.js | 1.6 | El log ya NO se escribe en el sheet de Ventas: _cpLogHoja/_cpLogMap usan CP_LOG_SS_ID (sheet separado). Ventas queda 100% solo lectura |
+| Env.js | 1.5 | Separa lectura/escritura: CP_SS_ID (Ventas, solo lectura) vs CP_LOG_SS_ID (1mOOeUD, donde se escribe CARGAR_LOG) |
+| Env.js | 1.4 | CP_KITS_SS_ID + CP_KITS_TAB ("Actual"): sheet de recetas/BOM kit→componentes |
+| CP_Index.html | 1.3 | Muestra el momento en que se marcó CARGAR: tiempo relativo ("hace X") en el encabezado colapsado + fila "Marcado CARGAR" en la ficha (rango desde→hasta si difiere; "Detectado ≈" para snapshot; "sin registro" si falta); helper relTime() |
+| CP_Código.js | 1.4 | Registro del momento CARGAR: trigger instalable CP_onEditVentas (estampa fecha/hora exacta al escribir CARGAR en ID_Entrega) → hoja CARGAR_LOG (ID_Venta/SKU/fecha/origen/usuario); CP_setupTrigger() (instalación 1 vez); CP_snapshotCargar() (detección aprox. para filas ya marcadas); _cpLogMap/_cpLogStamp/_cpKey/_cpLogHoja/_fmtTs; CP_getComandas adjunta cargadoTs/cargadoStr por línea y comanda |
+| CP_Index.html | 1.2 | Líneas consolidadas por SKU: muestra cantidad real a despachar; marca "facturado en N" (badge amarillo) cuando un SKU venía dividido en varias líneas de factura |
+| CP_Código.js | 1.3 | Consolida líneas por SKU dentro de cada comanda sumando cantidades fraccionadas (0.65+0.35=1 real a despachar) + totales; campo partes por línea; helper _fmtCant (entero sin decimales, fracción con coma) |
+| CP_Index.html | 1.1 | Comandas colapsadas por defecto: encabezado compacto clickeable (ID_Venta + operación + resumen cliente/ítems/total USD + chevron) que expande el detalle; botón "Expandir/Colapsar todo" en toolbar; funciones toggle()/toggleTodo()/sincToggleBtn() |
+| CP_Index.html | 1.0 | Tablero interno (sin login, estética Portal Reseller): lee hoja "Ventas" y muestra las ventas con ID_Entrega=CARGAR agrupadas por ID_Venta en tarjetas con aviso "cargar en Masterchief"; buscador local, resumen/hero con conteo, badges RTV/Aprob. Comercial, totales USD/ARS; carga automática al abrir + botón Actualizar |
+| CP_Código.js | 1.2 | CP_debugCrudo(): diagnóstico que vuelca pestañas del archivo, dimensiones y primeras 4 filas (crudo + normalizado) para detectar por qué no matchea el encabezado |
+| CP_Código.js | 1.1 | Detección de columnas por nombre de encabezado (_norm + CP_ALIASES + _cpDetectar) en vez de índices fijos — resuelve el bug de "al día" con columnas ocultas/corridas; busca la fila de headers en las primeras 6 filas; tolera columnas ausentes; CP_debugColumnas() para diagnóstico desde el editor |
+| CP_Código.js | 1.0 | Backend solo lectura: doGet sirve CP_Index; CP_getComandas() lee la hoja, filtra ID_Entrega=CARGAR, agrupa por ID_Venta sumando Total USD/ARS y juntando líneas SKU; helpers _num/_fmtUSD/_fmtARS |
+| Env.js | 1.2 | CP_SS_ID corregido a 1KVaNIQ...R4sg (el sheet con la data real; el 1mOOeUD estaba vacío) |
+| Env.js | 1.1 | CP_SS_ID real (1mOOeUD...WBN44) apuntando al sheet definitivo |
+| Env.js | 1.0 | Config: CP_SS_ID (sheet fuente), CP_TAB="Ventas", CP_FLAG="CARGAR", mapa de columnas VC (28 cols A-AB) |
+
+## OMW
+| Archivo | Versión | Notas |
+|---------|---------|-------|
+| OMW_Index.html | 1.5 | Fix reseller view: comparación reseller case-insensitive; agrega stage rechazado con card roja + botón Re-enviar a RTV; función reenviarPedido(); cotizador: caché completo via OMW_getTablaCondiciones() — sin round-trip por cada cambio de SKU/método |
+| OMW_Código.js | 1.4 | OMW_getTablaCondiciones(): devuelve toda la tabla de precios en un call; _pedidosAll(): backward compat para stages viejos ('admin','depo','done','rechazado' lowercase) |
+| Env.js | 1.4 | CP extendido a 18 cols (ID_COTIZ/SUBTOTAL/DESCUENTO/FECHA_FORMAL cols N-Q); OMW_STAGES constantes para los 7 stages del pipeline |
+| OMW_Index.html | 1.4 | Sistema de cotizaciones reseller: botón "Guardar Cotización" en cotizador → form de datos del cliente (nombre/empresa/CUIT/tel/email/notas) → guarda en tab COTIZACIONES; sección "Mis Cotizaciones" en vista reseller con cards clickeables que recargan el cotizador; estados Nueva/Seguimiento/Cerrada; pre-fill SKU+método al recuperar cotización |
+| OMW_Código.js | 1.3 | OMW_guardarCotizacion(datos): appends a tab COTIZACIONES con auto-ID; OMW_getCotizaciones(reseller): lista newest-first filtrada por reseller; OMW_actualizarEstadoCotiz(id, estado, reseller): valida dueño; _hojaCotiz(): auto-crea tab si no existe; setupOMW() incluye COTIZACIONES |
+| Env.js | 1.3 | TAB_COTIZACIONES + CCOT (columnas tab COTIZACIONES, 17 cols A-Q) |
+| OMW_Index.html | 1.3 | Fix: botón "Crear Pedido" en cotizador visible para todos los roles internos (antes solo rtv/admin); resellers siguen sin verlo |
+| OMW_Index.html | 1.2 | Cotizador: botón "Cotizar" en topbar (todos los roles); modal con selector SKU+Método (auto-cotiza al seleccionar); breakdown completo (PVP, comisión, CFT, subtotal, IVA, total); "Crear Pedido" pre-rellena importe+pago+producto |
+| OMW_Código.js | 1.2 | OMW_getCatalogo(): lista única de SKUs+métodos disponibles desde tab Condiciones; OMW_getCotizacion(sku,metodo): devuelve breakdown completo con pvpStr/totalStr/etc formateados |
+| Env.js | 1.2 | COTIZADOR_SS_ID + TAB_CONDICIONES + CC (columnas tab Condiciones, índices 1-15 cols B-P) |
+
 ## HUB_PRO
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Index.html | 2.6 | Fix Nota de Entrega PDF: la descripción de repuestos ya no sale con las letras espaciadas/cortadas — anchos de columna fijos (Código 38 / Descripción 120 / Cant. 18) + overflow linebreak en la tabla autoTable de REPUESTOS UTILIZADOS |
 | Index.html | 2.2 | Botón "Pedir Repuestos": visible para IW y OOW (antes solo OOW); condición cambiada a !esTerminal |
 | HUB_Código.js | 2.6 | HUB_generarPedidoRepuestos: 6 fixes — (1) OBS ya no duplica garantia; (2) permite múltiples pedidos por OT saltando SKUs ya pedidos; (3) MASTER abierto una sola vez; (4) bodyHtml diferenciado primer pedido vs adicional; (5) backfill threadId en filas preexistentes; (6) registrarEmailLog solo en primer pedido |
 | Index.html | 2.5 | Botón "Piezas Recibidas": condición ampliada a cualquier circuito que contenga "Reseller" (cubre Reseller y Reseller Propio) y estado no terminal |
@@ -53,6 +112,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Despacho_Index.html | 3.11 | Descuento multi-bin: reemplaza select de ubicacion por tabla de asignacion por bin; auto-allocacion ASC (menos stock primero); boton Auto para recalcular; total asignado validado en tiempo real; envia ubicaciones:[{bin,cant}] al backend |
+| WOS_GmailFlow.js | 2.4 | WOS_despacharCompleto: ubicMap pasa de string a [{bin,cant}]; descuento multi-bin en UBICACIONES de Carmen (lee una vez, descuenta en cascada, elimina filas vacias en reversa); Entregados registra bins como "BIN×cant, BIN×cant" |
+| Despacho_Código.js | 3.2 | WOS_cargarUbicacionesPedido: sort de bins cambiado a ASC (menos stock primero) para que la auto-asignacion vacia los bins mas chicos antes |
 | Despacho_Código.js | 3.1 | WOS despacha todo: WOS_cargarPedidos fusiona Pedidos_resellers + Pedidos_OTs; _procesarFilasPedidos extrae loop; todas las funciones per-numero (cancelar, cambiarEstado, reactivar, revertir, obs, etiqueta) usan _getHojaPorNumero; WOS_buscarBackorderPorSKU + WOS_recibirMercaderia + WOS_reporteBackorder + WOS_checkCambios + WOS_getResumenEnvios escanean ambas hojas; WOS_actualizarValidacion aplica a ambas; WOS_migrarPedidosOTs() función one-time que recrea Pedidos_OTs con 26 cols |
 | WOS_GmailFlow.js | 2.3 | Fix: _esDJIAprobado y formaPago se declaraban DESPUÉS de usarlas en adminHtml (hoisting var → undefined); movidas al bloque previo a tituloAdmin |
 | WOS_GmailFlow.js | 2.2 | WOS_despacharCompleto: email admin muestra "Sin costo — DJI aprobado" (verde) o "A 30 días" según OBS del pedido OT; PR mantiene campo PAGO existente |

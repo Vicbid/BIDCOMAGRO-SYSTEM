@@ -1,4 +1,4 @@
-// @version 3.1
+// @version 3.2
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -659,7 +659,8 @@ function WOS_cargarUbicacionesPedido(skus) {
       if (!map[sku]) map[sku] = [];
       map[sku].push({ ubicacion: ubic, cantidad: cant });
     }
-    for (var k in map) map[k].sort(function(a, b) { return b.cantidad - a.cantidad; });
+    // ASC por cantidad: primero los bins con menos stock para vaciarlos antes
+    for (var k in map) map[k].sort(function(a, b) { return a.cantidad - b.cantidad; });
     return { ok: true, map: map };
   } catch(e) {
     return { ok: false, error: e.toString() };

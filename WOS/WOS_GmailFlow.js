@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.3
+// @version 2.4
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -562,12 +562,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var despMap    = {};
     var serialMap  = {};
     var cajaMap    = {};
-    var ubicMap    = {};
+    var ubicMap    = {}; // row → [{bin, cant}]
     for (var d = 0; d < despachos.length; d++) {
       despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
       serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
       cajaMap[despachos[d].row]   = despachos[d].cajaIdx !== undefined ? Number(despachos[d].cajaIdx) : 0;
-      ubicMap[despachos[d].row]   = String(despachos[d].ubicacion || '').trim();
+      ubicMap[despachos[d].row]   = Array.isArray(despachos[d].ubicaciones) ? despachos[d].ubicaciones : [];
     }
 
     var carmenSS    = null;
@@ -611,19 +611,33 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 
       if (dispNow > 0 && carmenHoja) {
         var _skuDesp  = String(ped.datos[i][COL.SKU]  || '').trim().toUpperCase();
-        var _ubicDesp = ubicMap[i + 1] || '';
-        carmenHoja.appendRow([_skuDesp, String(ped.datos[i][COL.DESC] || ''), dispNow, String(numero || ''), '', '', fecha, _ubicDesp]);
-        // Restar de UBICACIONES si hay ubicación seleccionada
-        if (_ubicDesp && carmenUbicH) {
+        var _ubicBins = ubicMap[i + 1] || [];
+        var _ubicStr  = _ubicBins.map(function(b){ return b.bin + '\xd7' + b.cant; }).join(', ');
+        carmenHoja.appendRow([_skuDesp, String(ped.datos[i][COL.DESC] || ''), dispNow, String(numero || ''), '', '', fecha, _ubicStr]);
+        // Descontar de cada bin en multi-bin; leer UBICACIONES una sola vez por item
+        if (_ubicBins.length && carmenUbicH) {
           var _dU = carmenUbicH.getDataRange().getValues();
-          for (var ui = 1; ui < _dU.length; ui++) {
-            if (String(_dU[ui][0] || '').trim().toUpperCase() === _skuDesp &&
-                String(_dU[ui][1] || '').trim().toUpperCase() === _ubicDesp.toUpperCase()) {
-              var _nueva = Math.max(0, (parseFloat(_dU[ui][2]) || 0) - dispNow);
-              carmenUbicH.getRange(ui + 1, 3).setValue(_nueva);
+          var _rowsToDelete = [];
+          for (var ub = 0; ub < _ubicBins.length; ub++) {
+            var _binKey  = String(_ubicBins[ub].bin  || '').trim().toUpperCase();
+            var _binCant = Number(_ubicBins[ub].cant) || 0;
+            if (!_binKey || _binCant <= 0) continue;
+            for (var ui = 1; ui < _dU.length; ui++) {
+              if (String(_dU[ui][0] || '').trim().toUpperCase() !== _skuDesp) continue;
+              if (String(_dU[ui][1] || '').trim().toUpperCase() !== _binKey)  continue;
+              var _nueva = Math.max(0, (parseFloat(_dU[ui][2]) || 0) - _binCant);
+              if (_nueva === 0) {
+                _rowsToDelete.push(ui + 1);
+                _dU[ui][2] = 0;
+              } else {
+                carmenUbicH.getRange(ui + 1, 3).setValue(_nueva);
+                _dU[ui][2] = _nueva;
+              }
               break;
             }
           }
+          _rowsToDelete.sort(function(a, b) { return b - a; });
+          for (var dr = 0; dr < _rowsToDelete.length; dr++) carmenUbicH.deleteRow(_rowsToDelete[dr]);
         }
       }
 
