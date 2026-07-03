@@ -1,4 +1,4 @@
-<!-- @version 2.6 -->
+<!-- @version 2.8 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2768,6 +2768,18 @@ function exportCSV(){
   toast('CSV exportado ('+f.length+' registros)');
 }
 
+// Sanea texto para jsPDF (fuente estándar sin glifos CJK). El catálogo DJI trae
+// caracteres full-width (ej. "（ZS）") que la fuente no puede medir → el texto se
+// "estira" y se corta. Los pasa a su ASCII equivalente y saca lo no soportado.
+function sanitizePdf(s){
+  s = String(s == null ? '' : s);
+  // full-width ASCII (Ａ-ｚ, ０-９, （）「」 etc.) → ASCII
+  s = s.replace(/[！-～]/g, function(ch){ return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); });
+  s = s.replace(/　/g, ' ');            // espacio full-width → espacio normal
+  s = s.replace(/[^\x00-\xFF]/g, '');        // quita cualquier glifo fuera de Latín-1 (CJK, etc.)
+  return s.replace(/\s{2,}/g, ' ').trim();
+}
+
 // ════════════════════════════════════════════════════════════
 //  GENERAR NOTA DE ENTREGA (CON SPINNER DE CARGA)
 // ════════════════════════════════════════════════════════════
@@ -2799,14 +2811,14 @@ function impRemito(){
       doc.text('Dirección: '+(info&&info.direccion?info.direccion:'—'),15,70);
       if(info&&info.localidad) doc.text('Localidad: '+info.localidad+(info.cp?' — CP: '+info.cp:''),15,76);
       if(info&&info.telefono)  doc.text('Teléfono: '+info.telefono,15,86);
-      doc.autoTable({startY:90,head:[['Equipo / Modelo','N° de Serie','Estado']],body:[[actual.equipo,actual.sn,actual.estado]],theme:'grid',headStyles:{fillColor:[0,163,224],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9}});
+      doc.autoTable({startY:90,head:[['Equipo / Modelo','N° de Serie','Estado']],body:[[sanitizePdf(actual.equipo),sanitizePdf(actual.sn),sanitizePdf(actual.estado)]],theme:'grid',headStyles:{fillColor:[0,163,224],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9}});
       var fY=doc.lastAutoTable.finalY+10;
       doc.setFont(undefined,'bold'); doc.setFontSize(9); doc.text('REPUESTOS UTILIZADOS',15,fY);
       if(actual.repuestos&&actual.repuestos!=='Sin consumo de repuestos'){
         var rows2=[],ls2=actual.repuestos.split(' ; ');
         for(var i=0;i<ls2.length;i++){
-          var p2=ls2[i].split(' | '),cod2=p2[0].trim();
-          var des2=(p2[1]||'').replace('('+cod2+')','').replace(/\(\s*\)/g,'').replace(/ÿ/g,'').trim();
+          var p2=ls2[i].split(' | '),cod2=sanitizePdf(p2[0].trim());
+          var des2=sanitizePdf((p2[1]||'').replace('('+cod2+')','').replace(/\(\s*\)/g,'').replace(/ÿ/g,'').trim());
           var cr=p2[2]?(p2[2].indexOf('E:')!==-1?p2[2].split('E:')[1]:p2[2]):'';
           rows2.push([cod2,des2,cr.replace(/[^0-9]/g,'')]);
         }
@@ -2814,7 +2826,7 @@ function impRemito(){
       } else {doc.setFont(undefined,'normal');doc.text('Sin cambios de repuestos.',15,fY+8);doc.lastAutoTable={finalY:fY+14};}
       var tY=doc.lastAutoTable.finalY+10;
       doc.setFont(undefined,'bold');doc.setFontSize(9);doc.text('TRABAJO TÉCNICO REALIZADO',15,tY);
-      doc.setFont(undefined,'normal');doc.text(doc.splitTextToSize(actual.trabajo||'—',180),15,tY+6);
+      doc.setFont(undefined,'normal');doc.text(doc.splitTextToSize(sanitizePdf(actual.trabajo||'—'),180),15,tY+6);
       var pgH=doc.internal.pageSize.height;
       doc.setDrawColor(200);doc.line(15,pgH-36,85,pgH-36);doc.line(125,pgH-36,195,pgH-36);
       doc.setFontSize(8);doc.setTextColor(120);

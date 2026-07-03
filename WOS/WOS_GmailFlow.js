@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.4
+// @version 2.5
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -530,9 +530,33 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
 //  transportista: string requerido ("Correo Argentino", "Credifin", "Via Cargo")
 //  bultos:        [{tracking, peso}] — un objeto por bulto físico
 //  costoEnvio:    costo total del envío (opcional)
+//  reqToken:      token de idempotencia (opcional) — si el mismo token ya se
+//                 procesó, se devuelve el resultado previo sin re-ejecutar
+//                 (protege contra doble-click / reintento tras respuesta perdida)
 // ─────────────────────────────────────────────────────────────
-function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario) {
+// Idempotencia: devuelve el resultado previo si el token ya se procesó, o null.
+function _wosIdempotResultado(token) {
+  if (!token) return null;
   try {
+    var prev = CacheService.getScriptCache().get('wosdesp_' + token);
+    return prev ? JSON.parse(prev) : null;
+  } catch(e) { return null; }
+}
+function _wosIdempotGuardar(token, resultado) {
+  if (!token) return;
+  try { CacheService.getScriptCache().put('wosdesp_' + token, JSON.stringify(resultado), 600); } catch(e) {} // TTL 10 min
+}
+function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
+  // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
+  // dos pestañas) no corran en paralelo y dupliquen nota de entrega + mail.
+  var _lock = LockService.getScriptLock();
+  try { _lock.waitLock(30000); }
+  catch (eLock) { return { ok: false, error: 'Otra operación de despacho está en curso. Esperá unos segundos y reintentá.' }; }
+  try {
+    // ¿este despacho ya se procesó? (mismo token) → devolver el resultado previo, sin re-ejecutar
+    var _prevRes = _wosIdempotResultado(reqToken);
+    if (_prevRes) { Logger.log('WOS_despacharCompleto: token repetido ' + reqToken + ' → devuelvo resultado previo'); return _prevRes; }
+
     var ped = _wosLeerPedido(numero);
     if (!ped.reseller) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     var esRetiroDesp = String(ped.envio || '').toLowerCase().indexOf('retiro') >= 0;
@@ -992,10 +1016,14 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var logExtra = (hayBackorder ? 'parcial+backorder' : 'completo') + ' transp=' + transp + ' track=' + track;
     _wosLogAccion('Despacho: ' + notaEntrega + ' → ' + estadoDesp, numero, ped.reseller, operario, logExtra);
     Logger.log('WOS_despacharCompleto OK: ' + numero + '-' + notaNumStr + ' | ' + estadoDesp + (hayBackorder ? '+backorder' : '') + ' | transp=' + transp + ' | track=' + track + ' | driveUrl=' + pdfUrl);
-    return { ok: true };
+    var resultado = { ok: true, nota: notaEntrega };
+    _wosIdempotGuardar(reqToken, resultado);   // marca el token como procesado (retornos repetidos no re-ejecutan)
+    return resultado;
   } catch(e) {
     Logger.log('WOS_despacharCompleto ERROR: ' + e);
     return { ok: false, error: e.toString() };
+  } finally {
+    try { _lock.releaseLock(); } catch(eR) {}
   }
 }
 

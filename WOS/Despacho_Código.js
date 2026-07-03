@@ -1,4 +1,4 @@
-// @version 3.2
+// @version 3.3
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -812,7 +812,7 @@ function WOS_cargarStock(q) {
 // ── Despacho en batch (múltiples pedidos, mismos bultos/tracking) ─
 // batchItems: [{numero, despachos:[{row,cantDesp}]}]
 // El costo se divide en partes iguales entre los pedidos del batch.
-function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, operario) {
+function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, operario, reqToken) {
   try {
     if (!batchItems || !batchItems.length) return { ok: false, error: 'Sin pedidos en el batch.' };
     operario = String(operario || '');
@@ -823,7 +823,9 @@ function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, opera
     for (var i = 0; i < batchItems.length; i++) {
       var item = batchItems[i];
       try {
-        var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario);
+        // token de idempotencia por pedido (deriva del token del batch) → un reintento no duplica
+        var itemToken = reqToken ? (reqToken + '::' + item.numero) : '';
+        var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario, itemToken);
         resultados.push({ numero: item.numero, ok: res.ok, error: res.error || '' });
       } catch(eI) {
         resultados.push({ numero: item.numero, ok: false, error: eI.toString() });
