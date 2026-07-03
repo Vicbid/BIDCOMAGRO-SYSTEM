@@ -1,4 +1,4 @@
-<!-- @version 3.12 -->
+<!-- @version 3.14 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -745,7 +745,7 @@ body{overflow:hidden}
     <div class="modal-foot">
       <span class="email-notice">📧 Responde en el hilo original · Notifica a facturación</span>
       <button class="btn btn-ghost" onclick="cerrarModal('desp')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmarDespacho()">🚚 Confirmar despacho y generar nota</button>
+      <button class="btn btn-success" id="btn-confirmar-desp" onclick="confirmarDespacho()">🚚 Confirmar despacho y generar nota</button>
     </div>
   </div>
 </div>
@@ -2259,6 +2259,73 @@ function accion(numero, tipo) {
 }
 
 // ── MODAL: Despacho ───────────────────────────────────────────
+// ── Backorder del mismo reseller con stock disponible ─────────
+// Devuelve [{numero, items:[{sku,desc,cantPend,stock}]}] — pedidos (distintos de
+// excluirNumero) del reseller con ítems en Backorder cuyo SKU ya tiene stock (≥1u).
+function _backordersConStock(reseller, excluirNumero) {
+  var out = [];
+  for (var i = 0; i < _pedidos.length; i++) {
+    var p = _pedidos[i];
+    if (!p || p.numero === excluirNumero || p.reseller !== reseller) continue;
+    var items = [];
+    for (var j = 0; j < (p.items || []).length; j++) {
+      var it = p.items[j];
+      if (it.estado !== 'Backorder' || !(it.cantPend > 0)) continue;
+      var stk = (typeof it.stockActual === 'number') ? it.stockActual : 0;
+      if (stk >= 1) items.push({ sku: it.sku, desc: it.desc, cantPend: it.cantPend, stock: stk });
+    }
+    if (items.length) out.push({ numero: p.numero, items: items });
+  }
+  return out;
+}
+function _avisoBackorderHTML(list) {
+  var filas = '';
+  for (var i = 0; i < list.length; i++) {
+    for (var j = 0; j < list[i].items.length; j++) {
+      var it = list[i].items[j];
+      filas += '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(151,79,12,.12)">' +
+        '<span><strong style="font-family:monospace">' + escH(it.sku) + '</strong> <span style="color:var(--tx-d)">' + escH(list[i].numero) + '</span></span>' +
+        '<span style="white-space:nowrap">pend. <strong>' + it.cantPend + '</strong> \xb7 stock <strong style="color:var(--green-m)">' + it.stock + '</strong></span>' +
+      '</div>';
+    }
+  }
+  return '<div id="bo-aviso" style="margin-bottom:14px;padding:12px 14px;background:var(--yellow-l);border:1px solid var(--yellow-m);border-left:4px solid var(--yellow-m);border-radius:8px">' +
+    '<div style="font-weight:700;color:var(--yellow);font-size:13px;margin-bottom:6px">⚠ Este reseller tiene backorder con stock disponible</div>' +
+    '<div style="font-size:12px;color:var(--tx-m);margin-bottom:8px">Hay que despacharlo en el mismo env\xedo. Agregalo, o si el stock no est\xe1 realmente disponible, despach\xe1 solo este pedido.</div>' +
+    filas +
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+      '<button type="button" class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="_incluirBackorder()">➕ Agregar backorder y despachar junto</button>' +
+      '<button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="_despacharSinBackorder()">Despachar solo este pedido</button>' +
+    '</div>' +
+  '</div>';
+}
+// Habilita/deshabilita "Confirmar despacho" según el bloqueo de backorder
+function _gateDespachoBtn() {
+  var btn = document.getElementById('btn-confirmar-desp');
+  if (!btn) return;
+  var bloq = !!(_modalDesp && _modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride);
+  btn.disabled = bloq;
+  btn.title = bloq ? 'Primero resolvé el backorder con stock de este reseller' : '';
+}
+// Re-arma el modal como despacho conjunto: este pedido + los backorder con stock
+function _incluirBackorder() {
+  if (!_modalDesp || !_modalDesp.backorderNums || !_modalDesp.backorderNums.length) return;
+  var numeros = [_modalDesp.numero].concat(_modalDesp.backorderNums);
+  _abrirBatchCon(numeros);
+}
+// Override: despachar solo este pedido (el backorder con stock queda pendiente)
+function _despacharSinBackorder() {
+  if (!_modalDesp) return;
+  if (!confirm('El backorder con stock de este reseller quedar\xe1 sin despachar.\n\n\xbfDespachar SOLO este pedido igualmente?')) return;
+  _modalDesp.backorderOverride = true;
+  var av = document.getElementById('bo-aviso');
+  if (av) {
+    av.style.borderColor = 'var(--tx-d)';
+    av.style.background = 'var(--surf)';
+    av.innerHTML = '<div style="font-size:12px;color:var(--tx-m)">✔ Vas a despachar solo este pedido. El backorder con stock queda pendiente.</div>';
+  }
+  _gateDespachoBtn();
+}
 function abrirModalDespacho(numero) {
   var ped = _buscarPedido(numero);
   if (!ped) return;
@@ -2378,9 +2445,21 @@ function abrirModalDespacho(numero) {
   }
   _modalDesp.transportista = esRetiro ? 'Retiro' : 'Correo Argentino';
   _bultoCounter = 0;
+  // ── Bloqueo: backorder del mismo reseller con stock disponible ──
+  var _boStock = _backordersConStock(ped.reseller, numero);
+  _modalDesp.backorderNums    = [];
+  _modalDesp.bloqueoBackorder = false;
+  _modalDesp.backorderOverride = false;
+  if (_boStock.length) {
+    _modalDesp.bloqueoBackorder = true;
+    for (var bk = 0; bk < _boStock.length; bk++) _modalDesp.backorderNums.push(_boStock[bk].numero);
+    html = _avisoBackorderHTML(_boStock) + html;
+  }
+
   document.getElementById('modal-desp-title').textContent = 'Generar nota de entrega \xb7 ' + numero;
   document.getElementById('modal-desp-sub').textContent   = ped.reseller + (ped.envio ? ' · ' + ped.envio : '');
   document.getElementById('modal-desp-body').innerHTML    = html;
+  _gateDespachoBtn();
   if (!esRetiro) {
     // Leer asignaciones de caja del pick state
     var pickSt = {};
@@ -2679,6 +2758,10 @@ function _wosGenToken() { return 'd' + Date.now() + '_' + Math.random().toString
 function confirmarDespacho() {
   if (!_modalDesp) return;
   if (_despachoEnCurso) return;   // ya hay un despacho en curso → ignorar el 2° click
+  if (_modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride) {
+    toast('Este reseller tiene backorder con stock — agregalo al envío o elegí "despachar solo este pedido"', 'err');
+    return;
+  }
   var _despToken = _wosGenToken();   // token de idempotencia (mismo para batch e individual)
   var transportista = _modalDesp.transportista || 'Correo Argentino';
   var _costoEl  = document.getElementById('modal-costo-envio');
@@ -2855,7 +2938,7 @@ function confirmarFaltante() {
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_notificarFaltante(numero, faltantes, _usuario.email);
+    .WOS_notificarFaltante(numero, faltantes, _usuario.email, 'falt_' + numero);
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -2900,7 +2983,7 @@ function confirmarCancelacion() {
       cargar();
     })
     .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
-    .WOS_cancelarPedido(numero, motivo, _usuario.email);
+    .WOS_cancelarPedido(numero, motivo, _usuario.email, 'canc_' + numero);
 }
 
 // ── Pick Ticket ───────────────────────────────────────────────
@@ -3603,7 +3686,7 @@ function enviarResumenEmail() {
       toast('Resumen enviado por email · ' + res.enviados + ' env\xedo' + (res.enviados !== 1 ? 's' : ''), 'ok');
     })
     .withFailureHandler(function(e) { sp(false); toast('Error de conexi\xf3n: ' + e.message, 'err'); })
-    .WOS_enviarResumenEnvios(_rsmData.reseller, _rsmData.mesAnio);
+    .WOS_enviarResumenEnvios(_rsmData.reseller, _rsmData.mesAnio, 'resum_' + _rsmData.reseller + '_' + _rsmData.mesAnio);
 }
 
 // ── Respuesta Telefónica ──────────────────────────────────────
@@ -3683,7 +3766,7 @@ function confirmarRespuestaTelefonica() {
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_procesarRespuestaManual(numero, opcion, cantidades, _usuario.email);
+    .WOS_procesarRespuestaManual(numero, opcion, cantidades, _usuario.email, 'rt_' + numero + '_' + opcion);
 }
 
 // ── Batch Dispatch ────────────────────────────────────────────
@@ -3723,7 +3806,12 @@ function limpiarBatch() {
 function abrirBatchDespacho() {
   var numeros = Object.keys(_selBatch);
   if (numeros.length < 2) { toast('Seleccioná al menos 2 pedidos', 'err'); return; }
+  _abrirBatchCon(numeros);
+}
 
+// Arma el modal de despacho conjunto para una lista explícita de pedidos (mismo reseller).
+// Reutilizado por el batch manual (checkboxes) y por "agregar backorder al despacho".
+function _abrirBatchCon(numeros) {
   // Todos deben ser del mismo reseller
   var primerReseller = null;
   for (var v = 0; v < numeros.length; v++) {
@@ -3810,6 +3898,7 @@ function abrirBatchDespacho() {
   document.getElementById('modal-desp-body').innerHTML    = html;
   if (!_batchTodosRetiro) _agregarBulto();
   document.getElementById('modal-desp').style.display = 'flex';
+  _gateDespachoBtn();   // batch ya incluye el backorder → botón habilitado
 }
 
 cargar();

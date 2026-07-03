@@ -1,4 +1,4 @@
-// @version 3.3
+// @version 3.4
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -362,7 +362,8 @@ function WOS_cargarPedidos() {
 }
 
 // ── Cancela un pedido con motivo, lo guarda en OBS y envía email
-function WOS_cancelarPedido(numero, motivo, operario) {
+function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     motivo   = String(motivo   || '').trim();
     operario = String(operario || '').trim();
@@ -383,6 +384,7 @@ function WOS_cancelarPedido(numero, motivo, operario) {
     Logger.log('WOS_cancelarPedido: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 // ── Cambia el estado + graba timestamp + envía email si aplica
@@ -911,7 +913,8 @@ function WOS_getResumenEnvios(reseller, mesAnio) {
 }
 
 // ── Envía el resumen de envíos por email al reseller ──────────
-function WOS_enviarResumenEnvios(reseller, mesAnio) {
+function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     var res = WOS_getResumenEnvios(reseller, mesAnio);
     if (!res.ok) return res;
@@ -986,6 +989,7 @@ function WOS_enviarResumenEnvios(reseller, mesAnio) {
     Logger.log('WOS_enviarResumenEnvios ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 // Revierte un pedido despachado por error de vuelta a "Preparado"

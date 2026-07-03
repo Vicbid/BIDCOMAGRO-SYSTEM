@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.5
+// @version 2.6
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -546,6 +546,27 @@ function _wosIdempotGuardar(token, resultado) {
   if (!token) return;
   try { CacheService.getScriptCache().put('wosdesp_' + token, JSON.stringify(resultado), 600); } catch(e) {} // TTL 10 min
 }
+// Envuelve una acción con lock + idempotencia. Serializa ejecuciones y, si el
+// mismo token ya se procesó (doble-click, dos pestañas, reintento), devuelve el
+// resultado previo sin re-ejecutar. Sólo cachea resultados ok:true.
+// Uso: return _wosLockIdempot(reqToken, function() { ...body...; return {ok:true}; });
+function _wosLockIdempot(reqToken, fn) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); }
+  catch (eLock) { return { ok: false, error: 'Otra operación está en curso. Esperá unos segundos y reintentá.' }; }
+  try {
+    var prev = _wosIdempotResultado(reqToken);
+    if (prev) { Logger.log('_wosLockIdempot: token repetido ' + reqToken + ' → resultado previo'); return prev; }
+    var res = fn();
+    if (res && res.ok) _wosIdempotGuardar(reqToken, res);
+    return res;
+  } catch (e) {
+    Logger.log('_wosLockIdempot ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch (eR) {}
+  }
+}
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
   // dos pestañas) no corran en paralelo y dupliquen nota de entrega + mail.
@@ -1035,7 +1056,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 //
 //  faltantes: [{sku, desc, cantSol, cantDisp}]
 // ─────────────────────────────────────────────────────────────
-function WOS_notificarFaltante(numero, faltantes, operario) {
+function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     operario = String(operario || '');
     var ped = _wosLeerPedido(numero);
@@ -1168,6 +1190,7 @@ function WOS_notificarFaltante(numero, faltantes, operario) {
     Logger.log('WOS_notificarFaltante ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 
@@ -1493,7 +1516,8 @@ function WOS_instalarTriggerDetector() {
 //  opcion:     'A' (esperar faltante) | 'B' (cancelar faltante)
 //  cantidades: [{sku, cantDisp}] — requerido solo para opción B
 // ─────────────────────────────────────────────────────────────
-function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
+function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     operario  = String(operario || '');
     var hoja  = _getHojaPorNumero(numero);
@@ -1585,6 +1609,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario) {
     Logger.log('WOS_procesarRespuestaManual ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 
