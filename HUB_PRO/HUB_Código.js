@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.6
+// @version 2.7
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -249,7 +249,10 @@ function cargarTodo() {
   try {
     var hoy     = new Date();
     var hojaOT  = getSheet(SCHEMA.SHEETS.OT);
-    var datosOT = getSheetValues(hojaOT);
+    // force=true: la lista SIEMPRE lee la hoja OT en vivo. Si se leyera del cache,
+    // tras cambiar un estado se veía el valor viejo (CacheService.remove tiene
+    // propagación diferida entre ejecuciones y el refresh inmediato ganaba la carrera → obligaba a F5).
+    var datosOT = getSheetValues(hojaOT, true);
 
     // Mapa de equipos tipo Bateria + meses de garantía desde hoja EQUIPOS
     var mapaBaterias = {}, mesesMap = {};

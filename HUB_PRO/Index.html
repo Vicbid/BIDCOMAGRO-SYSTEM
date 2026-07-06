@@ -1,4 +1,4 @@
-<!-- @version 2.8 -->
+<!-- @version 2.9 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1276,6 +1276,8 @@ document.addEventListener('DOMContentLoaded', function() {
 var dataset=[], actual=null, urgente=false, filtro='pendientes';
 var _settings = { tema:'dark', density:'normal', vistaInicial:'pendientes', autoRefresh:0, displayName:'' };
 var _arTimer = null;
+var _loadEnCurso = false;      // evita cargas superpuestas (auto-refresh + manual)
+var _visListenerAdded = false; // el listener de visibilidad se agrega una sola vez
 var repCache=[], estadoAct='', adCache=[], tecCache=[], resCache=[], equiposCache=[];
 var _pendingOpenOT = '', _nevGar = 'IW', _nevCirc = 'Taller', _nevPrio = 'NORMAL', _nevEqDropIdx = -1;
 var esBateriaActual=false;
@@ -1388,12 +1390,15 @@ function detectarBackorderLocal(rep, circuito, estado) {
 }
 
 // ── CARGA ─────────────────────────────────────────────────────
-function load() {
-  hubLoadStart(STEPS_LOAD);
+function load(silent) {
+  if (silent && _loadEnCurso) return;   // el refresco de fondo no se superpone; el manual siempre corre
+  _loadEnCurso = true;
+  if (!silent) hubLoadStart(STEPS_LOAD);
   google.script.run
     .withSuccessHandler(function(d) {
-      hubLoadDone();
-      if (!d||d.error) { toast('Error al cargar datos','err'); return; }
+      _loadEnCurso = false;
+      if (!silent) hubLoadDone();
+      if (!d||d.error) { if (!silent) toast('Error al cargar datos','err'); return; }
       dataset  = d.ordenes;
       tecCache = d.tecnicos || [];
       tecDisponibles = d.tecnicosDisponibles || [];
@@ -1470,8 +1475,19 @@ function load() {
         setTimeout(function() { abrirOTPorNombre(_pOT); }, 80);
       }
     })
-    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e){ _loadEnCurso = false; if (!silent) { hubLoadDone(); toast('Error: '+e.message,'err'); } })
     .cargarTodo();
+}
+
+// Refresco de fondo silencioso: no interrumpe si el operador está trabajando.
+function _bgRefresh() {
+  if (_loadEnCurso) return;                            // ya hay una carga en curso
+  if (document.hidden) return;                         // pestaña no visible
+  if (actual || isDirty) return;                       // hay una OT abierta / edición sin guardar
+  if (document.querySelector('.modal.show')) return;   // hay un modal abierto
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return; // está tipeando/filtrando
+  load(true);
 }
 
 // ── RENDER TABLA (CORREGIDA CON ÍNDICE SEGURO) ────────────────
@@ -2929,9 +2945,17 @@ function applySettings() {
   var activeBtn = document.getElementById(vistaMap[filtro] || 'fb-p');
   if (activeBtn) activeBtn.classList.add('active');
 
+  // Auto-refresh de fondo SIEMPRE activo (silencioso + con guardas). Si el usuario
+  // configuró un intervalo en Ajustes se usa ese; si no, 90s por defecto.
   if (_arTimer) { clearInterval(_arTimer); _arTimer = null; }
   var mins = parseInt(_settings.autoRefresh) || 0;
-  if (mins > 0) _arTimer = setInterval(function() { load(); }, mins * 60000);
+  var intervalMs = mins > 0 ? mins * 60000 : 90000;
+  _arTimer = setInterval(_bgRefresh, intervalMs);
+  // Al volver a la pestaña, refrescar enseguida (una sola vez se registra el listener)
+  if (!_visListenerAdded) {
+    _visListenerAdded = true;
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) _bgRefresh(); });
+  }
 }
 
 function abrirGuiaFlujos() {
