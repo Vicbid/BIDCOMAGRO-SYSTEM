@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.7
+// @version 2.9
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -245,7 +245,16 @@ function getGuiaUrl() {
 //  CARGA UNIFICADA — una sola llamada desde el frontend
 //  Devuelve: ordenes + repuestos + tecnicos + resellers
 // ============================================================
-function cargarTodo() {
+// Estados "cerrados"/terminales (una OT ya terminada). Debe coincidir con el front.
+var _ESTADOS_CERRADOS = { 'Finalizado':1, 'Entregado':1, 'CANCELADO':1, 'Rechazado DJI':1, 'Sin respuesta · Cerrado':1 };
+function _esCerrada(estado) { return _ESTADOS_CERRADOS[String(estado||'').trim()] === 1; }
+
+// Refresco liviano: solo la lista de órdenes (viva), sin el catálogo estático.
+// incluirCerradas=false (default) → solo OTs activas + cerradasCount (para no mandar
+// cientos de OTs cerradas en cada refresh). incluirCerradas=true → todas (vista Finalizados).
+function cargarOrdenes(incluirCerradas) { return cargarTodo(true, incluirCerradas); }
+
+function cargarTodo(soloOrdenes, incluirCerradas) {
   try {
     var hoy     = new Date();
     var hojaOT  = getSheet(SCHEMA.SHEETS.OT);
@@ -272,7 +281,7 @@ function cargarTodo() {
     }
     Logger.log("Baterías mapeadas: " + Object.keys(mapaBaterias).length);
 
-    var ordenes = [], tecSet = {};
+    var ordenes = [], tecSet = {}, cerradasCount = 0;
     for (var i = 1; i < datosOT.length; i++) {
       var f = datosOT[i];
       if (!f[2] || String(f[2]).trim() === "") continue;
@@ -298,6 +307,9 @@ function cargarTodo() {
       
       var tec = String(f[9] || "").trim();
       if (tec && tec !== "Gestión Reseller") tecSet[tec] = 1;
+
+      // B (performance): no mandar las OTs cerradas salvo que se pidan explícitamente
+      if (_esCerrada(f[4])) { cerradasCount++; if (!incluirCerradas) continue; }
 
       var mensajesRaw  = String(f[11]||"").trim();
       var lastMsg      = mensajesRaw.lastIndexOf("💬");
@@ -344,12 +356,24 @@ function cargarTodo() {
     }
 
     var tecnicosDisp = obtenerTecnicosDisponibles();
+
+    // soloOrdenes: refresco liviano — devuelve la lista viva SIN el catálogo
+    // (el catálogo es estático, se trae una sola vez y se cachea en el cliente).
+    if (soloOrdenes) {
+      return {
+        ordenes:             ordenes,
+        tecnicos:            Object.keys(tecSet).sort(),
+        tecnicosDisponibles: tecnicosDisp,
+        cerradasCount:       cerradasCount
+      };
+    }
+
     var catalogo = cargarCatalogo();
-    
     return {
       ordenes:             ordenes,
       tecnicos:            Object.keys(tecSet).sort(),
       tecnicosDisponibles: tecnicosDisp,
+      cerradasCount:       cerradasCount,
       repuestos:           catalogo.repuestos,
       resellers:           catalogo.resellers,
       equipos:             catalogo.equipos,

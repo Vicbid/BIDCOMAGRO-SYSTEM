@@ -1,4 +1,4 @@
-<!-- @version 2.9 -->
+<!-- @version 2.11 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1274,6 +1274,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── ESTADO GLOBAL ─────────────────────────────────────────────
 var dataset=[], actual=null, urgente=false, filtro='pendientes';
+// B (performance): dataset = solo OTs activas. Las cerradas se traen on-demand (vista Finalizados).
+var datasetCerradas=[], _cerradasLoaded=false, _cerradasCargando=false, _cerradasCount=0;
+var EST_CERRADOS=['Finalizado','Entregado','CANCELADO','Rechazado DJI','Sin respuesta · Cerrado'];
+function _esCerradoCli(e){ return EST_CERRADOS.indexOf(e)!==-1; }
+function _necesitaCerradas(){
+  var fe=document.getElementById('fil-est'); var v=fe?fe.value:'';
+  return filtro==='todos' || _esCerradoCli(v);
+}
+function _fuenteActual(){ return _necesitaCerradas() ? datasetCerradas : dataset; }
 var _settings = { tema:'dark', density:'normal', vistaInicial:'pendientes', autoRefresh:0, displayName:'' };
 var _arTimer = null;
 var _loadEnCurso = false;      // evita cargas superpuestas (auto-refresh + manual)
@@ -1399,22 +1408,10 @@ function load(silent) {
       _loadEnCurso = false;
       if (!silent) hubLoadDone();
       if (!d||d.error) { if (!silent) toast('Error al cargar datos','err'); return; }
-      dataset  = d.ordenes;
+      dataset  = d.ordenes;             // solo activas
+      _cerradasCount = d.cerradasCount || 0;
       tecCache = d.tecnicos || [];
       tecDisponibles = d.tecnicosDisponibles || [];
-      // Caché de catálogo en sessionStorage (30 min)
-      var _catNuevo = { repuestos: d.repuestos||[], resellers: d.resellers||[], manoObra: d.manoObra||[], equipos: d.equipos||[] };
-      try {
-        var _catOld = JSON.parse(sessionStorage.getItem('hub_cat')||'null');
-        var _catOldTs = parseInt(sessionStorage.getItem('hub_cat_ts')||'0');
-        if (_catOld && Date.now() - _catOldTs < 30*60*1000) {
-          repCache = _catOld.repuestos; resCache = _catOld.resellers; manoObraCache = _catOld.manoObra; equiposCache = _catOld.equipos || [];
-        } else {
-          repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos;
-          sessionStorage.setItem('hub_cat', JSON.stringify(_catNuevo));
-          sessionStorage.setItem('hub_cat_ts', String(Date.now()));
-        }
-      } catch(ec) { repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos || []; }
 
       // Poblar filtro de resellers
       var selRes = document.getElementById('fil-res');
@@ -1459,9 +1456,11 @@ function load(silent) {
         for (var e2=0; e2<dataset.length; e2++) {
           if (dataset[e2].estado) estSet[dataset[e2].estado] = (estSet[dataset[e2].estado]||0)+1;
         }
+        // Sumar los estados cerrados (dataset ya no los trae) para no perder la opción del filtro
+        for (var ec=0; ec<EST_CERRADOS.length; ec++) { if (!(EST_CERRADOS[ec] in estSet)) estSet[EST_CERRADOS[ec]] = 0; }
         Object.keys(estSet).sort().forEach(function(e) {
           var o = document.createElement('option');
-          o.value = e; o.textContent = e + ' (' + estSet[e] + ')';
+          o.value = e; o.textContent = estSet[e] > 0 ? (e + ' (' + estSet[e] + ')') : e;
           if (e === valEstAnt) o.selected = true;
           filEstEl.appendChild(o);
         });
@@ -1476,7 +1475,60 @@ function load(silent) {
       }
     })
     .withFailureHandler(function(e){ _loadEnCurso = false; if (!silent) { hubLoadDone(); toast('Error: '+e.message,'err'); } })
-    .cargarTodo();
+    .cargarOrdenes(false);   // refresco liviano: solo activas, sin catálogo ni cerradas
+}
+
+// Carga on-demand de las OTs cerradas (vista Finalizados). Trae todas y separa
+// activas/cerradas → así de paso refresca las activas en la misma llamada.
+function _cargarCerradas(cb) {
+  if (_cerradasCargando) return;
+  _cerradasCargando = true;
+  google.script.run
+    .withSuccessHandler(function(d) {
+      _cerradasCargando = false;
+      if (!d || d.error) { return; }
+      var todas = d.ordenes || [];
+      var activas = [], cerradas = [];
+      for (var i=0;i<todas.length;i++){ (_esCerradoCli(todas[i].estado) ? cerradas : activas).push(todas[i]); }
+      dataset = activas;
+      datasetCerradas = cerradas;
+      _cerradasCount = (typeof d.cerradasCount === 'number') ? d.cerradasCount : cerradas.length;
+      _cerradasLoaded = true;
+      tecCache = d.tecnicos || tecCache;
+      if (cb) cb(); else render();
+    })
+    .withFailureHandler(function(){ _cerradasCargando = false; })
+    .cargarOrdenes(true);
+}
+
+// ── CATÁLOGO ESTÁTICO (repuestos/resellers/equipos/mano de obra) ──
+// Se trae UNA sola vez y se cachea 30 min en sessionStorage → no viaja en cada refresh.
+function aplicarCatalogo(cat) {
+  repCache      = cat.repuestos || [];
+  resCache      = cat.resellers || [];
+  manoObraCache = cat.manoObra  || [];
+  equiposCache  = cat.equipos   || [];
+}
+function cargarCatalogoFront(force) {
+  try {
+    var _catOld   = JSON.parse(sessionStorage.getItem('hub_cat') || 'null');
+    var _catOldTs = parseInt(sessionStorage.getItem('hub_cat_ts') || '0');
+    if (!force && _catOld && Date.now() - _catOldTs < 30*60*1000) {
+      aplicarCatalogo(_catOld);   // cache fresco → sin llamada al server
+      return;
+    }
+  } catch(e) {}
+  google.script.run
+    .withSuccessHandler(function(cat) {
+      if (!cat || cat.error) return;
+      aplicarCatalogo(cat);
+      try {
+        sessionStorage.setItem('hub_cat', JSON.stringify({ repuestos: cat.repuestos||[], resellers: cat.resellers||[], manoObra: cat.manoObra||[], equipos: cat.equipos||[] }));
+        sessionStorage.setItem('hub_cat_ts', String(Date.now()));
+      } catch(e) {}
+    })
+    .withFailureHandler(function(){})
+    .cargarCatalogo();
 }
 
 // Refresco de fondo silencioso: no interrumpe si el operador está trabajando.
@@ -1488,6 +1540,28 @@ function _bgRefresh() {
   var ae = document.activeElement;
   if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return; // está tipeando/filtrando
   load(true);
+}
+
+// Lista filtrada según vista/búsqueda/filtros. Fuente = activas o cerradas (Finalizados).
+// Compartida por render() y abrirDesdeTabla() → mismo índice garantizado.
+function _listaFiltrada() {
+  var q=document.getElementById('busc').value.toLowerCase();
+  var filRes=document.getElementById('fil-res').value;
+  var filEstVal = document.getElementById('fil-est') ? document.getElementById('fil-est').value : '';
+  var f=_fuenteActual().slice();
+  if (!filEstVal) {
+    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&!_esCerradoCli(c.estado);});
+    else if (filtro==='pendientes') f=f.filter(function(c){return !_esCerradoCli(c.estado);});
+    else if (filtro==='todos')      f=f.filter(function(c){return _esCerradoCli(c.estado);});
+    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&!_esCerradoCli(c.estado);});
+  } else {
+    f=f.filter(function(c){return c.estado===filEstVal;});
+  }
+  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
+  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
+  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
+  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  return f;
 }
 
 // ── RENDER TABLA (CORREGIDA CON ÍNDICE SEGURO) ────────────────
@@ -1507,22 +1581,13 @@ function render() {
   if (isMsg)    { renderMensajes();   return; }
 
   var tb=document.getElementById('tbody');
-  var q=document.getElementById('busc').value.toLowerCase();
-  var filRes=document.getElementById('fil-res').value;
-  var filEstVal = document.getElementById('fil-est') ? document.getElementById('fil-est').value : '';
-  var f=dataset.slice();
-  if (!filEstVal) {
-    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-    else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-    else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO'||c.estado==='Rechazado DJI'||c.estado==='Sin respuesta · Cerrado';});
-    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-  } else {
-    f=f.filter(function(c){return c.estado===filEstVal;});
+  // Vista Finalizados (o filtro por un estado cerrado): traer las cerradas on-demand
+  if (_necesitaCerradas() && !_cerradasLoaded) {
+    tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando finalizados…</p></div></td></tr>';
+    _cargarCerradas();
+    return;
   }
-  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
-  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
-  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
-  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  var f=_listaFiltrada();
   document.getElementById('cnt').textContent=f.length;
   if (!f.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fa fa-inbox"></i><p>Sin resultados</p></div></td></tr>';return;}
   
@@ -1717,6 +1782,7 @@ function setF(f,btn){
   var btns=document.querySelectorAll('.nb');
   for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
   if(btn) btn.classList.add('active');
+  if(f==='todos') _cerradasLoaded=false;   // al entrar a Finalizados, recargar cerradas frescas
   render();
 }
 
@@ -1774,20 +1840,8 @@ function renderMetricas() {
 
 // ── FUNCIÓN PUENTE INDEPENDIENTE DE COMILLAS ──────────────────
 function abrirDesdeTabla(indice) {
-  var q = document.getElementById('busc').value.toLowerCase();
-  var filRes = document.getElementById('fil-res').value;
-  var f = dataset.slice();
-  
-  // Replicamos los filtros exactos de la tabla para dar con el índice correcto
-  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO'||c.estado==='Rechazado DJI'||c.estado==='Sin respuesta · Cerrado';});
-  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';});
-  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
-  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
-  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
-  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
-  
+  // Misma lista filtrada que render() → el índice siempre coincide (activas o cerradas)
+  var f = _listaFiltrada();
   var ordenSeleccionada = f[indice];
   if (ordenSeleccionada) {
     abrirLista(ordenSeleccionada);
@@ -3180,16 +3234,25 @@ function renderSLA(slaData, tiempoDespacho) {
 }
 
 function abrirOTPorNombre(otNombre) {
-  // Busca la OT en el dataset y la abre
-  for (var i=0; i<dataset.length; i++) {
-    if (dataset[i].ot === otNombre) {
-      // Volver a la vista de lista primero
-      setF('pendientes', document.getElementById('fb-p'));
-      abrirLista(dataset[i]);
-      return;
+  // Busca la OT en activas y cerradas y la abre (ajustando la vista al tipo de OT)
+  var buscar = function() {
+    var pools = [dataset, datasetCerradas];
+    for (var p=0; p<pools.length; p++) {
+      for (var i=0; i<pools[p].length; i++) {
+        if (pools[p][i].ot === otNombre) {
+          if (_esCerradoCli(pools[p][i].estado)) { _cerradasLoaded=true; setF('todos', document.getElementById('fb-h')); }
+          else setF('pendientes', document.getElementById('fb-p'));
+          abrirLista(pools[p][i]);
+          return true;
+        }
+      }
     }
-  }
-  toast('OT no encontrada en la vista actual — cambiá el filtro a "Pendientes"','err');
+    return false;
+  };
+  if (buscar()) return;
+  // No está entre las activas: si las cerradas aún no se cargaron, traerlas y reintentar
+  if (!_cerradasLoaded) { _cargarCerradas(function(){ if (!buscar()) toast('OT no encontrada','err'); }); return; }
+  toast('OT no encontrada','err');
 }
 
 // ── RESERVAS DE IMPORTACIÓN ───────────────────────────────────
@@ -3305,48 +3368,10 @@ function buscarSN() {
 //  MÓDULO DE SINCRONIZACIÓN SILENCIOSA (AUTO-REFRESH)
 // ════════════════════════════════════════════════════════════
 function iniciarSincronizacionSilenciosa() {
-  // Configuramos el temporizador para que corra cada 60.000 milisegundos (1 minuto)
-  setInterval(function() {
-    
-    // 1. SEGURO ANTI-INTERRUPCIONES
-    // Verificamos si el usuario tiene un panel abierto (Offcanvas/Modal) o tiene una OT seleccionada ('actual')
-    var ventanaAbierta = document.querySelector('.offcanvas.show') || document.querySelector('.modal.show');
-    
-    // Si el técnico está interactuando con el sistema, abortamos el refresh silencioso para no borrarle el trabajo
-    if (ventanaAbierta || actual) {
-      console.log("↻ Auto-Refresh pausado: El usuario está editando una orden.");
-      return; 
-    }
-
-    // 2. LLAMADA INVISIBLE AL SERVIDOR
-    // Pedimos los datos sin activar el spinner visual (sp(true)) para que nadie se dé cuenta
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (!res || res.error) return; // Si hay micro-corte de internet, abortamos en silencio
-        
-        // 3. ACTUALIZACIÓN EN MEMORIA
-        // Pisamos la memoria local (dOT) con la lista de órdenes frescas que acaba de mandar el servidor
-        if (res.ordenes) dOT = res.ordenes;
-        
-        // 4. REDIBUJADO DE PANTALLA
-        if (typeof renOT === 'function') renOT(); // Vuelve a dibujar las tarjetas
-        
-        // 5. RESTAURAR BUSCADOR
-        // Si el usuario justo estaba leyendo y tenía la palabra "motor" escrita en el buscador, volvemos a filtrar
-        var inputBuscador = document.getElementById('q'); 
-        if (inputBuscador && inputBuscador.value.trim() !== "" && typeof fil === 'function') {
-          fil();
-        }
-        
-        console.log("↻ Sincronización silenciosa completada: " + new Date().toLocaleTimeString());
-      })
-      .withFailureHandler(function(err) {
-        // Fallo silencioso absoluto. No mostramos alertas rojas para no asustar si se cortó el WiFi 2 segundos.
-        console.log("↻ Error en auto-refresh: " + err);
-      })
-      .cargarTodo(); // Usamos tu función maestra para traer la info validada
-      
-  }, 60000); 
+  // DESHABILITADO. Reemplazado por _bgRefresh() (auto-refresh silencioso, con guardas,
+  // que usa cargarOrdenes liviano y SÍ redibuja la lista). Esta versión previa llamaba a
+  // cargarTodo() COMPLETO cada 60s y no actualizaba nada (renOT/fil/dOT no existen en esta
+  // app) → era puro gasto de servidor + red. Se deja como no-op para no romper el listener.
 }
 
 // Usamos addEventListener en lugar de onload para no pisar el arranque original de tu sistema
@@ -3802,7 +3827,8 @@ window.onload=function(){
   try { loadSettings(); applySettings(); } catch(e) {}
   initSbGroups();
   cargarUsuario();
-  load();
+  cargarCatalogoFront();   // catálogo estático: una vez (o desde cache de sesión)
+  load();                  // lista viva (rápida, sin catálogo)
 };
 </script>
 
