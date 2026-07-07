@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.3
+// @version 1.4
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -224,25 +224,30 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
 
     var ri = 1;
 
-    // 1. Cabecera — logo "BidcomAgro" (Bidcom negro + Agro verde, como las etiquetas de WOS)
-    var logoRange = sheet.getRange(ri, 1, 3, 4).merge();
+    // 1. Membrete — logo "BidcomAgro" (Bidcom negro + Agro verde) + datos del documento a la derecha
+    var logoRange = sheet.getRange(ri, 1, 2, 4).merge();
     logoRange.setBackground('#ffffff').setVerticalAlignment('middle').setHorizontalAlignment('left');
-    var stB = SpreadsheetApp.newTextStyle().setForegroundColor('#111111').setBold(true).setFontSize(26).build();
-    var stA = SpreadsheetApp.newTextStyle().setForegroundColor('#3a9e3a').setBold(true).setFontSize(26).build();
+    var stB = SpreadsheetApp.newTextStyle().setForegroundColor('#111111').setBold(true).setFontSize(24).build();
+    var stA = SpreadsheetApp.newTextStyle().setForegroundColor('#3a9e3a').setBold(true).setFontSize(24).build();
     var logoRt = SpreadsheetApp.newRichTextValue()
       .setText('BidcomAgro')
       .setTextStyle(0, 6,  stB)   // "Bidcom" → negro
       .setTextStyle(6, 10, stA)   // "Agro"   → verde
       .build();
     logoRange.setRichTextValue(logoRt);
-    sheet.getRange(ri,     5, 1, 3).merge().setValue('PRESUPUESTO')
-      .setFontSize(11).setFontWeight('bold').setFontColor('#ffffff')
-      .setBackground('#2d3436').setHorizontalAlignment('right').setVerticalAlignment('bottom');
+    sheet.getRange(ri + 2, 1, 1, 4).merge().setValue('Servicio Técnico Oficial · Repuestos DJI')
+      .setFontSize(9).setFontColor('#7a828a').setHorizontalAlignment('left').setVerticalAlignment('top');
+    // Bloque del documento (derecha) — texto sobre blanco, sin relleno
+    sheet.getRange(ri, 5, 1, 3).merge().setValue('PRESUPUESTO')
+      .setFontSize(10).setFontWeight('bold').setFontColor('#7a828a').setHorizontalAlignment('right').setVerticalAlignment('bottom');
     sheet.getRange(ri + 1, 5, 1, 3).merge().setValue('N\xba ' + numero)
-      .setFontSize(10).setFontColor('#c9ced1').setBackground('#2d3436').setHorizontalAlignment('right');
+      .setFontSize(13).setFontWeight('bold').setFontColor('#2d3436').setHorizontalAlignment('right').setVerticalAlignment('middle');
     sheet.getRange(ri + 2, 5, 1, 3).merge().setValue('Fecha: ' + fechaStr)
-      .setFontSize(9).setFontColor('#c9ced1').setBackground('#2d3436').setHorizontalAlignment('right').setVerticalAlignment('top');
-    sheet.setRowHeight(ri, 24); sheet.setRowHeight(ri + 1, 18); sheet.setRowHeight(ri + 2, 20);
+      .setFontSize(9).setFontColor('#7a828a').setHorizontalAlignment('right').setVerticalAlignment('top');
+    sheet.setRowHeight(ri, 26); sheet.setRowHeight(ri + 1, 16); sheet.setRowHeight(ri + 2, 18);
+    // Regla inferior del membrete — acento verde de marca
+    sheet.getRange(ri + 2, 1, 1, 7)
+      .setBorder(null, null, true, null, null, null, '#3a9e3a', SpreadsheetApp.BorderStyle.SOLID_THICK);
     ri += 3;
 
     // 2. Emisor (reseller) + Cliente
@@ -284,12 +289,12 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     var repInicio = ri;
     var headers = ['SKU', 'Descripción', 'Cant.', 'PVP USD', 'Desc.', 'Precio USD', 'Subtotal USD'];
     sheet.getRange(ri, 1, 1, 7).setValues([headers])
-      .setBackground('#3a9e3a').setFontColor('#ffffff').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
+      .setBackground('#2d3436').setFontColor('#ffffff').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.setRowHeight(ri, 22); ri++;
 
     for (var i = 0; i < items.length; i++) {
       var it    = items[i];
-      var rowBg = (i % 2 === 0) ? '#ffffff' : '#f2f8f2';
+      var rowBg = (i % 2 === 0) ? '#ffffff' : '#f6f7f8';
       var rowVals = [
         it.sku         || '—',
         it.descripcion || '—',
@@ -301,28 +306,28 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
       ];
       sheet.getRange(ri, 1, 1, 7).setValues([rowVals]).setFontSize(9).setBackground(rowBg).setVerticalAlignment('middle');
       sheet.getRange(ri, 1, 1, 2).setWrap(true);   // SKU + Descripción: no cortar
-      sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#3a9e3a');
+      sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#2d3436');
       sheet.getRange(ri, 3).setHorizontalAlignment('center');
       sheet.getRange(ri, 5).setHorizontalAlignment('center');
       sheet.getRange(ri, 4, 1, 4).setHorizontalAlignment('right');
       sheet.setRowHeight(ri, 20); ri++;
     }
     sheet.getRange(repInicio, 1, ri - repInicio, 7)
-      .setBorder(true, true, true, true, true, true, '#d9e2d9', SpreadsheetApp.BorderStyle.SOLID);
+      .setBorder(true, true, true, true, true, true, '#dfe3e6', SpreadsheetApp.BorderStyle.SOLID);
 
     // 3b. Mano de obra
     if (manoObra && manoObra.length) {
       sheet.setRowHeight(ri, 8); sheet.getRange(ri, 1, 1, 7).merge().setBackground('#ffffff'); ri++;
       var moInicio = ri;
       sheet.getRange(ri, 1, 1, 4).merge().setValue('MANO DE OBRA')
-        .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setVerticalAlignment('middle');
-      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('center');
-      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('right');
-      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('right');
+        .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setVerticalAlignment('middle');
+      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('center');
+      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('right');
+      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('right');
       sheet.setRowHeight(ri, 22); ri++;
       for (var mi = 0; mi < manoObra.length; mi++) {
         var mo  = manoObra[mi];
-        var mBg = (mi % 2 === 0) ? '#ffffff' : '#f2f8f2';
+        var mBg = (mi % 2 === 0) ? '#ffffff' : '#f6f7f8';
         sheet.getRange(ri, 1, 1, 4).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle').setWrap(true);
         sheet.getRange(ri, 5).setValue(mo.cantidad).setFontSize(9).setBackground(mBg).setHorizontalAlignment('center');
         sheet.getRange(ri, 6).setValue(mo.precio > 0 ? _fmtUsd(mo.precio) : '—').setFontSize(9).setBackground(mBg).setHorizontalAlignment('right');
@@ -330,7 +335,7 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
         sheet.setRowHeight(ri, 20); ri++;
       }
       sheet.getRange(moInicio, 1, ri - moInicio, 7)
-        .setBorder(true, true, true, true, true, true, '#d9e2d9', SpreadsheetApp.BorderStyle.SOLID);
+        .setBorder(true, true, true, true, true, true, '#dfe3e6', SpreadsheetApp.BorderStyle.SOLID);
     }
 
     // 4. Total
