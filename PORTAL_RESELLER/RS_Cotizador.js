@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -237,11 +237,11 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     logoRange.setRichTextValue(logoRt);
     sheet.getRange(ri,     5, 1, 3).merge().setValue('PRESUPUESTO')
       .setFontSize(11).setFontWeight('bold').setFontColor('#ffffff')
-      .setBackground('#5a4bd1').setHorizontalAlignment('right').setVerticalAlignment('bottom');
+      .setBackground('#2d3436').setHorizontalAlignment('right').setVerticalAlignment('bottom');
     sheet.getRange(ri + 1, 5, 1, 3).merge().setValue('N\xba ' + numero)
-      .setFontSize(10).setFontColor('#e4e0fb').setBackground('#5a4bd1').setHorizontalAlignment('right');
+      .setFontSize(10).setFontColor('#c9ced1').setBackground('#2d3436').setHorizontalAlignment('right');
     sheet.getRange(ri + 2, 5, 1, 3).merge().setValue('Fecha: ' + fechaStr)
-      .setFontSize(9).setFontColor('#e4e0fb').setBackground('#5a4bd1').setHorizontalAlignment('right').setVerticalAlignment('top');
+      .setFontSize(9).setFontColor('#c9ced1').setBackground('#2d3436').setHorizontalAlignment('right').setVerticalAlignment('top');
     sheet.setRowHeight(ri, 24); sheet.setRowHeight(ri + 1, 18); sheet.setRowHeight(ri + 2, 20);
     ri += 3;
 
@@ -281,14 +281,15 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     // 3. Tabla de ítems
     sheet.setRowHeight(ri, 8); sheet.getRange(ri, 1, 1, 7).merge().setBackground('#ffffff'); ri++;
 
+    var repInicio = ri;
     var headers = ['SKU', 'Descripción', 'Cant.', 'PVP USD', 'Desc.', 'Precio USD', 'Subtotal USD'];
     sheet.getRange(ri, 1, 1, 7).setValues([headers])
-      .setBackground('#6c5ce7').setFontColor('#ffffff').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
+      .setBackground('#3a9e3a').setFontColor('#ffffff').setFontWeight('bold').setFontSize(9).setVerticalAlignment('middle');
     sheet.setRowHeight(ri, 22); ri++;
 
     for (var i = 0; i < items.length; i++) {
       var it    = items[i];
-      var rowBg = (i % 2 === 0) ? '#ffffff' : '#f5f7fa';
+      var rowBg = (i % 2 === 0) ? '#ffffff' : '#f2f8f2';
       var rowVals = [
         it.sku         || '—',
         it.descripcion || '—',
@@ -299,31 +300,37 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
         it.subtotal    > 0 ? _fmtUsd(it.subtotal)    : '—'
       ];
       sheet.getRange(ri, 1, 1, 7).setValues([rowVals]).setFontSize(9).setBackground(rowBg).setVerticalAlignment('middle');
-      sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#6c5ce7');
+      sheet.getRange(ri, 1, 1, 2).setWrap(true);   // SKU + Descripción: no cortar
+      sheet.getRange(ri, 1).setFontWeight('bold').setFontColor('#3a9e3a');
       sheet.getRange(ri, 3).setHorizontalAlignment('center');
       sheet.getRange(ri, 5).setHorizontalAlignment('center');
       sheet.getRange(ri, 4, 1, 4).setHorizontalAlignment('right');
       sheet.setRowHeight(ri, 20); ri++;
     }
+    sheet.getRange(repInicio, 1, ri - repInicio, 7)
+      .setBorder(true, true, true, true, true, true, '#d9e2d9', SpreadsheetApp.BorderStyle.SOLID);
 
     // 3b. Mano de obra
     if (manoObra && manoObra.length) {
       sheet.setRowHeight(ri, 8); sheet.getRange(ri, 1, 1, 7).merge().setBackground('#ffffff'); ri++;
+      var moInicio = ri;
       sheet.getRange(ri, 1, 1, 4).merge().setValue('MANO DE OBRA')
-        .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setVerticalAlignment('middle');
-      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('center');
-      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('right');
-      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('right');
+        .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setVerticalAlignment('middle');
+      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('center');
+      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('right');
+      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a').setHorizontalAlignment('right');
       sheet.setRowHeight(ri, 22); ri++;
       for (var mi = 0; mi < manoObra.length; mi++) {
         var mo  = manoObra[mi];
-        var mBg = (mi % 2 === 0) ? '#ffffff' : '#f5f7fa';
-        sheet.getRange(ri, 1, 1, 4).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle');
+        var mBg = (mi % 2 === 0) ? '#ffffff' : '#f2f8f2';
+        sheet.getRange(ri, 1, 1, 4).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle').setWrap(true);
         sheet.getRange(ri, 5).setValue(mo.cantidad).setFontSize(9).setBackground(mBg).setHorizontalAlignment('center');
         sheet.getRange(ri, 6).setValue(mo.precio > 0 ? _fmtUsd(mo.precio) : '—').setFontSize(9).setBackground(mBg).setHorizontalAlignment('right');
         sheet.getRange(ri, 7).setValue(mo.subtotal > 0 ? _fmtUsd(mo.subtotal) : '—').setFontSize(9).setFontWeight('bold').setBackground(mBg).setHorizontalAlignment('right');
         sheet.setRowHeight(ri, 20); ri++;
       }
+      sheet.getRange(moInicio, 1, ri - moInicio, 7)
+        .setBorder(true, true, true, true, true, true, '#d9e2d9', SpreadsheetApp.BorderStyle.SOLID);
     }
 
     // 4. Total
@@ -332,7 +339,7 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
         .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436')
         .setHorizontalAlignment('right').setVerticalAlignment('middle');
       sheet.getRange(ri, 7).setValue(_fmtUsd(total))
-        .setFontSize(10).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7')
+        .setFontSize(10).setFontWeight('bold').setFontColor('#ffffff').setBackground('#3a9e3a')
         .setHorizontalAlignment('right').setVerticalAlignment('middle');
       sheet.setRowHeight(ri, 24); ri++;
     }
@@ -340,20 +347,33 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     if (obs) {
       sheet.setRowHeight(ri, 8); ri++;
       sheet.getRange(ri, 1, 1, 7).merge().setValue('Observaciones: ' + obs)
-        .setFontSize(9).setFontColor('#5e6778').setWrap(true);
+        .setFontSize(9).setFontColor('#5e6778').setWrap(true).setVerticalAlignment('top');
+      sheet.setRowHeight(ri, 34);
       ri++;
     }
 
-    sheet.setRowHeight(ri + 1, 8); ri += 2;
-    sheet.getRange(ri, 1, 1, 7).merge()
-      .setValue('Presupuesto válido salvo variación de precios. Generado desde el Portal Resellers de BIDCOMAGRO.')
-      .setFontSize(8).setFontColor('#9ba5b4').setHorizontalAlignment('center');
+    // Pie legal — quién emite y alcance de la cotización
+    sheet.setRowHeight(ri, 10); ri++;
+    var legal = 'Presupuesto emitido por ' + (meta.nombre || '—') + ' para ' + (cliente || '—') + '. ' +
+      'Los valores corresponden únicamente a los daños observados y/o descritos por el cliente. ' +
+      'Si durante la reparación se detectan daños adicionales no contemplados en esta cotización, ' +
+      'se emitirá un nuevo presupuesto para su aprobación antes de continuar. ' +
+      'Precios en USD, no incluyen impuestos. Válido salvo variación de precios.';
+    sheet.getRange(ri, 1, 1, 7).merge().setValue(legal)
+      .setFontSize(8).setFontColor('#7a828a').setWrap(true)
+      .setHorizontalAlignment('left').setVerticalAlignment('top');
+    sheet.setRowHeight(ri, 56);
+    var lastRow = ri;
 
-    // Anchos de columna
-    sheet.setColumnWidth(1, 90); sheet.setColumnWidth(2, 230); sheet.setColumnWidth(3, 45);
-    sheet.setColumnWidth(4, 90); sheet.setColumnWidth(5, 50);  sheet.setColumnWidth(6, 90);
+    // Anchos de columna (SKU más ancho para no cortar el código)
+    sheet.setColumnWidth(1, 140); sheet.setColumnWidth(2, 205); sheet.setColumnWidth(3, 45);
+    sheet.setColumnWidth(4, 90);  sheet.setColumnWidth(5, 50);  sheet.setColumnWidth(6, 90);
     sheet.setColumnWidth(7, 100);
-    sheet.getRange(1, 1, sheet.getMaxRows(), 7).setBorder(false, false, false, false, false, false);
+
+    // Limpieza: ocultar gridlines de fondo + recortar filas/columnas vacías
+    sheet.setHiddenGridlines(true);
+    if (sheet.getMaxRows()    > lastRow) sheet.deleteRows(lastRow + 1, sheet.getMaxRows() - lastRow);
+    if (sheet.getMaxColumns() > 7)       sheet.deleteColumns(8, sheet.getMaxColumns() - 7);
 
     SpreadsheetApp.flush();
 
