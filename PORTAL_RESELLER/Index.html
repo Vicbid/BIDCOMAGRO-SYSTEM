@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.4 -->
+<!-- @version 1.5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2126,7 +2126,10 @@ function login() {
         // Liberar el overlay de login
         _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
       } else {
-        document.getElementById('pin-error').textContent = 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
+        var msgErr = (res && res.motivo === 'inactivo')
+          ? 'Esta cuenta está desactivada. Contactá a soporte.'
+          : 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
+        document.getElementById('pin-error').textContent = msgErr;
         document.querySelectorAll('.pin-input').forEach(function(p){ p.value=''; p.classList.add('error'); });
         document.getElementById('pin1').focus();
       }

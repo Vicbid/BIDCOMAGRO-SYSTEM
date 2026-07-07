@@ -1,3 +1,4 @@
+// @version 1.2
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 
@@ -102,7 +103,8 @@ var SCHEMA = {
     AFTERSALES: 11,
     EMAIL_RTV: 13,
     GRUPO: 14,      // Col O — nombre del grupo (igual para todas las sucursales del mismo dueño)
-    PIN_GRUPO: 15   // Col P — PIN del grupo (mismo valor en todas las filas del grupo)
+    PIN_GRUPO: 15,  // Col P — PIN del grupo (mismo valor en todas las filas del grupo)
+    ACTIVO: 16      // Col Q — estado de la cuenta: vacío = activo; "NO"/"BAJA"/"INACTIVO"/"FALSE"/"0" = desactivado
   },
   MOVIMIENTOS_STOCK: {
     FECHA:            0,

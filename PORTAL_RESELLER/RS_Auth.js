@@ -1,6 +1,18 @@
+// @version 1.2
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Autenticación y acceso
 // ============================================================
+
+// Cuenta desactivada: col Q (SCHEMA.RESELLERS.ACTIVO).
+// Vacío = activo. Se considera de baja si dice NO / BAJA / INACTIVO / FALSE / 0 / booleano false.
+function _resellerInactivo(fila) {
+  var raw = fila[SCHEMA.RESELLERS.ACTIVO];
+  if (raw === false) return true;
+  var v = String(raw === null || raw === undefined ? '' : raw).trim().toUpperCase();
+  if (!v) return false;
+  return (v === 'NO' || v === 'BAJA' || v === 'INACTIVO' || v === 'INACTIVA'
+          || v === 'FALSE' || v === '0' || v === 'DESACTIVADO' || v === 'DESACTIVADA');
+}
 
 function _hashPin(pin) {
   var bytes = Utilities.computeDigest(
@@ -53,6 +65,8 @@ function validarAccesoReseller(mail, clave) {
       var nombre   = String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
       if (!rowMail || !rowClave || !nombre) continue;
       if (rowMail !== mailB || rowClave !== claveB) continue;
+
+      if (_resellerInactivo(datos[i])) return { autorizado: false, motivo: 'inactivo' };
 
       var rawAft  = datos[i][colAft];
       var aftsStr = String(rawAft === null || rawAft === undefined ? '' : rawAft).trim().toUpperCase();
@@ -126,9 +140,11 @@ function validarAccesoInicial(nombre, clave) {
           if (rowPinGrupo !== claveB) return { ok: false, motivo: 'clave_incorrecta' };
           pinGrupoEncontrado = true;
         }
+        if (_resellerInactivo(datos[gi])) continue; // sucursal de baja: fuera del grupo
         if (rowNombreG) resellersDelGrupo.push(rowNombreG);
       }
       if (!pinGrupoEncontrado) return { ok: false, motivo: 'grupo_no_encontrado' };
+      if (!resellersDelGrupo.length) return { ok: false, motivo: 'inactivo' };
       return {
         ok:        true,
         nombre:    grupoNombre,
@@ -152,6 +168,8 @@ function validarAccesoInicial(nombre, clave) {
       if (!rowNombre || !rowClave) continue;
       if (rowNombre !== nombreB) continue;
       if (rowClave  !== claveB) return { ok: false, motivo: 'clave_incorrecta' };
+
+      if (_resellerInactivo(datos[i])) return { ok: false, motivo: 'inactivo' };
 
       var rawAft  = datos[i][colAft];
       var aftsStr = String(rawAft === null || rawAft === undefined ? '' : rawAft).trim().toUpperCase();
@@ -177,6 +195,7 @@ function obtenerResellers() {
     var resellers = [];
     var grupos = {};
     for (var i = 1; i < d.length; i++) {
+      if (_resellerInactivo(d[i])) continue; // cuentas de baja no aparecen en el selector
       var nombre = String(d[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
       var grupo  = String(d[i][SCHEMA.RESELLERS.GRUPO]  || '').trim();
       if (nombre) resellers.push(nombre);
@@ -319,6 +338,8 @@ function RS_recordarClave(nombre) {
     for (var i = 1; i < datos.length; i++) {
       var rowNombre = String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
       if (rowNombre.toLowerCase() !== nombreB) continue;
+
+      if (_resellerInactivo(datos[i])) return { ok: false, error: 'Esta cuenta está desactivada. Contactá a soporte.' };
 
       var email = String(datos[i][SCHEMA.RESELLERS.EMAIL] || '').trim();
       var pin   = String(datos[i][10] || '').trim();
