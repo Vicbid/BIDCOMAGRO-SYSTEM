@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.8 -->
+<!-- @version 1.9 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -746,6 +746,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn" id="tb-ped" onclick="pedirPinPedidos()">
       <i class="fa fa-shopping-cart"></i> Pedidos
       <span class="tab-badge" id="badge-ped">0</span>
+    </button>
+    <button class="tab-btn" id="tb-cot" onclick="pedirPinCotizador()">
+      <i class="fa fa-file-invoice-dollar"></i> Cotizador
     </button>
     <button class="tab-btn" id="tb-camp" onclick="pedirPinCampana()" style="display:none">
       <i class="fa fa-seedling"></i> Campaña
@@ -1608,6 +1611,118 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
   </div><!-- /tab-ped -->
 
+  <!-- ══ TAB: COTIZADOR ══════════════════════════ -->
+  <div class="tab-panel" id="tab-cot">
+
+    <div class="help-bar">
+      <span class="help-bar-title"><i class="fa fa-file-invoice-dollar" style="color:#6c5ce7"></i> Cotizador de Presupuestos</span>
+    </div>
+
+    <!-- Guard: sin autenticar -->
+    <div id="cot-guard">
+      <div class="dji-card" style="text-align:center;padding:36px 20px">
+        <i class="fa fa-lock" style="font-size:36px;color:var(--tx-d);display:block;margin-bottom:14px"></i>
+        <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px">Identificate para cotizar</div>
+        <div style="font-size:12px;color:var(--tx-m);margin-bottom:20px">Ingresá con tu PIN para armar presupuestos al cliente final.</div>
+        <button class="btn-main" style="width:auto;margin:0 auto;padding:10px 24px" onclick="pedirPinCotizador()">
+          <i class="fa fa-unlock-alt"></i> Ingresar con PIN
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido principal (autenticado) -->
+    <div id="cot-main" style="display:none">
+
+      <div style="font-size:11px;color:var(--tx-m);margin-bottom:14px;padding:8px 12px;background:rgba(108,92,231,.06);border:1px solid rgba(108,92,231,.2);border-radius:var(--r);line-height:1.7">
+        <i class="fa fa-circle-info" style="color:#6c5ce7"></i> Armá un presupuesto para tu <strong>cliente final</strong>. Cada ítem arranca con <strong>25% de descuento</strong> sobre el PVP de lista, editable por ítem. Al generar se crea un PDF y se envía por email.
+      </div>
+
+      <!-- Datos del cliente -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-user"></i> Datos del cliente</div>
+        <div class="dji-card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label class="flbl">Cliente <span style="color:var(--red);font-weight:700">*</span></label>
+              <input type="text" id="cot-cliente" class="form-control" placeholder="Nombre / razón social del cliente" style="font-size:13px">
+            </div>
+            <div>
+              <label class="flbl">Email del cliente <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+              <input type="email" id="cot-cliente-email" class="form-control" placeholder="correo@cliente.com" style="font-size:13px">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agregar ítems -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-plus-circle"></i> Agregar Repuestos</div>
+        <div class="dji-card-body">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="cot-q" class="form-control" placeholder="Código o nombre del repuesto..."
+                   oninput="_cotBuscar()" onkeydown="if(event.key==='Enter')_cotBuscar(true)" style="flex:1">
+            <input type="number" id="cot-qty" class="form-control" value="1" min="1" style="width:80px;text-align:center" title="Cantidad">
+          </div>
+          <div id="cot-results" class="rep-result" style="display:none;max-height:200px"></div>
+          <div id="cot-no-result" style="display:none;background:rgba(214,48,49,.05);border:1px dashed rgba(214,48,49,.3);border-radius:var(--rm);padding:10px 14px;font-size:12px;color:var(--tx-m);align-items:center;gap:10px;flex-wrap:wrap">
+            <span><i class="fa fa-circle-exclamation" style="color:var(--red)"></i> No se encontró ese repuesto en el catálogo.</span>
+            <button onclick="_cotAgregarDesconocido()" style="background:rgba(214,48,49,.1);border:1px solid rgba(214,48,49,.3);color:var(--red);border-radius:var(--r);padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">
+              <i class="fa fa-plus"></i> Agregar ítem manual
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Carrito -->
+      <div class="dji-card" id="cot-cart-card" style="display:none">
+        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span><i class="fa fa-file-invoice-dollar" style="color:#6c5ce7"></i> Presupuesto — <span id="cot-cart-count">0</span> ítem(s)</span>
+          <button class="btn-help" style="background:rgba(214,48,49,.08);border-color:rgba(214,48,49,.2);color:var(--red)" onclick="_cotVaciar()">
+            <i class="fa fa-trash"></i> Vaciar
+          </button>
+        </div>
+        <div class="dji-card-body" style="padding:0">
+          <div id="cot-cart-ui"></div>
+        </div>
+        <div style="padding:14px 17px;border-top:1px solid var(--brd)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:13px;color:var(--tx-m);font-weight:600">Total (sin impuestos)</span>
+            <span id="cot-total" style="font-size:18px;font-weight:800;color:#6c5ce7">$0,00 USD</span>
+          </div>
+          <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+          <textarea id="cot-obs" class="form-control" placeholder="Notas para el presupuesto..." style="min-height:52px;resize:vertical"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <button class="btn-main" id="btn-generar-cot" style="width:auto;padding:10px 26px;background:#6c5ce7" onclick="_cotGenerar()">
+              <i class="fa fa-file-export"></i> Generar presupuesto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div id="cot-success" class="dji-card" style="display:none;text-align:center;padding:26px 20px">
+        <i class="fa fa-circle-check" style="font-size:38px;color:#1a9e4a;display:block;margin-bottom:12px"></i>
+        <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px">Presupuesto generado</div>
+        <div id="cot-success-num" style="font-family:monospace;font-size:12px;color:var(--tx-d);margin-bottom:16px"></div>
+        <a id="cot-success-pdf" href="#" target="_blank" class="btn-main" style="width:auto;margin:0 auto 10px;padding:9px 22px;display:inline-flex;text-decoration:none;background:#6c5ce7"><i class="fa fa-file-pdf"></i> Ver PDF</a>
+        <div><button onclick="_cotNuevo()" style="background:transparent;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Hacer otro presupuesto</button></div>
+      </div>
+
+      <!-- Historial -->
+      <div class="dji-card">
+        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center">
+          <span><i class="fa fa-clock-rotate-left"></i> Mis presupuestos</span>
+          <button class="btn-help" onclick="_cotCargarHistorial()"><i class="fa fa-rotate"></i> Actualizar</button>
+        </div>
+        <div class="dji-card-body" id="cot-historial">
+          <div style="font-size:12px;color:var(--tx-d)">Tocá "Actualizar" para ver tus presupuestos anteriores.</div>
+        </div>
+      </div>
+
+    </div><!-- /cot-main -->
+
+  </div><!-- /tab-cot -->
+
   <!-- ══ TAB: CAMPAÑA ══════════════════════════ -->
   <div class="tab-panel" id="tab-camp">
 
@@ -2226,6 +2341,7 @@ function login() {
         else if (!res.esGrupo && goTab === 'cc') { cargarCC(null); }
         else { cargarDashboard(); }
         if (goTab === 'ped')  _pedMostrarMain();
+        if (goTab === 'cot')  _cotMostrarMain();
         if (goTab === 'camp') _campAbrir();
         _campCheckVisible();
         // Liberar el overlay de login
@@ -3996,6 +4112,254 @@ function pedirPinPedidos() {
   }
   _pendingTab = 'ped';
   pedirPin();
+}
+
+// ══════════════════════════════════════════
+//  COTIZADOR DE PRESUPUESTOS (cliente final)
+//  Reutiliza el índice de repuestos (_pedIndice/_pedBuscarLocal).
+//  Precio base = PVP de lista = precio40 / 0.60. Descuento por ítem (25% inicial).
+// ══════════════════════════════════════════
+var _cotCart     = [];
+var _cotBusTimer = null;
+
+function pedirPinCotizador() {
+  if (resellerActual) {
+    showTab('cot', 'tb-cot');
+    _cotMostrarMain();
+    return;
+  }
+  _pendingTab = 'cot';
+  pedirPin();
+}
+
+function _cotMostrarMain() {
+  document.getElementById('cot-guard').style.display = 'none';
+  document.getElementById('cot-main').style.display  = 'block';
+  if (typeof _pedIndice === 'undefined' || _pedIndice === null) { try { _pedCargarIndice(); } catch(e) {} }
+  _cotRenderCart();
+}
+
+function _cotBaseDesde40(precio40) {
+  return precio40 > 0 ? Math.round(precio40 / 0.60 * 100) / 100 : 0;
+}
+
+function _cotBuscar(immediate) {
+  clearTimeout(_cotBusTimer);
+  var q = (document.getElementById('cot-q').value || '').trim();
+  var resDiv = document.getElementById('cot-results');
+  var noRes  = document.getElementById('cot-no-result');
+  if (q.length < 2) { resDiv.style.display = 'none'; noRes.style.display = 'none'; return; }
+
+  if (typeof _pedIndice !== 'undefined' && _pedIndice !== null) {
+    _cotRenderResultados(_pedBuscarLocal(q));
+    return;
+  }
+  resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin" style="color:#6c5ce7"></i> Preparando búsqueda…</div>';
+  resDiv.style.display = 'block';
+  _cotBusTimer = setTimeout(function() {
+    google.script.run.withSuccessHandler(function(r) {
+      _cotRenderResultados((r && r.ok && r.items) ? r.items : []);
+    }).buscarRepuestoConStockPortal(q);
+  }, immediate ? 0 : 250);
+}
+
+function _cotRenderResultados(items) {
+  var resDiv = document.getElementById('cot-results');
+  var noRes  = document.getElementById('cot-no-result');
+  if (!items || !items.length) {
+    resDiv.style.display = 'none';
+    var q = (document.getElementById('cot-q').value || '').trim();
+    noRes.style.display = q.length >= 2 ? 'flex' : 'none';
+    return;
+  }
+  noRes.style.display = 'none';
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it   = items[i];
+    var base = _cotBaseDesde40(it.precio || 0);
+    var skuE = _escHtml(it.sku), descE = _escHtml(it.descripcion), modE = _escHtml(it.modelos || '');
+    html +=
+      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '">' +
+        '<div>' +
+          '<div class="rep-code">' + skuE + '</div>' +
+          '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+          (base > 0 ? '<div style="font-size:11px;font-weight:700;color:#6c5ce7;white-space:nowrap">PVP ' + _fmtPedUsd(base) + '</div>' : '') +
+          '<span class="rep-add-btn"><i class="fa fa-plus"></i></span>' +
+        '</div>' +
+      '</div>';
+  }
+  resDiv.innerHTML = html;
+  resDiv.style.display = 'block';
+  resDiv.onclick = function(e) {
+    var row = e.target.closest('[data-cot-sku]');
+    if (!row) return;
+    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '');
+  };
+}
+
+function _cotAgregarItem(sku, desc, precioLista, modelos) {
+  var qtyInp = document.getElementById('cot-qty');
+  var qty = parseInt(qtyInp.value) || 1; if (qty < 1) qty = 1;
+  for (var i = 0; i < _cotCart.length; i++) {
+    if (sku && _cotCart[i].sku === sku) { _cotCart[i].cantidad += qty; _cotAfterChange(); return; }
+  }
+  _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25 });
+  _cotAfterChange();
+  document.getElementById('cot-q').value = '';
+  qtyInp.value = 1;
+  document.getElementById('cot-results').style.display = 'none';
+}
+
+function _cotAgregarDesconocido() {
+  var q = (document.getElementById('cot-q').value || '').trim();
+  if (!q) return;
+  var qty = parseInt(document.getElementById('cot-qty').value) || 1; if (qty < 1) qty = 1;
+  _cotCart.push({ sku: '', descripcion: q, modelos: '', cantidad: qty, precioLista: 0, descuento: 25 });
+  _cotAfterChange();
+  document.getElementById('cot-q').value = '';
+  document.getElementById('cot-no-result').style.display = 'none';
+}
+
+function _cotAfterChange() {
+  document.getElementById('cot-success').style.display = 'none';
+  _cotRenderCart();
+}
+
+function _cotQuitar(idx) { _cotCart.splice(idx, 1); _cotRenderCart(); }
+function _cotVaciar() { if (_cotCart.length && !confirm('¿Vaciar el presupuesto?')) return; _cotCart = []; _cotRenderCart(); }
+
+function _cotSetQty(idx, val) {
+  var n = parseInt(val) || 1; if (n < 1) n = 1;
+  _cotCart[idx].cantidad = n; _cotRenderCart();
+}
+function _cotAddQty(idx, delta) {
+  _cotCart[idx].cantidad = Math.max(1, (_cotCart[idx].cantidad || 1) + delta); _cotRenderCart();
+}
+function _cotSetDesc(idx, val) {
+  var d = parseFloat(val); if (isNaN(d)) d = 0; if (d < 0) d = 0; if (d > 100) d = 100;
+  _cotCart[idx].descuento = d; _cotRenderCart();
+}
+
+function _cotRenderCart() {
+  var card = document.getElementById('cot-cart-card');
+  var ui   = document.getElementById('cot-cart-ui');
+  if (!_cotCart.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  var html = '', total = 0;
+  for (var i = 0; i < _cotCart.length; i++) {
+    var it = _cotCart[i];
+    var precioFinal = Math.round((it.precioLista || 0) * (1 - (it.descuento || 0) / 100) * 100) / 100;
+    var sub = Math.round(precioFinal * it.cantidad * 100) / 100;
+    total += sub;
+    html +=
+      '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px">' +
+          '<div style="min-width:0">' +
+            (it.sku ? '<div style="font-size:11px;font-weight:700;color:#6c5ce7">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
+            '<div style="font-size:12px;color:var(--tx)">' + _escHtml(it.descripcion || '—') + '</div>' +
+          '</div>' +
+          '<button onclick="_cotQuitar(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">' +
+          '<div style="display:flex;align-items:center;gap:4px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">Cant.</span>' +
+            '<button onclick="_cotAddQty(' + i + ',-1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">−</button>' +
+            '<input type="number" min="1" value="' + it.cantidad + '" onchange="_cotSetQty(' + i + ',this.value)" style="width:44px;text-align:center;border:1px solid var(--brd);border-radius:5px;padding:3px;font-size:12px">' +
+            '<button onclick="_cotAddQty(' + i + ',1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">+</button>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:4px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">Desc.%</span>' +
+            '<input type="number" min="0" max="100" value="' + it.descuento + '" onchange="_cotSetDesc(' + i + ',this.value)" style="width:52px;text-align:center;border:1px solid #6c5ce7;border-radius:5px;padding:3px;font-size:12px;color:#6c5ce7;font-weight:700">' +
+          '</div>' +
+          '<div style="margin-left:auto;text-align:right;line-height:1.3">' +
+            (it.precioLista > 0 ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through">PVP ' + _fmtPedUsd(it.precioLista) + '</div>' : '') +
+            '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + (precioFinal > 0 ? _fmtPedUsd(precioFinal) : '—') + ' <span style="font-size:10px;color:var(--tx-d)">× ' + it.cantidad + '</span></div>' +
+            '<div style="font-size:12px;font-weight:800;color:#6c5ce7">' + (sub > 0 ? _fmtPedUsd(sub) : '—') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  ui.innerHTML = html;
+  document.getElementById('cot-cart-count').textContent = _cotCart.length;
+  document.getElementById('cot-total').textContent = _fmtPedUsd(Math.round(total * 100) / 100);
+}
+
+function _cotGenerar() {
+  if (!_cotCart.length) { toast('El presupuesto está vacío', 'err'); return; }
+  var cliente = (document.getElementById('cot-cliente').value || '').trim();
+  if (!cliente) { toast('Ingresá el nombre del cliente', 'err'); document.getElementById('cot-cliente').focus(); return; }
+  var btn = document.getElementById('btn-generar-cot');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Generando…';
+  var params = {
+    reseller:      resellerActual,
+    cliente:       cliente,
+    clienteEmail:  (document.getElementById('cot-cliente-email').value || '').trim(),
+    observaciones: (document.getElementById('cot-obs').value || '').trim(),
+    items:         _cotCart.slice()
+  };
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-file-export"></i> Generar presupuesto';
+      if (r && r.ok) {
+        _cotCart = [];
+        _cotRenderCart();
+        document.getElementById('cot-obs').value = '';
+        document.getElementById('cot-success-num').textContent = r.numero || '';
+        var a = document.getElementById('cot-success-pdf');
+        if (r.pdfUrl) { a.href = r.pdfUrl; a.style.display = 'inline-flex'; } else { a.style.display = 'none'; }
+        document.getElementById('cot-success').style.display = 'block';
+        toast('Presupuesto ' + (r.numero || '') + ' generado', 'ok');
+        _cotCargarHistorial();
+      } else {
+        toast((r && r.error) || 'No se pudo generar', 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-file-export"></i> Generar presupuesto';
+      toast('Error: ' + (e && (e.message || e)), 'err');
+    })
+    .RS_confirmarCotizacion(params);
+}
+
+function _cotNuevo() {
+  document.getElementById('cot-success').style.display = 'none';
+  document.getElementById('cot-cliente').value = '';
+  document.getElementById('cot-cliente-email').value = '';
+  document.getElementById('cot-cliente').focus();
+}
+
+function _cotCargarHistorial() {
+  var cont = document.getElementById('cot-historial');
+  cont.innerHTML = '<div style="font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok || !r.historial || !r.historial.length) {
+        cont.innerHTML = '<div style="font-size:12px;color:var(--tx-d)">Todavía no generaste presupuestos.</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < r.historial.length; i++) {
+        var h = r.historial[i];
+        html +=
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">' +
+            '<div style="min-width:0">' +
+              '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _escHtml(h.id) + ' · ' + _escHtml(h.cliente || '—') + '</div>' +
+              '<div style="font-size:10px;color:var(--tx-d)">' + _escHtml(h.fecha) + ' · ' + h.cantItems + ' ítem(s) · ' + _fmtPedUsd(h.totalUsd) + '</div>' +
+            '</div>' +
+            (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="flex-shrink:0;font-size:11px;color:#6c5ce7;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
+          '</div>';
+      }
+      cont.innerHTML = html;
+    })
+    .withFailureHandler(function() {
+      cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Error al cargar.</div>';
+    })
+    .obtenerHistorialCotizaciones(resellerActual);
 }
 
 function _pedMostrarMain() {
