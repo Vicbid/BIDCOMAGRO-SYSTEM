@@ -265,6 +265,8 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## LAUNCHER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Launcher_Código.js | 1.2 | Baja/reactivación de resellers desde el modal PIN: helper _launchResellerInactivo (col Q, coincide con RS_Auth.js) + LAUNCH_getResellersConEstado (lista con activo) + LAUNCH_setResellerActivo(nombre, activo) escribe col Q (''=activo / 'NO'=baja) en todas las filas del nombre. Conserva PIN/email |
+| Launcher_Index.html | 1.3 | Modal PIN·Portal Reseller: sección "Estado de la cuenta" con badge Activo/De baja y botón toggle Dar de baja/Reactivar (pinEstadoRefrescar/pinToggleEstado); select carga con LAUNCH_getResellersConEstado (mapa _resellerEstados, marca ⛔ los de baja); confirma antes de togglear |
 | Launcher_Código.js | 1.1 | Default emailFact incluye lucia.c@bidcom.com.ar |
 | Launcher_Index.html | 1.2 | HUB PRO card: boton Guia de flujos; Tools WOS: trigger backorder; campo emailFact acepta multiples |
 

@@ -1,5 +1,18 @@
+// @version 1.2
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+
+// Estado de la cuenta del reseller: col Q de la hoja Resellers (índice 16, columna 1-based 17).
+// Vacío = activo. NO / BAJA / INACTIVO / FALSE / 0 / false = desactivado. Debe coincidir con RS_Auth.js _resellerInactivo.
+var RES_ACTIVO_COL = 17; // 1-based para getRange/setValue
+function _launchResellerInactivo(fila) {
+  var raw = fila[16];
+  if (raw === false) return true;
+  var v = String(raw === null || raw === undefined ? '' : raw).trim().toUpperCase();
+  if (!v) return false;
+  return (v === 'NO' || v === 'BAJA' || v === 'INACTIVO' || v === 'INACTIVA'
+          || v === 'FALSE' || v === '0' || v === 'DESACTIVADO' || v === 'DESACTIVADA');
+}
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Launcher_Index')
@@ -478,6 +491,48 @@ function LAUNCH_getResellersLista() {
     }
     return lista;
   } catch(e) { return []; }
+}
+
+// Lista de resellers con su estado de activación (para el modal de gestión).
+function LAUNCH_getResellersConEstado() {
+  try {
+    var hRes = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Resellers');
+    if (!hRes) return [];
+    var data  = hRes.getDataRange().getValues();
+    var lista = [];
+    for (var i = 1; i < data.length; i++) {
+      var nombre = String(data[i][0] || '').trim();
+      if (!nombre) continue;
+      lista.push({ nombre: nombre, activo: !_launchResellerInactivo(data[i]) });
+    }
+    return lista;
+  } catch(e) { Logger.log('LAUNCH_getResellersConEstado: ' + e); return []; }
+}
+
+// Da de baja (activo=false) o reactiva (activo=true) un reseller escribiendo col Q.
+// Reactivar = celda vacía; baja = "NO". Conserva email/PIN. Afecta TODAS las filas del mismo nombre.
+function LAUNCH_setResellerActivo(nombre, activo) {
+  try {
+    var nom = String(nombre || '').trim();
+    if (!nom) return { ok: false, error: 'Nombre requerido.' };
+    var hRes = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Resellers');
+    if (!hRes) return { ok: false, error: 'Hoja Resellers no encontrada.' };
+    var data   = hRes.getDataRange().getValues();
+    var nomLow = nom.toLowerCase();
+    var valor  = activo ? '' : 'NO';
+    var filas  = 0;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0] || '').trim().toLowerCase() !== nomLow) continue;
+      hRes.getRange(i + 1, RES_ACTIVO_COL).setValue(valor);
+      filas++;
+    }
+    if (!filas) return { ok: false, error: 'Reseller no encontrado.' };
+    SpreadsheetApp.flush();
+    return { ok: true, activo: !!activo, filas: filas };
+  } catch(e) {
+    Logger.log('LAUNCH_setResellerActivo: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 function _pinEmailHtml(empresa, pin, esReset) {
