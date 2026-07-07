@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.5 -->
+<!-- @version 1.7 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -426,9 +426,14 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div class="pin-sub">Ingresá Usuario y PIN de acceso</div>
         <div style="margin-bottom:14px;text-align:left">
           <label class="flbl">Empresa / Reseller</label>
-          <select id="ov-reseller" class="form-select">
-            <option value="">— Cargando... —</option>
-          </select>
+          <div id="ov-combo" style="position:relative">
+            <input id="ov-reseller-search" class="form-select" type="text" autocomplete="off"
+                   placeholder="Escribí para buscar tu empresa…"
+                   oninput="ovFiltrar()" onfocus="ovFiltrar()" onkeydown="ovKey(event)"
+                   onblur="setTimeout(ovCerrarLista,150)">
+            <input type="hidden" id="ov-reseller">
+            <div id="ov-reseller-list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--brd2,#d0d5dd);border-radius:var(--rm,8px);margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.14);text-align:left"></div>
+          </div>
         </div>
         <label class="flbl">PIN de acceso</label>
         <div class="pin-inputs">
@@ -448,9 +453,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:8px">
           <button onclick="abrirRegistro()" style="width:100%;background:transparent;border:1px solid var(--brd2);color:var(--tx-m);border-radius:var(--rm);padding:9px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .13s" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--brd2)';this.style.color='var(--tx-m)'">
             <i class="fa fa-user-plus" style="margin-right:6px"></i>¿Sos nuevo? Solicitá tu acceso
-          </button>
-          <button onclick="cancelarPin()" style="width:100%;background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;padding:4px 0">
-            Continuar sin ingresar →
           </button>
         </div>
       </div>
@@ -1898,7 +1900,8 @@ function switchDashTab(t) {
 //  INIT
 // ══════════════════════════════════════════
 window.onload = function() {
-  pinModal  = new bootstrap.Modal(document.getElementById('modal-pin'));
+  // Login obligatorio: el modal no se cierra por click afuera ni Esc (solo con login válido)
+  pinModal  = new bootstrap.Modal(document.getElementById('modal-pin'), { backdrop: 'static', keyboard: false });
   helpModal = new bootstrap.Modal(document.getElementById('modal-help'));
   loteModal = new bootstrap.Modal(document.getElementById('modal-lote'));
 
@@ -1909,11 +1912,15 @@ window.onload = function() {
     _actualizarPedDirStrip();
   });
 
-  // Red de seguridad: si el modal de login se cierra por cualquier vía, quitar el overlay
+  // Login obligatorio: el overlay solo se quita con usuario válido (reseller o RTV).
+  // Si el modal se cierra por cualquier otra vía sin sesión, se vuelve a abrir.
   document.getElementById('modal-pin').addEventListener('hidden.bs.modal', function() {
-    var ov = document.getElementById('login-overlay');
-    if (ov) { ov.remove(); }
-    if (!resellerActual && !_rtvEmail) showTab('nueva', 'tb-nueva');
+    if (resellerActual || _rtvEmail) {
+      var ov = document.getElementById('login-overlay');
+      if (ov) { ov.remove(); }
+    } else {
+      pinModal.show();
+    }
   });
 
   // Restaurar sesión PIN desde sessionStorage (persiste mientras la pestaña esté abierta)
@@ -1979,14 +1986,12 @@ window.onload = function() {
         opt.value = r; opt.textContent = r;
         sel.appendChild(opt);
       });
-      // Selector del modal de login
-      var ovSel = document.getElementById('ov-reseller');
-      if (ovSel) {
-        ovSel.innerHTML = '<option value="">— Seleccioná tu empresa —</option>';
-        lista.forEach(function(r) {
-          var o = document.createElement('option'); o.value = r; o.textContent = r; ovSel.appendChild(o);
-        });
-      }
+      // Combobox buscable del modal de login
+      _ovLista = lista.slice();
+      var ovHidden = document.getElementById('ov-reseller');
+      var ovSearch = document.getElementById('ov-reseller-search');
+      if (ovHidden) ovHidden.value = '';
+      if (ovSearch) ovSearch.value = '';
       restoreDraft();
       _bloquearSelectorReseller();
     })
@@ -2069,6 +2074,106 @@ function _cerrarAviso() {
   if (typeof done === 'function') done();
 }
 
+// ══════════════════════════════════════════
+//  COMBOBOX BUSCABLE DEL LOGIN (Empresa / Reseller)
+// ══════════════════════════════════════════
+var _ovLista     = [];  // todos los nombres (grupos ★ + resellers)
+var _ovFiltrados = [];  // subconjunto visible tras filtrar
+var _ovActivo    = -1;  // índice resaltado para teclado
+
+function ovNorm(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i')
+    .replace(/[óòöôõ]/g,'o').replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
+}
+
+function ovCerrarLista() {
+  var box = document.getElementById('ov-reseller-list');
+  if (box) box.style.display = 'none';
+  _ovActivo = -1;
+}
+
+function ovFiltrar() {
+  var raw = document.getElementById('ov-reseller-search').value.trim();
+  var q   = ovNorm(raw);
+  _ovFiltrados = [];
+  for (var i = 0; i < _ovLista.length; i++) {
+    if (!q || ovNorm(_ovLista[i]).indexOf(q) !== -1) _ovFiltrados.push(_ovLista[i]);
+  }
+  // Si lo tipeado coincide exactamente con un nombre, fijar el valor aunque no clickeen
+  var exacto = '';
+  for (var j = 0; j < _ovLista.length; j++) {
+    if (ovNorm(_ovLista[j]) === q && q) { exacto = _ovLista[j]; break; }
+  }
+  document.getElementById('ov-reseller').value = exacto;
+  _ovActivo = _ovFiltrados.length ? 0 : -1;
+  ovRender();
+}
+
+function ovRender() {
+  var box = document.getElementById('ov-reseller-list');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!_ovFiltrados.length) {
+    var vacio = document.createElement('div');
+    vacio.textContent = 'Sin resultados';
+    vacio.style.cssText = 'padding:10px 12px;color:var(--tx-d,#98a2b3);font-size:12px';
+    box.appendChild(vacio);
+    box.style.display = 'block';
+    return;
+  }
+  _ovFiltrados.forEach(function(nombre, idx) {
+    var it = document.createElement('div');
+    it.textContent = nombre;
+    it.style.cssText = 'padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--brd,#eef0f3);' +
+                       (idx === _ovActivo ? 'background:var(--blue-l,#eaf4ff)' : '');
+    it.onmouseenter = function(){ _ovActivo = idx; ovResaltar(); };
+    it.onmousedown  = function(e){ e.preventDefault(); ovSeleccionar(nombre); };
+    box.appendChild(it);
+  });
+  box.style.display = 'block';
+}
+
+function ovResaltar() {
+  var box = document.getElementById('ov-reseller-list');
+  if (!box) return;
+  var items = box.children;
+  for (var i = 0; i < items.length; i++) {
+    items[i].style.background = (i === _ovActivo) ? 'var(--blue-l,#eaf4ff)' : '';
+  }
+  if (_ovActivo >= 0 && items[_ovActivo]) items[_ovActivo].scrollIntoView({ block: 'nearest' });
+}
+
+function ovSeleccionar(nombre) {
+  document.getElementById('ov-reseller').value = nombre;
+  document.getElementById('ov-reseller-search').value = nombre;
+  ovCerrarLista();
+  var p1 = document.getElementById('pin1');
+  if (p1) p1.focus();
+}
+
+function ovKey(e) {
+  var box = document.getElementById('ov-reseller-list');
+  var abierta = box && box.style.display !== 'none';
+  if (e.key === 'ArrowDown') {
+    if (!abierta) { ovFiltrar(); return; }
+    e.preventDefault();
+    if (_ovActivo < _ovFiltrados.length - 1) _ovActivo++;
+    ovResaltar();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (_ovActivo > 0) _ovActivo--;
+    ovResaltar();
+  } else if (e.key === 'Enter') {
+    if (abierta && _ovActivo >= 0 && _ovFiltrados[_ovActivo]) {
+      e.preventDefault();
+      ovSeleccionar(_ovFiltrados[_ovActivo]);
+    }
+  } else if (e.key === 'Escape') {
+    ovCerrarLista();
+  }
+}
+
 function login() {
   var nombre = (document.getElementById('ov-reseller').value || '').trim();
   var pin    = '';
@@ -2142,10 +2247,6 @@ function login() {
       document.getElementById('pin-error').textContent = msg;
     })
     .validarAccesoInicial(nombre, pin);
-}
-
-function cancelarPin() {
-  pinModal.hide(); // el evento hidden.bs.modal quita el overlay y muestra Nueva Reparacion
 }
 
 function recordarClave() {
