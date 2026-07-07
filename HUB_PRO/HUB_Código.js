@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.9
+// @version 2.12
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -198,6 +198,7 @@ function getSheet(nombre) { return SS().getSheetByName(nombre); }
 
 var CONFIG = {
   EMAIL_SUPERVISOR:   "soporteagrasdji@bidcom.com.ar",
+  EMAIL_FACTURACION:  "Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar",  // Administración — solicitud de factura al finalizar OOW (igual que WOS)
   NOMBRE_REMITENTE:   "BIDCOMAGRO · Soporte Técnico DJI Agriculture",
   COL_EMAIL_RESELLER: 9,   // Columna J en hoja Resellers (A=0…J=9)
   PORTAL_URL:         "https://script.google.com/macros/s/TU_DEPLOYMENT_ID_PORTAL/exec",
@@ -1197,8 +1198,8 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
       }
     }
 
-    // 1. RESELLER
-    if (estaEnLista(estadoNuevo, CONFIG.ESTADOS_NOTIFICAR_RESELLER)) {
+    // 1. RESELLER — solo cuando CAMBIA de estado (no en cada guardado ni al re-guardar el mismo estado)
+    if (estadoNuevo !== estadoAnterior && estaEnLista(estadoNuevo, CONFIG.ESTADOS_NOTIFICAR_RESELLER)) {
       var emailR = obtenerEmailReseller(data.reseller);
       if (emailR) {
         var asuntoR = armarAsunto(data);
@@ -1242,7 +1243,76 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
         registrarEmailLog(data.ot, CONFIG.EMAIL_SUPERVISOR, "Supervisor", asuntoS, "ERROR: " + e.message, "");
       }
     }
+
+    // 4. FACTURACIÓN (Administración) — solo al FINALIZAR una OT fuera de garantía (con presupuesto).
+    //    Se dispara únicamente en la transición a "Finalizado" (estadoAnterior distinto) para no duplicar la solicitud.
+    if (estadoNuevo === "Finalizado" && estadoAnterior !== "Finalizado"
+        && String(data.garantia || "").toUpperCase() === "OOW") {
+      var asuntoF = "[FACTURAR] OT " + data.ot + " — " + data.reseller + " · " + data.equipo;
+      try {
+        var tidF = _enviarConHilo(data.ot, CONFIG.EMAIL_FACTURACION, asuntoF, armarEmailFacturacion(data, tecnico));
+        registrarEmailLog(data.ot, CONFIG.EMAIL_FACTURACION, "Facturación", asuntoF, "OK", tidF || "");
+      } catch(e) {
+        registrarEmailLog(data.ot, CONFIG.EMAIL_FACTURACION, "Facturación", asuntoF, "ERROR: " + e.message, "");
+      }
+    }
   } catch(e) { Logger.log("enviarNotificaciones: " + e); }
+}
+
+// Email a Administración solicitando la facturación de una OT finalizada fuera de garantía (OOW).
+// Reutiliza los datos del presupuesto: mano de obra (manoObraGuardada) + repuestos consumidos.
+function armarEmailFacturacion(data, tecnico) {
+  // Mano de obra: manoObraGuardada es un JSON [{codigo,descripcion,precio}]
+  var mo = [];
+  try { if (data.manoObraGuardada) mo = JSON.parse(data.manoObraGuardada); } catch(e) {}
+  var tablaMOHTML = "", totalMO = 0;
+  if (mo && mo.length) {
+    var filasMO = "";
+    for (var i = 0; i < mo.length; i++) {
+      var pMO = parseFloat(String(mo[i].precio).replace(/[^0-9.]/g, "")) || 0;
+      totalMO += pMO;
+      filasMO += "<tr>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + mo[i].codigo + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + mo[i].descripcion + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + mo[i].precio + "</td></tr>";
+    }
+    tablaMOHTML = "<div style='margin-top:20px'>" +
+      "<p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Mano de Obra</p>" +
+      "<table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+      "<thead><tr style='background:#f5f5f5'>" +
+      "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Código</th>" +
+      "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Descripción</th>" +
+      "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>Precio</th>" +
+      "</tr></thead><tbody>" + filasMO +
+      (totalMO > 0 ? "<tr style='background:#f5f5f5;font-weight:700'>" +
+        "<td colspan='2' style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>SUBTOTAL MANO DE OBRA</td>" +
+        "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>USD " + _fmtNum(totalMO) + "</td></tr>" : "") +
+      "</tbody></table></div>";
+  }
+
+  var cuerpoDetalle =
+    filaDetalle("Orden de Trabajo", data.ot) +
+    filaDetalle("Reseller", data.reseller) +
+    filaDetalle("Equipo / Modelo", data.equipo) +
+    filaDetalle("Nº de Serie", data.sn || "—") +
+    (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", data.cas) : "") +
+    filaDetalle("Garantía", "Fuera de garantía (OOW)") +
+    (tecnico && tecnico !== "Gestión Reseller" ? filaDetalle("Técnico", tecnico) : "");
+
+  var bloques =
+    bloqueCard("🧾 Solicitud de facturación",
+      "Esta orden fue <strong>finalizada fuera de garantía</strong>. Solicitamos generar la factura correspondiente al reseller.", "#e67e22") +
+    "<div style='background:rgba(0,0,0,.02);border:1px solid #eef2f6;border-radius:8px;padding:6px 16px;margin-bottom:12px'>" + cuerpoDetalle + "</div>" +
+    tablaMOHTML +
+    construirTablaRepuestos(data.repuestos) +
+    "<p style='font-size:11px;color:#888;margin-top:14px'>Los importes finales son los del presupuesto enviado al reseller para esta orden.</p>";
+
+  return construirEmailHTML(
+    "Solicitud de facturación — OT " + data.ot,
+    "Área de Administración,<br>Solicitamos la facturación de la siguiente orden finalizada fuera de garantía:",
+    bloques,
+    "Cualquier duda, respondé este correo."
+  );
 }
 
 function estaEnLista(v, lista) {
@@ -1336,7 +1406,7 @@ function armarEmailReseller(data, ant, nvo, tec) {
     urgBanner +
     "<p style='font-size:14px;color:#444;line-height:1.7;margin:0 0 22px'>" + (msgs[nvo]||"Su orden fue actualizada.") + "</p>" +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:4px'>" + ficha + "</div>" +
-    construirTablaRepuestos(data.repuestos) + informe,
+    construirTablaRepuestos(data.repuestos, nvo === "Finalizado") + informe,
     "Ante consultas comuníquese con su representante en BIDCOMAGRO."
   );
 }
@@ -1400,7 +1470,8 @@ function filaDetalle(label, valor) {
     "<span style='font-size:12px;color:#333;text-align:right'>" + valor + "</span></div>";
 }
 
-function construirTablaRepuestos(rep) {
+// cerrada=true (OT finalizada): los repuestos se muestran como entregados, sin marcar pendientes.
+function construirTablaRepuestos(rep, cerrada) {
   if (!rep || rep === "Sin consumo de repuestos") return "";
   var ls = rep.split(" ; "), filas = "", hayBack = false;
   for (var i = 0; i < ls.length; i++) {
@@ -1410,6 +1481,7 @@ function construirTablaRepuestos(rep) {
     var des  = (p[1]||"").replace("("+cod+")","").replace(/\(\s*\)/g,"").trim();
     var ped  = parseInt(p[2].split(" E:")[0].replace("P:",""))||0;
     var env  = parseInt(p[2].split(" E:")[1])||0;
+    if (cerrada) env = ped; // OT cerrada: no hay pendientes, todo entregado
     var back = ped - env;
     if (back > 0) hayBack = true;
     var est = back > 0
