@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.10 -->
+<!-- @version 1.11 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1675,7 +1675,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
       <!-- Mano de obra -->
       <div class="dji-card">
-        <div class="dji-card-head"><i class="fa fa-screwdriver-wrench"></i> Mano de obra <span style="font-size:11px;font-weight:400;color:var(--tx-d)">(opcional · precio recomendado editable)</span></div>
+        <div class="dji-card-head"><i class="fa fa-screwdriver-wrench"></i> Mano de obra <span style="font-size:11px;font-weight:400;color:var(--tx-d)">(opcional · una sola · precio editable)</span></div>
         <div class="dji-card-body">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <select id="cot-mo-sel" class="form-select" style="flex:1;min-width:180px;font-size:13px">
@@ -4184,10 +4184,13 @@ function _cotAgregarMO() {
   if (isNaN(idx) || !_cotMOCatalogo[idx]) { toast('Elegí una tarea de mano de obra', 'err'); return; }
   var mo  = _cotMOCatalogo[idx];
   var qty = parseInt(document.getElementById('cot-mo-qty').value) || 1; if (qty < 1) qty = 1;
-  _cotMO.push({ codigo: mo.codigo || '', descripcion: mo.descripcion, precio: Number(mo.precio) || 0, cantidad: qty });
+  var reemplazo = _cotMO.length > 0;
+  // Una sola mano de obra por presupuesto: agregar reemplaza la anterior.
+  _cotMO = [{ codigo: mo.codigo || '', descripcion: mo.descripcion, precio: Number(mo.precio) || 0, cantidad: qty }];
   _cotAfterChange();
   sel.value = '';
   document.getElementById('cot-mo-qty').value = 1;
+  toast(reemplazo ? 'Mano de obra actualizada' : 'Mano de obra agregada', 'ok');
 }
 
 function _cotAgregarMOManual() {
@@ -4195,7 +4198,8 @@ function _cotAgregarMOManual() {
   if (!d || !d.trim()) return;
   var p = prompt('Precio recomendado (USD):', '0');
   var precio = parseFloat(String(p || '').replace(',', '.')) || 0;
-  _cotMO.push({ codigo: '', descripcion: d.trim(), precio: precio, cantidad: 1 });
+  // Una sola mano de obra por presupuesto: reemplaza la anterior.
+  _cotMO = [{ codigo: '', descripcion: d.trim(), precio: precio, cantidad: 1 }];
   _cotAfterChange();
 }
 
