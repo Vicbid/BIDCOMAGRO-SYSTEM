@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.7 -->
+<!-- @version 1.8 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5851,9 +5851,9 @@ function guardarPerfil() {
         msgEl.innerHTML        = '<i class="fa fa-check" style="margin-right:6px"></i>Datos actualizados correctamente.';
         document.getElementById('banner-sin-dir').style.display = 'none';
         _perfilCache = { ok: true, direccion: dir, cp: cp, localidad: localidad, provincia: provincia, telefono: tel, email: email };
-        var strip = document.getElementById('rep-dir-strip');
-        var btn   = document.getElementById('btn-enviar-rep');
-        if (strip) _renderRepDirStrip(strip, btn, _perfilCache);
+        var strip  = document.getElementById('rep-dir-strip');
+        var btnRep = document.getElementById('btn-enviar-rep');
+        if (strip) _renderRepDirStrip(strip, btnRep, _perfilCache);
       } else {
         msgEl.style.background = '#fff0f0';
         msgEl.style.color      = 'var(--red)';
