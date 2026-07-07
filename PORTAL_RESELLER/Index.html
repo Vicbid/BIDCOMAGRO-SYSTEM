@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.11 -->
+<!-- @version 1.12 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1615,7 +1615,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   <div class="tab-panel" id="tab-cot">
 
     <div class="help-bar">
-      <span class="help-bar-title"><i class="fa fa-file-invoice-dollar" style="color:#6c5ce7"></i> Cotizador de Presupuestos</span>
+      <span class="help-bar-title"><i class="fa fa-file-invoice-dollar" style="color:#3a9e3a"></i> Cotizador de Presupuestos</span>
     </div>
 
     <!-- Guard: sin autenticar -->
@@ -1633,8 +1633,8 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <!-- Contenido principal (autenticado) -->
     <div id="cot-main" style="display:none">
 
-      <div style="font-size:11px;color:var(--tx-m);margin-bottom:14px;padding:8px 12px;background:rgba(108,92,231,.06);border:1px solid rgba(108,92,231,.2);border-radius:var(--r);line-height:1.7">
-        <i class="fa fa-circle-info" style="color:#6c5ce7"></i> Armá un presupuesto para tu <strong>cliente final</strong>. Cada ítem arranca con <strong>25% de descuento</strong> sobre el PVP de lista, editable por ítem. Al generar se crea un PDF y se envía por email.
+      <div style="font-size:11px;color:var(--tx-m);margin-bottom:14px;padding:8px 12px;background:rgba(58,158,58,.06);border:1px solid rgba(58,158,58,.2);border-radius:var(--r);line-height:1.7">
+        <i class="fa fa-circle-info" style="color:#3a9e3a"></i> Armá un presupuesto para tu <strong>cliente final</strong>. Cada ítem arranca con <strong>25% de descuento</strong> sobre el PVP de lista, editable por ítem. Al generar se crea un PDF y se envía por email.
       </div>
 
       <!-- Datos del cliente -->
@@ -1682,7 +1682,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               <option value="">— Cargando… —</option>
             </select>
             <input type="number" id="cot-mo-qty" class="form-control" value="1" min="1" style="width:70px;text-align:center" title="Cantidad">
-            <button class="btn-main" style="width:auto;padding:8px 16px;background:#6c5ce7" onclick="_cotAgregarMO()"><i class="fa fa-plus"></i> Agregar</button>
+            <button class="btn-main" style="width:auto;padding:8px 16px;background:#3a9e3a" onclick="_cotAgregarMO()"><i class="fa fa-plus"></i> Agregar</button>
           </div>
           <div style="margin-top:8px"><button onclick="_cotAgregarMOManual()" style="background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline">+ Agregar mano de obra manual</button></div>
         </div>
@@ -1691,7 +1691,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <!-- Carrito -->
       <div class="dji-card" id="cot-cart-card" style="display:none">
         <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-          <span><i class="fa fa-file-invoice-dollar" style="color:#6c5ce7"></i> Presupuesto — <span id="cot-cart-count">0</span> ítem(s)</span>
+          <span><i class="fa fa-file-invoice-dollar" style="color:#3a9e3a"></i> Presupuesto — <span id="cot-cart-count">0</span> ítem(s)</span>
           <button class="btn-help" style="background:rgba(214,48,49,.08);border-color:rgba(214,48,49,.2);color:var(--red)" onclick="_cotVaciar()">
             <i class="fa fa-trash"></i> Vaciar
           </button>
@@ -1703,12 +1703,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div style="padding:14px 17px;border-top:1px solid var(--brd)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:13px;color:var(--tx-m);font-weight:600">Total (sin impuestos)</span>
-            <span id="cot-total" style="font-size:18px;font-weight:800;color:#6c5ce7">$0,00 USD</span>
+            <span id="cot-total" style="font-size:18px;font-weight:800;color:#3a9e3a">$0,00 USD</span>
           </div>
           <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
           <textarea id="cot-obs" class="form-control" placeholder="Notas para el presupuesto..." style="min-height:52px;resize:vertical"></textarea>
           <div style="display:flex;justify-content:flex-end;margin-top:12px">
-            <button class="btn-main" id="btn-generar-cot" style="width:auto;padding:10px 26px;background:#6c5ce7" onclick="_cotGenerar()">
+            <button class="btn-main" id="btn-generar-cot" style="width:auto;padding:10px 26px;background:#3a9e3a" onclick="_cotGenerar()">
               <i class="fa fa-file-export"></i> Generar presupuesto
             </button>
           </div>
@@ -1720,7 +1720,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <i class="fa fa-circle-check" style="font-size:38px;color:#1a9e4a;display:block;margin-bottom:12px"></i>
         <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px">Presupuesto generado</div>
         <div id="cot-success-num" style="font-family:monospace;font-size:12px;color:var(--tx-d);margin-bottom:16px"></div>
-        <a id="cot-success-pdf" href="#" target="_blank" class="btn-main" style="width:auto;margin:0 auto 10px;padding:9px 22px;display:inline-flex;text-decoration:none;background:#6c5ce7"><i class="fa fa-file-pdf"></i> Ver PDF</a>
+        <a id="cot-success-pdf" href="#" target="_blank" class="btn-main" style="width:auto;margin:0 auto 10px;padding:9px 22px;display:inline-flex;text-decoration:none;background:#3a9e3a"><i class="fa fa-file-pdf"></i> Ver PDF</a>
         <div><button onclick="_cotNuevo()" style="background:transparent;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Hacer otro presupuesto</button></div>
       </div>
 
@@ -4223,7 +4223,7 @@ function _cotBuscar(immediate) {
     _cotRenderResultados(_pedBuscarLocal(q));
     return;
   }
-  resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin" style="color:#6c5ce7"></i> Preparando búsqueda…</div>';
+  resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin" style="color:#3a9e3a"></i> Preparando búsqueda…</div>';
   resDiv.style.display = 'block';
   _cotBusTimer = setTimeout(function() {
     google.script.run.withSuccessHandler(function(r) {
@@ -4254,7 +4254,7 @@ function _cotRenderResultados(items) {
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
-          (base > 0 ? '<div style="font-size:11px;font-weight:700;color:#6c5ce7;white-space:nowrap">PVP ' + _fmtPedUsd(base) + '</div>' : '') +
+          (base > 0 ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a;white-space:nowrap">PVP ' + _fmtPedUsd(base) + '</div>' : '') +
           '<span class="rep-add-btn"><i class="fa fa-plus"></i></span>' +
         '</div>' +
       '</div>';
@@ -4327,7 +4327,7 @@ function _cotRenderCart() {
       '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
         '<div style="display:flex;justify-content:space-between;gap:10px">' +
           '<div style="min-width:0">' +
-            (it.sku ? '<div style="font-size:11px;font-weight:700;color:#6c5ce7">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
+            (it.sku ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
             '<div style="font-size:12px;color:var(--tx)">' + _escHtml(it.descripcion || '—') + '</div>' +
           '</div>' +
           '<button onclick="_cotQuitar(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
@@ -4341,12 +4341,12 @@ function _cotRenderCart() {
           '</div>' +
           '<div style="display:flex;align-items:center;gap:4px">' +
             '<span style="font-size:10px;color:var(--tx-d)">Desc.%</span>' +
-            '<input type="number" min="0" max="100" value="' + it.descuento + '" onchange="_cotSetDesc(' + i + ',this.value)" style="width:52px;text-align:center;border:1px solid #6c5ce7;border-radius:5px;padding:3px;font-size:12px;color:#6c5ce7;font-weight:700">' +
+            '<input type="number" min="0" max="100" value="' + it.descuento + '" onchange="_cotSetDesc(' + i + ',this.value)" style="width:52px;text-align:center;border:1px solid #3a9e3a;border-radius:5px;padding:3px;font-size:12px;color:#3a9e3a;font-weight:700">' +
           '</div>' +
           '<div style="margin-left:auto;text-align:right;line-height:1.3">' +
             (it.precioLista > 0 ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through">PVP ' + _fmtPedUsd(it.precioLista) + '</div>' : '') +
             '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + (precioFinal > 0 ? _fmtPedUsd(precioFinal) : '—') + ' <span style="font-size:10px;color:var(--tx-d)">× ' + it.cantidad + '</span></div>' +
-            '<div style="font-size:12px;font-weight:800;color:#6c5ce7">' + (sub > 0 ? _fmtPedUsd(sub) : '—') + '</div>' +
+            '<div style="font-size:12px;font-weight:800;color:#3a9e3a">' + (sub > 0 ? _fmtPedUsd(sub) : '—') + '</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -4356,7 +4356,7 @@ function _cotRenderCart() {
   // Mano de obra
   var moHtml = '';
   if (_cotMO.length) {
-    moHtml += '<div style="padding:8px 16px;background:rgba(108,92,231,.06);font-size:10px;font-weight:700;color:#6c5ce7;text-transform:uppercase;letter-spacing:.06em"><i class="fa fa-screwdriver-wrench"></i> Mano de obra</div>';
+    moHtml += '<div style="padding:8px 16px;background:rgba(58,158,58,.06);font-size:10px;font-weight:700;color:#3a9e3a;text-transform:uppercase;letter-spacing:.06em"><i class="fa fa-screwdriver-wrench"></i> Mano de obra</div>';
     for (var j = 0; j < _cotMO.length; j++) {
       var mo   = _cotMO[j];
       var msub = Math.round((mo.precio || 0) * mo.cantidad * 100) / 100;
@@ -4376,9 +4376,9 @@ function _cotRenderCart() {
             '</div>' +
             '<div style="display:flex;align-items:center;gap:4px">' +
               '<span style="font-size:10px;color:var(--tx-d)">Precio USD</span>' +
-              '<input type="number" min="0" step="0.01" value="' + mo.precio + '" onchange="_cotMOSetPrecio(' + j + ',this.value)" style="width:78px;text-align:right;border:1px solid #6c5ce7;border-radius:5px;padding:3px 6px;font-size:12px;color:#6c5ce7;font-weight:700">' +
+              '<input type="number" min="0" step="0.01" value="' + mo.precio + '" onchange="_cotMOSetPrecio(' + j + ',this.value)" style="width:78px;text-align:right;border:1px solid #3a9e3a;border-radius:5px;padding:3px 6px;font-size:12px;color:#3a9e3a;font-weight:700">' +
             '</div>' +
-            '<div style="margin-left:auto;text-align:right"><div style="font-size:12px;font-weight:800;color:#6c5ce7">' + (msub > 0 ? _fmtPedUsd(msub) : '—') + '</div></div>' +
+            '<div style="margin-left:auto;text-align:right"><div style="font-size:12px;font-weight:800;color:#3a9e3a">' + (msub > 0 ? _fmtPedUsd(msub) : '—') + '</div></div>' +
           '</div>' +
         '</div>';
     }
@@ -4456,7 +4456,7 @@ function _cotCargarHistorial() {
               '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _escHtml(h.id) + ' · ' + _escHtml(h.cliente || '—') + '</div>' +
               '<div style="font-size:10px;color:var(--tx-d)">' + _escHtml(h.fecha) + ' · ' + h.cantItems + ' ítem(s) · ' + _fmtPedUsd(h.totalUsd) + '</div>' +
             '</div>' +
-            (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="flex-shrink:0;font-size:11px;color:#6c5ce7;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
+            (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="flex-shrink:0;font-size:11px;color:#3a9e3a;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
           '</div>';
       }
       cont.innerHTML = html;

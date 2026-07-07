@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.4
+// @version 1.5
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -18,7 +18,7 @@ function _asegurarHojaCotizaciones() {
     hoja = ss.insertSheet(SCHEMA.SHEETS.COTIZACIONES);
     hoja.appendRow(['ID','Fecha','Reseller','Email Reseller','Cliente','Email Cliente','Cant. Ítems','Items JSON','Total USD','PDF URL','Observaciones']);
     hoja.setFrozenRows(1);
-    hoja.getRange(1, 1, 1, 11).setBackground('#6c5ce7').setFontColor('#fff').setFontWeight('bold');
+    hoja.getRange(1, 1, 1, 11).setBackground('#3a9e3a').setFontColor('#fff').setFontWeight('bold');
     hoja.setColumnWidth(1, 100);
     hoja.setColumnWidth(3, 160);
     hoja.setColumnWidth(5, 160);
@@ -235,7 +235,7 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
       .setTextStyle(6, 10, stA)   // "Agro"   → verde
       .build();
     logoRange.setRichTextValue(logoRt);
-    sheet.getRange(ri + 2, 1, 1, 4).merge().setValue('Servicio Técnico Oficial · Repuestos DJI')
+    sheet.getRange(ri + 2, 1, 1, 4).merge().setValue('Servicio Técnico Oficial · Repuestos originales DJI · Mano de obra calificada')
       .setFontSize(9).setFontColor('#7a828a').setHorizontalAlignment('left').setVerticalAlignment('top');
     // Bloque del documento (derecha) — texto sobre blanco, sin relleno
     sheet.getRange(ri, 5, 1, 3).merge().setValue('PRESUPUESTO')
@@ -410,7 +410,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
       var it = items[i];
       filas +=
         '<tr style="background:' + (i % 2 === 0 ? '#ffffff' : '#f7f8fa') + '">' +
-          '<td style="padding:7px 10px;font-size:11px;color:#6c5ce7;font-weight:700;border-bottom:1px solid #eef2f6">' + (it.sku || '—') + '</td>' +
+          '<td style="padding:7px 10px;font-size:11px;color:#3a9e3a;font-weight:700;border-bottom:1px solid #eef2f6">' + (it.sku || '—') + '</td>' +
           '<td style="padding:7px 10px;font-size:12px;color:#333;border-bottom:1px solid #eef2f6">' + (it.descripcion || '—') + '</td>' +
           '<td style="padding:7px 10px;font-size:12px;text-align:center;border-bottom:1px solid #eef2f6">' + it.cantidad + '</td>' +
           '<td style="padding:7px 10px;font-size:12px;text-align:center;border-bottom:1px solid #eef2f6">' + (it.descuento || 0) + '%</td>' +
@@ -420,7 +420,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
     }
 
     var pdfBloque = pdfUrl
-      ? '<div style="margin-top:16px;text-align:center"><a href="' + pdfUrl + '" target="_blank" style="display:inline-block;padding:11px 26px;background:#6c5ce7;color:#fff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:700">📄 Descargar presupuesto (PDF)</a></div>'
+      ? '<div style="margin-top:16px;text-align:center"><a href="' + pdfUrl + '" target="_blank" style="display:inline-block;padding:11px 26px;background:#3a9e3a;color:#fff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:700">📄 Descargar presupuesto (PDF)</a></div>'
       : '';
 
     var repTabla = '';
@@ -428,7 +428,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
       repTabla =
         '<p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">Repuestos</p>' +
         '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif;margin-bottom:16px">' +
-          '<thead><tr style="background:#6c5ce7">' +
+          '<thead><tr style="background:#3a9e3a">' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">SKU</th>' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
@@ -452,7 +452,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
     var moTabla = moFilas
       ? '<p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">Mano de obra</p>' +
         '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif;margin-bottom:16px">' +
-          '<thead><tr style="background:#6c5ce7">' +
+          '<thead><tr style="background:#3a9e3a">' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Precio</th>' +
@@ -461,7 +461,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
       : '';
 
     var cuerpo =
-      '<p style="font-size:14px;color:#444;margin:0 0 6px">Presupuesto <strong style="color:#6c5ce7">' + numero + '</strong></p>' +
+      '<p style="font-size:14px;color:#444;margin:0 0 6px">Presupuesto <strong style="color:#3a9e3a">' + numero + '</strong></p>' +
       '<p style="font-size:13px;color:#555;margin:0 0 18px">Cliente: <strong>' + (cliente || '—') + '</strong></p>' +
       repTabla + moTabla +
       (total > 0 ? '<p style="text-align:right;font-size:15px;font-weight:700;color:#1a1f2e;margin:12px 0 2px">Total: ' + _fmtUsd(total) + '</p>' +
