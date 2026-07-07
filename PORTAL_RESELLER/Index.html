@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.14 -->
+<!-- @version 1.15 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -342,6 +342,28 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .btn-help:hover{background:rgba(0,163,224,.18);border-color:rgba(0,163,224,.4)}
 .help-glosario dt{font-size:12px;font-weight:700;color:var(--tx);margin-top:10px}
 .help-glosario dd{font-size:12px;color:var(--tx-m);margin-left:12px;margin-bottom:2px}
+/* ── GUÍA CARGAR GARANTÍA ─────────────────── */
+.guia-flows{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.guia-flow-card{flex:1;min-width:170px;text-align:left;padding:11px 13px;background:var(--surf);border:1.5px solid var(--brd);border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;gap:10px;align-items:center}
+.guia-flow-card:hover{border-color:var(--green);background:rgba(26,158,74,.05)}
+.guia-flow-card.active{border-color:var(--green);background:rgba(26,158,74,.08);box-shadow:0 0 0 2px rgba(26,158,74,.12)}
+.guia-flow-card i{font-size:17px;color:var(--green);flex-shrink:0}
+.guia-flow-card .gf-name{font-size:12px;font-weight:700;color:var(--tx);line-height:1.25}
+.guia-flow-card .gf-desc{font-size:10.5px;color:var(--tx-m);margin-top:1px;line-height:1.25}
+.guia-step{display:flex;gap:12px;padding:0 0 4px 0;position:relative}
+.guia-step:not(:last-child){padding-bottom:14px}
+.guia-step:not(:last-child)::before{content:'';position:absolute;left:13px;top:30px;bottom:-2px;width:2px;background:var(--brd)}
+.guia-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1}
+.guia-step.done .guia-num{background:var(--green)}
+.guia-body{flex:1;min-width:0;padding-top:2px}
+.guia-body .gs-title{font-size:13px;font-weight:700;color:var(--tx);line-height:1.35}
+.guia-body .gs-title .gs-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.guia-body .gs-text{font-size:12px;color:var(--tx-m);line-height:1.55;margin-top:3px}
+.guia-drive{margin-top:9px;border:1px solid var(--brd);border-radius:var(--rm);overflow:hidden}
+.guia-drive-head{display:flex;align-items:center;gap:7px;background:rgba(212,137,10,.08);padding:7px 11px;font-size:11px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--brd)}
+.guia-drive ul{list-style:none;margin:0;padding:6px 11px}
+.guia-drive li{font-size:12px;color:var(--tx);padding:4px 0;display:flex;align-items:center;gap:8px}
+.guia-drive li i{width:16px;text-align:center;color:var(--green)}
 /* ── BOTÓN FLOTANTE PDF ─────────────────── */
 .btn-float-pdf{position:fixed;bottom:24px;left:24px;z-index:500;display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fff;border:1px solid var(--brd2);border-radius:40px;box-shadow:0 4px 20px rgba(0,0,0,.12);font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;transition:all .15s;text-decoration:none}
 .btn-float-pdf:hover{border-color:var(--blue);color:var(--blue);box-shadow:0 6px 24px rgba(0,163,224,.2)}
@@ -771,6 +793,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <button class="btn-out blue" onclick="abrirModalLote()" style="font-size:11px;font-weight:600;padding:5px 12px">
           📥 Carga Masiva de Reparaciones (Excel)
         </button>
+        <button class="btn-help" onclick="abrirGuiaGarantia()" style="background:rgba(26,158,74,.1);border-color:rgba(26,158,74,.28);color:var(--green)"><i class="fa fa-route"></i> ¿Cómo cargo una garantía?</button>
         <button class="btn-help" onclick="abrirAyuda('nueva')"><i class="fa fa-question-circle"></i> Cómo funciona</button>
       </div>
     </div>
@@ -3833,6 +3856,100 @@ function abrirAyuda(seccion) {
   if (!cfg) return;
   document.getElementById('help-modal-title').textContent = cfg.titulo;
   document.getElementById('help-modal-body').innerHTML    = cfg.body;
+  helpModal.show();
+}
+
+// ══════════════════════════════════════════
+//  GUÍA — CÓMO CARGAR UNA GARANTÍA (flujos)
+// ══════════════════════════════════════════
+// Estructura extensible: agregá nuevos flujos como claves de este objeto.
+var _guiaGarantiaFlujos = {
+  taller: {
+    nombre: 'Reparé en mi taller',
+    desc: 'Con repuestos de mi stock',
+    icon: 'fa-box-open',
+    intro: 'Usá este flujo cuando reparaste el equipo en tu propio taller con repuestos de tu stock. La reparación ya está terminada.',
+    pasos: [
+      { t: 'Reparás el equipo', tag: null,
+        x: 'Reparás el equipo en tu taller usando los repuestos de tu propio stock. Este flujo es para cuando la reparación <strong>ya está terminada</strong>.' },
+      { t: 'Armá la carpeta en Google Drive', tag: null,
+        x: 'Creá una carpeta en Google Drive y subí toda la documentación de la reparación:',
+        drive: [
+          { i: 'fa-file-invoice', t: 'Factura de Venta (Cliente)' },
+          { i: 'fa-camera', t: 'Fotos de recepción del equipo' },
+          { i: 'fa-wrench', t: 'Piezas dañadas (incluyendo N° de Serie)' },
+          { i: 'fa-gear', t: 'Piezas nuevas (incluyendo N° de Serie)' },
+          { i: 'fa-video', t: 'Video del equipo reparado y funcionando' },
+          { i: 'fa-list-check', t: 'Lista de repuestos cambiados' }
+        ] },
+      { t: 'Ingresá al portal', tag: null,
+        x: 'Entrá al Portal Aftersales con tu <strong>usuario y clave</strong>.' },
+      { t: 'Nueva Reparación → "Reparación en mi taller"', tag: 'Tipo de gestión', tagc: 'green',
+        x: 'En la pestaña <strong>Nueva Reparación</strong>, elegí el tipo de gestión <strong>"Reparación en mi taller"</strong>.' },
+      { t: 'Completá los datos del equipo', tag: null,
+        x: 'Seleccioná el <strong>Reseller</strong> y la <strong>garantía</strong> (IW / OOW), cargá el <strong>Modelo</strong> y el <strong>N° de Serie</strong>, y describí la falla.' },
+      { t: 'Estado de la reparación → "Ya reparé"', tag: 'Estado', tagc: 'green',
+        x: 'En "Estado de la reparación" elegí <strong>"Ya reparé"</strong>. Esto indica que la reparación está completa y los repuestos se registran como reposición de tu stock.' },
+      { t: 'Agregá la lista de repuestos cambiados', tag: null,
+        x: 'Buscá cada <strong>SKU</strong> que usaste en la reparación y agregalo, o cargá el Excel. Debe coincidir con la lista de repuestos cambiados de tu carpeta de Drive.' },
+      { t: 'Pegá el link de la carpeta de Drive', tag: null,
+        x: 'En la sección <strong>Carpeta Drive</strong>, pegá el link de la carpeta que armaste en el paso 2.' },
+      { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
+        x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Recibís el N° de OT y el caso queda enviado al Hub.' }
+    ]
+  }
+};
+
+function abrirGuiaGarantia(flujo) {
+  var claves = Object.keys(_guiaGarantiaFlujos);
+  if (!claves.length) return;
+  var actual = (flujo && _guiaGarantiaFlujos[flujo]) ? flujo : claves[0];
+  var cfg = _guiaGarantiaFlujos[actual];
+
+  // Selector de flujos (si hay más de uno)
+  var html = '';
+  if (claves.length > 1) {
+    html += '<div class="guia-flows">';
+    for (var c = 0; c < claves.length; c++) {
+      var k = claves[c], f = _guiaGarantiaFlujos[k];
+      html += '<div class="guia-flow-card' + (k === actual ? ' active' : '') + '" onclick="abrirGuiaGarantia(\'' + k + '\')">' +
+        '<i class="fa ' + f.icon + '"></i>' +
+        '<div><div class="gf-name">' + f.nombre + '</div><div class="gf-desc">' + f.desc + '</div></div>' +
+      '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (cfg.intro) {
+    html += '<p style="font-size:12.5px;color:var(--tx-m);line-height:1.6;margin-bottom:16px">' +
+      '<i class="fa ' + cfg.icon + ' me-1" style="color:var(--green)"></i>' + cfg.intro + '</p>';
+  }
+
+  // Pasos
+  for (var p = 0; p < cfg.pasos.length; p++) {
+    var paso = cfg.pasos[p];
+    var tag = '';
+    if (paso.tag) {
+      var tc = paso.tagc === 'green' ? 'background:rgba(26,158,74,.14);color:var(--green)' : 'background:var(--blue-a);color:var(--blue)';
+      tag = '<span class="gs-tag" style="' + tc + '">' + paso.tag + '</span>';
+    }
+    var drive = '';
+    if (paso.drive) {
+      drive = '<div class="guia-drive"><div class="guia-drive-head"><i class="fa fa-folder-open" style="color:var(--yellow)"></i> Contenido de la carpeta</div><ul>';
+      for (var d = 0; d < paso.drive.length; d++) {
+        drive += '<li><i class="fa ' + paso.drive[d].i + '"></i>' + paso.drive[d].t + '</li>';
+      }
+      drive += '</ul></div>';
+    }
+    html += '<div class="guia-step">' +
+      '<div class="guia-num">' + (p + 1) + '</div>' +
+      '<div class="guia-body"><div class="gs-title">' + paso.t + tag + '</div>' +
+      '<div class="gs-text">' + paso.x + '</div>' + drive + '</div>' +
+    '</div>';
+  }
+
+  document.getElementById('help-modal-title').textContent = 'Cómo cargar una garantía';
+  document.getElementById('help-modal-body').innerHTML    = html;
   helpModal.show();
 }
 
