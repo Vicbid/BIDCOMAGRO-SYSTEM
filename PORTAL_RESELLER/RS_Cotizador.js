@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.5
+// @version 1.7
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -50,8 +50,8 @@ function _cotNormalizarItems(items, priceMap) {
     var it   = items[i] || {};
     var sku  = String(it.sku || '').trim();
     var skuU = sku.toUpperCase();
-    var cant = Number(it.cantidad) || 1;
-    if (cant < 1) cant = 1;
+    var cant = Math.floor(Number(it.cantidad));
+    if (isNaN(cant) || cant < 1) cant = 1;   // cantidad entera >= 1
 
     // Precio de lista (PVP): del catálogo (priceMap está al 40%, se revierte a base) o el enviado.
     var precioLista;
@@ -60,11 +60,12 @@ function _cotNormalizarItems(items, priceMap) {
     } else {
       precioLista = Number(it.precioLista) || 0;
     }
+    if (isNaN(precioLista) || precioLista < 0) precioLista = 0;   // precio no negativo
 
     var desc = Number(it.descuento);
     if (isNaN(desc)) desc = _COT_DESC_DEFECTO;
-    if (desc < 0)   desc = 0;
-    if (desc > 100) desc = 100;
+    if (desc < 0)  desc = 0;
+    if (desc > 99) desc = 99;   // tope de descuento por pieza: 99%
 
     var precioFinal = Math.round(precioLista * (1 - desc / 100) * 100) / 100;
     var subtotal    = Math.round(precioFinal * cant * 100) / 100;
@@ -120,11 +121,9 @@ function _cotNormalizarMO(moItems) {
     var desc = String(it.descripcion || '').trim();
     var cod  = String(it.codigo || '').trim();
     if (!desc && !cod) continue;
-    var cant = Number(it.cantidad) || 1; if (cant < 1) cant = 1;
-    var precio = _cotNum(it.precio);
-    var subtotal = Math.round(precio * cant * 100) / 100;
-    total += subtotal;
-    out.push({ codigo: cod, descripcion: desc || cod, cantidad: cant, precio: precio, subtotal: subtotal });
+    var precio = Math.round(_cotNum(it.precio) * 100) / 100; // mano de obra sin cantidad
+    total += precio;
+    out.push({ codigo: cod, descripcion: desc || cod, cantidad: 1, precio: precio, subtotal: precio });
   }
   return { items: out, total: Math.round(total * 100) / 100 };
 }
@@ -319,19 +318,15 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     if (manoObra && manoObra.length) {
       sheet.setRowHeight(ri, 8); sheet.getRange(ri, 1, 1, 7).merge().setBackground('#ffffff'); ri++;
       var moInicio = ri;
-      sheet.getRange(ri, 1, 1, 4).merge().setValue('MANO DE OBRA')
+      sheet.getRange(ri, 1, 1, 6).merge().setValue('MANO DE OBRA')
         .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setVerticalAlignment('middle');
-      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('center');
-      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('right');
-      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('right');
+      sheet.getRange(ri, 7).setValue('Importe USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#2d3436').setHorizontalAlignment('right');
       sheet.setRowHeight(ri, 22); ri++;
       for (var mi = 0; mi < manoObra.length; mi++) {
         var mo  = manoObra[mi];
         var mBg = (mi % 2 === 0) ? '#ffffff' : '#f6f7f8';
-        sheet.getRange(ri, 1, 1, 4).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle').setWrap(true);
-        sheet.getRange(ri, 5).setValue(mo.cantidad).setFontSize(9).setBackground(mBg).setHorizontalAlignment('center');
-        sheet.getRange(ri, 6).setValue(mo.precio > 0 ? _fmtUsd(mo.precio) : '—').setFontSize(9).setBackground(mBg).setHorizontalAlignment('right');
-        sheet.getRange(ri, 7).setValue(mo.subtotal > 0 ? _fmtUsd(mo.subtotal) : '—').setFontSize(9).setFontWeight('bold').setBackground(mBg).setHorizontalAlignment('right');
+        sheet.getRange(ri, 1, 1, 6).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle').setWrap(true);
+        sheet.getRange(ri, 7).setValue(mo.precio > 0 ? _fmtUsd(mo.precio) : '—').setFontSize(9).setFontWeight('bold').setBackground(mBg).setHorizontalAlignment('right');
         sheet.setRowHeight(ri, 20); ri++;
       }
       sheet.getRange(moInicio, 1, ri - moInicio, 7)
@@ -444,9 +439,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
       moFilas +=
         '<tr style="background:' + (m % 2 === 0 ? '#ffffff' : '#f7f8fa') + '">' +
           '<td style="padding:7px 10px;font-size:12px;color:#333;border-bottom:1px solid #eef2f6">' + (mo.descripcion || '—') + '</td>' +
-          '<td style="padding:7px 10px;font-size:12px;text-align:center;border-bottom:1px solid #eef2f6">' + mo.cantidad + '</td>' +
-          '<td style="padding:7px 10px;font-size:12px;text-align:right;border-bottom:1px solid #eef2f6">' + (mo.precio > 0 ? _fmtUsd(mo.precio) : '—') + '</td>' +
-          '<td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border-bottom:1px solid #eef2f6">' + (mo.subtotal > 0 ? _fmtUsd(mo.subtotal) : '—') + '</td>' +
+          '<td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border-bottom:1px solid #eef2f6">' + (mo.precio > 0 ? _fmtUsd(mo.precio) : '—') + '</td>' +
         '</tr>';
     }
     var moTabla = moFilas
@@ -454,9 +447,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
         '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif;margin-bottom:16px">' +
           '<thead><tr style="background:#3a9e3a">' +
             '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
-            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
-            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Precio</th>' +
-            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Subtotal</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Importe</th>' +
           '</tr></thead><tbody>' + moFilas + '</tbody></table>'
       : '';
 

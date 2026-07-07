@@ -136,6 +136,9 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| RS_Cotizador.js | 1.7 | Descuento máximo por pieza 99% (evita 100% = gratis). Enforcement en _cotNormalizarItems (desc>99→99). Hardening antimanipulación: cantidad forzada a entero >=1 (Math.floor + isNaN), precioLista no negativo (isNaN/<0→0) |
+| Index.html | 1.14 | Cotizador: tope de descuento por pieza 99% — input max=99 y _cotSetDesc clampa a 99 (antes 100) |
+| RS_Cotizador.js | 1.6 | Mano de obra sin cantidad: _cotNormalizarMO fija cantidad=1 (importe=precio). PDF: tabla MANO DE OBRA sin columna Cant./Subtotal → Descripción (cols 1-6) + Importe (col 7). Email: tabla MO a 2 columnas (Descripción + Importe) |
 | RS_Cotizador.js | 1.5 | Cotizador full verde: email y header de la hoja COTIZACIONES pasan de violeta #6c5ce7 a verde #3a9e3a (tablas, botón PDF, SKU, número). Subtítulo del membrete PDF: "Servicio Técnico Oficial · Repuestos originales DJI · Mano de obra calificada" |
 | Index.html | 1.12 | Cotizador full verde: todo el violeta del frontend (#6c5ce7 → #3a9e3a; rgba 108,92,231 → 58,158,58) — icono de la pestaña, info box, botones, total, inputs de descuento/precio, header de mano de obra en el carrito, links de historial. Ya no queda violeta en el cotizador |
 | RS_Cotizador.js | 1.4 | PDF más corporativo/formal: cabecera tipo membrete (logo + subtítulo "Servicio Técnico Oficial · Repuestos DJI", bloque documento a la derecha SIN relleno, regla inferior verde SOLID_THICK); headers de tabla y MANO DE OBRA pasan a grafito #2d3436 (antes verde); filas alternadas a gris neutro #f6f7f8 (antes verde claro); SKU en grafito; borde de tabla neutro #dfe3e6. El verde queda como acento fino: logo + regla del membrete + monto TOTAL. Charcoal dominante |
