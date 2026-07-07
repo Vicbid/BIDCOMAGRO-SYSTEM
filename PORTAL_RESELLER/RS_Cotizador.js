@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -84,6 +84,51 @@ function _cotNormalizarItems(items, priceMap) {
   return { items: out, total: Math.round(total * 100) / 100 };
 }
 
+// Parseo tolerante de precio (acepta "USD 50", "1.234,56", "50", "50.00").
+function _cotNum(s) {
+  var t = String(s == null ? '' : s).replace(/[^0-9.,]/g, '');
+  if (t.indexOf(',') !== -1 && t.indexOf('.') !== -1) t = t.replace(/\./g, '').replace(',', '.');
+  else if (t.indexOf(',') !== -1) t = t.replace(',', '.');
+  var n = parseFloat(t);
+  return isNaN(n) ? 0 : n;
+}
+
+// Catálogo de mano de obra recomendada (misma hoja que usa HUB PRO: Precios_mano_obra).
+function obtenerManoObraCotizador() {
+  try {
+    var out = [];
+    var d = getSheetValues(SCHEMA.SHEETS.PRECIOS_MANO_OBRA);
+    for (var i = 1; i < d.length; i++) {
+      var cod = String(d[i][0] || '').trim();
+      var dsc = String(d[i][1] || '').trim();
+      if (!cod && !dsc) continue;
+      if (cod && dsc) out.push({ codigo: cod, descripcion: dsc, precio: _cotNum(d[i][2]) });
+    }
+    return { ok: true, items: out };
+  } catch(e) {
+    Logger.log('obtenerManoObraCotizador: ' + e);
+    return { ok: false, items: [] };
+  }
+}
+
+// Normaliza líneas de mano de obra: precio editable (recomendado por defecto), cantidad >= 1.
+function _cotNormalizarMO(moItems) {
+  var out = [], total = 0;
+  moItems = moItems || [];
+  for (var i = 0; i < moItems.length; i++) {
+    var it   = moItems[i] || {};
+    var desc = String(it.descripcion || '').trim();
+    var cod  = String(it.codigo || '').trim();
+    if (!desc && !cod) continue;
+    var cant = Number(it.cantidad) || 1; if (cant < 1) cant = 1;
+    var precio = _cotNum(it.precio);
+    var subtotal = Math.round(precio * cant * 100) / 100;
+    total += subtotal;
+    out.push({ codigo: cod, descripcion: desc || cod, cantidad: cant, precio: precio, subtotal: subtotal });
+  }
+  return { items: out, total: Math.round(total * 100) / 100 };
+}
+
 // ── Confirmar cotización — genera PDF, guarda historial, manda email ──
 // params: { reseller, cliente, clienteEmail, observaciones,
 //           items: [{ sku, descripcion, cantidad, precioLista, descuento, modelos }] }
@@ -99,17 +144,21 @@ function RS_confirmarCotizacion(params) {
     var obs          = String(params.observaciones|| '').trim();
     var itemsIn      = params.items || [];
 
-    if (!reseller)        return { ok: false, error: 'Falta el reseller.' };
-    if (!itemsIn.length)  return { ok: false, error: 'El carrito está vacío.' };
-    if (!cliente)         return { ok: false, error: 'Ingresá el nombre del cliente.' };
+    var moIn = params.manoObra || [];
+    if (!reseller)                        return { ok: false, error: 'Falta el reseller.' };
+    if (!itemsIn.length && !moIn.length)  return { ok: false, error: 'El presupuesto está vacío.' };
+    if (!cliente)                         return { ok: false, error: 'Ingresá el nombre del cliente.' };
 
     _asegurarHojaCotizaciones();
 
-    // Precios de catálogo (enforcement) + normalización
+    // Precios de catálogo (enforcement) + normalización de repuestos
     var priceMap = _buildPriceMap();
     var norm  = _cotNormalizarItems(itemsIn, priceMap);
     var items = norm.items;
-    var total = norm.total;
+    // Mano de obra
+    var moNorm    = _cotNormalizarMO(moIn);
+    var manoObra  = moNorm.items;
+    var total     = Math.round((norm.total + moNorm.total) * 100) / 100;
 
     // Email del reseller + metadatos comerciales
     var emailReseller = '';
@@ -128,7 +177,7 @@ function RS_confirmarCotizacion(params) {
     var numero = _siguienteNumeroCotizacion();
 
     // PDF
-    var pdfUrl = _generarPdfCotizacion(numero, resellerMeta, cliente, items, total, obs);
+    var pdfUrl = _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, total, obs);
 
     // Guardar en COTIZACIONES
     var hoja = getSheet(SCHEMA.SHEETS.COTIZACIONES);
@@ -140,8 +189,8 @@ function RS_confirmarCotizacion(params) {
         emailReseller,
         cliente,
         clienteEmail,
-        items.length,
-        JSON.stringify(items),
+        items.length + manoObra.length,
+        JSON.stringify({ repuestos: items, manoObra: manoObra }),
         total > 0 ? total : '',
         pdfUrl || '',
         obs
@@ -150,7 +199,7 @@ function RS_confirmarCotizacion(params) {
     }
 
     // Email (al reseller + cliente si cargó email)
-    _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, clienteEmail, items, total, pdfUrl, obs);
+    _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, clienteEmail, items, manoObra, total, pdfUrl, obs);
 
     return { ok: true, numero: numero, pdfUrl: pdfUrl || '', total: total };
 
@@ -163,7 +212,7 @@ function RS_confirmarCotizacion(params) {
 }
 
 // ── PDF de la cotización (hoja temporal → DriveApp.getAs) ─────────
-function _generarPdfCotizacion(numero, resellerMeta, cliente, items, total, obs) {
+function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, total, obs) {
   var tempSs = null;
   try {
     var meta     = resellerMeta || { nombre: '', direccion: '', telefono: '' };
@@ -250,6 +299,26 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, total, obs)
       sheet.setRowHeight(ri, 20); ri++;
     }
 
+    // 3b. Mano de obra
+    if (manoObra && manoObra.length) {
+      sheet.setRowHeight(ri, 8); sheet.getRange(ri, 1, 1, 7).merge().setBackground('#ffffff'); ri++;
+      sheet.getRange(ri, 1, 1, 4).merge().setValue('MANO DE OBRA')
+        .setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setVerticalAlignment('middle');
+      sheet.getRange(ri, 5).setValue('Cant.').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('center');
+      sheet.getRange(ri, 6).setValue('Precio USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('right');
+      sheet.getRange(ri, 7).setValue('Subtotal USD').setFontSize(9).setFontWeight('bold').setFontColor('#ffffff').setBackground('#6c5ce7').setHorizontalAlignment('right');
+      sheet.setRowHeight(ri, 22); ri++;
+      for (var mi = 0; mi < manoObra.length; mi++) {
+        var mo  = manoObra[mi];
+        var mBg = (mi % 2 === 0) ? '#ffffff' : '#f5f7fa';
+        sheet.getRange(ri, 1, 1, 4).merge().setValue(mo.descripcion || '—').setFontSize(9).setBackground(mBg).setVerticalAlignment('middle');
+        sheet.getRange(ri, 5).setValue(mo.cantidad).setFontSize(9).setBackground(mBg).setHorizontalAlignment('center');
+        sheet.getRange(ri, 6).setValue(mo.precio > 0 ? _fmtUsd(mo.precio) : '—').setFontSize(9).setBackground(mBg).setHorizontalAlignment('right');
+        sheet.getRange(ri, 7).setValue(mo.subtotal > 0 ? _fmtUsd(mo.subtotal) : '—').setFontSize(9).setFontWeight('bold').setBackground(mBg).setHorizontalAlignment('right');
+        sheet.setRowHeight(ri, 20); ri++;
+      }
+    }
+
     // 4. Total
     if (total > 0) {
       sheet.getRange(ri, 1, 1, 6).merge().setValue('TOTAL (no incluye impuestos)')
@@ -297,7 +366,7 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, total, obs)
 }
 
 // ── Email de la cotización ────────────────────────────────────
-function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, clienteEmail, items, total, pdfUrl, obs) {
+function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, clienteEmail, items, manoObra, total, pdfUrl, obs) {
   try {
     var destinatarios = [];
     if (emailReseller && emailReseller.indexOf('@') !== -1) destinatarios.push(emailReseller);
@@ -322,18 +391,47 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
       ? '<div style="margin-top:16px;text-align:center"><a href="' + pdfUrl + '" target="_blank" style="display:inline-block;padding:11px 26px;background:#6c5ce7;color:#fff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:700">📄 Descargar presupuesto (PDF)</a></div>'
       : '';
 
+    var repTabla = '';
+    if (items.length) {
+      repTabla =
+        '<p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">Repuestos</p>' +
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif;margin-bottom:16px">' +
+          '<thead><tr style="background:#6c5ce7">' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">SKU</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Desc.</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Precio</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Subtotal</th>' +
+          '</tr></thead><tbody>' + filas + '</tbody></table>';
+    }
+
+    var moFilas = '';
+    for (var m = 0; m < (manoObra || []).length; m++) {
+      var mo = manoObra[m];
+      moFilas +=
+        '<tr style="background:' + (m % 2 === 0 ? '#ffffff' : '#f7f8fa') + '">' +
+          '<td style="padding:7px 10px;font-size:12px;color:#333;border-bottom:1px solid #eef2f6">' + (mo.descripcion || '—') + '</td>' +
+          '<td style="padding:7px 10px;font-size:12px;text-align:center;border-bottom:1px solid #eef2f6">' + mo.cantidad + '</td>' +
+          '<td style="padding:7px 10px;font-size:12px;text-align:right;border-bottom:1px solid #eef2f6">' + (mo.precio > 0 ? _fmtUsd(mo.precio) : '—') + '</td>' +
+          '<td style="padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border-bottom:1px solid #eef2f6">' + (mo.subtotal > 0 ? _fmtUsd(mo.subtotal) : '—') + '</td>' +
+        '</tr>';
+    }
+    var moTabla = moFilas
+      ? '<p style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px">Mano de obra</p>' +
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif;margin-bottom:16px">' +
+          '<thead><tr style="background:#6c5ce7">' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Precio</th>' +
+            '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Subtotal</th>' +
+          '</tr></thead><tbody>' + moFilas + '</tbody></table>'
+      : '';
+
     var cuerpo =
       '<p style="font-size:14px;color:#444;margin:0 0 6px">Presupuesto <strong style="color:#6c5ce7">' + numero + '</strong></p>' +
       '<p style="font-size:13px;color:#555;margin:0 0 18px">Cliente: <strong>' + (cliente || '—') + '</strong></p>' +
-      '<table style="width:100%;border-collapse:collapse;border:1px solid #e8e8e8;font-family:Arial,sans-serif">' +
-        '<thead><tr style="background:#6c5ce7">' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">SKU</th>' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:left">Descripción</th>' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Cant.</th>' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:center">Desc.</th>' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Precio</th>' +
-          '<th style="padding:7px 10px;font-size:10px;color:#fff;text-align:right">Subtotal</th>' +
-        '</tr></thead><tbody>' + filas + '</tbody></table>' +
+      repTabla + moTabla +
       (total > 0 ? '<p style="text-align:right;font-size:15px;font-weight:700;color:#1a1f2e;margin:12px 0 2px">Total: ' + _fmtUsd(total) + '</p>' +
                    '<p style="text-align:right;font-size:10px;color:#999;margin:0">No incluye impuestos</p>' : '') +
       (obs ? '<p style="font-size:12px;color:#666;margin-top:14px"><strong>Observaciones:</strong> ' + obs + '</p>' : '') +

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.9 -->
+<!-- @version 1.10 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1673,6 +1673,21 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
       </div>
 
+      <!-- Mano de obra -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-screwdriver-wrench"></i> Mano de obra <span style="font-size:11px;font-weight:400;color:var(--tx-d)">(opcional · precio recomendado editable)</span></div>
+        <div class="dji-card-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="cot-mo-sel" class="form-select" style="flex:1;min-width:180px;font-size:13px">
+              <option value="">— Cargando… —</option>
+            </select>
+            <input type="number" id="cot-mo-qty" class="form-control" value="1" min="1" style="width:70px;text-align:center" title="Cantidad">
+            <button class="btn-main" style="width:auto;padding:8px 16px;background:#6c5ce7" onclick="_cotAgregarMO()"><i class="fa fa-plus"></i> Agregar</button>
+          </div>
+          <div style="margin-top:8px"><button onclick="_cotAgregarMOManual()" style="background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline">+ Agregar mano de obra manual</button></div>
+        </div>
+      </div>
+
       <!-- Carrito -->
       <div class="dji-card" id="cot-cart-card" style="display:none">
         <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
@@ -1683,6 +1698,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
         <div class="dji-card-body" style="padding:0">
           <div id="cot-cart-ui"></div>
+          <div id="cot-mo-ui"></div>
         </div>
         <div style="padding:14px 17px;border-top:1px solid var(--brd)">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -4119,8 +4135,10 @@ function pedirPinPedidos() {
 //  Reutiliza el índice de repuestos (_pedIndice/_pedBuscarLocal).
 //  Precio base = PVP de lista = precio40 / 0.60. Descuento por ítem (25% inicial).
 // ══════════════════════════════════════════
-var _cotCart     = [];
-var _cotBusTimer = null;
+var _cotCart      = [];
+var _cotMO        = [];   // líneas de mano de obra
+var _cotMOCatalogo = [];  // catálogo de mano de obra recomendada
+var _cotBusTimer  = null;
 
 function pedirPinCotizador() {
   if (resellerActual) {
@@ -4136,8 +4154,55 @@ function _cotMostrarMain() {
   document.getElementById('cot-guard').style.display = 'none';
   document.getElementById('cot-main').style.display  = 'block';
   if (typeof _pedIndice === 'undefined' || _pedIndice === null) { try { _pedCargarIndice(); } catch(e) {} }
+  if (!_cotMOCatalogo.length) _cotCargarManoObra();
   _cotRenderCart();
 }
+
+function _cotCargarManoObra() {
+  var sel = document.getElementById('cot-mo-sel');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _cotMOCatalogo = (r && r.ok && r.items) ? r.items : [];
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— Elegí una tarea… —</option>';
+      for (var i = 0; i < _cotMOCatalogo.length; i++) {
+        var o = document.createElement('option');
+        o.value = i;
+        o.textContent = _cotMOCatalogo[i].descripcion + (_cotMOCatalogo[i].precio > 0 ? ' — USD ' + _cotMOCatalogo[i].precio : '');
+        sel.appendChild(o);
+      }
+    })
+    .withFailureHandler(function() {
+      if (sel) sel.innerHTML = '<option value="">— No disponible —</option>';
+    })
+    .obtenerManoObraCotizador();
+}
+
+function _cotAgregarMO() {
+  var sel = document.getElementById('cot-mo-sel');
+  var idx = parseInt(sel.value);
+  if (isNaN(idx) || !_cotMOCatalogo[idx]) { toast('Elegí una tarea de mano de obra', 'err'); return; }
+  var mo  = _cotMOCatalogo[idx];
+  var qty = parseInt(document.getElementById('cot-mo-qty').value) || 1; if (qty < 1) qty = 1;
+  _cotMO.push({ codigo: mo.codigo || '', descripcion: mo.descripcion, precio: Number(mo.precio) || 0, cantidad: qty });
+  _cotAfterChange();
+  sel.value = '';
+  document.getElementById('cot-mo-qty').value = 1;
+}
+
+function _cotAgregarMOManual() {
+  var d = prompt('Descripción de la mano de obra:');
+  if (!d || !d.trim()) return;
+  var p = prompt('Precio recomendado (USD):', '0');
+  var precio = parseFloat(String(p || '').replace(',', '.')) || 0;
+  _cotMO.push({ codigo: '', descripcion: d.trim(), precio: precio, cantidad: 1 });
+  _cotAfterChange();
+}
+
+function _cotMOQuitar(i)     { _cotMO.splice(i, 1); _cotRenderCart(); }
+function _cotMOSetQty(i, v)  { var n = parseInt(v) || 1; if (n < 1) n = 1; _cotMO[i].cantidad = n; _cotRenderCart(); }
+function _cotMOAddQty(i, d)  { _cotMO[i].cantidad = Math.max(1, (_cotMO[i].cantidad || 1) + d); _cotRenderCart(); }
+function _cotMOSetPrecio(i, v) { var p = parseFloat(String(v).replace(',', '.')); if (isNaN(p) || p < 0) p = 0; _cotMO[i].precio = p; _cotRenderCart(); }
 
 function _cotBaseDesde40(precio40) {
   return precio40 > 0 ? Math.round(precio40 / 0.60 * 100) / 100 : 0;
@@ -4228,7 +4293,7 @@ function _cotAfterChange() {
 }
 
 function _cotQuitar(idx) { _cotCart.splice(idx, 1); _cotRenderCart(); }
-function _cotVaciar() { if (_cotCart.length && !confirm('¿Vaciar el presupuesto?')) return; _cotCart = []; _cotRenderCart(); }
+function _cotVaciar() { if ((_cotCart.length || _cotMO.length) && !confirm('¿Vaciar el presupuesto?')) return; _cotCart = []; _cotMO = []; _cotRenderCart(); }
 
 function _cotSetQty(idx, val) {
   var n = parseInt(val) || 1; if (n < 1) n = 1;
@@ -4245,7 +4310,8 @@ function _cotSetDesc(idx, val) {
 function _cotRenderCart() {
   var card = document.getElementById('cot-cart-card');
   var ui   = document.getElementById('cot-cart-ui');
-  if (!_cotCart.length) { card.style.display = 'none'; return; }
+  var moUi = document.getElementById('cot-mo-ui');
+  if (!_cotCart.length && !_cotMO.length) { card.style.display = 'none'; return; }
   card.style.display = 'block';
   var html = '', total = 0;
   for (var i = 0; i < _cotCart.length; i++) {
@@ -4282,12 +4348,45 @@ function _cotRenderCart() {
       '</div>';
   }
   ui.innerHTML = html;
-  document.getElementById('cot-cart-count').textContent = _cotCart.length;
+
+  // Mano de obra
+  var moHtml = '';
+  if (_cotMO.length) {
+    moHtml += '<div style="padding:8px 16px;background:rgba(108,92,231,.06);font-size:10px;font-weight:700;color:#6c5ce7;text-transform:uppercase;letter-spacing:.06em"><i class="fa fa-screwdriver-wrench"></i> Mano de obra</div>';
+    for (var j = 0; j < _cotMO.length; j++) {
+      var mo   = _cotMO[j];
+      var msub = Math.round((mo.precio || 0) * mo.cantidad * 100) / 100;
+      total += msub;
+      moHtml +=
+        '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
+          '<div style="display:flex;justify-content:space-between;gap:10px">' +
+            '<div style="min-width:0"><div style="font-size:12px;color:var(--tx)">' + _escHtml(mo.descripcion || '—') + '</div></div>' +
+            '<button onclick="_cotMOQuitar(' + j + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">' +
+            '<div style="display:flex;align-items:center;gap:4px">' +
+              '<span style="font-size:10px;color:var(--tx-d)">Cant.</span>' +
+              '<button onclick="_cotMOAddQty(' + j + ',-1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">−</button>' +
+              '<input type="number" min="1" value="' + mo.cantidad + '" onchange="_cotMOSetQty(' + j + ',this.value)" style="width:44px;text-align:center;border:1px solid var(--brd);border-radius:5px;padding:3px;font-size:12px">' +
+              '<button onclick="_cotMOAddQty(' + j + ',1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">+</button>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:4px">' +
+              '<span style="font-size:10px;color:var(--tx-d)">Precio USD</span>' +
+              '<input type="number" min="0" step="0.01" value="' + mo.precio + '" onchange="_cotMOSetPrecio(' + j + ',this.value)" style="width:78px;text-align:right;border:1px solid #6c5ce7;border-radius:5px;padding:3px 6px;font-size:12px;color:#6c5ce7;font-weight:700">' +
+            '</div>' +
+            '<div style="margin-left:auto;text-align:right"><div style="font-size:12px;font-weight:800;color:#6c5ce7">' + (msub > 0 ? _fmtPedUsd(msub) : '—') + '</div></div>' +
+          '</div>' +
+        '</div>';
+    }
+  }
+  moUi.innerHTML = moHtml;
+
+  document.getElementById('cot-cart-count').textContent = _cotCart.length + _cotMO.length;
   document.getElementById('cot-total').textContent = _fmtPedUsd(Math.round(total * 100) / 100);
 }
 
 function _cotGenerar() {
-  if (!_cotCart.length) { toast('El presupuesto está vacío', 'err'); return; }
+  if (!_cotCart.length && !_cotMO.length) { toast('El presupuesto está vacío', 'err'); return; }
   var cliente = (document.getElementById('cot-cliente').value || '').trim();
   if (!cliente) { toast('Ingresá el nombre del cliente', 'err'); document.getElementById('cot-cliente').focus(); return; }
   var btn = document.getElementById('btn-generar-cot');
@@ -4298,7 +4397,8 @@ function _cotGenerar() {
     cliente:       cliente,
     clienteEmail:  (document.getElementById('cot-cliente-email').value || '').trim(),
     observaciones: (document.getElementById('cot-obs').value || '').trim(),
-    items:         _cotCart.slice()
+    items:         _cotCart.slice(),
+    manoObra:      _cotMO.slice()
   };
   google.script.run
     .withSuccessHandler(function(r) {
@@ -4306,6 +4406,7 @@ function _cotGenerar() {
       btn.innerHTML = '<i class="fa fa-file-export"></i> Generar presupuesto';
       if (r && r.ok) {
         _cotCart = [];
+        _cotMO   = [];
         _cotRenderCart();
         document.getElementById('cot-obs').value = '';
         document.getElementById('cot-success-num').textContent = r.numero || '';
