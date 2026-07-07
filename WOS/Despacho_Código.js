@@ -1,4 +1,4 @@
-// @version 3.4
+// @version 3.5
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -322,7 +322,9 @@ function WOS_cargarPedidos() {
     _procesarFilasPedidos(hojaRes.getDataRange().getValues(), stockMap, mapaP, orden);
     if (hojaOT) _procesarFilasPedidos(hojaOT.getDataRange().getValues(), stockMap, mapaP, orden);
 
-    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER, EST.CANCELADO];
+    // Cancelado NO entra en la prioridad: un pedido con ítems entregados + alguno cancelado
+    // es un pedido ENTREGADO (parcialmente cancelado), no un pedido cancelado.
+    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER];
 
     var result = [];
     for (var k = 0; k < orden.length; k++) {
@@ -331,8 +333,17 @@ function WOS_cargarPedidos() {
       var estSet = {};
       for (var m = 0; m < ped.items.length; m++) estSet[ped.items[m].estado] = true;
       ped.estado = ped.items.length ? ped.items[ped.items.length - 1].estado : '';
+      var _prioMatch = false;
       for (var ep = 0; ep < EST_PRIORIDAD.length; ep++) {
-        if (estSet[EST_PRIORIDAD[ep]]) { ped.estado = EST_PRIORIDAD[ep]; break; }
+        if (estSet[EST_PRIORIDAD[ep]]) { ped.estado = EST_PRIORIDAD[ep]; _prioMatch = true; break; }
+      }
+      // Sin ítems accionables pendientes → pedido cerrado: prioriza lo ENTREGADO sobre lo cancelado.
+      // Cancelado solo queda como estado del pedido si TODOS los ítems están cancelados.
+      if (!_prioMatch) {
+        if      (estSet[EST.ENTREGADO])      ped.estado = EST.ENTREGADO;      // Entregado_Cerrado
+        else if (estSet[EST.LISTO_RETIRO])   ped.estado = EST.LISTO_RETIRO;
+        else if (estSet[EST.ENTREGADO_CONF]) ped.estado = EST.ENTREGADO_CONF; // Entregado_Confirmado
+        else if (estSet[EST.CANCELADO])      ped.estado = EST.CANCELADO;
       }
       ped.esMixto   = Object.keys(estSet).length > 1;
       ped.estadoSet = estSet;
