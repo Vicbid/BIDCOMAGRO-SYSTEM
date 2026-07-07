@@ -136,6 +136,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| RS_Cotizador.js | 1.2 | PDF: la cabecera muestra el logo "BidcomAgro" con "Bidcom" en negro (#111) y "Agro" en verde (#3a9e3a) sobre fondo blanco, igual que las etiquetas de WOS (.logo-b/.logo-a). Usa RichTextValue de Sheets (newTextStyle + setTextStyle 0-6 / 6-10) en vez del texto plano "BIDCOMAGRO" en banda violeta |
 | RS_Cotizador.js | 1.1 | Mano de obra en el cotizador: obtenerManoObraCotizador (lee hoja Precios_mano_obra, la misma que HUB PRO; precio recomendado parseado con _cotNum), _cotNormalizarMO (precio editable + cantidad), RS_confirmarCotizacion suma manoObra al total y permite presupuesto solo-MO, PDF con sección MANO DE OBRA, email con tabla de mano de obra, historial guarda {repuestos, manoObra} |
 | RS_Cotizador.js | 1.0 | NUEVO. Cotizador de presupuestos para cliente final: RS_confirmarCotizacion (enforcement de precio de lista vía _buildPriceMap/0.60, descuento por ítem clampeado 0-100, calcula precioFinal/subtotal/total), _generarPdfCotizacion (PDF violeta con emisor+cliente+tabla+total), _enviarEmailCotizacion (al reseller y cliente si cargó email), obtenerHistorialCotizaciones, hoja COTIZACIONES autocreada. Descuento inicial 25% |
 | Index.html | 1.11 | Cotizador: la mano de obra es UNA SOLA por presupuesto — _cotAgregarMO/_cotAgregarMOManual reemplazan (_cotMO=[línea]) en vez de acumular; toast "actualizada/agregada"; texto de la card "(una sola)" |

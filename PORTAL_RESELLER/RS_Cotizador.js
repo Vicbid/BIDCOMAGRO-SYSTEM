@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -224,10 +224,17 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
 
     var ri = 1;
 
-    // 1. Cabecera
-    sheet.getRange(ri, 1, 3, 4).merge().setValue('BIDCOMAGRO')
-      .setFontSize(20).setFontWeight('bold').setFontColor('#ffffff')
-      .setBackground('#6c5ce7').setVerticalAlignment('middle').setHorizontalAlignment('left');
+    // 1. Cabecera — logo "BidcomAgro" (Bidcom negro + Agro verde, como las etiquetas de WOS)
+    var logoRange = sheet.getRange(ri, 1, 3, 4).merge();
+    logoRange.setBackground('#ffffff').setVerticalAlignment('middle').setHorizontalAlignment('left');
+    var stB = SpreadsheetApp.newTextStyle().setForegroundColor('#111111').setBold(true).setFontSize(26).build();
+    var stA = SpreadsheetApp.newTextStyle().setForegroundColor('#3a9e3a').setBold(true).setFontSize(26).build();
+    var logoRt = SpreadsheetApp.newRichTextValue()
+      .setText('BidcomAgro')
+      .setTextStyle(0, 6,  stB)   // "Bidcom" → negro
+      .setTextStyle(6, 10, stA)   // "Agro"   → verde
+      .build();
+    logoRange.setRichTextValue(logoRt);
     sheet.getRange(ri,     5, 1, 3).merge().setValue('PRESUPUESTO')
       .setFontSize(11).setFontWeight('bold').setFontColor('#ffffff')
       .setBackground('#5a4bd1').setHorizontalAlignment('right').setVerticalAlignment('bottom');
