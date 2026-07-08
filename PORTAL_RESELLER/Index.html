@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.18 -->
+<!-- @version 1.19 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1617,15 +1617,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
       </div>
 
-      <!-- Tiempo promedio de envío (recibido → despachado) -->
-      <div id="ped-tiempo-card" class="dji-card" style="margin-top:6px;display:none">
-        <div class="dji-card-head">
-          <i class="fa fa-truck-fast" style="color:var(--green)"></i> Tiempo promedio de envío
-          <span style="font-size:10px;font-weight:400;color:var(--tx-d);margin-left:6px">recibido → despachado · días hábiles</span>
-        </div>
-        <div class="dji-card-body" style="padding:14px 16px">
-          <div id="ped-tiempo-grid" style="display:flex;gap:10px;flex-wrap:wrap"></div>
-        </div>
+      <!-- Tiempo promedio de envío — línea sutil -->
+      <div id="ped-tiempo-card" style="display:none;align-items:center;gap:5px;margin:0 4px 6px;font-size:11px;color:var(--tx-d)">
+        <i class="fa fa-truck-fast" style="opacity:.55;font-size:10px"></i>
+        <span id="ped-tiempo-val"></span>
       </div>
 
       <!-- Historial -->
@@ -5718,36 +5713,22 @@ function _cargarTiempoEnvio() {
 
 function _renderTiempoEnvio(r) {
   var card = document.getElementById('ped-tiempo-card');
-  var grid = document.getElementById('ped-tiempo-grid');
-  if (!card || !grid) return;
+  var val  = document.getElementById('ped-tiempo-val');
+  if (!card || !val) return;
   if (!r || !r.ok) { card.style.display = 'none'; return; }
   var cs = r.conStock  || { muestras: 0, promedio: null };
   var bo = r.backorder || { muestras: 0, promedio: null };
   if (!cs.muestras && !bo.muestras) { card.style.display = 'none'; return; }
-  grid.innerHTML =
-    _tiempoBox('Con stock', cs, '#1a9e4a', 'rgba(26,158,74,.09)', 'fa-box-open') +
-    _tiempoBox('Backorder', bo, '#e67e22', 'rgba(230,126,34,.09)', 'fa-hourglass-half');
-  card.style.display = 'block';
+  var parts = [];
+  if (cs.muestras && cs.promedio !== null) parts.push('con stock <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>');
+  if (bo.muestras && bo.promedio !== null) parts.push('backorder <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(bo.promedio) + '</span>');
+  val.innerHTML = 'Envío promedio · ' + parts.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+  card.style.display = 'flex';
 }
 
-function _tiempoBox(titulo, o, color, bg, icon) {
-  var big, sub;
-  if (!o.muestras || o.promedio === null) {
-    big = '—';
-    sub = 'Sin pedidos enviados aún';
-  } else {
-    var p = o.promedio;
-    big = String(p).replace('.', ',');
-    var unidad = (p === 1) ? 'día hábil' : 'días hábiles';
-    var np = o.muestras === 1 ? '' : 's';
-    sub = unidad + ' · ' + o.muestras + ' pedido' + np;
-  }
-  return '<div style="flex:1;min-width:140px;background:' + bg + ';border:1px solid ' + color + '40;border-radius:10px;padding:12px 14px">' +
-    '<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:.05em">' +
-      '<i class="fa ' + icon + '"></i> ' + titulo + '</div>' +
-    '<div style="font-size:26px;font-weight:800;color:var(--tx);margin-top:5px;line-height:1">' + big + '</div>' +
-    '<div style="font-size:11px;color:var(--tx-m);margin-top:3px">' + sub + '</div>' +
-  '</div>';
+function _tiempoTxt(p) {
+  var u = (p === 1) ? 'día' : 'días';
+  return String(p).replace('.', ',') + ' ' + u + ' háb.';
 }
 
 var _HIST_BADGE = {
