@@ -551,6 +551,96 @@ function _wosMergeTracking(oldVal, newVal) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// RECUPERACIÓN de códigos de seguimiento pisados: los parsea de los mails de
+// despacho del hilo del pedido (cada despacho mandó "Código de seguimiento: ...").
+//   numero  : N° de pedido, ej "PR-0035".
+//   guardar : true → fusiona los códigos recuperados en las filas ya despachadas
+//             (col Q); false/omitido → solo devuelve el reporte (no toca la planilla).
+function WOS_recuperarTracking(numero, guardar) {
+  try {
+    numero = String(numero || '').trim();
+    if (!numero) return { ok: false, error: 'Falta el número de pedido' };
+    var ped = _wosLeerPedido(numero);
+    if (!ped.hoja) return { ok: false, error: 'Pedido no encontrado: ' + numero };
+
+    // Reunir los mensajes del hilo (por threadId guardado; respaldo: búsqueda por N°)
+    var mensajes = [];
+    try {
+      if (ped.threadId) {
+        var th = GmailApp.getThreadById(ped.threadId);
+        if (th) mensajes = th.getMessages();
+      }
+    } catch(eT) { Logger.log('WOS_recuperarTracking thread: ' + eT); }
+    if (!mensajes.length) {
+      try {
+        var hilos = GmailApp.search('subject:"' + numero + '"', 0, 10);
+        for (var h = 0; h < hilos.length; h++) {
+          var ms = hilos[h].getMessages();
+          for (var mm = 0; mm < ms.length; mm++) mensajes.push(ms[mm]);
+        }
+      } catch(eS) { Logger.log('WOS_recuperarTracking search: ' + eS); }
+    }
+
+    // Parsear "Código de seguimiento: ..." de cada mensaje (uno por despacho)
+    var re = /C[o\xf3]digo de seguimiento:\s*([^\n\r]+)/i;
+    var detalle = [], todos = [];
+    for (var i = 0; i < mensajes.length; i++) {
+      var body = '';
+      try { body = mensajes[i].getPlainBody() || ''; } catch(eB) { continue; }
+      var mtch = body.match(re);
+      if (!mtch) continue;
+      var partes = mtch[1].split(/\s*[|,]\s*/);
+      var limpios = [];
+      for (var c = 0; c < partes.length; c++) {
+        var t = String(partes[c] || '').trim();
+        if (!t) continue;
+        if (limpios.indexOf(t) === -1) limpios.push(t);
+        if (todos.indexOf(t)   === -1) todos.push(t);
+      }
+      if (!limpios.length) continue;
+      var fecha = '';
+      try { fecha = Utilities.formatDate(mensajes[i].getDate(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'); } catch(eD) {}
+      detalle.push({ fecha: fecha, codigos: limpios });
+    }
+
+    var res = { ok: true, numero: numero, codigos: todos, detalle: detalle, mensajesRevisados: mensajes.length };
+
+    // Escritura opcional: fusiona TODOS los códigos recuperados en las filas ya despachadas
+    if (guardar && todos.length) {
+      var escritas = 0;
+      var mergeStr = todos.join(' | ');
+      for (var r = 1; r < ped.datos.length; r++) {
+        if (String(ped.datos[r][COL.NUMERO] || '').trim() !== numero) continue;
+        var yaDesp = ped.datos[r][COL.FECHA_DESPACHO] || String(ped.datos[r][COL.TRACKING] || '').trim();
+        if (!yaDesp) continue; // solo filas efectivamente despachadas
+        var mergedRow = _wosMergeTracking(ped.datos[r][COL.TRACKING], mergeStr);
+        ped.hoja.getRange(r + 1, COL.TRACKING + 1).setValue(mergedRow);
+        escritas++;
+      }
+      res.filasActualizadas = escritas;
+    }
+
+    Logger.log('WOS_recuperarTracking ' + numero + ': ' + todos.length + ' código(s) → ' + JSON.stringify(todos));
+    return res;
+  } catch(e) {
+    Logger.log('WOS_recuperarTracking: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Wrapper para correr DESDE EL EDITOR (no acepta parámetros ahí):
+// editá NUMERO y GUARDAR, ejecutá, y mirá el resultado en el Log (Ver → Registros).
+//   1ª pasada con GUARDAR=false para revisar los códigos encontrados.
+//   2ª pasada con GUARDAR=true para escribirlos en la planilla.
+function WOS_recuperarTrackingTest() {
+  var NUMERO  = 'PR-0000';   // ← poné acá el N° del pedido
+  var GUARDAR = false;       // ← poné true cuando quieras escribirlos
+  var r = WOS_recuperarTracking(NUMERO, GUARDAR);
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Idempotencia: devuelve el resultado previo si el token ya se procesó, o null.
 function _wosIdempotResultado(token) {
   if (!token) return null;

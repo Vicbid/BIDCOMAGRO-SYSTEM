@@ -5718,7 +5718,7 @@ function _renderTiempoEnvio(r) {
   if (!r || !r.ok) { card.style.display = 'none'; return; }
   var cs = r.conStock || { muestras: 0, promedio: null };
   if (!cs.muestras || cs.promedio === null) { card.style.display = 'none'; return; }
-  val.innerHTML = 'Envío promedio <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>';
+  val.innerHTML = 'Tiempo de despacho promedio <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>';
   card.style.display = 'flex';
 }
 
