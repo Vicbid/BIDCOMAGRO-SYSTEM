@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.19 -->
+<!-- @version 1.20 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5716,13 +5716,9 @@ function _renderTiempoEnvio(r) {
   var val  = document.getElementById('ped-tiempo-val');
   if (!card || !val) return;
   if (!r || !r.ok) { card.style.display = 'none'; return; }
-  var cs = r.conStock  || { muestras: 0, promedio: null };
-  var bo = r.backorder || { muestras: 0, promedio: null };
-  if (!cs.muestras && !bo.muestras) { card.style.display = 'none'; return; }
-  var parts = [];
-  if (cs.muestras && cs.promedio !== null) parts.push('con stock <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>');
-  if (bo.muestras && bo.promedio !== null) parts.push('backorder <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(bo.promedio) + '</span>');
-  val.innerHTML = 'Envío promedio · ' + parts.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+  var cs = r.conStock || { muestras: 0, promedio: null };
+  if (!cs.muestras || cs.promedio === null) { card.style.display = 'none'; return; }
+  val.innerHTML = 'Envío promedio <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>';
   card.style.display = 'flex';
 }
 
