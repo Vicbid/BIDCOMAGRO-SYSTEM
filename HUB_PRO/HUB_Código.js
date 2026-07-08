@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.12
+// @version 2.13
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -1299,13 +1299,23 @@ function armarEmailFacturacion(data, tecnico) {
     filaDetalle("Garantía", "Fuera de garantía (OOW)") +
     (tecnico && tecnico !== "Gestión Reseller" ? filaDetalle("Técnico", tecnico) : "");
 
+  var repFact = construirTablaRepuestosFacturacion(data.repuestos);
+  var totalGeneral = Math.round((totalMO + repFact.total) * 100) / 100;
+  var totalFilaHTML = totalGeneral > 0
+    ? "<table style='width:100%;border-collapse:collapse;margin-top:14px'>" +
+      "<tr style='background:#111;color:#fff;font-weight:700;font-size:14px'>" +
+      "<td style='padding:10px 14px;text-align:right'>TOTAL A FACTURAR (USD, sin impuestos)</td>" +
+      "<td style='padding:10px 14px;text-align:right;white-space:nowrap'>USD " + _fmtNum(totalGeneral) + "</td></tr></table>"
+    : "";
+
   var bloques =
     bloqueCard("🧾 Solicitud de facturación",
       "Esta orden fue <strong>finalizada fuera de garantía</strong>. Solicitamos generar la factura correspondiente al reseller.", "#e67e22") +
     "<div style='background:rgba(0,0,0,.02);border:1px solid #eef2f6;border-radius:8px;padding:6px 16px;margin-bottom:12px'>" + cuerpoDetalle + "</div>" +
+    repFact.html +
     tablaMOHTML +
-    construirTablaRepuestos(data.repuestos) +
-    "<p style='font-size:11px;color:#888;margin-top:14px'>Los importes finales son los del presupuesto enviado al reseller para esta orden.</p>";
+    totalFilaHTML +
+    "<p style='font-size:11px;color:#888;margin-top:14px'>Repuestos con precio neto reseller (40% de descuento sobre PVP), sin impuestos. Los importes finales son los del presupuesto enviado al reseller para esta orden.</p>";
 
   return construirEmailHTML(
     "Solicitud de facturación — OT " + data.ot,
@@ -1505,6 +1515,62 @@ function construirTablaRepuestos(rep, cerrada) {
     "</tr></thead><tbody>" + filas + "</tbody></table>" +
     (hayBack ? "<p style='font-size:11px;color:#e67e22;margin-top:8px'>Algunos repuestos están pendientes de envío.</p>" : "") +
     "</div>";
+}
+
+// Tabla de repuestos CON PRECIOS para la solicitud de facturación.
+// Usa la misma lógica de precios que el presupuesto: PVP (sin imp.) desde
+// DB_REPUESTOS × descuento reseller (40%). Devuelve { html, total }.
+function construirTablaRepuestosFacturacion(rep) {
+  if (!rep || rep === "Sin consumo de repuestos") return { html: "", total: 0 };
+
+  // Mapa de precios PVP (col F / índice 5) por código (col B / índice 1) — igual que obtenerPresupuestoHTML
+  var precioMap = {};
+  var hojaRep = getSheet(SCHEMA.SHEETS.DB_REPUESTOS);
+  if (hojaRep) {
+    var dRep = getSheetValues(hojaRep);
+    for (var pr = 1; pr < dRep.length; pr++) {
+      var codR = String(dRep[pr][1] || "").trim().toUpperCase();
+      if (codR) precioMap[codR] = parseFloat(String(dRep[pr][5] || "0").replace(",", ".")) || 0;
+    }
+  }
+
+  var DESC_RESELLER = 0.40; // precio reseller = PVP × (1 − 40%)
+  var ls = rep.split(" ; "), filas = "", total = 0;
+  for (var i = 0; i < ls.length; i++) {
+    var p = ls[i].split(" | ");
+    if (p.length < 3) continue;
+    var cod = p[0].trim();
+    var des = (p[1] || "").replace("(" + cod + ")", "").replace(/\(\s*\)/g, "").trim();
+    var ped = parseInt((p[2].split(" E:")[0] || "").replace("P:", "")) || 0;
+    var pvpBase = precioMap[cod.toUpperCase()] || 0;
+    var pNeto = pvpBase > 0 ? Math.round(pvpBase * (1 - DESC_RESELLER) * 100) / 100 : 0;
+    var sub = Math.round(pNeto * ped * 100) / 100;
+    total += sub;
+    filas += "<tr>" +
+      "<td style='padding:7px 10px;font-size:11px;color:#00a3e0;font-weight:600;border:1px solid #e0e0e0'>" + cod + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;color:#333;border:1px solid #e0e0e0'>" + des + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:center;border:1px solid #e0e0e0'>" + ped + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:right;border:1px solid #e0e0e0'>" + (pNeto ? "USD " + _fmtNum(pNeto) : "—") + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border:1px solid #e0e0e0'>" + (sub ? "USD " + _fmtNum(sub) : "—") + "</td></tr>";
+  }
+  if (!filas) return { html: "", total: 0 };
+
+  var html = "<div style='margin-top:20px'>" +
+    "<p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Repuestos</p>" +
+    "<table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+    "<thead><tr style='background:#f5f5f5'>" +
+    "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Código</th>" +
+    "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Descripción</th>" +
+    "<th style='padding:7px 10px;text-align:center;border:1px solid #e0e0e0'>Cant.</th>" +
+    "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>P.Unit neto (USD)</th>" +
+    "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>Subtotal (USD)</th>" +
+    "</tr></thead><tbody>" + filas +
+    (total > 0 ? "<tr style='background:#f5f5f5;font-weight:700'>" +
+      "<td colspan='4' style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>SUBTOTAL REPUESTOS</td>" +
+      "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>USD " + _fmtNum(total) + "</td></tr>" : "") +
+    "</tbody></table></div>";
+
+  return { html: html, total: Math.round(total * 100) / 100 };
 }
 
 function construirEmailHTML(titulo, saludo, cuerpo, footer) {
