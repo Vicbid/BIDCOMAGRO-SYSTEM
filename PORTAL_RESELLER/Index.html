@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.25 -->
+<!-- @version 1.26 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1974,16 +1974,26 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   <!-- ══ TAB: VISTA RTV ════════════════════════ -->
   <div class="tab-panel" id="tab-rtv">
     <div class="help-bar">
-      <span class="help-bar-title"><i class="fa fa-user-tie" style="color:#7c3aed"></i> Pedidos de mis Resellers</span>
-      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_rtvCargar()">
+      <span class="help-bar-title"><i class="fa fa-user-tie" style="color:#7c3aed"></i> Mis Resellers</span>
+      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_rtvActualizar()">
         <i class="fa fa-arrows-rotate"></i> Actualizar
+      </button>
+    </div>
+
+    <!-- Subtabs: Pedidos / Órdenes -->
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="rtv-tab-ped" onclick="_rtvSwitchTab('pedidos')" style="flex:1;padding:8px 12px;background:#7c3aed;color:#fff;border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .13s">
+        <i class="fa fa-shopping-cart"></i> Pedidos <span id="rtv-cnt-ped" style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 7px;font-size:10px">0</span>
+      </button>
+      <button id="rtv-tab-ord" onclick="_rtvSwitchTab('ordenes')" style="flex:1;padding:8px 12px;background:transparent;color:var(--tx-m);border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .13s">
+        <i class="fa fa-screwdriver-wrench"></i> Órdenes <span id="rtv-cnt-ord" style="background:var(--brd);color:var(--tx-m);border-radius:3px;padding:1px 7px;font-size:10px">0</span>
       </button>
     </div>
 
     <div class="dji-card" style="margin-bottom:12px;padding:12px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <label style="font-size:12px;color:var(--tx-m);white-space:nowrap;font-weight:600">Reseller:</label>
-        <select id="rtv-sel-reseller" onchange="_rtvFiltrar()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
+        <select id="rtv-sel-reseller" onchange="_rtvOnFiltro()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
           <option value="">Todos</option>
         </select>
         <span id="rtv-count" style="font-size:11px;color:var(--tx-d)"></span>
@@ -1994,6 +2004,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div style="text-align:center;padding:32px;color:var(--tx-d)">
         <i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:12px;opacity:.4"></i>
         Cargando pedidos...
+      </div>
+    </div>
+    <div id="rtv-ordenes-wrap" style="display:none">
+      <div style="text-align:center;padding:32px;color:var(--tx-d)">
+        <i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:12px;opacity:.4"></i>
+        Cargando órdenes...
       </div>
     </div>
   </div><!-- /tab-rtv -->
@@ -5481,9 +5497,11 @@ function _pedCancelarRevision() {
 }
 
 // ── Estado RTV ────────────────────────────────────────────────
-var _rtvEmail     = '';
-var _rtvResellers = [];
-var _rtvTodos     = [];   // todos los pedidos cargados (cache para filtro local)
+var _rtvEmail        = '';
+var _rtvResellers    = [];
+var _rtvTodos        = [];   // todos los pedidos cargados (cache para filtro local)
+var _rtvOrdenesTodos = [];   // todas las órdenes cargadas (cache para filtro local)
+var _rtvSubTab       = 'pedidos';
 
 function _iniciarSesionRTV(res) {
   _rtvEmail     = res.email || '';
@@ -5509,8 +5527,106 @@ function _iniciarSesionRTV(res) {
     }
   }
 
+  _rtvSubTab = 'pedidos';
   showTab('rtv', 'tb-rtv');
+  _rtvActualizar();
+}
+
+// Refresca ambas vistas del RTV (pedidos + órdenes)
+function _rtvActualizar() {
   _rtvCargar();
+  _rtvCargarOrdenes();
+}
+
+// Alterna entre las subvistas "Pedidos" y "Órdenes"
+function _rtvSwitchTab(t) {
+  _rtvSubTab = t;
+  var bP = document.getElementById('rtv-tab-ped');
+  var bO = document.getElementById('rtv-tab-ord');
+  var pedOn = (t === 'pedidos');
+  if (bP) { bP.style.background = pedOn ? '#7c3aed' : 'transparent'; bP.style.color = pedOn ? '#fff' : 'var(--tx-m)'; }
+  if (bO) { bO.style.background = pedOn ? 'transparent' : '#7c3aed'; bO.style.color = pedOn ? 'var(--tx-m)' : '#fff'; }
+  document.getElementById('rtv-pedidos-wrap').style.display = pedOn ? 'block' : 'none';
+  document.getElementById('rtv-ordenes-wrap').style.display = pedOn ? 'none' : 'block';
+  _rtvOnFiltro();
+}
+
+// El filtro de reseller aplica a la subvista activa
+function _rtvOnFiltro() {
+  if (_rtvSubTab === 'pedidos') _rtvFiltrar();
+  else _rtvFiltrarOrdenes();
+}
+
+function _rtvCargarOrdenes() {
+  var wrap = document.getElementById('rtv-ordenes-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--tx-d)"><i class="fa fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:10px;opacity:.4"></i>Cargando órdenes...</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _rtvOrdenesTodos = (r && r.ok && r.ordenes) ? r.ordenes : [];
+      var cnt = document.getElementById('rtv-cnt-ord');
+      if (cnt) cnt.textContent = _rtvOrdenesTodos.length;
+      if (_rtvSubTab === 'ordenes') _rtvFiltrarOrdenes();
+    })
+    .withFailureHandler(function() {
+      wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">Error al cargar órdenes.</div>';
+    })
+    .obtenerOrdenesRTV();
+}
+
+function _rtvFiltrarOrdenes() {
+  var sel    = document.getElementById('rtv-sel-reseller');
+  var filtro = sel ? (sel.value || '') : '';
+  var lista  = filtro ? _rtvOrdenesTodos.filter(function(o){ return o.reseller === filtro; }) : _rtvOrdenesTodos;
+  var countEl = document.getElementById('rtv-count');
+  if (countEl) countEl.textContent = lista.length + ' orden(es)';
+  _rtvRenderOrdenes(lista);
+}
+
+function _rtvEstadoColorOrden(estado) {
+  var e = String(estado || '');
+  if (e === 'Finalizado' || e === 'Entregado')      return { bg: 'rgba(26,158,74,.1)',  color: '#14713a' };
+  if (e === 'CANCELADO'  || e === 'Rechazado DJI')  return { bg: 'rgba(214,48,49,.08)', color: '#b02020' };
+  return { bg: 'rgba(0,163,224,.08)', color: '#006fa0' };
+}
+
+function _rtvRenderOrdenes(ordenes) {
+  var wrap = document.getElementById('rtv-ordenes-wrap');
+  if (!wrap) return;
+  if (!ordenes.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:36px 20px;color:var(--tx-d);font-size:13px">' +
+      '<i class="fa fa-screwdriver-wrench" style="font-size:26px;display:block;margin-bottom:10px;opacity:.3"></i>No hay órdenes para mostrar.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < ordenes.length; i++) {
+    var o  = ordenes[i];
+    var ec = _rtvEstadoColorOrden(o.estado);
+    html +=
+      '<div class="dji-card" style="margin-bottom:8px">' +
+        '<div class="dji-card-body" style="padding:12px 15px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">' +
+            '<div style="min-width:0;flex:1">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+                '<span style="font-weight:700;color:var(--tx);font-size:14px">' + _escHtml(o.ot) + '</span>' +
+                (o.prioridad ? '<span style="font-size:9px;font-weight:700;color:#fff;background:var(--red);padding:1px 6px;border-radius:20px">URGENTE</span>' : '') +
+                (o.garantia ? '<span style="font-size:9px;font-weight:700;color:var(--tx-m);background:var(--raise);padding:1px 6px;border-radius:20px">' + _escHtml(o.garantia) + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--tx-m);margin-top:3px">' + _escHtml(o.equipo) + (o.sn ? ' · SN ' + _escHtml(o.sn) : '') + '</div>' +
+              '<div style="font-size:11px;color:var(--tx-d);margin-top:2px">' +
+                '<i class="fa fa-user-tie" style="opacity:.6"></i> ' + _escHtml(o.reseller) +
+                (o.cliente ? ' &nbsp;·&nbsp; Cliente: ' + _escHtml(o.cliente) : '') +
+              '</div>' +
+            '</div>' +
+            '<div style="text-align:right;flex-shrink:0">' +
+              '<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:' + ec.bg + ';color:' + ec.color + '">' + _escHtml(o.estado || '—') + '</span>' +
+              '<div style="font-size:10px;color:var(--tx-d);margin-top:4px">' + (o.cerrada ? ('Cerrada ' + _escHtml(o.fechaCierre)) : (_escHtml(o.fechaIngreso) + ' · ' + o.dias + 'd')) + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  wrap.innerHTML = html;
 }
 
 function _rtvCargar() {
@@ -5521,7 +5637,9 @@ function _rtvCargar() {
   google.script.run
     .withSuccessHandler(function(r) {
       _rtvTodos = (r && r.ok && r.pedidos) ? r.pedidos : [];
-      _rtvFiltrar();
+      var cnt = document.getElementById('rtv-cnt-ped');
+      if (cnt) cnt.textContent = _rtvTodos.length;
+      if (_rtvSubTab === 'pedidos') _rtvFiltrar();
     })
     .withFailureHandler(function() {
       wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">Error al cargar pedidos.</div>';

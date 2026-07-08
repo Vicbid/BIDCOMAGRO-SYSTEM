@@ -1,3 +1,4 @@
+// @version 1.1
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
 // ============================================================
@@ -90,5 +91,69 @@ function obtenerPedidosRTV() {
   } catch(e) {
     Logger.log('obtenerPedidosRTV: ' + e);
     return { ok: false, error: e.toString(), pedidos: [] };
+  }
+}
+
+// Retorna las órdenes de trabajo (OTs) de los resellers asignados al RTV llamante.
+// Solo lectura. La autorización se re-calcula server-side desde el email de la
+// sesión (mismo criterio que obtenerPedidosRTV): no se confía en el cliente.
+function obtenerOrdenesRTV() {
+  try {
+    var email = '';
+    try { email = Session.getActiveUser().getEmail().toLowerCase().trim(); } catch(e) {}
+    if (!email) return { ok: false, error: 'Sin sesión', ordenes: [] };
+
+    // Resellers autorizados para este RTV
+    var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+    var RS    = SCHEMA.RESELLERS;
+    var autorizado = {};
+    for (var i = 1; i < datos.length; i++) {
+      var rtvEmail = String(datos[i][RS.EMAIL_RTV] || '').trim().toLowerCase();
+      if (rtvEmail !== email) continue;
+      var nombre = String(datos[i][RS.NOMBRE] || '').trim();
+      if (nombre) autorizado[nombre.toLowerCase()] = nombre;
+    }
+    if (!Object.keys(autorizado).length) return { ok: false, error: 'Sin resellers asignados', ordenes: [] };
+
+    var ref = _leerOrdenes();
+    var tz  = Session.getScriptTimeZone();
+    var hoy = new Date();
+    var out = [];
+    for (var j = 1; j < ref.datos.length; j++) {
+      var f = ref.datos[j];
+      if (!f[SCHEMA.OT.OT]) continue;
+      var reseller = String(f[SCHEMA.OT.RESELLER] || '').trim();
+      if (!autorizado[reseller.toLowerCase()]) continue;
+
+      var estado    = String(f[SCHEMA.OT.ESTADO] || '');
+      var esCerrada = (estado === 'Finalizado' || estado === 'Entregado' || estado === 'CANCELADO');
+      var fechaFin  = (f[SCHEMA.OT.FECHA_CIERRE] instanceof Date) ? f[SCHEMA.OT.FECHA_CIERRE] : hoy;
+      var dias      = (f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) ? Math.floor((fechaFin - f[SCHEMA.OT.FECHA_INGRESO]) / 86400000) : 0;
+
+      out.push({
+        ot:           String(f[SCHEMA.OT.OT]),
+        reseller:     reseller,
+        equipo:       String(f[SCHEMA.OT.EQUIPO] || ''),
+        sn:           String(f[SCHEMA.OT.SN] || ''),
+        estado:       estado,
+        garantia:     String(f[SCHEMA.OT.GARANTIA] || ''),
+        tecnico:      String(f[SCHEMA.OT.TECNICO] || ''),
+        cliente:      String(f[SCHEMA.OT.CLIENTE] || ''),
+        prioridad:    String(f[SCHEMA.OT.PRIORIDAD] || '').toUpperCase() === 'URGENTE',
+        dias:         dias,
+        cerrada:      esCerrada,
+        fechaIngreso: (f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) ? Utilities.formatDate(f[SCHEMA.OT.FECHA_INGRESO], tz, 'dd/MM/yyyy') : '',
+        fechaCierre:  (esCerrada && f[SCHEMA.OT.FECHA_CIERRE] instanceof Date) ? Utilities.formatDate(f[SCHEMA.OT.FECHA_CIERRE], tz, 'dd/MM/yyyy') : ''
+      });
+      if (out.length >= 400) break;
+    }
+    // Activas primero; dentro de cada grupo, las de más días arriba
+    out.sort(function(a, b) {
+      return (a.cerrada === b.cerrada) ? (b.dias - a.dias) : (a.cerrada ? 1 : -1);
+    });
+    return { ok: true, ordenes: out };
+  } catch(e) {
+    Logger.log('obtenerOrdenesRTV: ' + e);
+    return { ok: false, error: e.toString(), ordenes: [] };
   }
 }
