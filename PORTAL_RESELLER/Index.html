@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.21 -->
+<!-- @version 1.22 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2085,10 +2085,11 @@ function _cargarNovedades(forzar, marcarVistas) {
 
 function _novIcono(cat) {
   var c = (cat || '').toLowerCase();
-  if (c.indexOf('capacit') >= 0)                          return 'fa-graduation-cap';
-  if (c.indexOf('producto') >= 0)                         return 'fa-box';
-  if (c.indexOf('promo') >= 0 || c.indexOf('oferta') >= 0) return 'fa-tag';
-  if (c.indexOf('aviso') >= 0 || c.indexOf('import') >= 0) return 'fa-triangle-exclamation';
+  if (c.indexOf('capacit') >= 0)                              return 'fa-graduation-cap';
+  if (c.indexOf('cotiza') >= 0 || c.indexOf('presupuesto') >= 0 || c.indexOf('herramienta') >= 0) return 'fa-file-invoice-dollar';
+  if (c.indexOf('producto') >= 0)                             return 'fa-box';
+  if (c.indexOf('promo') >= 0 || c.indexOf('oferta') >= 0)    return 'fa-tag';
+  if (c.indexOf('aviso') >= 0 || c.indexOf('import') >= 0)    return 'fa-triangle-exclamation';
   return 'fa-bullhorn';
 }
 

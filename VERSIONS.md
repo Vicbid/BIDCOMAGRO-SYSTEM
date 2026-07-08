@@ -137,6 +137,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Index.html | 1.22 | Novedades: _novIcono mapea categoría "Cotizador"/"Presupuesto"/"Herramienta" → ícono fa-file-invoice-dollar |
 | RS_Novedades.js | 1.0 | NUEVO — CMS de Novedades por hoja. obtenerNovedadesPortal() lee la hoja NOVEDADES (Fecha, Título, Descripción, Categoría, Link URL, Texto del botón, Activo) y devuelve las activas ordenadas por fecha (más nuevas primero). _asegurarHojaNovedades autocrea la hoja con encabezado + fila de ejemplo del T55 (pegar link PPT en col E). _novActivo: vacío/SI=visible, NO/FALSE/0/OCULTO=oculto |
 | Env.js | 1.5 | SCHEMA.SHEETS.NOVEDADES = 'NOVEDADES' (hoja-CMS de la pestaña Novedades del portal) |
 | Index.html | 1.21 | Pestaña Novedades: botón en la barra (fa-bullhorn) con badge de "nuevas" (localStorage nov_lastseen, se limpia al abrir la pestaña). Panel tab-nov con cards (ícono por categoría, badge de categoría, fecha, título, descripción, botón al link/PPT). _cargarNovedades/_renderNovedades/_novIcono/_novActualizarBadge/_novMarcarVistas; se carga en window.onload para el contador. Reusa _escHtml. Contenido 100% editable desde la hoja NOVEDADES |
