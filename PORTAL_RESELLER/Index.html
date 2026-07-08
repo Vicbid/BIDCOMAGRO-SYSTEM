@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.23 -->
+<!-- @version 1.25 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -731,6 +731,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <button id="btn-refresh-portal" onclick="actualizarPortal()" style="display:none;background:transparent;border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='var(--blue-a)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sync-alt"></i> Actualizar</button>
+    <button id="btn-header-logout" onclick="cerrarSesion()" style="display:none;background:transparent;border:1px solid rgba(214,48,49,.35);color:var(--red);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='rgba(214,48,49,.08)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sign-out-alt"></i> Salir</button>
     <span id="header-reseller-badge" style="display:none;font-size:10px;font-weight:600;color:var(--blue);background:var(--blue-a);border:1px solid rgba(0,163,224,.2);border-radius:var(--r);padding:3px 9px"></span>
     <span id="header-rtv-badge" style="display:none;font-size:10px;font-weight:600;color:#7c3aed;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:var(--r);padding:3px 9px"><i class="fa fa-user-tie" style="margin-right:4px"></i><span id="header-rtv-nombre"></span></span>
     <button id="btn-header-perfil" onclick="abrirPerfil()" style="display:none;background:transparent;border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='var(--blue-a)'" onmouseout="this.style.background='transparent'"><i class="fa fa-user-circle"></i> Mi perfil</button>
@@ -2193,6 +2194,12 @@ window.onload = function() {
     }
   });
 
+  // ¿Vienen de "Cerrar sesión"? Forzar el modal de PIN (ignora sesión guardada y auto-login por Google)
+  var _forceLogin = false;
+  try {
+    if (sessionStorage.getItem('portal_logout') === '1') { _forceLogin = true; sessionStorage.removeItem('portal_logout'); }
+  } catch(e) {}
+
   // Restaurar sesión PIN desde sessionStorage (persiste mientras la pestaña esté abierta)
   var _sesionGuardada = null;
   try {
@@ -2200,7 +2207,9 @@ window.onload = function() {
     if (_rawSesion) _sesionGuardada = JSON.parse(_rawSesion);
   } catch(e) {}
 
-  if (_sesionGuardada && _sesionGuardada.nombre) {
+  if (_forceLogin) {
+    pinModal.show();
+  } else if (_sesionGuardada && _sesionGuardada.nombre) {
     resellerActual = _sesionGuardada.nombre;
     grupoActual    = _sesionGuardada.esGrupo
       ? { nombre: _sesionGuardada.nombre, resellers: _sesionGuardada.resellers || [] }
@@ -2209,6 +2218,7 @@ window.onload = function() {
     _badge.textContent   = _sesionGuardada.esGrupo ? ('★ ' + _sesionGuardada.nombre) : _sesionGuardada.nombre;
     _badge.style.display = 'inline';
     document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+    document.getElementById('btn-header-logout').style.display = 'inline-flex';
     _bloquearSelectorReseller();
     _mostrarBotonesLogueado();
     _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
@@ -2223,6 +2233,7 @@ window.onload = function() {
           badge.textContent = res.nombre;
           badge.style.display = 'inline';
           document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+          document.getElementById('btn-header-logout').style.display = 'inline-flex';
           _bloquearSelectorReseller();
           _mostrarBotonesLogueado();
           _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
@@ -2488,10 +2499,11 @@ function login() {
         badge.textContent = res.esGrupo ? ('★ ' + res.nombre) : res.nombre;
         badge.style.display = 'inline';
         document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+        document.getElementById('btn-header-logout').style.display = 'inline-flex';
         _mostrarBotonesLogueado();
         // En modo grupo algunas tabs no aplican (perfil/cc son por reseller individual)
-        var goTab = _pendingTab || 'dash';
-        var goBtn = _pendingTab ? 'tb-' + _pendingTab : 'tb-dash';
+        var goTab = _pendingTab || 'rec';
+        var goBtn = _pendingTab ? 'tb-' + _pendingTab : 'tb-rec';
         if (res.esGrupo && (goTab === 'perfil' || goTab === 'cc')) goTab = 'dash';
         _pendingTab = '';
         showTab(goTab, goBtn);
@@ -2558,16 +2570,15 @@ function recordarClave() {
 }
 
 function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión? Vas a tener que ingresar tu PIN nuevamente para volver a entrar.')) return;
   resellerActual = '';
   grupoActual    = null;
-  try { sessionStorage.removeItem('portal_session'); } catch(e) {}
-  document.getElementById('header-reseller-badge').style.display = 'none';
-  document.getElementById('btn-refresh-portal').style.display = 'none';
-  document.getElementById('dash-header-card').style.display = 'none';
-  document.getElementById('dash-kpis').style.display = 'none';
-  document.getElementById('dash-grid').style.display = 'none';
-  document.getElementById('dash-empty').style.display = 'none';
-  showTab('rec', 'tb-rec');
+  try {
+    sessionStorage.removeItem('portal_session');
+    sessionStorage.setItem('portal_logout', '1'); // fuerza el modal de PIN tras recargar
+  } catch(e) {}
+  // Recarga limpia: vuelve a exigir el ingreso con PIN (overlay + modal desde cero)
+  location.reload();
 }
 
 // ══════════════════════════════════════════
