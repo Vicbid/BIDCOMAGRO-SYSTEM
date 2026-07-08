@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.26 -->
+<!-- @version 1.27 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5515,6 +5515,11 @@ function _iniciarSesionRTV(res) {
   // Mostrar tab RTV y navegar a él
   var tbRtv = document.getElementById('tb-rtv');
   if (tbRtv) tbRtv.style.display = '';
+
+  // El RTV solo opera su vista: ocultar las pestañas del reseller (requieren PIN / contexto de reseller)
+  ['tb-nueva','tb-dash','tb-ped','tb-cot','tb-camp','tb-msg'].forEach(function(id){
+    var b = document.getElementById(id); if (b) b.style.display = 'none';
+  });
 
   // Poblar filtro de resellers
   var sel = document.getElementById('rtv-sel-reseller');
