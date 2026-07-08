@@ -137,6 +137,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## PORTAL_RESELLER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Index.html | 1.23 | Pestaña por defecto al ingresar ahora es "Recursos" (antes "Nueva Reparacion"): se mueve la clase show/active a tab-rec/tb-rec; cerrarSesion también vuelve a Recursos |
 | Index.html | 1.22 | Novedades: _novIcono mapea categoría "Cotizador"/"Presupuesto"/"Herramienta" → ícono fa-file-invoice-dollar |
 | RS_Novedades.js | 1.0 | NUEVO — CMS de Novedades por hoja. obtenerNovedadesPortal() lee la hoja NOVEDADES (Fecha, Título, Descripción, Categoría, Link URL, Texto del botón, Activo) y devuelve las activas ordenadas por fecha (más nuevas primero). _asegurarHojaNovedades autocrea la hoja con encabezado + fila de ejemplo del T55 (pegar link PPT en col E). _novActivo: vacío/SI=visible, NO/FALSE/0/OCULTO=oculto |
 | Env.js | 1.5 | SCHEMA.SHEETS.NOVEDADES = 'NOVEDADES' (hoja-CMS de la pestaña Novedades del portal) |
