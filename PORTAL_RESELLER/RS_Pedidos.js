@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.9
+// @version 2.0
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -922,29 +922,45 @@ function obtenerTiempoPromedioEnvioPortal(reseller) {
         for (var j = 1; j < wosData.length; j++) {
           var num = String(wosData[j][0] || '').trim();
           if (!num || !recibido[num]) continue;
-          if (!desp[num]) desp[num] = { enviado: 0, fechaDespacho: null, backorder: false };
+          if (!desp[num]) desp[num] = { enviado: 0, esBackorder: false, primerDespacho: null, boLineas: 0, boResueltas: 0, boUltimoDespacho: null };
           if (_mapEstadoWosSimple(String(wosData[j][9] || '').trim()) === 'enviado') desp[num].enviado++;
-          var fd = wosData[j][14]; // col O — fecha de despacho
-          if (fd instanceof Date && (!desp[num].fechaDespacho || fd < desp[num].fechaDespacho)) {
-            desp[num].fechaDespacho = fd; // primer despacho (más temprano)
-          }
-          // Backorder: el stock de Carmen al momento de carga (col I) no alcanzaba lo pedido (col E)
+
+          var fd   = wosData[j][14]; // col O — fecha de despacho de ESTA línea
+          var fdOk = (fd instanceof Date);
+          // Despacho general (para pedidos con stock, que salen juntos): el más temprano
+          if (fdOk && (!desp[num].primerDespacho || fd < desp[num].primerDespacho)) desp[num].primerDespacho = fd;
+
+          // ¿Esta línea estaba en backorder al cargar? (stock Carmen col I < cantidad pedida col E)
           var req     = Number(wosData[j][4]) || 0;
           var snap    = wosData[j][8];
           var snapNum = (snap === '' || snap === null || isNaN(Number(snap))) ? null : Number(snap);
-          if (snapNum === null || snapNum < req) desp[num].backorder = true;
+          if (snapNum === null || snapNum < req) {
+            desp[num].esBackorder = true;
+            desp[num].boLineas++;
+            if (fdOk) { // la línea en backorder ya se despachó
+              desp[num].boResueltas++;
+              // espera real: cuándo salió el ÚLTIMO ítem que estaba en backorder
+              if (!desp[num].boUltimoDespacho || fd > desp[num].boUltimoDespacho) desp[num].boUltimoDespacho = fd;
+            }
+          }
         }
       }
     } catch(eWos) { Logger.log('obtenerTiempoPromedioEnvioPortal WOS: ' + eWos); }
 
-    // Dos promedios separados: pedidos que tenían stock vs los que tuvieron backorder
+    // Dos promedios separados:
+    //  · Con stock  → recibido → primer (único) despacho.
+    //  · Backorder  → recibido → despacho del ÚLTIMO ítem que estaba en backorder.
+    //    Solo cuenta si TODAS las líneas en backorder ya se despacharon (si no, la espera no terminó).
     var conStock = { suma: 0, n: 0 }, backorder = { suma: 0, n: 0 };
     for (var pid in desp) {
       var d = desp[pid];
-      if (d.enviado > 0 && d.fechaDespacho && recibido[pid]) {
-        var dias = _diasHabilesEntre(recibido[pid], d.fechaDespacho);
-        var b = d.backorder ? backorder : conStock;
-        b.suma += dias; b.n++;
+      if (!recibido[pid]) continue;
+      if (d.esBackorder) {
+        if (d.boLineas > 0 && d.boResueltas === d.boLineas && d.boUltimoDespacho) {
+          backorder.suma += _diasHabilesEntre(recibido[pid], d.boUltimoDespacho); backorder.n++;
+        }
+      } else if (d.enviado > 0 && d.primerDespacho) {
+        conStock.suma += _diasHabilesEntre(recibido[pid], d.primerDespacho); conStock.n++;
       }
     }
     return {
