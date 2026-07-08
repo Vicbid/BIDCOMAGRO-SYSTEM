@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.13
+// @version 2.15
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -899,6 +899,28 @@ function crearNuevaOT(datos) {
 
     registrarLog(nOT, datos.reseller || "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
 
+    // Notificar la apertura — igual criterio que actualizarOrden: "Abierto" está en
+    // ESTADOS_NOTIFICAR_RESELLER/TÉCNICO. Sin esto, las OT creadas desde el HUB (no desde
+    // el Portal Reseller) no avisaban al reseller/técnico ni dejaban registro en EMAIL_LOGS.
+    try {
+      var dataNotif = {
+        ot:        nOT,
+        estado:    "Abierto",
+        reseller:  datos.reseller || "",
+        equipo:    datos.equipo   || "",
+        sn:        datos.sn       || "",
+        garantia:  datos.garantia || "OOW",
+        circuito:  datos.circuito || "Taller",
+        cas:       datos.cas      || "",
+        trabajo:   datos.trabajo  || "",
+        repuestos: "",
+        cliente:   "",
+        prioridad: (String(datos.prioridad || "").toUpperCase() === "URGENTE")
+      };
+      dataNotif._fechaEstimada = calcularFechaEstimada(dataNotif.circuito, dataNotif.garantia, row[0]);
+      enviarNotificaciones(dataNotif, "-", datos.tecnico || "");
+    } catch(eN) { Logger.log("crearNuevaOT notif: " + eN); }
+
     return { resultado: nOT, ot: nOT };
 
   } catch(e) {
@@ -909,6 +931,84 @@ function crearNuevaOT(datos) {
     invalidateSheetValues(SCHEMA.SHEETS.OT);
     if (lock.hasLock()) lock.releaseLock();
   }
+}
+
+// ============================================================
+//  RECUPERAR MAIL DE APERTURA — OT creadas desde el HUB antes del
+//  fix v2.14 (crearNuevaOT no llamaba a enviarNotificaciones).
+//  Lee la fila ACTUAL de la OT y dispara el aviso de estado.
+//  NO modifica la OT: solo manda el mail y lo registra en EMAIL_LOGS.
+//    HUB_notificarOT("WH/REP/00123")        → mail del estado ACTUAL de la OT
+//    HUB_notificarOT("WH/REP/00123", true)  → fuerza el texto de "Abierto"
+// ============================================================
+function HUB_notificarOT(numeroOT, forzarAbierto) {
+  try {
+    var buscado = String(numeroOT || "").trim();
+    if (!buscado) return { ok: false, error: "Falta el número de OT" };
+
+    var datos = getSheetValues(SCHEMA.SHEETS.OT, true);  // force: leer del sheet, no del cache
+    var O = SCHEMA.OT;
+    var f = null;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][O.OT] || "").trim() === buscado) { f = datos[i]; break; }
+    }
+    if (!f) return { ok: false, error: "OT no encontrada: " + buscado };
+
+    var estadoActual = String(f[O.ESTADO] || "").trim();
+    var estadoNotif  = forzarAbierto ? "Abierto" : estadoActual;
+    var tecnico      = String(f[O.TECNICO] || "").trim();
+
+    var data = {
+      ot:        buscado,
+      estado:    estadoNotif,
+      reseller:  String(f[O.RESELLER]  || "").trim(),
+      equipo:    String(f[O.EQUIPO]    || "").trim(),
+      sn:        String(f[O.SN]        || "").trim(),
+      garantia:  String(f[O.GARANTIA]  || "OOW").trim(),
+      circuito:  String(f[O.CIRCUITO]  || "Taller").trim(),
+      cas:       String(f[O.CAS]       || "").trim(),
+      cliente:   String(f[O.CLIENTE]   || "").trim(),
+      trabajo:   String(f[O.TRABAJO]   || "").trim(),
+      repuestos: String(f[O.REPUESTOS] || "").trim(),
+      prioridad: (String(f[O.PRIORIDAD] || "").toUpperCase() === "URGENTE")
+    };
+    data._fechaEstimada = calcularFechaEstimada(data.circuito, data.garantia, f[O.FECHA_INGRESO]);
+
+    // estadoAnterior "-" → enviarNotificaciones lo trata como aviso nuevo (estado != anterior)
+    enviarNotificaciones(data, "-", tecnico);
+
+    var avisaReseller = estaEnLista(estadoNotif, CONFIG.ESTADOS_NOTIFICAR_RESELLER);
+    return {
+      ok: true,
+      ot: buscado,
+      estadoNotificado: estadoNotif,
+      reseller: data.reseller,
+      nota: avisaReseller
+        ? "Aviso disparado — revisá EMAIL_LOGS para confirmar el envío."
+        : "El estado '" + estadoNotif + "' no está en ESTADOS_NOTIFICAR_RESELLER: no se manda mail al reseller (usá forzarAbierto=true si querés el mail de apertura)."
+    };
+  } catch(e) {
+    Logger.log("HUB_notificarOT: " + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Wrapper editable para correr desde el editor de Apps Script.
+// Poné uno o varios números separados por coma. FORZAR_ABIERTO=true manda el
+// texto de "Abierto" aunque la OT ya haya avanzado de estado.
+function HUB_notificarOTTest() {
+  var NUMEROS        = "WH/REP/00000";   // ej: "WH/REP/00123, WH/REP/00124"
+  var FORZAR_ABIERTO = false;
+
+  var lista = String(NUMEROS).split(",");
+  var res   = [];
+  for (var i = 0; i < lista.length; i++) {
+    var n = lista[i].trim();
+    if (!n) continue;
+    res.push(HUB_notificarOT(n, FORZAR_ABIERTO));
+  }
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
 }
 
 // ============================================================
