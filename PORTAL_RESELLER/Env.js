@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 
@@ -25,7 +25,8 @@ var SCHEMA = {
     STOCK_INVENTARIO:   'STOCK',
     LOG_DEMANDA_PERDIDA:'LOG_DEMANDA_PERDIDA',
     PEDIDOS_CAMPANA:    'Pedidos_Campaña',
-    COTIZACIONES:       'COTIZACIONES'
+    COTIZACIONES:       'COTIZACIONES',
+    KITS:               'KITS'
   },
   OT: {
     FECHA_INGRESO: 0,

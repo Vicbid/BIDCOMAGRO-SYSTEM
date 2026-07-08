@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.17 -->
+<!-- @version 1.18 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4239,6 +4239,7 @@ var _pedMode          = 'manual';
 var _pedBusTimer      = null;
 var _pedBusSeq        = 0;      // anti-race: descarta respuestas de búsquedas viejas
 var _pedIndice        = null;   // null=cargando · array=listo (búsqueda local instantánea)
+var _pedKits          = {};     // { KITSKU: [{sku, cantidadPorKit}] } — explota C → A + B en el carrito
 var _pedDemandaTimer  = null;   // timer para loguear búsquedas sin resultado
 var _pedEstMap        = { D:'disponible', B:'backorder', R:'consultar_Backorder' };
 var _pedHistorialItems= {};     // id → itemsJson, para "Repetir pedido"
@@ -4811,6 +4812,11 @@ function _pedCargarIndice() {
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
     .obtenerIndiceRepuestosPortal();
+  // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
+  google.script.run
+    .withSuccessHandler(function(r) { _pedKits = (r && r.ok && r.kits) ? r.kits : {}; })
+    .withFailureHandler(function() { _pedKits = {}; })
+    .obtenerKitsPortal();
 }
 
 function _pedBuscarLocal(q) {
@@ -4869,6 +4875,7 @@ function _pedRenderResultados(r) {
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
           (it.descripcionEs && it.descripcionEs !== it.descripcion ? '<div style="font-size:10px;color:var(--tx-d);margin-top:1px">' + _escHtml(it.descripcionEs) + '</div>' : '') +
           (remplzE ? '<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px"><i class="fa fa-arrow-right"></i> Reemplazado por ' + remplzE + '</div>' : '') +
+          (_pedKits[it.sku.toUpperCase()] ? '<div style="font-size:10px;color:#5c5fc0;font-weight:600;margin-top:2px"><i class="fa fa-boxes-stacked"></i> Se pedirá como ' + _escHtml(_pedKits[it.sku.toUpperCase()].map(function(c){return c.sku;}).join(' + ')) + '</div>' : '') +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
           (pvpDisp > 0 ?
@@ -4959,6 +4966,48 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
         break;
       }
     }
+  }
+
+  // Explosión de kit: si el SKU es un kit (C = A + B), agregar los componentes en vez del kit,
+  // en la misma proporción — así el reseller ve en el carrito lo que efectivamente va a pedir.
+  var kitComps = _pedKits[String(sku).toUpperCase()];
+  if (kitComps && kitComps.length) {
+    var agregados = [];
+    for (var kc = 0; kc < kitComps.length; kc++) {
+      var compSku = String(kitComps[kc].sku || '').trim();
+      if (!compSku) continue;
+      var compQty = qty * (kitComps[kc].cantidadPorKit || 1);
+      // Datos del componente desde el índice (desc, precio, stock, estado)
+      var cDesc = compSku, cEst = 'consultar_Backorder', cPrec = 0, cMod = '', cStk = null, cRem = '';
+      if (_pedIndice) {
+        var cUp = compSku.toUpperCase();
+        for (var ci = 0; ci < _pedIndice.length; ci++) {
+          if ((_pedIndice[ci][0] || '').toUpperCase() === cUp) {
+            var cix = _pedIndice[ci];
+            cDesc = cix[1] || compSku;
+            cEst  = _pedEstMap[cix[3]] || 'consultar_Backorder';
+            cPrec = cix[4] || 0;
+            cMod  = cix[2] || '';
+            cStk  = (cix[5] !== undefined && cix[5] >= 0) ? cix[5] : null;
+            cRem  = cix[7] || '';
+            break;
+          }
+        }
+      }
+      var mergedC = false;
+      for (var mi = 0; mi < _pedCart.length; mi++) {
+        if (_pedCart[mi].sku === compSku) { _pedCart[mi].cantidad += compQty; mergedC = true; break; }
+      }
+      if (!mergedC) {
+        _pedCart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem });
+      }
+      agregados.push(compSku);
+    }
+    _pedRenderCarrito();
+    _pedLimpiarBusqueda();
+    toast(sku + ' → ' + agregados.join(' + ') + ' (kit)', 'inf');
+    document.getElementById('ped-q').focus();
+    return;
   }
 
   for (var i = 0; i < _pedCart.length; i++) {

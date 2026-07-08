@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.7
+// @version 1.9
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -28,6 +28,98 @@ function _asegurarHojasPedidos() {
     hojaDesc.setFrozenRows(1);
     hojaDesc.getRange(1, 1, 1, 5).setBackground('#d63031').setFontColor('#fff').setFontWeight('bold');
     hojaDesc.setColumnWidth(3, 260);
+  }
+
+  var hojaKits = ss.getSheetByName(SCHEMA.SHEETS.KITS);
+  if (!hojaKits) {
+    hojaKits = ss.insertSheet(SCHEMA.SHEETS.KITS);
+    hojaKits.appendRow(['Kit SKU','Componente SKU','Cantidad por kit','Descripción (opcional)']);
+    hojaKits.setFrozenRows(1);
+    hojaKits.getRange(1, 1, 1, 4).setBackground('#5c5fc0').setFontColor('#fff').setFontWeight('bold');
+    hojaKits.setColumnWidth(1, 150);
+    hojaKits.setColumnWidth(2, 150);
+    hojaKits.setColumnWidth(4, 260);
+  }
+}
+
+// ── Explosión de kits ─────────────────────────────────────────
+// Un SKU "kit" que el reseller pide se reemplaza por sus componentes.
+// Hoja KITS: A=Kit SKU · B=Componente SKU · C=Cantidad por kit · D=Descripción (opcional).
+// Ej: pide 10 de "C" (kit = A + B) → 10 de A + 10 de B. Multiplica por la cantidad pedida.
+function _explotarKits(items) {
+  if (!items || !items.length) return items;
+
+  var kitsMap = {}, hayKits = false;
+  try {
+    var dK = getSheetValues(SCHEMA.SHEETS.KITS);
+    for (var i = 1; i < dK.length; i++) {
+      var kit  = String(dK[i][0] || '').trim().toUpperCase();
+      var comp = String(dK[i][1] || '').trim();
+      if (!kit || !comp) continue;
+      var qk = Number(dK[i][2]) || 1;
+      if (qk < 1) qk = 1;
+      if (!kitsMap[kit]) kitsMap[kit] = [];
+      kitsMap[kit].push({ sku: comp, cantidadPorKit: qk, descripcion: String(dK[i][3] || '').trim() });
+      hayKits = true;
+    }
+  } catch(eK) { Logger.log('_explotarKits leer KITS: ' + eK); return items; }
+  if (!hayKits) return items;
+
+  // Descripciones de los componentes desde DB_REPUESTOS (no dependen de lo que ordenó el reseller)
+  var descMap = {};
+  try {
+    var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+    var D   = SCHEMA.DB_REPUESTOS;
+    for (var d = 1; d < dDb.length; d++) {
+      var cod = String(dDb[d][D.CODIGO] || '').trim().toUpperCase();
+      if (cod) descMap[cod] = String(dDb[d][D.DESCRIPCION] || '').trim();
+    }
+  } catch(eDb) { Logger.log('_explotarKits descMap: ' + eDb); }
+
+  var out = [];
+  for (var p = 0; p < items.length; p++) {
+    var it    = items[p];
+    var skuU  = String(it.sku || '').trim().toUpperCase();
+    var comps = kitsMap[skuU];
+    if (comps && comps.length) {
+      var qBase = Number(it.cantidad) || 1;
+      for (var c = 0; c < comps.length; c++) {
+        var cSkuU = comps[c].sku.toUpperCase();
+        out.push({
+          sku:         comps[c].sku,
+          descripcion: descMap[cSkuU] || comps[c].descripcion || comps[c].sku,
+          precio:      0,                                  // se recalcula en el enforcement de precios
+          cantidad:    qBase * comps[c].cantidadPorKit,
+          modelos:     it.modelos || ''
+        });
+      }
+      Logger.log('_explotarKits: ' + it.sku + ' x' + qBase + ' → ' + comps.length + ' componente(s)');
+    } else {
+      out.push(it);
+    }
+  }
+  return out;
+}
+
+// Mapa de kits para el frontend: { KITSKU: [{sku, cantidadPorKit}, ...] }.
+// Permite explotar C → A + B en vivo en el carrito (igual que la sustitución 1→1).
+function obtenerKitsPortal() {
+  try {
+    var kits = {};
+    var dK = getSheetValues(SCHEMA.SHEETS.KITS);
+    for (var i = 1; i < dK.length; i++) {
+      var kit  = String(dK[i][0] || '').trim().toUpperCase();
+      var comp = String(dK[i][1] || '').trim();
+      if (!kit || !comp) continue;
+      var qk = Number(dK[i][2]) || 1;
+      if (qk < 1) qk = 1;
+      if (!kits[kit]) kits[kit] = [];
+      kits[kit].push({ sku: comp, cantidadPorKit: qk });
+    }
+    return { ok: true, kits: kits };
+  } catch(e) {
+    Logger.log('obtenerKitsPortal: ' + e);
+    return { ok: false, kits: {} };
   }
 }
 
@@ -304,6 +396,7 @@ function revisarItemsConStock(items) {
       var sku = String(dDb[i][D.CODIGO] || '').trim().toUpperCase();
       if (sku) dbSet[sku] = true;
     }
+    items = _explotarKits(items); // C → A + B antes de chequear stock, para que la revisión muestre los componentes reales
     return _splitItemsConStock(items, stockMap, dbSet);
   } catch(e) {
     Logger.log('revisarItemsConStock: ' + e);
@@ -417,6 +510,9 @@ function confirmarPedidoPortal(params) {
         items[pi0].descripcion = newEntry ? newEntry.descripcion : items[pi0].descripcion;
       }
     } catch(eSub) { Logger.log('confirmarPedidoPortal sustitucion: ' + eSub); }
+
+    // ── A0b. Explosión de kits (ej: C → A + B, misma cantidad) ────
+    items = _explotarKits(items);
 
     // ── A. Precio enforcement desde Lista_Repuestos ───────────────
     var priceMap = _buildPriceMap();
