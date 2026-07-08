@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.15 -->
+<!-- @version 1.16 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1613,6 +1613,19 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <button class="btn-out blue" onclick="_pedNuevoPedido()">
               <i class="fa fa-plus"></i> Nuevo pedido
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tiempo promedio de envío (recibido → despachado) -->
+      <div id="ped-tiempo-card" class="dji-card" style="margin-top:6px;display:none;border-color:rgba(26,158,74,.3)">
+        <div class="dji-card-body" style="display:flex;align-items:center;gap:14px;padding:14px 18px">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(26,158,74,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fa fa-truck-fast" style="color:var(--green);font-size:19px"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em">Tiempo promedio de envío</div>
+            <div id="ped-tiempo-val" style="font-size:13px;color:var(--tx);margin-top:3px;line-height:1.5">—</div>
           </div>
         </div>
       </div>
@@ -5641,6 +5654,40 @@ function _cargarHistorialPedidos() {
       wrap.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tx-d)">Error al cargar historial.</div>';
     })
     .obtenerHistorialPedidosPortal(resellerActual);
+  _cargarTiempoEnvio();
+}
+
+// ── Tiempo promedio de envío (recibido → despachado, días hábiles) ──
+function _cargarTiempoEnvio() {
+  if (!resellerActual) return;
+  google.script.run
+    .withSuccessHandler(_renderTiempoEnvio)
+    .withFailureHandler(function() {
+      var c = document.getElementById('ped-tiempo-card');
+      if (c) c.style.display = 'none';
+    })
+    .obtenerTiempoPromedioEnvioPortal(resellerActual);
+}
+
+function _renderTiempoEnvio(r) {
+  var card = document.getElementById('ped-tiempo-card');
+  var val  = document.getElementById('ped-tiempo-val');
+  if (!card || !val) return;
+  if (!r || !r.ok || !r.muestras || r.promedio === null) { card.style.display = 'none'; return; }
+  var p = r.promedio;
+  var txtProm = (p < 1) ? 'menos de 1 día hábil'
+              : (p === 1) ? '1 día hábil'
+              : (String(p).replace('.', ',') + ' días hábiles');
+  var extra = '';
+  if (r.muestras >= 2 && r.max !== r.min) {
+    extra = ' <span style="color:var(--tx-d)">· entre ' + r.min + ' y ' + r.max + ' días</span>';
+  }
+  var np = r.muestras === 1 ? '' : 's';
+  val.innerHTML =
+    'Tardamos en promedio <strong style="color:var(--green)">' + txtProm + '</strong> ' +
+    'desde que recibimos tu pedido hasta despacharlo' + extra +
+    ' <span style="color:var(--tx-d)">(sobre tus últimos ' + r.muestras + ' pedido' + np + ' enviado' + np + ')</span>.';
+  card.style.display = 'block';
 }
 
 var _HIST_BADGE = {

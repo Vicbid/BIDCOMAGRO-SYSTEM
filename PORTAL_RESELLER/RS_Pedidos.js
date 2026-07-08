@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.4
+// @version 1.5
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -788,6 +788,82 @@ function obtenerHistorialPedidosPortal(reseller) {
     Logger.log('obtenerHistorialPedidosPortal: ' + e);
     return { ok: false, historial: [] };
   }
+}
+
+// ── Tiempo promedio de envío (recibido → despachado) ──────────
+// Promedio en días hábiles (Lun–Vie) desde que se recibe el pedido del reseller
+// hasta que se despacha. Solo cuenta pedidos de este reseller efectivamente
+// enviados, cruzando PEDIDOS_REPUESTOS (fecha de recepción) con WOS
+// (Pedidos_resellers, col 14 = fecha de despacho) — el mismo join que el historial.
+function obtenerTiempoPromedioEnvioPortal(reseller) {
+  try {
+    var rLow = String(reseller || '').trim().toLowerCase();
+    if (!rLow) return { ok: true, muestras: 0, promedio: null };
+    var P     = SCHEMA.PEDIDOS_REPUESTOS;
+    var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+
+    // id → fecha de recepción (Date)
+    var recibido = {}, hayAlguno = false;
+    for (var i = 1; i < datos.length; i++) {
+      var f = datos[i];
+      if (String(f[P.RESELLER] || '').trim().toLowerCase() !== rLow) continue;
+      var id = String(f[P.ID] || '').trim();
+      var fe = f[P.FECHA];
+      if (id && fe instanceof Date) { recibido[id] = fe; hayAlguno = true; }
+    }
+    if (!hayAlguno) return { ok: true, muestras: 0, promedio: null };
+
+    // id → { enviado, fechaDespacho } desde WOS (Pedidos_resellers)
+    var desp = {};
+    try {
+      var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+      var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
+      if (wosHoja) {
+        var wosData = wosHoja.getDataRange().getValues();
+        for (var j = 1; j < wosData.length; j++) {
+          var num = String(wosData[j][0] || '').trim();
+          if (!num || !recibido[num]) continue;
+          if (!desp[num]) desp[num] = { enviado: 0, fechaDespacho: null };
+          if (_mapEstadoWosSimple(String(wosData[j][9] || '').trim()) === 'enviado') desp[num].enviado++;
+          var fd = wosData[j][14]; // col O — fecha de despacho
+          if (fd instanceof Date && (!desp[num].fechaDespacho || fd < desp[num].fechaDespacho)) {
+            desp[num].fechaDespacho = fd; // primer despacho (más temprano)
+          }
+        }
+      }
+    } catch(eWos) { Logger.log('obtenerTiempoPromedioEnvioPortal WOS: ' + eWos); }
+
+    var suma = 0, n = 0, min = null, max = null;
+    for (var pid in desp) {
+      var d = desp[pid];
+      if (d.enviado > 0 && d.fechaDespacho && recibido[pid]) {
+        var dias = _diasHabilesEntre(recibido[pid], d.fechaDespacho);
+        suma += dias; n++;
+        if (min === null || dias < min) min = dias;
+        if (max === null || dias > max) max = dias;
+      }
+    }
+    if (!n) return { ok: true, muestras: 0, promedio: null };
+    return { ok: true, muestras: n, promedio: Math.round((suma / n) * 10) / 10, min: min, max: max };
+  } catch(e) {
+    Logger.log('obtenerTiempoPromedioEnvioPortal: ' + e);
+    return { ok: false, muestras: 0, promedio: null };
+  }
+}
+
+// Días hábiles (Lun–Vie) transcurridos entre dos fechas.
+// Excluye el día inicial e incluye el final; mismo día o fecha invertida = 0.
+function _diasHabilesEntre(desde, hasta) {
+  var a = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate());
+  var b = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+  if (b <= a) return 0;
+  var count = 0, cur = new Date(a);
+  while (cur < b) {
+    cur.setDate(cur.getDate() + 1);
+    var dow = cur.getDay(); // 0=Domingo, 6=Sábado
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
 }
 
 // ── Índice compacto para búsqueda local en el browser ────────
