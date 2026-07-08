@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.5
+// @version 1.7
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -450,7 +450,10 @@ function confirmarPedidoPortal(params) {
     var NOTAS_SS_ID = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
     var notasHoja = null;
     try {
-      notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getActiveSheet();
+      // IMPORTANTE: usar getSheetByName (NO getActiveSheet). getActiveSheet devuelve
+      // la última pestaña que alguien dejó seleccionada en el archivo → si no era
+      // "Pedidos_resellers", el pedido se escribía en la pestaña equivocada.
+      notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
     } catch(eNS) { Logger.log('confirmarPedidoPortal openNotasSS: ' + eNS); }
 
     var hojaDesc = getSheet(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
@@ -798,7 +801,7 @@ function obtenerHistorialPedidosPortal(reseller) {
 function obtenerTiempoPromedioEnvioPortal(reseller) {
   try {
     var rLow = String(reseller || '').trim().toLowerCase();
-    if (!rLow) return { ok: true, muestras: 0, promedio: null };
+    if (!rLow) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
     var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
 
@@ -811,7 +814,7 @@ function obtenerTiempoPromedioEnvioPortal(reseller) {
       var fe = f[P.FECHA];
       if (id && fe instanceof Date) { recibido[id] = fe; hayAlguno = true; }
     }
-    if (!hayAlguno) return { ok: true, muestras: 0, promedio: null };
+    if (!hayAlguno) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
 
     // id → { enviado, fechaDespacho } desde WOS (Pedidos_resellers)
     var desp = {};
@@ -823,31 +826,39 @@ function obtenerTiempoPromedioEnvioPortal(reseller) {
         for (var j = 1; j < wosData.length; j++) {
           var num = String(wosData[j][0] || '').trim();
           if (!num || !recibido[num]) continue;
-          if (!desp[num]) desp[num] = { enviado: 0, fechaDespacho: null };
+          if (!desp[num]) desp[num] = { enviado: 0, fechaDespacho: null, backorder: false };
           if (_mapEstadoWosSimple(String(wosData[j][9] || '').trim()) === 'enviado') desp[num].enviado++;
           var fd = wosData[j][14]; // col O — fecha de despacho
           if (fd instanceof Date && (!desp[num].fechaDespacho || fd < desp[num].fechaDespacho)) {
             desp[num].fechaDespacho = fd; // primer despacho (más temprano)
           }
+          // Backorder: el stock de Carmen al momento de carga (col I) no alcanzaba lo pedido (col E)
+          var req     = Number(wosData[j][4]) || 0;
+          var snap    = wosData[j][8];
+          var snapNum = (snap === '' || snap === null || isNaN(Number(snap))) ? null : Number(snap);
+          if (snapNum === null || snapNum < req) desp[num].backorder = true;
         }
       }
     } catch(eWos) { Logger.log('obtenerTiempoPromedioEnvioPortal WOS: ' + eWos); }
 
-    var suma = 0, n = 0, min = null, max = null;
+    // Dos promedios separados: pedidos que tenían stock vs los que tuvieron backorder
+    var conStock = { suma: 0, n: 0 }, backorder = { suma: 0, n: 0 };
     for (var pid in desp) {
       var d = desp[pid];
       if (d.enviado > 0 && d.fechaDespacho && recibido[pid]) {
         var dias = _diasHabilesEntre(recibido[pid], d.fechaDespacho);
-        suma += dias; n++;
-        if (min === null || dias < min) min = dias;
-        if (max === null || dias > max) max = dias;
+        var b = d.backorder ? backorder : conStock;
+        b.suma += dias; b.n++;
       }
     }
-    if (!n) return { ok: true, muestras: 0, promedio: null };
-    return { ok: true, muestras: n, promedio: Math.round((suma / n) * 10) / 10, min: min, max: max };
+    return {
+      ok: true,
+      conStock:  { muestras: conStock.n,  promedio: conStock.n  ? Math.round((conStock.suma  / conStock.n)  * 10) / 10 : null },
+      backorder: { muestras: backorder.n, promedio: backorder.n ? Math.round((backorder.suma / backorder.n) * 10) / 10 : null }
+    };
   } catch(e) {
     Logger.log('obtenerTiempoPromedioEnvioPortal: ' + e);
-    return { ok: false, muestras: 0, promedio: null };
+    return { ok: false, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
   }
 }
 
