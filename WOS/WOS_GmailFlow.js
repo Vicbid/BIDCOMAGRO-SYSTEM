@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.6
+// @version 2.7
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -534,6 +534,23 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
 //                 procesó, se devuelve el resultado previo sin re-ejecutar
 //                 (protege contra doble-click / reintento tras respuesta perdida)
 // ─────────────────────────────────────────────────────────────
+// Combina códigos de seguimiento sin pisar ni duplicar. Acepta valores ya
+// combinados ("T1 | T2") en cualquiera de los dos lados. Devuelve "T1 | T2 | ...".
+function _wosMergeTracking(oldVal, newVal) {
+  var out = [];
+  function _add(v) {
+    var parts = String(v || '').split('|');
+    for (var i = 0; i < parts.length; i++) {
+      var t = parts[i].trim();
+      if (t && out.indexOf(t) === -1) out.push(t);
+    }
+  }
+  _add(oldVal);
+  _add(newVal);
+  return out.join(' | ');
+}
+
+// ─────────────────────────────────────────────────────────────
 // Idempotencia: devuelve el resultado previo si el token ya se procesó, o null.
 function _wosIdempotResultado(token) {
   if (!token) return null;
@@ -644,8 +661,11 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       if (dispNow > 0) {
         // CANT_DESP aislado (col 6)
         ped.hoja.getRange(i + 1, COL.CANT_DESP + 1).setValue(cantFinal);
-        // FECHA_DESPACHO (col 15), NOTA_ENTREGA (col 16), TRACKING (col 17) — bloque contiguo
-        ped.hoja.getRange(i + 1, COL.FECHA_DESPACHO + 1, 1, 3).setValues([[ahora, notaEntrega, track || '']]);
+        // Tracking ACUMULATIVO: si la fila ya tenía código(s) de un despacho anterior,
+        // se agregan los nuevos sin pisar ni duplicar (antes se perdía el seguimiento previo).
+        var mergedTrack = _wosMergeTracking(ped.datos[i][COL.TRACKING], track);
+        // FECHA_DESPACHO (col O), NOTA_ENTREGA (col P), TRACKING (col Q) — bloque contiguo
+        ped.hoja.getRange(i + 1, COL.FECHA_DESPACHO + 1, 1, 3).setValues([[ahora, notaEntrega, mergedTrack]]);
         // FECHA_ESTADO (col 19), TRANSPORTISTA_DESP (col 20), COSTO_ENVIO (col 21), PESO_ENVIO (col 22) — bloque contiguo
         ped.hoja.getRange(i + 1, COL.FECHA_ESTADO + 1, 1, 4).setValues([[ahora, transp, costo > 0 ? costo : '', peso > 0 ? peso : '']]);
         if (operario) ped.hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(operario);
