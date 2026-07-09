@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.15
+// @version 2.17
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -213,7 +213,7 @@ var CONFIG = {
     "Abierto","Presupuesto rechazado",
     "Presupuesto aceptado","Espera de repuestos",
     "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado",
-    "Caso Enviado","Bateria enviada a reseller"
+    "Caso Enviado","Aprobado por DJI","Bateria enviada a reseller"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
   ESTADOS_NOTIFICAR_SUPERVISOR: ["Finalizado"],
@@ -1012,6 +1012,74 @@ function HUB_notificarOTTest() {
 }
 
 // ============================================================
+//  DIAGNÓSTICO DE MAILS DE BATERÍA — read-only, no manda nada.
+//  Dice por qué una OT de batería no está enviando mails.
+//    HUB_diagnosticoBateria("WH/REP/00123")
+//  o editá HUB_diagnosticoBateriaTest() y corré desde el editor.
+// ============================================================
+function HUB_diagnosticoBateria(numeroOT) {
+  try {
+    var buscado = String(numeroOT || "").trim();
+    if (!buscado) return { ok: false, error: "Falta el número de OT" };
+
+    var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+    var O = SCHEMA.OT, f = null;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][O.OT] || "").trim() === buscado) { f = datos[i]; break; }
+    }
+    if (!f) return { ok: false, error: "OT no encontrada: " + buscado };
+
+    var equipo   = String(f[O.EQUIPO]   || "").trim();
+    var estado   = String(f[O.ESTADO]   || "").trim();
+    var reseller = String(f[O.RESELLER] || "").trim();
+
+    // Tipo del equipo tal como figura en la hoja EQUIPOS (col B)
+    var tipoEquipo = "(equipo no encontrado en EQUIPOS)";
+    var dEq = getSheetValues(SCHEMA.SHEETS.EQUIPOS);
+    for (var e = 1; e < dEq.length; e++) {
+      if (String(dEq[e][0] || "").trim().toLowerCase() === equipo.toLowerCase()) {
+        tipoEquipo = String(dEq[e][1] || "").trim(); break;
+      }
+    }
+
+    var esBat          = esBateria(equipo);
+    var emailReseller  = obtenerEmailReseller(reseller);
+    var emailLogistica = obtenerEmailGestionLogistica();
+    var enLista        = estaEnLista(estado, CONFIG.ESTADOS_NOTIFICAR_RESELLER);
+
+    var problemas = [];
+    if (!esBat) problemas.push("esBateria('" + equipo + "')=false → NO dispara la reposición ni los textos de batería. Tipo en EQUIPOS col B = '" + tipoEquipo + "' (debe ser exactamente 'bateria', minúscula y sin tilde).");
+    if (!emailReseller) problemas.push("El reseller '" + reseller + "' no tiene email válido en Resellers (col J) → no le llega nada.");
+    if (!emailLogistica) problemas.push("No hay usuario 'Gestion Logistica' con email válido en Usuarios_Internos → el mail de reposición (estado 'Scrap Enviado (Evidencias)') se ABORTA entero: ni logística ni la copia al reseller, y no queda registro en EMAIL_LOGS.");
+    if (!enLista) problemas.push("El estado actual '" + estado + "' NO está en ESTADOS_NOTIFICAR_RESELLER → en este estado no sale mail de cambio de estado (es esperable si el estado es 'Scrap Enviado (Evidencias)', que usa el mail de reposición aparte).");
+
+    var r = {
+      ok: true,
+      ot: buscado,
+      equipo: equipo,
+      tipoEnEquipos: tipoEquipo,
+      esBateria: esBat,
+      estadoActual: estado,
+      estadoAvisaAlReseller: enLista,
+      reseller: reseller,
+      emailReseller: emailReseller || "(SIN EMAIL)",
+      emailGestionLogistica: emailLogistica || "(SIN USUARIO / SIN EMAIL)",
+      problemas: problemas.length ? problemas : ["Sin problemas de config detectados: en este estado la OT debería mandar mail. Si igual no llega, revisá EMAIL_LOGS por filas 'ERROR:' de esta OT."]
+    };
+    Logger.log(JSON.stringify(r, null, 2));
+    return r;
+  } catch(e) {
+    Logger.log("HUB_diagnosticoBateria: " + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+function HUB_diagnosticoBateriaTest() {
+  var NUMERO = "WH/REP/00000";   // poné acá una OT de batería que no esté mandando mails
+  return HUB_diagnosticoBateria(NUMERO);
+}
+
+// ============================================================
 //  LOGS DE UNA OT (historial visible en el formulario)
 // ============================================================
 function obtenerLogs(ot) {
@@ -1495,6 +1563,17 @@ function armarEmailReseller(data, ant, nvo, tec) {
     "Finalizado":           "La reparación fue completada exitosamente. La orden queda cerrada en el sistema."
   };
   var msgs = esReseller ? msgsReseller : msgsTaller;
+  // Estados exclusivos del flujo de batería — textos propios (solo si el equipo ES batería,
+  // porque "Rechazado DJI" también existe en el circuito Reseller Propio y no debe usar esta redacción)
+  if (esBateria(data.equipo)) {
+    var msgsBateria = {
+      "Caso Enviado":               "Enviamos su caso a DJI para la evaluación de la batería en garantía. Le avisaremos apenas tengamos la respuesta.",
+      "Aprobado por DJI":           "DJI aprobó el caso: la batería quedó reconocida en garantía. Coordinaremos la reposición y le informaremos los próximos pasos.",
+      "Rechazado DJI":              "DJI no aprobó el caso de la batería en garantía. Nos comunicaremos con usted para informarle las opciones disponibles.",
+      "Bateria enviada a reseller": "Despachamos su batería de reemplazo. En breve la recibirá."
+    };
+    for (var kB in msgsBateria) { if (msgsBateria.hasOwnProperty(kB)) msgs[kB] = msgsBateria[kB]; }
+  }
   var estimada = data._fechaEstimada ? filaDetalle("Fecha estimada de entrega", "<strong style='color:#00a3e0'>" + data._fechaEstimada + "</strong>") : "";
   var urgBanner = data.prioridad ? bloqueCard("⚡ Prioridad URGENTE", "Esta orden tiene prioridad máxima.", "#e74c3c") : "";
   var ficha =
