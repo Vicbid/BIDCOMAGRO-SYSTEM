@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.30 -->
+<!-- @version 1.31 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1510,6 +1510,19 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             </div>
             <div id="cat-conjuntos"></div>
             <div id="cat-detalle" style="display:none"></div>
+          </div>
+
+          <!-- LIGHTBOX ZOOM del despiece -->
+          <div id="cat-zoom" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.92);touch-action:none;user-select:none;overflow:hidden">
+            <img id="cat-zoom-img" src="" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;max-width:none;cursor:grab;will-change:transform">
+            <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1"><i class="fa fa-times"></i></button>
+            <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 10px">
+              <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-minus"></i></button>
+              <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
+              <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-plus"></i></button>
+              <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer"><i class="fa fa-compress"></i> 1:1</button>
+              <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Rueda para zoom · arrastrá para mover</span>
+            </div>
           </div>
 
           <!-- MODO EXCEL -->
@@ -4934,7 +4947,9 @@ function _catCargar() {
 }
 
 function _catRenderConjuntos() {
-  document.getElementById('cat-detalle').style.display = 'none';
+  var det0 = document.getElementById('cat-detalle');
+  det0.style.display = 'none';
+  det0.style.width = ''; det0.style.position = ''; det0.style.left = ''; det0.style.transform = '';
   var wrap = document.getElementById('cat-conjuntos');
   wrap.style.display = 'block';
   if (!_catData || !_catData.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
@@ -4959,10 +4974,19 @@ function _catAbrir(id) {
   document.getElementById('cat-conjuntos').style.display = 'none';
   var det = document.getElementById('cat-detalle');
   det.style.display = 'block';
+  // Romper el límite de ancho del .wrap (880px) para aprovechar la pantalla
+  det.style.width = 'min(1500px, 96vw)';
+  det.style.position = 'relative';
+  det.style.left = '50%';
+  det.style.transform = 'translateX(-50%)';
 
   var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
   var img = c.imagenUrl
-    ? '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;max-height:74vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm)" onerror="_catImgError(this)"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
+    ? '<div style="position:relative">' +
+        '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" onclick="_catZoomAbrir(this.src)" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);cursor:zoom-in;background:#fff" onerror="_catImgError(this)">' +
+        '<button onclick="_catZoomAbrir(this.previousElementSibling.src)" title="Ampliar" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.62);border:none;color:#fff;border-radius:var(--r);padding:6px 11px;font-size:11px;cursor:pointer;font-weight:700"><i class="fa fa-magnifying-glass-plus"></i> Ampliar</button>' +
+      '</div>' +
+      '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
 
   var rows = '';
@@ -4987,11 +5011,11 @@ function _catAbrir(id) {
   det.innerHTML =
     '<button onclick="_catRenderConjuntos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Volver a conjuntos</button>' +
     '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:10px">' + _catEsc(c.nombre) + '</div>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">' +
+    '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
       // Columna izquierda: imagen (queda fija mientras la lista scrollea)
-      '<div style="flex:1.3 1 320px;min-width:280px;position:sticky;top:0">' + img + '</div>' +
+      '<div style="flex:1.9 1 460px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
       // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
-      '<div style="flex:1 1 320px;min-width:300px;max-height:74vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+      '<div style="flex:1 1 300px;min-width:280px;max-height:82vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
         '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
           '<th style="' + thSt + 'text-align:center">N°</th>' +
           '<th style="' + thSt + 'text-align:left">SKU</th>' +
@@ -5035,9 +5059,68 @@ function _catImgError(img) {
     img.src = thumb; // segundo intento con el otro formato incrustable
     return;
   }
-  img.style.display = 'none';
-  if (img.nextElementSibling) img.nextElementSibling.style.display = 'block';
+  // La imagen está dentro de un contenedor relativo; el mensaje de error es el hermano de ese contenedor
+  var cont = img.parentNode;
+  cont.style.display = 'none';
+  if (cont.nextElementSibling) cont.nextElementSibling.style.display = 'block';
 }
+
+// ── ZOOM del despiece (lightbox con rueda + arrastre) ─────────
+var _czScale = 1, _czX = 0, _czY = 0, _czDrag = false, _czSX = 0, _czSY = 0;
+
+function _catZoomAbrir(src) {
+  if (!src) return;
+  var ov = document.getElementById('cat-zoom');
+  document.getElementById('cat-zoom-img').src = src;
+  _czReset();
+  ov.style.display = 'block';
+}
+function _catZoomCerrar() { document.getElementById('cat-zoom').style.display = 'none'; }
+function _czReset() { _czScale = 1; _czX = 0; _czY = 0; _czApply(); }
+function _catZoomReset() { _czReset(); }
+function _czApply() {
+  var im = document.getElementById('cat-zoom-img');
+  im.style.transform = 'translate(-50%,-50%) translate(' + _czX + 'px,' + _czY + 'px) scale(' + _czScale + ')';
+  im.style.cursor = _czScale > 1 ? 'grab' : 'zoom-in';
+  var lvl = document.getElementById('cat-zoom-lvl');
+  if (lvl) lvl.textContent = Math.round(_czScale * 100) + '%';
+}
+function _czSetScale(ns) {
+  ns = Math.max(1, Math.min(7, ns));
+  if (ns === 1) { _czX = 0; _czY = 0; }
+  _czScale = ns;
+  _czApply();
+}
+function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
+
+(function _czInit() {
+  function ready(fn) { if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+  ready(function () {
+    var ov = document.getElementById('cat-zoom');
+    var im = document.getElementById('cat-zoom-img');
+    if (!ov || !im) return;
+    // rueda = zoom
+    ov.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      _czSetScale(_czScale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+    }, { passive: false });
+    // arrastrar = mover (solo con zoom)
+    im.addEventListener('mousedown', function (e) {
+      if (_czScale <= 1) return;
+      e.preventDefault(); _czDrag = true; _czSX = e.clientX - _czX; _czSY = e.clientY - _czY; im.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!_czDrag) return;
+      _czX = e.clientX - _czSX; _czY = e.clientY - _czSY; _czApply();
+    });
+    window.addEventListener('mouseup', function () { if (_czDrag) { _czDrag = false; _czApply(); } });
+    // doble clic = alternar zoom
+    im.addEventListener('dblclick', function (e) { e.preventDefault(); _czSetScale(_czScale > 1 ? 1 : 2.4); });
+    // clic en el fondo o Esc = cerrar
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) _catZoomCerrar(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && ov.style.display === 'block') _catZoomCerrar(); });
+  });
+})();
 
 function _pedBuscar(immediate) {
   clearTimeout(_pedBusTimer);
