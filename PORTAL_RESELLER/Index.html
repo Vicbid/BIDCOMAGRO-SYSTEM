@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.29 -->
+<!-- @version 1.30 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4962,7 +4962,7 @@ function _catAbrir(id) {
 
   var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
   var img = c.imagenUrl
-    ? '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;border:1px solid var(--brd);border-radius:var(--rm)" onerror="_catImgError(this)"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
+    ? '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;max-height:74vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm)" onerror="_catImgError(this)"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
 
   var rows = '';
@@ -4983,13 +4983,23 @@ function _catAbrir(id) {
     '</tr>';
   }
 
+  var thSt = 'position:sticky;top:0;background:var(--surf);padding:7px 8px;font-size:10px;z-index:1;';
   det.innerHTML =
     '<button onclick="_catRenderConjuntos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Volver a conjuntos</button>' +
     '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:10px">' + _catEsc(c.nombre) + '</div>' +
-    '<div>' + img + '</div>' +
-    '<div style="overflow:auto;margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surf)">' +
-      '<th style="padding:6px 8px;font-size:10px;text-align:center">N°</th><th style="padding:6px 8px;font-size:10px;text-align:left">SKU</th><th style="padding:6px 8px;font-size:10px;text-align:left">Repuesto</th><th style="padding:6px 8px;font-size:10px;text-align:right">Agregar</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">' +
+      // Columna izquierda: imagen (queda fija mientras la lista scrollea)
+      '<div style="flex:1.3 1 320px;min-width:280px;position:sticky;top:0">' + img + '</div>' +
+      // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
+      '<div style="flex:1 1 320px;min-width:300px;max-height:74vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+        '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+          '<th style="' + thSt + 'text-align:center">N°</th>' +
+          '<th style="' + thSt + 'text-align:left">SKU</th>' +
+          '<th style="' + thSt + 'text-align:left">Repuesto</th>' +
+          '<th style="' + thSt + 'text-align:right">Agregar</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</div>' +
+    '</div>';
 }
 
 function _catAgregar(btn, sku) {
