@@ -126,7 +126,8 @@ var SCHEMA = {
     FECHA_DEPOSITO:       10,
     OPERADOR:             11,
     OBSERVACIONES:        12,
-    ULTIMA_ACTUALIZACION: 13
+    ULTIMA_ACTUALIZACION: 13,
+    ETA:                  14
   },
   HISTORIAL_COMPRAS: {
     FECHA:           0,

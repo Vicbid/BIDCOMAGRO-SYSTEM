@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.4 -->
+<!-- @version 5.5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1563,6 +1563,10 @@ tr:last-child td{border-bottom:none}
         <div class="mb-3">
           <label class="flbl">Observación (opcional)</label>
           <input type="text" id="est-cas-obs" class="form-control" placeholder="Ej: Vuelo AA1234">
+        </div>
+        <div class="mb-3">
+          <label class="flbl"><i class="fa fa-plane-arrival" style="margin-right:4px;color:var(--blue)"></i>ETA — llegada estimada (opcional)</label>
+          <input type="date" id="est-cas-eta" class="form-control">
         </div>
         <div class="mb-3">
           <label class="flbl">Operador</label>
@@ -3304,15 +3308,23 @@ function cargarComprasTab() {
             var ultimaAct = c.ultimaActualizacion
               ? '<div class="kban-meta" style="margin-top:2px"><i class="fa fa-edit" style="margin-right:3px;color:var(--tx-d)"></i>Actualizado: ' + c.ultimaActualizacion + '</div>'
               : '';
+            var etaHtml = '';
+            if (c.eta) {
+              var etaLate = false;
+              if (c.etaISO) { var _hoyEta = new Date(); _hoyEta.setHours(0,0,0,0); etaLate = new Date(c.etaISO + 'T00:00:00') < _hoyEta; }
+              etaHtml = '<div class="kban-meta" style="margin-top:2px;color:' + (etaLate ? 'var(--red)' : 'var(--blue)') + '">' +
+                '<i class="fa fa-plane-arrival" style="margin-right:3px"></i>ETA: ' + c.eta + (etaLate ? ' (vencida)' : '') + '</div>';
+            }
             h += '<div class="kban-card">' +
               '<div class="kban-cas-id" title="' + c.cas + '">' + c.cas + '</div>' +
               '<div class="kban-meta"><i class="fa fa-calendar-alt" style="margin-right:3px"></i>' + c.fechaPedido +
                 (c.metodoPago ? ' &nbsp;·&nbsp; ' + c.metodoPago : '') + '</div>' +
               ultimaAct +
+              etaHtml +
               diasHtml +
               '<div class="kban-actions">' +
                 '<button class="btn-s" style="font-size:10px;padding:2px 7px" onclick=\'verDetalleCAS("' + c.cas + '")\' title="Ver contenido y reservas"><i class="fa fa-list"></i></button>' +
-                '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '")\'>Avanzar</button>' +
+                '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '","' + (c.etaISO || '') + '")\'>Avanzar</button>' +
               '</div>' +
             '</div>';
           });
@@ -3689,11 +3701,12 @@ function confirmarCAS() {
     .registrarCAS(cas, pago, op);
 }
 
-function abrirEstadoCAS(cas, estadoActual) {
+function abrirEstadoCAS(cas, estadoActual, etaISO) {
   document.getElementById('est-cas-num').value = cas;
   document.getElementById('est-cas-info').textContent = cas;
   document.getElementById('est-cas-nuevo').value = estadoActual;
   document.getElementById('est-cas-obs').value = '';
+  document.getElementById('est-cas-eta').value = etaISO || '';
   document.getElementById('recepcion-wrap').style.display = 'none';
   document.getElementById('recepcion-items').innerHTML = '';
   document.getElementById('est-cas-nuevo').onchange = function() {
@@ -3737,6 +3750,7 @@ function confirmarEstadoCAS() {
       .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
       .recibirMercaderia(cas, items, op, deposito);
   } else {
+    var eta = document.getElementById('est-cas-eta').value; // 'yyyy-MM-dd' o ''
     google.script.run
       .withSuccessHandler(function(res) {
         sp(false);
@@ -3747,7 +3761,7 @@ function confirmarEstadoCAS() {
         } else toast(res.msg,'err');
       })
       .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-      .actualizarEstadoCAS(cas, estado, obs, op);
+      .actualizarEstadoCAS(cas, estado, obs, op, eta);
   }
 }
 

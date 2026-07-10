@@ -2572,14 +2572,14 @@ function enviarEmailReposicionBateria(data) {
     var htmlEmail = construirEmailHTML(
       "Reposición de Batería — " + data.ot,
       "Estimado equipo de Logística,",
-      bloqueCard("🔋 Caso aprobado — Reposición requerida",
+      bloqueCard("Caso aprobado — Reposición requerida",
         "El reseller <strong>" + data.reseller + "</strong> completó los dos pasos requeridos: " +
         "carga del caso reconocido por DJI como en garantía y envío del scrap. " +
         "Se requiere reponer la batería al reseller.",
         "#00a3e0") +
       "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:16px'>" +
       cuerpoDetalle + "</div>" +
-      bloqueCard("📦 Acción requerida",
+      bloqueCard(" Acción requerida",
         "Coordinar envío de batería de reemplazo al reseller <strong>" + data.reseller + "</strong>.",
         "#27ae60"),
       "Aviso automático generado por DJI HUB PRO."

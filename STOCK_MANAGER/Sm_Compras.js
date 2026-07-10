@@ -1,4 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
+// @version 1.1
 
 // ============================================================
 //  COMPRAS DJI
@@ -29,7 +30,10 @@ function cargarCompras() {
         },
         diasEnTransito: diasTransito,
         operador: String(f[11]||""), observaciones: String(f[12]||""),
-        ultimaActualizacion: f[13] instanceof Date ? _fmtFecha(f[13]) : (f[13] ? String(f[13]) : null)
+        ultimaActualizacion: f[13] instanceof Date ? _fmtFecha(f[13]) : (f[13] ? String(f[13]) : null),
+        eta:    _fmtFecha(f[SCHEMA.COMPRAS_DJI.ETA]),
+        etaISO: (f[SCHEMA.COMPRAS_DJI.ETA] instanceof Date)
+                ? Utilities.formatDate(f[SCHEMA.COMPRAS_DJI.ETA], Session.getScriptTimeZone(), "yyyy-MM-dd") : ""
       });
     }
     out.sort(function(a,b){ return ESTADOS_CAS.indexOf(a.estado) - ESTADOS_CAS.indexOf(b.estado); });
@@ -52,7 +56,7 @@ function registrarCAS(cas, metodoPago, operador) {
   } catch(e) { return { ok: false, msg: e.toString() }; }
 }
 
-function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador) {
+function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador, eta) {
   try {
     var hoja = getSheet(SCHEMA.SHEETS.COMPRAS);
     var d    = getSheetValues(hoja);
@@ -68,6 +72,16 @@ function actualizarEstadoCAS(cas, nuevoEstado, observaciones, operador) {
       if (observaciones) hoja.getRange(i+1, 13).setValue(String(d[i][12]||"")+" | "+observaciones);
       hoja.getRange(i+1, 12).setValue(operador||"");
       hoja.getRange(i+1, 14).setValue(ahora); // Última actualización
+
+      // ETA (llegada estimada) — solo si se pasó el parámetro. '' limpia; 'yyyy-MM-dd' setea la fecha.
+      if (eta !== undefined && eta !== null) {
+        var etaVal = "";
+        var etaParts = String(eta).split("-");
+        if (etaParts.length === 3) {
+          etaVal = new Date(parseInt(etaParts[0],10), parseInt(etaParts[1],10)-1, parseInt(etaParts[2],10));
+        }
+        hoja.getRange(i+1, SCHEMA.COMPRAS_DJI.ETA + 1).setValue(etaVal);
+      }
 
       // Registrar en historial
       _logHistorialCAS(casB, estadoAnterior, nuevoEstado, operador, observaciones);
