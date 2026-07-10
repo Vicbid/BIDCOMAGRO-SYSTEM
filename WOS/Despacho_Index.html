@@ -1,4 +1,4 @@
-<!-- @version 3.16 -->
+<!-- @version 3.17 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -668,6 +668,9 @@ body{overflow:hidden}
       <button class="nav-tab" id="btn-compras" onclick="abrirListaCompras()">
         <i class="fa fa-shopping-cart"></i><span>Compras / Backorder</span>
       </button>
+      <button class="nav-tab" onclick="abrirDespachable()">
+        <i class="fa fa-truck-loading"></i><span>Despacho parcial</span>
+      </button>
       <button class="nav-tab" onclick="abrirResumen()">
         <i class="fa fa-file-alt"></i><span>Resumen Envíos</span>
       </button>
@@ -917,6 +920,22 @@ body{overflow:hidden}
   <div class="stk-body">
     <div class="stk-wrap">
       <div id="lc-content"><div class="stk-empty">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: Despacho parcial por reseller -->
+<div class="stk-overlay" id="dp-overlay" style="display:none">
+  <div class="stk-head">
+    <div>
+      <div class="stk-title">Despacho parcial · qué puedo enviar ahora por reseller</div>
+      <div class="stk-sub" id="dp-sub">—</div>
+    </div>
+    <button class="btn btn-ghost" onclick="cerrarDespachable()" style="flex-shrink:0;margin-left:auto">✕ Cerrar</button>
+  </div>
+  <div class="stk-body">
+    <div class="stk-wrap">
+      <div id="dp-content"><div class="stk-empty">Cargando…</div></div>
     </div>
   </div>
 </div>
@@ -3279,6 +3298,183 @@ function abrirListaCompras() {
 function cerrarListaCompras() {
   document.getElementById('lc-overlay').style.display = 'none';
   document.getElementById('btn-compras').classList.remove('loading');
+}
+
+// ════════════════════════════════════════════════════════════
+//  DESPACHO PARCIAL — qué se puede enviar AHORA, agrupado por reseller
+//  Se calcula 100% en el cliente desde _pedidos (ya trae stockActual por SKU).
+//  El stock se reparte GLOBALMENTE en orden FIFO (pedido más viejo primero)
+//  para no prometer las mismas unidades a dos líneas/resellers distintos.
+// ════════════════════════════════════════════════════════════
+var _despachableData = [];
+var DP_ESTADOS = { 'Confirmado':1, 'Preparado':1, 'Preparado Parcial':1, 'Backorder':1 };
+
+function abrirDespachable() {
+  document.getElementById('dp-overlay').style.display = 'flex';
+  _despachableData = _computeDespachable();
+  _renderDespachable();
+}
+function cerrarDespachable() {
+  document.getElementById('dp-overlay').style.display = 'none';
+}
+
+function _computeDespachable() {
+  // 1. Pool de stock por SKU (stockActual es el mismo para todas las líneas del SKU)
+  var pool = {};
+  for (var i = 0; i < _pedidos.length; i++) {
+    var its = (_pedidos[i] && _pedidos[i].items) || [];
+    for (var j = 0; j < its.length; j++) {
+      var sku = String(its[j].sku || '').trim().toUpperCase();
+      if (!sku || pool[sku] !== undefined) continue;
+      pool[sku] = (typeof its[j].stockActual === 'number' && its[j].stockActual > 0) ? its[j].stockActual : 0;
+    }
+  }
+  // 2. Líneas pendientes candidatas (con unidades pendientes y estado despachable)
+  var lineas = [];
+  for (var p = 0; p < _pedidos.length; p++) {
+    var ped = _pedidos[p]; if (!ped) continue;
+    var pits = ped.items || [];
+    for (var k = 0; k < pits.length; k++) {
+      var it = pits[k];
+      if (!(it.cantPend > 0) || !DP_ESTADOS[it.estado]) continue;
+      lineas.push({
+        numero: ped.numero, reseller: ped.reseller || '(sin reseller)', fechaMs: ped.fechaMs || 0,
+        sku: String(it.sku || '').trim().toUpperCase(), skuRaw: it.sku, desc: it.desc || '',
+        cantPend: it.cantPend, precio: Number(it.precio) || 0, estado: it.estado
+      });
+    }
+  }
+  // 3. FIFO global (pedido más viejo primero) y asignación del pool
+  lineas.sort(function(a, b) { return a.fechaMs - b.fechaMs; });
+  for (var l = 0; l < lineas.length; l++) {
+    var ln = lineas[l];
+    var disp = pool[ln.sku] || 0;
+    ln.ahora = Math.min(ln.cantPend, disp);
+    pool[ln.sku] = disp - ln.ahora;
+    ln.falta = ln.cantPend - ln.ahora;
+  }
+  // 4. Agrupar por reseller → pedidos
+  var byRes = {};
+  for (var m = 0; m < lineas.length; m++) {
+    var x = lineas[m];
+    if (!byRes[x.reseller]) byRes[x.reseller] = { reseller: x.reseller, pedidos: {}, uAhora:0, uFalta:0, usdAhora:0, usdFalta:0 };
+    var R = byRes[x.reseller];
+    if (!R.pedidos[x.numero]) R.pedidos[x.numero] = { numero: x.numero, fechaMs: x.fechaMs, lineas: [] };
+    R.pedidos[x.numero].lineas.push(x);
+    R.uAhora += x.ahora; R.uFalta += x.falta;
+    R.usdAhora += x.ahora * x.precio; R.usdFalta += x.falta * x.precio;
+  }
+  // 5. A array ordenado (más para despachar ahora primero)
+  var arr = [];
+  var rk = Object.keys(byRes);
+  for (var r = 0; r < rk.length; r++) {
+    var Rr = byRes[rk[r]];
+    var peds = [];
+    var pk = Object.keys(Rr.pedidos);
+    for (var q = 0; q < pk.length; q++) peds.push(Rr.pedidos[pk[q]]);
+    peds.sort(function(a, b) { return a.fechaMs - b.fechaMs; });
+    Rr.pedidosArr = peds; Rr.nPedidos = peds.length;
+    arr.push(Rr);
+  }
+  arr.sort(function(a, b) { return b.uAhora - a.uAhora || b.uFalta - a.uFalta; });
+  return arr;
+}
+
+function _fmtUSD(n) { return (Math.round(n * 100) / 100).toLocaleString('es-AR'); }
+
+function _renderDespachable() {
+  var data = _despachableData || [];
+  var cont = document.getElementById('dp-content');
+  if (!data.length) {
+    document.getElementById('dp-sub').textContent = 'Sin pedidos pendientes de despacho';
+    cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes (Confirmado / Preparado / Backorder) para despachar. ¡Todo al día!</div>';
+    return;
+  }
+  var totUAhora = 0, totUFalta = 0;
+  for (var t = 0; t < data.length; t++) { totUAhora += data[t].uAhora; totUFalta += data[t].uFalta; }
+  document.getElementById('dp-sub').textContent =
+    data.length + ' reseller' + (data.length === 1 ? '' : 's') + ' con pendientes · ' +
+    totUAhora + ' u. despachables ahora · ' + totUFalta + ' u. quedan para próximo envío';
+
+  var html = '';
+  for (var i = 0; i < data.length; i++) {
+    var R = data[i];
+    html += '<div style="background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);box-shadow:var(--shd);margin-bottom:12px;overflow:hidden">';
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--tx)">' + escH(R.reseller) + '</div>' +
+      '<span style="font-size:11px;color:var(--tx-d)">' + R.nPedidos + ' pedido' + (R.nPedidos === 1 ? '' : 's') + '</span>' +
+      '<div style="margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
+        '<span style="font-size:12px;color:var(--green-m);font-weight:700">Ahora: ' + R.uAhora + ' u' + (R.usdAhora > 0 ? ' · $' + _fmtUSD(R.usdAhora) : '') + '</span>' +
+        (R.uFalta > 0 ? '<span style="font-size:12px;color:#B54708;font-weight:700">Falta: ' + R.uFalta + ' u' + (R.usdFalta > 0 ? ' · $' + _fmtUSD(R.usdFalta) : '') + '</span>' : '') +
+        '<button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="_copiarDespachable(' + i + ')"><i class="fa fa-copy"></i> Copiar aviso</button>' +
+      '</div>' +
+    '</div>';
+    html += '<div style="padding:6px 16px 12px">';
+    for (var pp = 0; pp < R.pedidosArr.length; pp++) {
+      var P = R.pedidosArr[pp];
+      html += '<div style="margin-top:8px">';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);font-family:monospace;margin-bottom:3px">' + escH(P.numero) + '</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+      for (var li = 0; li < P.lineas.length; li++) {
+        var L = P.lineas[li];
+        var ahoraCell = L.ahora > 0
+          ? '<span style="color:var(--green-m);font-weight:700">' + L.ahora + '</span>'
+          : '<span style="color:var(--tx-d)">0</span>';
+        var faltaCell = L.falta > 0
+          ? '<span style="color:#B54708;font-weight:700">' + L.falta + '</span>'
+          : '<span style="color:var(--tx-d)">—</span>';
+        html += '<tr style="border-bottom:1px solid var(--brd)">' +
+          '<td style="padding:4px 6px;font-family:monospace;white-space:nowrap">' + escH(L.skuRaw || L.sku) + '</td>' +
+          '<td style="padding:4px 6px;color:var(--tx-m)">' + escH(L.desc) + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap;color:var(--tx-d)" title="Pendiente total de la línea">pend ' + L.cantPend + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">ahora ' + ahoraCell + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">falta ' + faltaCell + '</td>' +
+        '</tr>';
+      }
+      html += '</table></div>';
+    }
+    html += '</div></div>';
+  }
+  cont.innerHTML = html;
+}
+
+function _copiarDespachable(idx) {
+  var R = _despachableData[idx];
+  if (!R) return;
+  var ahora = [], falta = [];
+  for (var pp = 0; pp < R.pedidosArr.length; pp++) {
+    var P = R.pedidosArr[pp];
+    for (var li = 0; li < P.lineas.length; li++) {
+      var L = P.lineas[li];
+      var label = (L.skuRaw || L.sku) + (L.desc ? ' — ' + L.desc : '');
+      if (L.ahora > 0) ahora.push('• ' + label + ' — ' + L.ahora + ' u (pedido ' + P.numero + ')');
+      if (L.falta > 0) falta.push('• ' + label + ' — ' + L.falta + ' u (pedido ' + P.numero + ')');
+    }
+  }
+  var txt = 'Hola ' + R.reseller + ',\n\n';
+  txt += 'De tus pedidos pendientes te puedo despachar AHORA:\n' + (ahora.length ? ahora.join('\n') : '(nada disponible por el momento)') + '\n';
+  if (falta.length) txt += '\nQueda para el próximo envío (sin stock por ahora):\n' + falta.join('\n') + '\n';
+  txt += '\n¿Querés que te envíe ahora lo disponible y el resto en el próximo envío?';
+  _dpCopiarTexto(txt);
+}
+
+function _dpCopiarTexto(txt) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function() { toast('Aviso copiado al portapapeles', 'ok'); },
+        function() { _dpCopiarFallback(txt); });
+    } else { _dpCopiarFallback(txt); }
+  } catch(e) { _dpCopiarFallback(txt); }
+}
+function _dpCopiarFallback(txt) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Aviso copiado al portapapeles', 'ok');
+  } catch(e) { toast('No se pudo copiar automáticamente', 'err'); }
 }
 
 function _renderListaCompras(ecMap, stockMap, loading) {
