@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  CATÁLOGO EXPLOTADAS — despieces DJI para el Portal Reseller
 //  Datos generados desde el Excel oficial de DJI (T100 Material
@@ -32,8 +32,21 @@ function _asegurarHojaCatalogoImagenes() {
   return hoja;
 }
 
+// Extrae el FILE_ID de cualquier formato de link de Drive:
+//   .../file/d/ID/view  ·  ?id=ID  ·  lh3.googleusercontent.com/d/ID
+// Devuelve '' si no encuentra un ID de Drive (se asume URL directa).
+function _catDriveId(url) {
+  var s = String(url || '').trim();
+  if (!s) return '';
+  var m = s.match(/\/d\/([-\w]{20,})/);        // /file/d/ID  |  lh3 /d/ID
+  if (m) return m[1];
+  m = s.match(/[?&]id=([-\w]{20,})/);           // open?id=ID | uc?id=ID | thumbnail?id=ID
+  if (m) return m[1];
+  return '';
+}
+
 // Devuelve el catálogo (conjuntos + ítems) con los links de imagen
-// mergeados desde CATALOGO_IMAGENES.
+// mergeados desde CATALOGO_IMAGENES, normalizados a URL incrustable.
 function obtenerCatalogoExplotadas() {
   try {
     var urlMap = {};
@@ -42,17 +55,22 @@ function obtenerCatalogoExplotadas() {
       var datos = hoja.getDataRange().getValues();
       for (var i = 1; i < datos.length; i++) {
         var cid = String(datos[i][1] || '').trim();
-        var url = String(datos[i][3] || '').trim();
-        if (cid) urlMap[cid] = url;
+        var raw = String(datos[i][3] || '').trim();
+        if (cid) urlMap[cid] = raw;
       }
     } catch(eU) { Logger.log('obtenerCatalogoExplotadas urls: ' + eU); }
 
     var conj = [];
     for (var j = 0; j < _CATALOGO_EXPLOTADAS.conjuntos.length; j++) {
-      var c = _CATALOGO_EXPLOTADAS.conjuntos[j];
+      var c   = _CATALOGO_EXPLOTADAS.conjuntos[j];
+      var raw = urlMap[c.id] || '';
+      var id  = _catDriveId(raw);
+      // Link de Drive → formato incrustable; si no es de Drive, se deja tal cual.
+      var imagenUrl = id ? ('https://lh3.googleusercontent.com/d/' + id + '=w1600') : raw;
       conj.push({
         id: c.id, nombre: c.nombre, nImgs: c.nImgs,
-        imagenUrl: urlMap[c.id] || '',
+        imagenUrl: imagenUrl,
+        imagenId:  id,          // el front lo usa para el fallback (thumbnail)
         totalItems: c.items.length,
         items: c.items
       });

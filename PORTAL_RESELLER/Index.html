@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.28 -->
+<!-- @version 1.29 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4960,8 +4960,9 @@ function _catAbrir(id) {
   var det = document.getElementById('cat-detalle');
   det.style.display = 'block';
 
+  var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
   var img = c.imagenUrl
-    ? '<img src="' + _catEsc(c.imagenUrl) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;border:1px solid var(--brd);border-radius:var(--rm)" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá el link en la hoja CATALOGO_IMAGENES).</div>'
+    ? '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;border:1px solid var(--brd);border-radius:var(--rm)" onerror="_catImgError(this)"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
 
   var rows = '';
@@ -5015,6 +5016,17 @@ function _catAgregar(btn, sku) {
     if (_catConjActual) { for (var j = 0; j < _catConjActual.items.length; j++) { if (_catConjActual.items[j].sku === sku) { nombre = _catConjActual.items[j].nombre || sku; break; } } }
     _pedAgregarItem(sku, nombre, 'consultar_Backorder', 0, '', undefined, '');
   }
+}
+
+// Fallback de imagen: lh3 → thumbnail de Drive → mensaje de error
+function _catImgError(img) {
+  var thumb = img.getAttribute('data-thumb') || '';
+  if (thumb && img.src.indexOf('drive.google.com/thumbnail') === -1) {
+    img.src = thumb; // segundo intento con el otro formato incrustable
+    return;
+  }
+  img.style.display = 'none';
+  if (img.nextElementSibling) img.nextElementSibling.style.display = 'block';
 }
 
 function _pedBuscar(immediate) {
