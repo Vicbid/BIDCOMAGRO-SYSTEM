@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.31 -->
+<!-- @version 1.32 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1509,7 +1509,17 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               <br><span style="font-size:10px;color:var(--tx-d)">Las piezas sin precio en tu lista se agregan como <strong>“a consultar”</strong>: BIDCOMAGRO te confirma disponibilidad y precio al procesar el pedido.</span>
             </div>
             <div id="cat-conjuntos"></div>
-            <div id="cat-detalle" style="display:none"></div>
+          </div>
+
+          <!-- MODAL detalle del conjunto (despiece + lista) -->
+          <div id="cat-modal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);padding:2.5vh 2vw">
+            <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);width:min(1500px,96vw);max-width:100%;height:95vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--brd);flex-shrink:0">
+                <div id="cat-modal-title" style="font-size:15px;font-weight:700;color:var(--tx)"></div>
+                <button onclick="_catCerrarDetalle()" title="Cerrar (Esc)" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-times"></i></button>
+              </div>
+              <div id="cat-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
+            </div>
           </div>
 
           <!-- LIGHTBOX ZOOM del despiece -->
@@ -4947,9 +4957,7 @@ function _catCargar() {
 }
 
 function _catRenderConjuntos() {
-  var det0 = document.getElementById('cat-detalle');
-  det0.style.display = 'none';
-  det0.style.width = ''; det0.style.position = ''; det0.style.left = ''; det0.style.transform = '';
+  _catCerrarDetalle();
   var wrap = document.getElementById('cat-conjuntos');
   wrap.style.display = 'block';
   if (!_catData || !_catData.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
@@ -4971,14 +4979,6 @@ function _catAbrir(id) {
   for (var i = 0; i < _catData.conjuntos.length; i++) if (_catData.conjuntos[i].id === id) { c = _catData.conjuntos[i]; break; }
   if (!c) return;
   _catConjActual = c;
-  document.getElementById('cat-conjuntos').style.display = 'none';
-  var det = document.getElementById('cat-detalle');
-  det.style.display = 'block';
-  // Romper el límite de ancho del .wrap (880px) para aprovechar la pantalla
-  det.style.width = 'min(1500px, 96vw)';
-  det.style.position = 'relative';
-  det.style.left = '50%';
-  det.style.transform = 'translateX(-50%)';
 
   var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
   var img = c.imagenUrl
@@ -5008,14 +5008,13 @@ function _catAbrir(id) {
   }
 
   var thSt = 'position:sticky;top:0;background:var(--surf);padding:7px 8px;font-size:10px;z-index:1;';
-  det.innerHTML =
-    '<button onclick="_catRenderConjuntos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Volver a conjuntos</button>' +
-    '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:10px">' + _catEsc(c.nombre) + '</div>' +
+  document.getElementById('cat-modal-title').textContent = c.nombre + ' — ' + _catData.modeloNombre;
+  document.getElementById('cat-modal-body').innerHTML =
     '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
       // Columna izquierda: imagen (queda fija mientras la lista scrollea)
-      '<div style="flex:1.9 1 460px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
+      '<div style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
       // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
-      '<div style="flex:1 1 300px;min-width:280px;max-height:82vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+      '<div style="flex:1 1 300px;min-width:280px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
         '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
           '<th style="' + thSt + 'text-align:center">N°</th>' +
           '<th style="' + thSt + 'text-align:left">SKU</th>' +
@@ -5024,6 +5023,12 @@ function _catAbrir(id) {
         '</tr></thead><tbody>' + rows + '</tbody></table>' +
       '</div>' +
     '</div>';
+  document.getElementById('cat-modal').style.display = 'block';
+}
+
+function _catCerrarDetalle() {
+  var m = document.getElementById('cat-modal');
+  if (m) m.style.display = 'none';
 }
 
 function _catAgregar(btn, sku) {
@@ -5116,9 +5121,17 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
     window.addEventListener('mouseup', function () { if (_czDrag) { _czDrag = false; _czApply(); } });
     // doble clic = alternar zoom
     im.addEventListener('dblclick', function (e) { e.preventDefault(); _czSetScale(_czScale > 1 ? 1 : 2.4); });
-    // clic en el fondo o Esc = cerrar
+    // clic en el fondo del zoom = cerrar zoom
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) _catZoomCerrar(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && ov.style.display === 'block') _catZoomCerrar(); });
+    // clic en el fondo del modal de detalle = cerrar detalle
+    var modal = document.getElementById('cat-modal');
+    if (modal) modal.addEventListener('mousedown', function (e) { if (e.target === modal) _catCerrarDetalle(); });
+    // Esc: primero cierra el zoom; si no hay zoom, cierra el modal
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (ov.style.display === 'block') { _catZoomCerrar(); }
+      else if (modal && modal.style.display === 'block') { _catCerrarDetalle(); }
+    });
   });
 })();
 
