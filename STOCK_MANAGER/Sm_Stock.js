@@ -1,4 +1,5 @@
 // ── STOCK MANAGER — Stock ─────────────────────────────────────
+// @version 1.1
 
 //  CATÁLOGO REPUESTOS DJI (para Borrador de Pedido)
 function cargarCatalogoBorrador() {
@@ -110,11 +111,15 @@ function cargarStock(filtro) {
     try {
       var dCAS = getSheetValues(SCHEMA.SHEETS.COMPRAS);
       var casEstadoMap = {};
+      var casEtaMap    = {};
       var estadosExcluidos = { 'En depósito': true };
       for (var ci = 1; ci < dCAS.length; ci++) {
         var casId  = String(dCAS[ci][0] || '').trim().toUpperCase();
         var casEst = String(dCAS[ci][2] || '').trim();
-        if (casId) casEstadoMap[casId] = casEst;
+        if (casId) {
+          casEstadoMap[casId] = casEst;
+          casEtaMap[casId]    = _fmtFecha(dCAS[ci][SCHEMA.COMPRAS_DJI.ETA]);
+        }
       }
       var hojaCD = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
       if (hojaCD) {
@@ -131,7 +136,7 @@ function cargarStock(filtro) {
           if (pendiente > 0) {
             enCaminoMap[cdSku] = (enCaminoMap[cdSku] || 0) + pendiente;
             if (!enCaminoCasMap[cdSku]) enCaminoCasMap[cdSku] = [];
-            enCaminoCasMap[cdSku].push({ cas: cdCas, estado: cdEst, cant: pendiente });
+            enCaminoCasMap[cdSku].push({ cas: cdCas, estado: cdEst, cant: pendiente, eta: casEtaMap[cdCas] || '' });
           }
         }
       }

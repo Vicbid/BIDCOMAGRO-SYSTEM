@@ -1,4 +1,5 @@
 // ── STOCK MANAGER — Dashboard ─────────────────────────────────────
+// @version 1.1
 
 function cargarDashboard() {
   try {
@@ -238,18 +239,22 @@ function cargarDashboard() {
         cas:        String(fct[0] || ''),
         fechaPedido:_fmtFecha(fct[1]),
         estado:     casEst,
-        metodoPago: String(fct[3] || '')
+        metodoPago: String(fct[3] || ''),
+        eta:        _fmtFecha(fct[SCHEMA.COMPRAS_DJI.ETA])
       });
     }
 
     // Cruzar pronóstico de quiebre con unidades en camino (COMPRAS_DETALLE)
     try {
       var casEstMap_d = {};
+      var casEtaMap_d = {};
       for (var cip = 1; cip < dCom.length; cip++) {
         var casIdP  = String(dCom[cip][0] || '').trim().toUpperCase();
         var casEstP = String(dCom[cip][2] || '').trim();
-        if (casIdP && casEstP !== 'En depósito' && casEstP.indexOf('Borrador') === -1)
+        if (casIdP && casEstP !== 'En depósito' && casEstP.indexOf('Borrador') === -1) {
           casEstMap_d[casIdP] = casEstP;
+          casEtaMap_d[casIdP] = _fmtFecha(dCom[cip][SCHEMA.COMPRAS_DJI.ETA]);
+        }
       }
       var enCaminoProno = {};
       var hojaCDP = getSS().getSheetByName(SCHEMA.SHEETS.COMPRAS_DETALLE);
@@ -264,7 +269,7 @@ function cargarDashboard() {
           if (!skuP || !casEstMap_d[casP]) continue;
           var pendP = Math.max(0, pedP - recP);
           if (pendP > 0) {
-            if (!enCaminoProno[skuP]) { enCaminoProno[skuP] = { total: 0, cas: casP, estado: casEstMap_d[casP] }; }
+            if (!enCaminoProno[skuP]) { enCaminoProno[skuP] = { total: 0, cas: casP, estado: casEstMap_d[casP], eta: casEtaMap_d[casP] || '' }; }
             enCaminoProno[skuP].total += pendP;
           }
         }

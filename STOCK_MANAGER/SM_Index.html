@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.5 -->
+<!-- @version 5.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2179,7 +2179,8 @@ function renderDashboard(d) {
                       ec.estado === 'En aduana' ? 'var(--yellow)' :
                       ec.estado === 'Forwarder HK' ? 'var(--indigo)' : 'var(--blue)';
         ecCell = '<span style="font-size:10px;color:'+ecColor+';font-weight:600">' +
-                 '<i class="fa fa-plane" style="margin-right:3px"></i>+'+ec.total+'u · '+ec.estado+'</span>';
+                 '<i class="fa fa-plane" style="margin-right:3px"></i>+'+ec.total+'u · '+ec.estado+
+                 (ec.eta ? ' · <i class="fa fa-plane-arrival" style="margin:0 2px"></i>ETA '+ec.eta : '')+'</span>';
       } else {
         ecCell = '<span style="font-size:10px;color:var(--tx-d)">Sin compra en curso</span>';
       }
@@ -2241,10 +2242,13 @@ function renderCASdashboard(lista) {
   var h = '<div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">';
   lista.forEach(function(c) {
     var paso = ESTADOS_CAS.indexOf(c.estado);
+    var etaBadge = c.eta
+      ? '<span style="font-size:11px;font-weight:600;color:var(--blue);white-space:nowrap"><i class="fa fa-plane-arrival" style="margin-right:3px"></i>ETA '+c.eta+'</span>'
+      : '<span style="font-size:11px;color:var(--tx-m)">'+c.fechaPedido+'</span>';
     h += '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px">' +
          '<div style="display:flex;justify-content:space-between;margin-bottom:8px">' +
            '<span style="font-size:12px;font-weight:700;color:var(--blue)">'+c.cas+'</span>' +
-           '<span style="font-size:11px;color:var(--tx-m)">'+c.fechaPedido+'</span>' +
+           etaBadge +
          '</div>' + renderTimeline(paso) + '</div>';
   });
   h += '</div>';
@@ -2419,7 +2423,7 @@ function renderStock(data) {
         (r.reservado > 0 || r.enCamino > 0
           ? '<div style="display:flex;justify-content:center;gap:5px;margin-top:4px;flex-wrap:wrap">' +
               (r.reservado > 0 ? '<span style="font-size:10px;color:var(--indigo);font-weight:600;white-space:nowrap" title="Reservado — comprometido con entregas futuras">&#8722;'+r.reservado+' rsv</span>' : '') +
-              (r.enCamino  > 0 ? '<span style="font-size:10px;color:var(--blue);font-weight:600;white-space:nowrap" title="' + (r.enCaminoCas && r.enCaminoCas.length ? 'En tránsito desde DJI:\n' + r.enCaminoCas.map(function(c){ return c.cas + ': ' + c.cant + 'u (' + c.estado + ')'; }).join('\n') : 'En tránsito desde DJI — no recibido aún') + '">&#9992; +'+r.enCamino+'</span>' : '') +
+              (r.enCamino  > 0 ? '<span style="font-size:10px;color:var(--blue);font-weight:600;white-space:nowrap" title="' + (r.enCaminoCas && r.enCaminoCas.length ? 'En tránsito desde DJI:\n' + r.enCaminoCas.map(function(c){ return c.cas + ': ' + c.cant + 'u (' + c.estado + (c.eta ? ', ETA ' + c.eta : '') + ')'; }).join('\n') : 'En tránsito desde DJI — no recibido aún') + '">&#9992; +'+r.enCamino+'</span>' : '') +
             '</div>'
           : '') +
       '</td>' +
