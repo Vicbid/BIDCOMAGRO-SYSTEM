@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.27 -->
+<!-- @version 1.28 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1474,6 +1474,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <button class="gest-mode-btn active" id="ped-mode-manual" onclick="_pedSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
             </button>
+            <button class="gest-mode-btn" id="ped-mode-catalogo" onclick="_pedSetMode('catalogo')">
+              <i class="fa fa-sitemap"></i> Catálogo
+            </button>
             <button class="gest-mode-btn" id="ped-mode-excel" onclick="_pedSetMode('excel')">
               <i class="fa fa-file-excel"></i> Cargar Excel
             </button>
@@ -1497,6 +1500,16 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
                 <i class="fa fa-plus"></i> Agregar como pedido especial
               </button>
             </div>
+          </div>
+
+          <!-- MODO CATÁLOGO (despieces DJI) -->
+          <div id="ped-panel-catalogo" style="display:none">
+            <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
+              <i class="fa fa-circle-info" style="color:var(--blue)"></i> Elegí un conjunto del equipo, mirá el despiece y agregá los repuestos que necesites al carrito.
+              <br><span style="font-size:10px;color:var(--tx-d)">Las piezas sin precio en tu lista se agregan como <strong>“a consultar”</strong>: BIDCOMAGRO te confirma disponibilidad y precio al procesar el pedido.</span>
+            </div>
+            <div id="cat-conjuntos"></div>
+            <div id="cat-detalle" style="display:none"></div>
           </div>
 
           <!-- MODO EXCEL -->
@@ -4893,9 +4906,115 @@ function _pedLimpiarStorageCarrito() {
 function _pedSetMode(mode) {
   _pedMode = mode;
   document.getElementById('ped-mode-manual').classList.toggle('active', mode === 'manual');
+  document.getElementById('ped-mode-catalogo').classList.toggle('active', mode === 'catalogo');
   document.getElementById('ped-mode-excel').classList.toggle('active',  mode === 'excel');
   document.getElementById('ped-panel-manual').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('ped-panel-catalogo').style.display = mode === 'catalogo' ? 'block' : 'none';
   document.getElementById('ped-panel-excel').style.display  = mode === 'excel'  ? 'block' : 'none';
+  if (mode === 'catalogo' && !_catData) _catCargar();
+}
+
+// ── CATÁLOGO EXPLOTADAS (despieces DJI) ───────────────────────
+var _catData       = null;
+var _catConjActual = null;
+
+function _catEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function _catCargar() {
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando catálogo…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">No se pudo cargar el catálogo.</div>'; return; }
+      _catData = r;
+      _catRenderConjuntos();
+    })
+    .withFailureHandler(function(e) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: ' + ((e && e.message) || e) + '</div>'; })
+    .obtenerCatalogoExplotadas();
+}
+
+function _catRenderConjuntos() {
+  document.getElementById('cat-detalle').style.display = 'none';
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.style.display = 'block';
+  if (!_catData || !_catData.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
+  var h = '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:8px">' + _catEsc(_catData.modeloNombre) + ' — elegí un conjunto</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+  for (var i = 0; i < _catData.conjuntos.length; i++) {
+    var c = _catData.conjuntos[i];
+    h += '<button onclick="_catAbrir(\'' + c.id + '\')" style="text-align:left;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'var(--brd)\'">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _catEsc(c.nombre) + '</div>' +
+      '<div style="font-size:10px;color:var(--tx-d);margin-top:2px">' + c.totalItems + ' repuesto' + (c.totalItems === 1 ? '' : 's') + '</div>' +
+    '</button>';
+  }
+  h += '</div>';
+  wrap.innerHTML = h;
+}
+
+function _catAbrir(id) {
+  var c = null;
+  for (var i = 0; i < _catData.conjuntos.length; i++) if (_catData.conjuntos[i].id === id) { c = _catData.conjuntos[i]; break; }
+  if (!c) return;
+  _catConjActual = c;
+  document.getElementById('cat-conjuntos').style.display = 'none';
+  var det = document.getElementById('cat-detalle');
+  det.style.display = 'block';
+
+  var img = c.imagenUrl
+    ? '<img src="' + _catEsc(c.imagenUrl) + '" alt="' + _catEsc(c.nombre) + '" style="max-width:100%;border:1px solid var(--brd);border-radius:var(--rm)" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'"><div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá el link en la hoja CATALOGO_IMAGENES).</div>'
+    : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
+
+  var rows = '';
+  for (var j = 0; j < c.items.length; j++) {
+    var it = c.items[j];
+    var tieneSku = !!(it.sku && it.sku.length);
+    var accion = tieneSku
+      ? '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">' +
+          '<input type="number" min="1" value="1" class="cat-qty" style="width:52px;text-align:center;padding:3px;border:1px solid var(--brd);border-radius:var(--r);font-size:12px">' +
+          '<button onclick="_catAgregar(this,\'' + _catEsc(it.sku) + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:4px 9px;font-size:11px;cursor:pointer;font-weight:700"><i class="fa fa-plus"></i></button>' +
+        '</div>'
+      : '<span style="font-size:10px;color:var(--tx-d)">ver otro conjunto</span>';
+    rows += '<tr style="border-bottom:1px solid var(--brd)' + (tieneSku ? '' : ';opacity:.55') + '">' +
+      '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
+      '<td style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _catEsc(it.sku || '—') + '</td>' +
+      '<td style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(it.nombre) + '</td>' +
+      '<td style="padding:5px 8px">' + accion + '</td>' +
+    '</tr>';
+  }
+
+  det.innerHTML =
+    '<button onclick="_catRenderConjuntos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Volver a conjuntos</button>' +
+    '<div style="font-size:14px;font-weight:700;color:var(--tx);margin-bottom:10px">' + _catEsc(c.nombre) + '</div>' +
+    '<div>' + img + '</div>' +
+    '<div style="overflow:auto;margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surf)">' +
+      '<th style="padding:6px 8px;font-size:10px;text-align:center">N°</th><th style="padding:6px 8px;font-size:10px;text-align:left">SKU</th><th style="padding:6px 8px;font-size:10px;text-align:left">Repuesto</th><th style="padding:6px 8px;font-size:10px;text-align:right">Agregar</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function _catAgregar(btn, sku) {
+  sku = String(sku || '').trim();
+  if (!sku) return;
+  var qty = 1;
+  try { var inp = btn.parentNode.querySelector('.cat-qty'); if (inp) qty = parseInt(inp.value) || 1; } catch(e) {}
+  var qEl = document.getElementById('ped-qty'); if (qEl) qEl.value = qty; // el carrito lee la cantidad de #ped-qty
+
+  // Buscar el SKU en el índice (mismo que "Buscar SKU") → precio/estado/kits/sustitución reales
+  var found = null;
+  if (_pedIndice) {
+    var up = sku.toUpperCase();
+    for (var i = 0; i < _pedIndice.length; i++) {
+      if ((_pedIndice[i][0] || '').toUpperCase() === up) { found = _pedIndice[i]; break; }
+    }
+  }
+  if (found) {
+    _pedAgregarItem(found[0], found[1], _pedEstMap[found[3]] || 'consultar_Backorder', found[4] || 0, found[2] || '',
+                    (found[5] !== undefined && found[5] >= 0) ? found[5] : undefined, found[7] || '');
+  } else {
+    // No está en la lista de precios → "a consultar" pero agregable
+    var nombre = sku;
+    if (_catConjActual) { for (var j = 0; j < _catConjActual.items.length; j++) { if (_catConjActual.items[j].sku === sku) { nombre = _catConjActual.items[j].nombre || sku; break; } } }
+    _pedAgregarItem(sku, nombre, 'consultar_Backorder', 0, '', undefined, '');
+  }
 }
 
 function _pedBuscar(immediate) {
