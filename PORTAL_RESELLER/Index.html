@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.35 -->
+<!-- @version 1.36 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -412,6 +412,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 @keyframes camp-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.65}}
 .tab-btn.camp-viva i{animation:camp-pulse 1.6s ease-in-out infinite;color:var(--blue)}
 .tab-btn.camp-viva.active i{color:#fff!important;animation:none}
+/* Catálogo: mismo movimiento que campaña para invitar a usarlo */
+.gest-mode-btn.cat-nuevo i{animation:camp-pulse 1.6s ease-in-out infinite;color:var(--blue)}
+.gest-mode-btn.cat-nuevo.active i{animation:none;color:inherit}
+.cat-nuevo-badge{font-size:8px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;background:var(--blue);color:#fff;border-radius:8px;padding:1px 5px;line-height:1.5;margin-left:1px}
+.gest-mode-btn.cat-nuevo.active .cat-nuevo-badge{background:var(--tx-d)}
 .tab-btn.camp-viva{box-shadow:0 0 0 2px var(--blue-a);border-color:rgba(0,163,224,.25)}
 .tab-btn.camp-viva.active{box-shadow:none;border-color:transparent}
 </style>
@@ -1474,8 +1479,8 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <button class="gest-mode-btn active" id="ped-mode-manual" onclick="_pedSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
             </button>
-            <button class="gest-mode-btn" id="ped-mode-catalogo" onclick="_pedSetMode('catalogo')">
-              <i class="fa fa-sitemap"></i> Catálogo
+            <button class="gest-mode-btn cat-nuevo" id="ped-mode-catalogo" onclick="_pedSetMode('catalogo')">
+              <i class="fa fa-sitemap"></i> Catálogo <span class="cat-nuevo-badge">Nuevo</span>
             </button>
             <button class="gest-mode-btn" id="ped-mode-excel" onclick="_pedSetMode('excel')">
               <i class="fa fa-file-excel"></i> Cargar Excel
