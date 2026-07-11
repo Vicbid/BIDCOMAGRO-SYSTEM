@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.32 -->
+<!-- @version 1.33 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4984,15 +4984,31 @@ function _catAbrir(id) {
   var img = c.imagenUrl
     ? '<div style="position:relative">' +
         '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" onclick="_catZoomAbrir(this.src)" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);cursor:zoom-in;background:#fff" onerror="_catImgError(this)">' +
-        '<button onclick="_catZoomAbrir(this.previousElementSibling.src)" title="Ampliar" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.62);border:none;color:#fff;border-radius:var(--r);padding:6px 11px;font-size:11px;cursor:pointer;font-weight:700"><i class="fa fa-magnifying-glass-plus"></i> Ampliar</button>' +
+        '<button onclick="_catZoomAbrir(this.previousElementSibling.src)" title="Ampliar (zoom)" aria-label="Ampliar" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)"><i class="fa fa-magnifying-glass"></i></button>' +
       '</div>' +
       '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
+
+  // Mapa SKU → registro de la lista de precios del reseller (mismo índice que "Buscar SKU")
+  var precioMap = {};
+  if (_pedIndice) {
+    for (var pi = 0; pi < _pedIndice.length; pi++) {
+      var pk = (_pedIndice[pi][0] || '').toUpperCase();
+      if (pk) precioMap[pk] = _pedIndice[pi];
+    }
+  }
 
   var rows = '';
   for (var j = 0; j < c.items.length; j++) {
     var it = c.items[j];
     var tieneSku = !!(it.sku && it.sku.length);
+    var reg      = tieneSku ? precioMap[it.sku.toUpperCase()] : null;
+    var precio   = reg ? (Number(reg[4]) || 0) : 0;
+    var precioHtml = !tieneSku
+      ? '<span style="color:var(--tx-d)">—</span>'
+      : (precio > 0
+          ? '<span style="font-weight:700;color:var(--tx)">' + _fmtPedUsd(precio) + '</span>'
+          : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
     var accion = tieneSku
       ? '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">' +
           '<input type="number" min="1" value="1" class="cat-qty" style="width:52px;text-align:center;padding:3px;border:1px solid var(--brd);border-radius:var(--r);font-size:12px">' +
@@ -5003,6 +5019,7 @@ function _catAbrir(id) {
       '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
       '<td style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _catEsc(it.sku || '—') + '</td>' +
       '<td style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(it.nombre) + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px">' + precioHtml + '</td>' +
       '<td style="padding:5px 8px">' + accion + '</td>' +
     '</tr>';
   }
@@ -5014,11 +5031,12 @@ function _catAbrir(id) {
       // Columna izquierda: imagen (queda fija mientras la lista scrollea)
       '<div style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
       // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
-      '<div style="flex:1 1 300px;min-width:280px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+      '<div style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
         '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
           '<th style="' + thSt + 'text-align:center">N°</th>' +
           '<th style="' + thSt + 'text-align:left">SKU</th>' +
           '<th style="' + thSt + 'text-align:left">Repuesto</th>' +
+          '<th style="' + thSt + 'text-align:right">Precio</th>' +
           '<th style="' + thSt + 'text-align:right">Agregar</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table>' +
       '</div>' +
