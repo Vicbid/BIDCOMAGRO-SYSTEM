@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.34 -->
+<!-- @version 1.35 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4938,8 +4938,9 @@ function _pedSetMode(mode) {
 }
 
 // ── CATÁLOGO EXPLOTADAS (despieces DJI) ───────────────────────
-var _catData       = null;
-var _catConjActual = null;
+var _catData        = null;   // { modelos:[{modelo, modeloNombre, conjuntos}] }
+var _catModeloActual = null;  // el modelo elegido
+var _catConjActual  = null;
 
 function _catEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -4949,22 +4950,57 @@ function _catCargar() {
   google.script.run
     .withSuccessHandler(function(r) {
       if (!r || !r.ok) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">No se pudo cargar el catálogo.</div>'; return; }
+      // Compat: si viniera el formato viejo (un modelo), lo envolvemos
+      if (!r.modelos && r.conjuntos) r = { modelos: [{ modelo: r.modelo, modeloNombre: r.modeloNombre, conjuntos: r.conjuntos }] };
       _catData = r;
-      _catRenderConjuntos();
+      _catRenderModelos();
     })
     .withFailureHandler(function(e) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: ' + ((e && e.message) || e) + '</div>'; })
     .obtenerCatalogoExplotadas();
+}
+
+// Selector de modelo. Si hay uno solo, salta directo a los conjuntos.
+function _catRenderModelos() {
+  _catCerrarDetalle();
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.style.display = 'block';
+  var modelos = (_catData && _catData.modelos) || [];
+  if (!modelos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin modelos en el catálogo.</div>'; return; }
+  if (modelos.length === 1) { _catModeloActual = modelos[0]; _catRenderConjuntos(); return; }
+
+  _catModeloActual = null;
+  var h = '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:10px">Elegí el modelo del equipo</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">';
+  for (var i = 0; i < modelos.length; i++) {
+    var m = modelos[i];
+    var totC = m.conjuntos.length;
+    h += '<button onclick="_catElegirModelo(\'' + _catEsc(m.modelo) + '\')" style="text-align:left;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 14px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'var(--brd)\'">' +
+      '<div style="font-size:14px;font-weight:800;color:var(--tx)"><i class="fa fa-helicopter" style="color:var(--blue);margin-right:6px"></i>' + _catEsc(m.modeloNombre) + '</div>' +
+      '<div style="font-size:10px;color:var(--tx-d);margin-top:4px">' + totC + ' conjunto' + (totC === 1 ? '' : 's') + ' de despiece</div>' +
+    '</button>';
+  }
+  h += '</div>';
+  wrap.innerHTML = h;
+}
+
+function _catElegirModelo(modelo) {
+  var modelos = (_catData && _catData.modelos) || [];
+  for (var i = 0; i < modelos.length; i++) if (modelos[i].modelo === modelo) { _catModeloActual = modelos[i]; break; }
+  _catRenderConjuntos();
 }
 
 function _catRenderConjuntos() {
   _catCerrarDetalle();
   var wrap = document.getElementById('cat-conjuntos');
   wrap.style.display = 'block';
-  if (!_catData || !_catData.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
-  var h = '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:8px">' + _catEsc(_catData.modeloNombre) + ' — elegí un conjunto</div>';
+  if (!_catModeloActual || !_catModeloActual.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
+  var variosModelos = ((_catData && _catData.modelos) || []).length > 1;
+  var h = '';
+  if (variosModelos) h += '<button onclick="_catRenderModelos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Cambiar modelo</button>';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:8px">' + _catEsc(_catModeloActual.modeloNombre) + ' — elegí un conjunto</div>';
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
-  for (var i = 0; i < _catData.conjuntos.length; i++) {
-    var c = _catData.conjuntos[i];
+  for (var i = 0; i < _catModeloActual.conjuntos.length; i++) {
+    var c = _catModeloActual.conjuntos[i];
     h += '<button onclick="_catAbrir(\'' + c.id + '\')" style="text-align:left;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'var(--brd)\'">' +
       '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _catEsc(c.nombre) + '</div>' +
       '<div style="font-size:10px;color:var(--tx-d);margin-top:2px">' + c.totalItems + ' repuesto' + (c.totalItems === 1 ? '' : 's') + '</div>' +
@@ -4975,8 +5011,9 @@ function _catRenderConjuntos() {
 }
 
 function _catAbrir(id) {
+  if (!_catModeloActual) return;
   var c = null;
-  for (var i = 0; i < _catData.conjuntos.length; i++) if (_catData.conjuntos[i].id === id) { c = _catData.conjuntos[i]; break; }
+  for (var i = 0; i < _catModeloActual.conjuntos.length; i++) if (_catModeloActual.conjuntos[i].id === id) { c = _catModeloActual.conjuntos[i]; break; }
   if (!c) return;
   _catConjActual = c;
 
@@ -5026,7 +5063,7 @@ function _catAbrir(id) {
   }
 
   var thSt = 'position:sticky;top:0;background:var(--surf);padding:7px 8px;font-size:10px;z-index:1;';
-  document.getElementById('cat-modal-title').textContent = c.nombre + ' — ' + _catData.modeloNombre;
+  document.getElementById('cat-modal-title').textContent = c.nombre + ' — ' + _catModeloActual.modeloNombre;
   document.getElementById('cat-modal-body').innerHTML =
     '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
       // Columna izquierda: imagen (queda fija mientras la lista scrollea)
