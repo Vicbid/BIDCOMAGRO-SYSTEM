@@ -288,6 +288,7 @@ function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
                    ? Number(r[COL.STOCK_ORI]) : -1,
       stockActual:  (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
       cantCancel:   Number(r[COL.CANT_CANCEL] || 0),
+      seriales:     String(r[COL.SERIALES] || '').trim(),
       estado:       String(r[COL.ESTADO] || '')
     });
   }
@@ -453,6 +454,54 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_cambiarEstado: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad (OBLIGATORIO).
+// Esto crea el manifiesto por unidad para poder auditar despachos (picker dice 10, reseller dice 4).
+// seriales: [{ row: <fila 1-indexada>, seriales: "SN1, SN2, SO-...-003" }]
+function WOS_prepararConSeriales(numero, seriales, operario) {
+  try {
+    numero = String(numero || '').trim();
+    var hoja = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
+    var datos = hoja.getDataRange().getValues();
+    var ahora = new Date();
+    operario  = String(operario || '');
+
+    // fila (1-indexada) → seriales
+    var serMap = {};
+    if (Object.prototype.toString.call(seriales) === '[object Array]') {
+      for (var s = 0; s < seriales.length; s++) {
+        var rw = parseInt(seriales[s].row, 10);
+        if (rw > 0) serMap[rw] = String(seriales[s].seriales || '').trim();
+      }
+    }
+
+    var reseller = '', tocadas = 0;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+      var estActual = String(datos[i][COL.ESTADO] || '');
+      // No tocar filas ya cerradas (entregadas / canceladas) — solo lo que se está preparando
+      if (estActual === EST.ENTREGADO || estActual === EST.CANCELADO || estActual === EST.ENTREGADO_CONF) continue;
+      var fila = i + 1;
+      hoja.getRange(fila, COL.ESTADO       + 1).setValue(EST.PREPARADO);
+      hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
+      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
+      if (serMap[fila] !== undefined && serMap[fila] !== '') {
+        hoja.getRange(fila, COL.SERIALES + 1).setValue(serMap[fila]);
+      }
+      if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
+      tocadas++;
+    }
+    if (!tocadas) return { ok: false, error: 'No se encontraron filas activas del pedido ' + numero + '.' };
+
+    SpreadsheetApp.flush();
+    _wosLogAccion('Preparado · N\xba de serie registrados', numero, reseller, operario, '');
+    return { ok: true, filas: tocadas };
+  } catch(e) {
+    Logger.log('WOS_prepararConSeriales: ' + e);
     return { ok: false, error: e.toString() };
   }
 }

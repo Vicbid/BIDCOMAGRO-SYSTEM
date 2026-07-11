@@ -1,4 +1,4 @@
-<!-- @version 3.17 -->
+<!-- @version 3.18 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -779,6 +779,26 @@ body{overflow:hidden}
       <span class="email-notice">📧 Se enviará Opción B / C al reseller — siempre se despacha lo disponible</span>
       <button class="btn btn-ghost" onclick="cerrarModal('faltante')">Cancelar</button>
       <button class="btn btn-amber" onclick="confirmarFaltante()">⚠ Notificar al reseller</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Preparar con N° de serie (OBLIGATORIO) -->
+<div class="modal-overlay" id="modal-prep" style="display:none;z-index:350">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <div class="title">📦 N° de serie para despachar</div>
+        <div class="subtitle" id="modal-prep-sub"></div>
+      </div>
+      <button class="modal-close" onclick="cerrarModal('prep')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-prep-body"></div>
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <span class="email-notice" id="modal-prep-cnt" style="font-weight:700">—</span>
+      <button class="btn btn-ghost" onclick="_prepGenerarSO(null)" title="Rellenar con códigos SO todas las unidades sin N° de serie">🏷 SO a los vacíos</button>
+      <button class="btn btn-ghost" onclick="cerrarModal('prep')">Cancelar</button>
+      <button class="btn btn-success" id="btn-confirmar-prep" onclick="confirmarPreparar()">✅ Confirmar y marcar preparado</button>
     </div>
   </div>
 </div>
@@ -2117,7 +2137,7 @@ function renderAcciones(p) {
   var n = escH(p.numero), est = p.estado, btns = '';
 
   if (est === 'Pendiente_Revision' || est === 'Confirmado') {
-    btns += '<button class="btn btn-teal" onclick="accion(\'' + n + '\',\'preparar\')">📦 Listo para despachar</button>';
+    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Listo para despachar</button>';
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
   }
   if (est === 'En_Espera_Reseller') {
@@ -2288,6 +2308,170 @@ function accion(numero, tipo) {
   }, 5000);
   _pendingAccion = { timer: _timer, interval: null, toastEl: null, execute: _ejecutar, revert: _revertir };
   _toastUndo('Pedido ' + numero + ' → ' + _labels[tipo]);
+}
+
+// ── MODAL: Preparar con N° de serie (OBLIGATORIO) ─────────────
+// Al marcar "Listo para despachar" se exige un N° de serie por CADA unidad.
+// Si una pieza no tiene serie → botón SO (código autogenerado). Todo queda en la
+// nota de entrega para poder auditar (picker dice 10, reseller dice 4).
+var _modalPrep = null;
+
+function abrirModalPreparar(numero) {
+  var ped = _buscarPedido(numero);
+  if (!ped) { toast('Pedido no encontrado', 'err'); return; }
+
+  // Misma verificación de stock que la preparación directa
+  var sinStock = [];
+  for (var si = 0; si < ped.items.length; si++) {
+    var it0 = ped.items[si];
+    if (it0.cantPend <= 0) continue;
+    if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
+      sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
+    }
+  }
+  if (sinStock.length > 0) {
+    alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Faltan \xedtems en stock" para gestionar los faltantes.');
+    return;
+  }
+
+  _modalPrep = { numero: numero, soSeq: 0 };
+  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + ' \x2014 ingresá el N\xba de serie de CADA unidad';
+
+  var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
+    '<strong>Obligatorio:</strong> un N\xba de serie por cada unidad. Si la pieza no tiene serie, us\xe1 <strong>SO</strong> (bot\xf3n del \xedtem o “SO a los vac\xedos”). Quedar\xe1 en la nota de entrega para auditar el env\xedo.' +
+    '</div>';
+  var hayItems = false;
+  for (var i = 0; i < ped.items.length; i++) {
+    var it = ped.items[i];
+    if (it.cantPend <= 0) continue;
+    hayItems = true;
+    var qty = it.cantPend;
+    var prev = String(it.seriales || '').split(',');
+    html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
+        '<div style="min-width:0"><span class="modal-item-sku">' + escH(it.sku) + '</span> ' +
+          '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+          '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>' +
+          '<button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="_prepGenerarSO(' + it.row + ')" title="Rellenar con SO los vac\xedos de este \xedtem">🏷 SO</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">';
+    for (var u = 0; u < qty; u++) {
+      var pv = String(prev[u] || '').trim().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      html += '<div class="modal-ser-item">' +
+        '<span class="modal-ser-lbl">' + (u + 1) + '</span>' +
+        '<input class="modal-ser-single prep-ser" data-row="' + it.row + '" type="text" placeholder="N\xba de serie" value="' + pv + '" ' +
+          'oninput="_prepCount()" onkeydown="_prepKey(event,this)">' +
+      '</div>';
+    }
+    html += '</div></div>';
+  }
+  if (!hayItems) { toast('Este pedido no tiene unidades pendientes de preparar', 'err'); _modalPrep = null; return; }
+
+  document.getElementById('modal-prep-body').innerHTML = html;
+  document.getElementById('modal-prep').style.display = 'flex';
+  _prepCount();
+  setTimeout(function() { var f = document.querySelector('#modal-prep .prep-ser'); if (f) f.focus(); }, 60);
+}
+
+function _prepPad3(n) { n = String(n); while (n.length < 3) n = '0' + n; return n; }
+
+// Sincroniza el contador SO con el máximo SO ya presente (evita códigos duplicados)
+function _prepSyncSoSeq() {
+  if (!_modalPrep) return;
+  var prefix = 'SO-' + _modalPrep.numero + '-';
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  var max = 0;
+  for (var i = 0; i < inputs.length; i++) {
+    var v = inputs[i].value.trim();
+    if (v.indexOf(prefix) === 0) {
+      var num = parseInt(v.substring(prefix.length), 10);
+      if (!isNaN(num) && num > max) max = num;
+    }
+  }
+  if (max > _modalPrep.soSeq) _modalPrep.soSeq = max;
+}
+
+// Rellena con códigos SO las unidades vacías (de un ítem si se pasa row, o de todo el pedido)
+function _prepGenerarSO(row) {
+  if (!_modalPrep) return;
+  _prepSyncSoSeq();
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  for (var i = 0; i < inputs.length; i++) {
+    if (row !== null && String(inputs[i].getAttribute('data-row')) !== String(row)) continue;
+    if (inputs[i].value.trim()) continue;
+    _modalPrep.soSeq++;
+    inputs[i].value = 'SO-' + _modalPrep.numero + '-' + _prepPad3(_modalPrep.soSeq);
+  }
+  _prepCount();
+}
+
+function _prepCount() {
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  var total = inputs.length, filled = 0;
+  for (var i = 0; i < inputs.length; i++) if (inputs[i].value.trim()) filled++;
+  var cnt = document.getElementById('modal-prep-cnt');
+  var ok = filled === total && total > 0;
+  if (cnt) {
+    cnt.textContent = filled + ' / ' + total + ' unidades con N\xba de serie / SO';
+    cnt.style.color = ok ? 'var(--green-m)' : 'var(--amber-m)';
+  }
+  var btn = document.getElementById('btn-confirmar-prep');
+  if (btn) { btn.disabled = !ok; btn.style.opacity = ok ? '1' : '.5'; btn.style.cursor = ok ? 'pointer' : 'not-allowed'; }
+}
+
+// Enter en un input salta al siguiente (cómodo para escanear con lector de código)
+function _prepKey(e, inp) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  for (var i = 0; i < inputs.length; i++) {
+    if (inputs[i] === inp) { if (inputs[i + 1]) inputs[i + 1].focus(); return; }
+  }
+}
+
+function confirmarPreparar() {
+  if (!_modalPrep) return;
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  var byRow = {}, vals = [], vacios = 0;
+  for (var i = 0; i < inputs.length; i++) {
+    var r = inputs[i].getAttribute('data-row');
+    var v = inputs[i].value.trim();
+    if (!v) vacios++;
+    if (!byRow[r]) byRow[r] = [];
+    byRow[r].push(v);
+    if (v) vals.push(v.toUpperCase());
+  }
+  if (vacios > 0) { toast('Faltan ' + vacios + ' N\xba de serie. Complet\xe1 todos o us\xe1 “SO a los vac\xedos”.', 'err'); return; }
+  // Serie duplicada = probable error de tipeo/escaneo
+  var seen = {}, dup = null;
+  for (var d = 0; d < vals.length; d++) { if (seen[vals[d]]) { dup = vals[d]; break; } seen[vals[d]] = true; }
+  if (dup) { toast('N\xba de serie repetido: ' + dup + '. Cada unidad debe ser \xfanica.', 'err'); return; }
+
+  var payload = [];
+  for (var rk in byRow) payload.push({ row: parseInt(rk, 10), seriales: byRow[rk].join(', ') });
+
+  var numero = _modalPrep.numero;
+  var enPicking = document.getElementById('pk-overlay') && document.getElementById('pk-overlay').style.display === 'flex';
+  cerrarModal('prep');
+  sp(true, 'Registrando N\xba de serie y marcando como preparado…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'Error desconocido'), 'err'); return; }
+      try { localStorage.removeItem('wos_pick_' + numero); if (typeof _pickState !== 'undefined') delete _pickState[numero]; } catch(e) {}
+      for (var k in _pkState) { if (k.indexOf(numero + '___') === 0) delete _pkState[k]; }
+      toast('Pedido ' + numero + ' → Preparado 📦', 'ok');
+      cargar();
+      if (enPicking) setTimeout(function() { _renderColaPicking(); }, 1800);
+    })
+    .withFailureHandler(function(e) {
+      sp(false);
+      toast('Sin respuesta del servidor — puede haberse completado. Actualizando…', 'err');
+      cargar();
+    })
+    .WOS_prepararConSeriales(numero, payload, _usuario ? _usuario.email : '');
 }
 
 // ── MODAL: Despacho ───────────────────────────────────────────
@@ -2472,6 +2656,7 @@ function abrirModalDespacho(numero) {
           '</div>' +
           '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
+        (it.seriales ? '<div style="font-size:10px;color:var(--teal-m);font-family:var(--f-mono);word-break:break-word">🏷 Series registradas: ' + escH(it.seriales) + '</div>' : '') +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
@@ -3032,6 +3217,7 @@ function cerrarModal(which) {
   if (which === 'faltante') { document.getElementById('modal-faltante').style.display   = 'none'; _modalFalt = null; }
   if (which === 'resp-tel') { document.getElementById('modal-resp-tel').style.display   = 'none'; _modalRT   = null; }
   if (which === 'cancelar') { document.getElementById('modal-cancelar').style.display   = 'none'; _modalCanc = null; }
+  if (which === 'prep')     { document.getElementById('modal-prep').style.display       = 'none'; _modalPrep = null; }
   if (which === 'resumen')  { cerrarResumen(); }
 }
 
@@ -3792,44 +3978,12 @@ function togglePkItem(key, checked) {
 }
 
 function pkMarcarPreparado(numero) {
-  // Reutiliza la misma verificación de stock que accion('preparar')
-  var ped = _buscarPedido(numero);
-  if (ped) {
-    var sinStock = [];
-    for (var si = 0; si < ped.items.length; si++) {
-      var it = ped.items[si];
-      if (it.cantPend <= 0) continue;
-      if (it.stockActual !== null && it.stockActual !== undefined && it.stockActual < it.cantPend) {
-        sinStock.push(it.sku + ': necesita ' + it.cantPend + ' \xb7 stock actual ' + (it.stockActual <= 0 ? 'sin stock (' + it.stockActual + ')' : it.stockActual));
-      }
-    }
-    if (sinStock.length > 0) {
-      alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Notificar Faltante" para gestionar los \xedtems faltantes.');
-      return;
-    }
-  }
-  sp(true, 'Marcando pedido como preparado…');
-  google.script.run
-    .withSuccessHandler(function(res) {
-      sp(false);
-      if (!res.ok) { toast('Error: ' + escH(res.error || 'Error desconocido'), 'err'); return; }
-      for (var k in _pkState) {
-        if (k.indexOf(numero + '___') === 0) delete _pkState[k];
-      }
-      toast(numero + ' → Preparado 📦', 'ok');
-      cargar();
-      setTimeout(function() { _renderColaPicking(); }, 1800);
-    })
-    .withFailureHandler(function(e) {
-      sp(false);
-      toast('Sin respuesta del servidor — la operaci\xf3n puede haberse completado. Actualizando…', 'err');
-      cargar();
-    })
-    .WOS_cambiarEstado(numero, 'Preparado', _usuario.email);
+  // Ahora "Marcar preparado" exige registrar el N° de serie de cada unidad → abre el modal.
+  abrirModalPreparar(numero);
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { cerrarModal('desp'); cerrarModal('faltante'); cerrarModal('resp-tel'); cerrarPickTicket(); cerrarStock(); cerrarResumen(); cerrarListaCompras(); cerrarColaPicking(); }
+  if (e.key === 'Escape') { cerrarModal('prep'); cerrarModal('desp'); cerrarModal('faltante'); cerrarModal('resp-tel'); cerrarPickTicket(); cerrarStock(); cerrarResumen(); cerrarListaCompras(); cerrarColaPicking(); }
 });
 
 // ── Resumen de Envíos ─────────────────────────────────────────

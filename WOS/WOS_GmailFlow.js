@@ -802,7 +802,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
           sku:      String(ped.datos[i][COL.SKU]  || ''),
           desc:     String(ped.datos[i][COL.DESC] || ''),
           cantDesp: dispNow, precio: prec,
-          seriales: serialMap[i + 1] || '',
+          // Si el modal de despacho no reingresó seriales, usar los ya registrados al preparar (col Y)
+          seriales: (serialMap[i + 1] && String(serialMap[i + 1]).length) ? serialMap[i + 1] : String(ped.datos[i][COL.SERIALES] || ''),
           cajaIdx:  cajaMap[i + 1] !== undefined ? cajaMap[i + 1] : 0
         });
         totalUSD += dispNow * prec;
