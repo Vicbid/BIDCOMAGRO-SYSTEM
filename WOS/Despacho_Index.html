@@ -1,4 +1,4 @@
-<!-- @version 3.18 -->
+<!-- @version 3.19 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -796,7 +796,6 @@ body{overflow:hidden}
     <div class="modal-body" id="modal-prep-body"></div>
     <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
       <span class="email-notice" id="modal-prep-cnt" style="font-weight:700">—</span>
-      <button class="btn btn-ghost" onclick="_prepGenerarSO(null)" title="Rellenar con códigos SO todas las unidades sin N° de serie">🏷 SO a los vacíos</button>
       <button class="btn btn-ghost" onclick="cerrarModal('prep')">Cancelar</button>
       <button class="btn btn-success" id="btn-confirmar-prep" onclick="confirmarPreparar()">✅ Confirmar y marcar preparado</button>
     </div>
@@ -2334,11 +2333,11 @@ function abrirModalPreparar(numero) {
     return;
   }
 
-  _modalPrep = { numero: numero, soSeq: 0 };
+  _modalPrep = { numero: numero };
   document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + ' \x2014 ingresá el N\xba de serie de CADA unidad';
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
-    '<strong>Obligatorio:</strong> un N\xba de serie por cada unidad. Si la pieza no tiene serie, us\xe1 <strong>SO</strong> (bot\xf3n del \xedtem o “SO a los vac\xedos”). Quedar\xe1 en la nota de entrega para auditar el env\xedo.' +
+    '<strong>Obligatorio:</strong> un c\xf3digo \xfanico por cada unidad. Pon\xe9 el N\xba de serie de f\xe1brica; si la pieza no lo trae, pon\xe9 el <strong>SO</strong>. Quedar\xe1 en la nota de entrega para auditar el env\xedo.' +
     '</div>';
   var hayItems = false;
   for (var i = 0; i < ped.items.length; i++) {
@@ -2353,7 +2352,6 @@ function abrirModalPreparar(numero) {
           '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
         '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
           '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>' +
-          '<button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="_prepGenerarSO(' + it.row + ')" title="Rellenar con SO los vac\xedos de este \xedtem">🏷 SO</button>' +
         '</div>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">';
@@ -2373,38 +2371,6 @@ function abrirModalPreparar(numero) {
   document.getElementById('modal-prep').style.display = 'flex';
   _prepCount();
   setTimeout(function() { var f = document.querySelector('#modal-prep .prep-ser'); if (f) f.focus(); }, 60);
-}
-
-function _prepPad3(n) { n = String(n); while (n.length < 3) n = '0' + n; return n; }
-
-// Sincroniza el contador SO con el máximo SO ya presente (evita códigos duplicados)
-function _prepSyncSoSeq() {
-  if (!_modalPrep) return;
-  var prefix = 'SO-' + _modalPrep.numero + '-';
-  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
-  var max = 0;
-  for (var i = 0; i < inputs.length; i++) {
-    var v = inputs[i].value.trim();
-    if (v.indexOf(prefix) === 0) {
-      var num = parseInt(v.substring(prefix.length), 10);
-      if (!isNaN(num) && num > max) max = num;
-    }
-  }
-  if (max > _modalPrep.soSeq) _modalPrep.soSeq = max;
-}
-
-// Rellena con códigos SO las unidades vacías (de un ítem si se pasa row, o de todo el pedido)
-function _prepGenerarSO(row) {
-  if (!_modalPrep) return;
-  _prepSyncSoSeq();
-  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
-  for (var i = 0; i < inputs.length; i++) {
-    if (row !== null && String(inputs[i].getAttribute('data-row')) !== String(row)) continue;
-    if (inputs[i].value.trim()) continue;
-    _modalPrep.soSeq++;
-    inputs[i].value = 'SO-' + _modalPrep.numero + '-' + _prepPad3(_modalPrep.soSeq);
-  }
-  _prepCount();
 }
 
 function _prepCount() {
