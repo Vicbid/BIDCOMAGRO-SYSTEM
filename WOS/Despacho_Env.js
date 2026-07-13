@@ -67,6 +67,7 @@ var COL = {
   OPERARIO:           23,  // X: email del operario que realizó la última acción
   SERIALES:           24,  // Y: números de serie despachados (separados por coma)
   CANT_CANCEL:        25,  // Z: unidades canceladas por reseller (Opción B) — fórmula CANT_PEND actualizar a =E-F-Z
+  UBIC_PREP:          26,  // AA: bins elegidos al preparar, JSON [{bin,cant}] por ítem — descuento WMS se aplica al despachar
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };

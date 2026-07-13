@@ -1,4 +1,4 @@
-<!-- @version 3.20 -->
+<!-- @version 3.21 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2349,7 +2349,7 @@ function abrirModalPreparar(numero) {
     return;
   }
 
-  _modalPrep = { numero: numero };
+  _modalPrep = { numero: numero, items: [] };
   document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + ' \x2014 ingresá el N\xba de serie de CADA unidad';
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
@@ -2361,6 +2361,7 @@ function abrirModalPreparar(numero) {
     if (it.cantPend <= 0) continue;
     hayItems = true;
     var qty = it.cantPend;
+    _modalPrep.items.push({ row: it.row, sku: it.sku, cantPend: qty });
     var prev = String(it.seriales || '').split(',');
     html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
@@ -2379,12 +2380,33 @@ function abrirModalPreparar(numero) {
           'oninput="_prepCount()" onkeydown="_prepKey(event,this)">' +
       '</div>';
     }
-    html += '</div></div>';
+    html += '</div>' +
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--surf)">' +
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:2px">De qu\xe9 ubicaci\xf3n WMS lo sac\xe1s</div>' +
+        '<div id="prep-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
+      '</div>' +
+    '</div>';
   }
   if (!hayItems) { toast('Este pedido no tiene unidades pendientes de preparar', 'err'); _modalPrep = null; return; }
 
   document.getElementById('modal-prep-body').innerHTML = html;
   document.getElementById('modal-prep').style.display = 'flex';
+  // Cargar ubicaciones WMS (bins) para elegir de dónde se saca cada ítem
+  var _prepSkus = [];
+  for (var ps = 0; ps < _modalPrep.items.length; ps++) {
+    if (_modalPrep.items[ps].sku) _prepSkus.push(_modalPrep.items[ps].sku);
+  }
+  if (_prepSkus.length) {
+    google.script.run
+      .withSuccessHandler(function(r) { if (r && r.ok) _prepInyectarUbicaciones(r.map); })
+      .withFailureHandler(function() {
+        for (var fi = 0; fi < _modalPrep.items.length; fi++) {
+          var fw = document.getElementById('prep-ubic-wrap-' + _modalPrep.items[fi].row);
+          if (fw) fw.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">No se pudieron cargar ubicaciones</span>';
+        }
+      })
+      .WOS_cargarUbicacionesPedido(_prepSkus);
+  }
   // Reset de la barra de escaneo
   var scEl = document.getElementById('prep-scan'); if (scEl) scEl.value = '';
   var smEl = document.getElementById('prep-scan-msg'); if (smEl) smEl.textContent = '';
@@ -2560,7 +2582,11 @@ function confirmarPreparar() {
   if (dup) { toast('N\xba de serie repetido: ' + dup + '. Cada unidad debe ser \xfanica.', 'err'); return; }
 
   var payload = [];
-  for (var rk in byRow) payload.push({ row: parseInt(rk, 10), seriales: byRow[rk].join(', ') });
+  for (var rk in byRow) {
+    var _rw = parseInt(rk, 10);
+    // Bins elegidos al preparar (se guardan en la fila; el descuento del WMS ocurre al despachar)
+    payload.push({ row: _rw, seriales: byRow[rk].join(', '), ubicaciones: _getBinAllocForRow(_rw, 'prep') });
+  }
 
   var numero = _modalPrep.numero;
   var enPicking = document.getElementById('pk-overlay') && document.getElementById('pk-overlay').style.display === 'flex';
@@ -2751,7 +2777,6 @@ function abrirModalDespacho(numero) {
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
-        '<div id="mdi-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
       '</div>';
     } else {
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
@@ -2774,7 +2799,6 @@ function abrirModalDespacho(numero) {
           '<span class="caja-lbl">Va en:</span>' +
           '<select class="caja-sel" id="mdi-caja-' + it.row + '"><option value="0">Bulto 1</option></select>' +
         '</div>' +
-        '<div id="mdi-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
       '</div>';
     }
   }
@@ -2858,27 +2882,7 @@ function abrirModalDespacho(numero) {
     }
   }
   document.getElementById('modal-desp').style.display = 'flex';
-
-  // Cargar ubicaciones WMS para los ítems activos
-  var _skusActivos = [];
-  for (var ai = 0; ai < _modalDesp.items.length; ai++) {
-    if (_modalDesp.items[ai].sku) _skusActivos.push(_modalDesp.items[ai].sku);
-  }
-  if (_skusActivos.length) {
-    google.script.run
-      .withSuccessHandler(function(r) {
-        if (!r.ok) return;
-        _inyectarUbicaciones(r.map);
-      })
-      .withFailureHandler(function() {
-        // Silencioso — las ubicaciones son opcionales
-        for (var fi = 0; fi < _modalDesp.items.length; fi++) {
-          var fw = document.getElementById('mdi-ubic-wrap-' + _modalDesp.items[fi].row);
-          if (fw) fw.innerHTML = '';
-        }
-      })
-      .WOS_cargarUbicacionesPedido(_skusActivos);
-  }
+  // Los bins (ubicación WMS) ya se eligieron al preparar → el despacho no los pide.
 }
 
 function _autoAlocar(locs, cantTotal) {
@@ -2892,26 +2896,29 @@ function _autoAlocar(locs, cantTotal) {
   return result;
 }
 
-function _inyectarUbicaciones(map) {
+// Inyecta las ubicaciones WMS (bins) en el modal de PREPARACIÓN. La cantidad es fija
+// (cantPend, no editable) y los contenedores/handlers usan el prefijo 'prep'.
+function _prepInyectarUbicaciones(map) {
   _ubicAlloc = {};
-  for (var i = 0; i < _modalDesp.items.length; i++) {
-    var it   = _modalDesp.items[i];
-    var wrap = document.getElementById('mdi-ubic-wrap-' + it.row);
+  if (!_modalPrep || !_modalPrep.items) return;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it   = _modalPrep.items[i];
+    var wrap = document.getElementById('prep-ubic-wrap-' + it.row);
     if (!wrap) continue;
     var locs = (it.sku && map[it.sku.toUpperCase()]) ? map[it.sku.toUpperCase()] : [];
     if (!locs.length) {
-      wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicación en WMS</span>';
+      wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicaci\xf3n en WMS</span>';
       continue;
     }
-    var inp = document.getElementById('mdi-' + it.row);
-    var cantTotal = inp ? (parseInt(inp.value) || 0) : (it.cantPend || 0);
+    var cantTotal = it.cantPend || 0;
     _ubicAlloc[it.row] = { locs: locs, cantTotal: cantTotal };
-    _renderBinAlloc(it.row, locs, _autoAlocar(locs, cantTotal), cantTotal);
+    _renderBinAlloc(it.row, locs, _autoAlocar(locs, cantTotal), cantTotal, 'prep');
   }
 }
 
-function _renderBinAlloc(row, locs, alloc, cantTotal) {
-  var wrap = document.getElementById('mdi-ubic-wrap-' + row);
+function _renderBinAlloc(row, locs, alloc, cantTotal, pfx) {
+  pfx = pfx || 'mdi';
+  var wrap = document.getElementById(pfx + '-ubic-wrap-' + row);
   if (!wrap) return;
   var allocMap = {};
   for (var a = 0; a < alloc.length; a++) allocMap[alloc[a].bin.toUpperCase()] = alloc[a].cant;
@@ -2932,7 +2939,7 @@ function _renderBinAlloc(row, locs, alloc, cantTotal) {
     '<div style="margin-top:4px">' +
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' +
         '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d)">Bins</span>' +
-        '<button type="button" onclick="_binAllocAuto(' + row + ')" ' +
+        '<button type="button" onclick="_binAllocAuto(' + row + ',\'' + pfx + '\')" ' +
           'style="font-size:10px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0 3px;line-height:1.4;border-radius:3px;border:1px solid var(--blue-l)">Auto</button>' +
       '</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
@@ -2965,10 +2972,11 @@ function _renderBinAlloc(row, locs, alloc, cantTotal) {
   wrap.innerHTML = html;
 }
 
-function _binAllocAuto(row) {
+function _binAllocAuto(row, pfx) {
+  pfx = pfx || 'mdi';
   var d = _ubicAlloc[row];
   if (!d) return;
-  var inp = document.getElementById('mdi-' + row);
+  var inp = document.getElementById(pfx + '-' + row);
   var cantTotal = inp ? (parseInt(inp.value) || 0) : d.cantTotal;
   _ubicAlloc[row].cantTotal = cantTotal;
   var auto = _autoAlocar(d.locs, cantTotal);
@@ -2997,12 +3005,13 @@ function _binAllocCheck(row, cantTotal) {
   totalEl.style.fontWeight = ok ? '600' : '700';
 }
 
-function _getBinAllocForRow(row) {
+function _getBinAllocForRow(row, pfx) {
+  pfx = pfx || 'mdi';
   var d = _ubicAlloc[row];
   if (!d) return [];
   if (d.locs.length === 1) {
-    var inp = document.getElementById('mdi-' + row);
-    var cant = inp ? (parseInt(inp.value) || 0) : 0;
+    var inp = document.getElementById(pfx + '-' + row);
+    var cant = inp ? (parseInt(inp.value) || 0) : (d.cantTotal || 0);
     return cant > 0 ? [{ bin: d.locs[0].ubicacion, cant: cant }] : [];
   }
   var result = [];
@@ -3215,7 +3224,7 @@ function confirmarDespacho() {
     }
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
-    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx, ubicaciones: _getBinAllocForRow(it.row) });
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;

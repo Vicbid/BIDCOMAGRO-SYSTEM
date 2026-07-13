@@ -1,4 +1,4 @@
-// @version 3.5
+// @version 3.7
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -470,12 +470,22 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
     var ahora = new Date();
     operario  = String(operario || '');
 
-    // fila (1-indexada) → seriales
-    var serMap = {};
+    // getRange NO auto-expande columnas: asegurar que exista col AA (UBIC_PREP) antes de escribirla.
+    // Insertar al final (después de Z) no desplaza A–Z ni afecta la fórmula CANT_PEND (=E-F-Z).
+    var _maxCol = hoja.getMaxColumns();
+    if (_maxCol < COL.UBIC_PREP + 1) hoja.insertColumnsAfter(_maxCol, (COL.UBIC_PREP + 1) - _maxCol);
+
+    // fila (1-indexada) → seriales / ubicaciones (bins elegidos al preparar)
+    var serMap  = {};
+    var ubicMap = {};
     if (Object.prototype.toString.call(seriales) === '[object Array]') {
       for (var s = 0; s < seriales.length; s++) {
         var rw = parseInt(seriales[s].row, 10);
-        if (rw > 0) serMap[rw] = String(seriales[s].seriales || '').trim();
+        if (rw > 0) {
+          serMap[rw]  = String(seriales[s].seriales || '').trim();
+          var bins = seriales[s].ubicaciones;
+          ubicMap[rw] = (Object.prototype.toString.call(bins) === '[object Array]') ? bins : [];
+        }
       }
     }
 
@@ -491,6 +501,11 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
       if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
       if (serMap[fila] !== undefined && serMap[fila] !== '') {
         hoja.getRange(fila, COL.SERIALES + 1).setValue(serMap[fila]);
+      }
+      // Bins elegidos al preparar → col AA (JSON). El descuento del WMS se aplica al despachar.
+      if (ubicMap[fila] !== undefined) {
+        var _binsFila = ubicMap[fila] || [];
+        hoja.getRange(fila, COL.UBIC_PREP + 1).setValue(_binsFila.length ? JSON.stringify(_binsFila) : '');
       }
       if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
       tocadas++;

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.7
+// @version 2.9
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -498,21 +498,31 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
     SpreadsheetApp.flush();
 
     var nombreNota = 'NE_' + numero + '-' + notaNumStr + '.pdf';
-    var pdfBlob    = DriveApp.getFileById(tempSs.getId()).getAs('application/pdf');
+    var ssFile     = DriveApp.getFileById(tempSs.getId());
+    var pdfBlob    = ssFile.getAs('application/pdf');   // captura el PDF con el formato actual
     pdfBlob.setName(nombreNota);
-    DriveApp.getFileById(tempSs.getId()).setTrashed(true);
 
-    var pdfUrl = '';
+    var pdfUrl   = '';
+    var sheetUrl = '';   // versión spreadsheet de la MISMA NE (Google Sheet, link)
     try {
       var folder  = DriveApp.getFolderById(_wosConfig().pdfFolderId);
       var pdfFile = folder.createFile(pdfBlob);
       pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       pdfUrl = pdfFile.getUrl();
+
+      // Conservar la hoja temporal como Google Sheet (misma NE, versión planilla).
+      // Se renombra, se mueve a la carpeta de NE y se comparte con link — no se manda a la papelera.
+      ssFile.setName('NE_' + numero + '-' + notaNumStr);
+      try { folder.addFile(ssFile); DriveApp.getRootFolder().removeFile(ssFile); } catch(eMov) {}
+      ssFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      sheetUrl = ssFile.getUrl();
     } catch(eDrive) {
       Logger.log('_wosGenerarPDF Drive save: ' + eDrive);
+      // Si falló el guardado, no dejar la hoja huérfana en Drive
+      try { ssFile.setTrashed(true); } catch(eT2) {}
     }
 
-    return { blob: pdfBlob, url: pdfUrl, nombreNota: nombreNota };
+    return { blob: pdfBlob, url: pdfUrl, nombreNota: nombreNota, sheetUrl: sheetUrl };
   } catch(e) {
     Logger.log('_wosGenerarPDF: ' + e);
     if (tempSs) { try { DriveApp.getFileById(tempSs.getId()).setTrashed(true); } catch(eT) {} }
@@ -674,6 +684,29 @@ function _wosLockIdempot(reqToken, fn) {
     try { lock.releaseLock(); } catch (eR) {}
   }
 }
+
+// Parsea los bins guardados en col AA (UBIC_PREP) al preparar. Tolerante: acepta el
+// JSON [{bin,cant}], devuelve [] si está vacío o mal formado. Normaliza cant a número.
+function _parseUbicPrep(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return [];
+  try {
+    var arr = JSON.parse(s);
+    if (Object.prototype.toString.call(arr) !== '[object Array]') return [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++) {
+      var b = arr[i] || {};
+      var bin  = String(b.bin || '').trim();
+      var cant = Number(b.cant) || 0;
+      if (bin && cant > 0) out.push({ bin: bin, cant: cant });
+    }
+    return out;
+  } catch (e) {
+    Logger.log('_parseUbicPrep: JSON inválido → ' + s);
+    return [];
+  }
+}
+
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
   // dos pestañas) no corran en paralelo y dupliquen nota de entrega + mail.
@@ -714,12 +747,13 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var despMap    = {};
     var serialMap  = {};
     var cajaMap    = {};
-    var ubicMap    = {}; // row → [{bin, cant}]
+    // Los bins (ubicaciones WMS) ya NO llegan del modal de despacho: se eligieron al
+    // preparar y quedaron guardados en col AA (UBIC_PREP) de cada fila. Acá se leen y
+    // se aplica el descuento. Ver _parseUbicPrep().
     for (var d = 0; d < despachos.length; d++) {
       despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
       serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
       cajaMap[despachos[d].row]   = despachos[d].cajaIdx !== undefined ? Number(despachos[d].cajaIdx) : 0;
-      ubicMap[despachos[d].row]   = Array.isArray(despachos[d].ubicaciones) ? despachos[d].ubicaciones : [];
     }
 
     var carmenSS    = null;
@@ -766,7 +800,9 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 
       if (dispNow > 0 && carmenHoja) {
         var _skuDesp  = String(ped.datos[i][COL.SKU]  || '').trim().toUpperCase();
-        var _ubicBins = ubicMap[i + 1] || [];
+        // Bins elegidos al preparar (col AA). Se limpian tras descontar para que un
+        // 2° despacho de la misma fila (backorder) no vuelva a descontar del WMS.
+        var _ubicBins = _parseUbicPrep(ped.datos[i][COL.UBIC_PREP]);
         var _ubicStr  = _ubicBins.map(function(b){ return b.bin + '\xd7' + b.cant; }).join(', ');
         carmenHoja.appendRow([_skuDesp, String(ped.datos[i][COL.DESC] || ''), dispNow, String(numero || ''), '', '', fecha, _ubicStr]);
         // Descontar de cada bin en multi-bin; leer UBICACIONES una sola vez por item
@@ -794,6 +830,9 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
           _rowsToDelete.sort(function(a, b) { return b - a; });
           for (var dr = 0; dr < _rowsToDelete.length; dr++) carmenUbicH.deleteRow(_rowsToDelete[dr]);
         }
+        // Consumir los bins de esta fila: se limpia col AA para que un despacho
+        // posterior de la misma fila no vuelva a descontar del WMS.
+        if (_ubicBins.length) ped.hoja.getRange(i + 1, COL.UBIC_PREP + 1).setValue('');
       }
 
       if (dispNow > 0) {
@@ -815,6 +854,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var pdfResult  = _wosGenerarPDF(numero, notaNumStr, ped.reseller, itemsDesp, fecha, transp, bultos, costo);
     var pdfBlob    = pdfResult ? pdfResult.blob : null;
     var pdfUrl     = pdfResult ? pdfResult.url  : '';
+    var sheetUrl   = pdfResult ? (pdfResult.sheetUrl || '') : '';
 
     // Guardar link de la Nota de Entrega en col W para cada ítem despachado
     if (pdfUrl) {
@@ -1017,6 +1057,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
               "<span style='font-size:10px;font-weight:400;color:#9ba5b4;margin-left:8px'>no incluye impuestos</span>" +
             "</p>" +
           "</div>" +
+          (sheetUrl || pdfUrl ?
+          "<p style='margin:12px 0 0;font-size:12px;color:#5e6778'>Nota de Entrega:&nbsp; " +
+            (pdfUrl   ? "<a href='" + pdfUrl   + "' target='_blank' style='color:#00a3e0;font-weight:700;text-decoration:none'>📄 PDF</a>" : '') +
+            (sheetUrl && pdfUrl ? "&nbsp;&nbsp;\xb7&nbsp;&nbsp;" : '') +
+            (sheetUrl ? "<a href='" + sheetUrl + "' target='_blank' style='color:#188038;font-weight:700;text-decoration:none'>📊 Planilla (Google Sheets)</a>" : '') +
+          "</p>" : '') +
         "</div>" +
       "</div>";
 
@@ -1051,7 +1097,9 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       'Fecha: ' + fecha + '\n' +
       'Forma de pago: ' + formaPago + '\n' +
       (costo > 0 ? 'Costo de env\xedo: $ ' + _formatMoneda(costo) + '\n' : '') +
-      'Total: USD ' + _formatMoneda(totalUSD);
+      'Total: USD ' + _formatMoneda(totalUSD) +
+      (pdfUrl   ? '\nNota de Entrega (PDF): ' + pdfUrl : '') +
+      (sheetUrl ? '\nNota de Entrega (planilla): ' + sheetUrl : '');
 
     // ── Un solo reply al hilo original, facturación en CC ─────
     var replyOpts = {
