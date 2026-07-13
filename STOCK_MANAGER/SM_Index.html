@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.9 -->
+<!-- @version 5.10 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2871,15 +2871,16 @@ function _imprimirEtiquetasSO(win, labels) {
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas SO</title>' +
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>' +
     '<style>' +
-      '@page{size:100mm 25mm;margin:0}' +
+      '@page{size:100mm 50mm;margin:0}' +   // el driver está en 100×50mm (2 renglones de etiqueta)
       '*{margin:0;padding:0;box-sizing:border-box}' +
       'body{font-family:Arial,Helvetica,sans-serif}' +
-      '.row{width:100mm;height:25mm;display:flex;page-break-after:always}' +
-      '.row:last-child{page-break-after:auto}' +
-      '.cell{width:50mm;height:25mm;padding:0.8mm 1mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.6mm;overflow:hidden}' +
-      '.sku{font-size:7.5pt;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48mm;text-align:center;line-height:1}' +
-      '.bc{width:48mm;height:14mm;display:block;object-fit:fill}' +
-      '.so{font-size:7.5pt;font-family:Consolas,monospace;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48mm;text-align:center;line-height:1;letter-spacing:-0.2px}' +
+      '.page{width:100mm;height:50mm;page-break-after:always}' +
+      '.page:last-child{page-break-after:auto}' +
+      '.row{width:100mm;height:25mm;display:flex}' +
+      '.cell{width:50mm;height:25mm;padding:0.6mm 1mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.4mm;overflow:hidden}' +
+      '.sku{font-size:7.5pt;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:49mm;text-align:center;line-height:1}' +
+      '.bc{width:49mm;height:16mm;display:block;object-fit:fill}' +
+      '.so{font-size:7.5pt;font-family:Consolas,monospace;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:49mm;text-align:center;line-height:1;letter-spacing:-0.2px}' +
       '.noprint{padding:14px;font-family:sans-serif;color:#333}' +
       '@media print{.noprint{display:none}}' +
     '</style></head><body>' +
@@ -2891,7 +2892,12 @@ function _imprimirEtiquetasSO(win, labels) {
       'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><img class=\\"bc\\" id=\\"bc"+idx+"\\"><div class=\\"so\\">"+esc(l.so)+"</div></div>"):"<div class=\\"cell\\"></div>";}' +
       'function render(){' +
         'var s=document.getElementById("sheet"),h="";' +
-        'for(var i=0;i<LABELS.length;i+=2){h+="<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>";}' +
+        'for(var i=0;i<LABELS.length;i+=4){' +
+          'h+="<div class=\\"page\\">"' +
+            '+"<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>"' +
+            '+"<div class=\\"row\\">"+cell(LABELS[i+2],i+2)+cell(LABELS[i+3],i+3)+"</div>"' +
+          '+"</div>";' +
+        '}' +
         's.innerHTML=h;' +
         'for(var j=0;j<LABELS.length;j++){try{' +
           // Render a IMG (canvas interno) con tamaño fijo → llena el ancho seguro en impresión
