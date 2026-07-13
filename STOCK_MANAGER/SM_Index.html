@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.12 -->
+<!-- @version 5.13 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2871,12 +2871,11 @@ function _imprimirEtiquetasSO(win, labels) {
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas SO</title>' +
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
     '<style>' +
-      '@page{size:100mm 50mm;margin:0}' +   // el driver está en 100×50mm (2 renglones de etiqueta)
+      '@page{size:100mm 25mm;margin:0}' +   // driver en 100×25mm (1 renglón de etiqueta)
       '*{margin:0;padding:0;box-sizing:border-box}' +
       'body{font-family:Arial,Helvetica,sans-serif}' +
-      '.page{width:100mm;height:50mm;page-break-after:always}' +
-      '.page:last-child{page-break-after:auto}' +
-      '.row{width:100mm;height:25mm;display:flex;justify-content:space-between}' +   // gutter central = gap físico entre columnas
+      '.row{width:100mm;height:25mm;display:flex;justify-content:space-between;page-break-after:always}' +   // gutter central = gap físico entre columnas
+      '.row:last-child{page-break-after:auto}' +
       '.cell{width:48mm;height:25mm;padding:1mm 1.5mm;display:flex;flex-direction:row;align-items:center;gap:1.8mm;overflow:hidden}' +
       '.qr{width:21mm;height:21mm;flex-shrink:0}' +
       '.qr canvas,.qr img{width:21mm!important;height:21mm!important;display:block}' +
@@ -2894,12 +2893,7 @@ function _imprimirEtiquetasSO(win, labels) {
       'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"qr\\" id=\\"qr"+idx+"\\"></div><div class=\\"txt\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><div class=\\"so\\">"+esc(l.so)+"</div></div></div>"):"<div class=\\"cell\\"></div>";}' +
       'function render(){' +
         'var s=document.getElementById("sheet"),h="";' +
-        'for(var i=0;i<LABELS.length;i+=4){' +
-          'h+="<div class=\\"page\\">"' +
-            '+"<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>"' +
-            '+"<div class=\\"row\\">"+cell(LABELS[i+2],i+2)+cell(LABELS[i+3],i+3)+"</div>"' +
-          '+"</div>";' +
-        '}' +
+        'for(var i=0;i<LABELS.length;i+=2){h+="<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>";}' +
         's.innerHTML=h;' +
         'for(var j=0;j<LABELS.length;j++){try{' +
           'var qc=document.getElementById("qr"+j);' +
