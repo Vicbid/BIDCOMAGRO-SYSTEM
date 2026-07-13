@@ -265,6 +265,7 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
+| Sm_Etiquetas.js | 1.1 | El contador del SO ahora se rellena a 6 dígitos (SO-<SKU>-000041) en vez de 3. No trunca números > 6 dígitos. La detección del último NNN usa parseInt, así que convive con los SO viejos de 3 dígitos sin romper la secuencia |
 | Sm_Etiquetas.js | 1.0 | NUEVO. Impresión de etiquetas SO para productos SIN N° de serie. generarSO(sku,cantidad,operador): formato POR SKU (SO-<SKU>-NNN), contador incremental por SKU con LockService, registra cada SO en la hoja SO_ETIQUETAS [SO,SKU,DESC,FECHA,OPERADOR] (auto-creada) para que el NNN nunca se repita; toma la descripción de STOCK/DB_REPUESTOS. Devuelve labels[{so,sku,descripcion}] |
 | Env.js | — | SCHEMA.SHEETS.SO_ETIQUETAS = 'SO_ETIQUETAS' |
 | SM_Index.html | 5.12 | Etiquetas SO: se cambió Code128 → CÓDIGO QR (librería qrcodejs por CDN). Cada etiqueta: QR cuadrado de 21mm a la izquierda + SKU y SO en texto a la derecha (word-break). Más robusto con el lector 2D y sin el problema de que el barcode largo se corte a los lados. Se mantiene el layout 2 filas/página (100×50mm) con gutter central |

@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  ETIQUETAS SO — códigos internos para productos SIN N° de serie
 //  El SO funciona como un SN (uno único por unidad). Formato POR SKU:
@@ -74,7 +74,8 @@ function generarSO(sku, cantidad, operador) {
     var labels = [], filas = [];
     for (var k = 1; k <= cantidad; k++) {
       var num = maxN + k;
-      var pad = (num < 1000) ? ('000' + num).slice(-3) : String(num);
+      var sNum = String(num);
+      var pad = (sNum.length >= 6) ? sNum : ('000000' + sNum).slice(-6);  // 6 dígitos (000041)
       var so  = prefijo + pad;
       labels.push({ so: so, sku: sku, descripcion: desc });
       filas.push([so, sku, desc, ahora, op]);
