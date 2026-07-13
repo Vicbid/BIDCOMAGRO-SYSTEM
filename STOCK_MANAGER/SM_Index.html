@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.11 -->
+<!-- @version 5.12 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1321,7 +1321,7 @@ tr:last-child td{border-bottom:none}
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px">
-        <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código de barras (Code128) para escanear en el picking.</div>
+        <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código QR para escanear en el picking.</div>
         <div class="mb-3">
           <label class="flbl">SKU</label>
           <input type="text" id="so-sku" class="form-control" placeholder="Escaneá o ingresá el SKU..." style="text-transform:uppercase;font-family:monospace" oninput="this.value=this.value.toUpperCase();_soDesc()">
@@ -2863,13 +2863,13 @@ function confirmarImprimirSO() {
     .generarSO(sku, cant, op);
 }
 
-// Escribe en la ventana la hoja de etiquetas (Code128, 2 por fila, 50×25mm) y la manda a imprimir.
+// Escribe en la ventana la hoja de etiquetas (QR, 2 por fila, 50×25mm) y la manda a imprimir.
 function _imprimirEtiquetasSO(win, labels) {
   if (!win) { toast('El navegador bloqueó la ventana de impresión. Permití las ventanas emergentes.', 'err'); return; }
   var data = JSON.stringify(labels || []);
   var html =
     '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas SO</title>' +
-    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
     '<style>' +
       '@page{size:100mm 50mm;margin:0}' +   // el driver está en 100×50mm (2 renglones de etiqueta)
       '*{margin:0;padding:0;box-sizing:border-box}' +
@@ -2877,10 +2877,12 @@ function _imprimirEtiquetasSO(win, labels) {
       '.page{width:100mm;height:50mm;page-break-after:always}' +
       '.page:last-child{page-break-after:auto}' +
       '.row{width:100mm;height:25mm;display:flex;justify-content:space-between}' +   // gutter central = gap físico entre columnas
-      '.cell{width:48mm;height:25mm;padding:0.6mm 1mm;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.4mm;overflow:hidden}' +
-      '.sku{font-size:7.5pt;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44mm;text-align:center;line-height:1}' +
-      '.bc{width:44mm;height:16mm;display:block;object-fit:fill}' +
-      '.so{font-size:7pt;font-family:Consolas,monospace;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44mm;text-align:center;line-height:1;letter-spacing:-0.2px}' +
+      '.cell{width:48mm;height:25mm;padding:1mm 1.5mm;display:flex;flex-direction:row;align-items:center;gap:1.8mm;overflow:hidden}' +
+      '.qr{width:21mm;height:21mm;flex-shrink:0}' +
+      '.qr canvas,.qr img{width:21mm!important;height:21mm!important;display:block}' +
+      '.txt{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1mm}' +
+      '.sku{font-size:8pt;font-weight:bold;line-height:1.05;word-break:break-all}' +
+      '.so{font-size:6.5pt;font-family:Consolas,monospace;font-weight:bold;line-height:1.05;word-break:break-all}' +
       '.noprint{padding:14px;font-family:sans-serif;color:#333}' +
       '@media print{.noprint{display:none}}' +
     '</style></head><body>' +
@@ -2889,7 +2891,7 @@ function _imprimirEtiquetasSO(win, labels) {
     '<script>' +
       'var LABELS=' + data + ';' +
       'function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}' +
-      'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><img class=\\"bc\\" id=\\"bc"+idx+"\\"><div class=\\"so\\">"+esc(l.so)+"</div></div>"):"<div class=\\"cell\\"></div>";}' +
+      'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"qr\\" id=\\"qr"+idx+"\\"></div><div class=\\"txt\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><div class=\\"so\\">"+esc(l.so)+"</div></div></div>"):"<div class=\\"cell\\"></div>";}' +
       'function render(){' +
         'var s=document.getElementById("sheet"),h="";' +
         'for(var i=0;i<LABELS.length;i+=4){' +
@@ -2900,14 +2902,12 @@ function _imprimirEtiquetasSO(win, labels) {
         '}' +
         's.innerHTML=h;' +
         'for(var j=0;j<LABELS.length;j++){try{' +
-          // Render a IMG (canvas interno) con tamaño fijo → llena el ancho seguro en impresión
-          'JsBarcode("#bc"+j,LABELS[j].so,{format:"CODE128",displayValue:false,height:140,margin:0,width:2});' +
-          'var im=document.getElementById("bc"+j);' +
-          'im.style.width="48mm";im.style.height="14mm";' +
+          'var qc=document.getElementById("qr"+j);' +
+          'if(qc){new QRCode(qc,{text:LABELS[j].so,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});}' +
         '}catch(e){}}' +
         'setTimeout(function(){window.focus();window.print();},700);' +
       '}' +
-      'if(window.JsBarcode){render();}else{var t=setInterval(function(){if(window.JsBarcode){clearInterval(t);render();}},60);setTimeout(function(){clearInterval(t);if(!window.JsBarcode){document.body.innerHTML="<p style=\\"font-family:sans-serif;padding:20px;color:#b00\\">No se pudo cargar el generador de c\\u00f3digo de barras (revis\\u00e1 la conexi\\u00f3n).</p>";}},6000);}' +
+      'if(window.QRCode){render();}else{var t=setInterval(function(){if(window.QRCode){clearInterval(t);render();}},60);setTimeout(function(){clearInterval(t);if(!window.QRCode){document.body.innerHTML="<p style=\\"font-family:sans-serif;padding:20px;color:#b00\\">No se pudo cargar el generador de QR (revis\\u00e1 la conexi\\u00f3n).</p>";}},6000);}' +
     '<\/script></body></html>';
   win.document.open();
   win.document.write(html);
