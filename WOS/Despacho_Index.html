@@ -1,4 +1,4 @@
-<!-- @version 3.19 -->
+<!-- @version 3.20 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -792,6 +792,22 @@ body{overflow:hidden}
         <div class="subtitle" id="modal-prep-sub"></div>
       </div>
       <button class="modal-close" onclick="cerrarModal('prep')">✕</button>
+    </div>
+    <div style="padding:9px 16px;border-bottom:1px solid var(--brd);background:var(--surf);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="position:relative;flex:1">
+          <i class="fa fa-qrcode" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--blue);font-size:13px"></i>
+          <input id="prep-scan" type="text" placeholder="Escaneá el QR con la pistola (o tipeá) y Enter…" autocomplete="off"
+                 onkeydown="_prepScanKey(event)"
+                 style="width:100%;padding:8px 10px 8px 30px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-family:var(--f-mono);box-sizing:border-box">
+        </div>
+        <button class="btn btn-ghost" id="prep-cam-btn" onclick="_prepCamToggle()" style="white-space:nowrap"><i class="fa fa-camera"></i> Cámara</button>
+      </div>
+      <div id="prep-cam-wrap" style="display:none;margin-top:8px">
+        <div id="prep-cam" style="width:100%;max-width:320px;margin:0 auto;border-radius:8px;overflow:hidden"></div>
+        <div id="prep-cam-msg" style="font-size:11px;color:var(--tx-d);text-align:center;margin-top:5px"></div>
+      </div>
+      <div id="prep-scan-msg" style="font-size:11px;color:var(--tx-m);margin-top:5px;min-height:14px"></div>
     </div>
     <div class="modal-body" id="modal-prep-body"></div>
     <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
@@ -2337,7 +2353,7 @@ function abrirModalPreparar(numero) {
   document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + ' \x2014 ingresá el N\xba de serie de CADA unidad';
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
-    '<strong>Obligatorio:</strong> un c\xf3digo \xfanico por cada unidad. Pon\xe9 el N\xba de serie de f\xe1brica; si la pieza no lo trae, pon\xe9 el <strong>SO</strong>. Quedar\xe1 en la nota de entrega para auditar el env\xedo.' +
+    '<strong>Obligatorio:</strong> un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>. Queda en la nota de entrega para auditar el env\xedo.' +
     '</div>';
   var hayItems = false;
   for (var i = 0; i < ped.items.length; i++) {
@@ -2369,8 +2385,13 @@ function abrirModalPreparar(numero) {
 
   document.getElementById('modal-prep-body').innerHTML = html;
   document.getElementById('modal-prep').style.display = 'flex';
+  // Reset de la barra de escaneo
+  var scEl = document.getElementById('prep-scan'); if (scEl) scEl.value = '';
+  var smEl = document.getElementById('prep-scan-msg'); if (smEl) smEl.textContent = '';
+  _prepCamStop();
   _prepCount();
-  setTimeout(function() { var f = document.querySelector('#modal-prep .prep-ser'); if (f) f.focus(); }, 60);
+  // Foco en el campo de escaneo (flujo principal con pistola)
+  setTimeout(function() { var f = document.getElementById('prep-scan'); if (f) f.focus(); }, 60);
 }
 
 function _prepCount() {
@@ -2394,6 +2415,129 @@ function _prepKey(e, inp) {
   var inputs = document.querySelectorAll('#modal-prep .prep-ser');
   for (var i = 0; i < inputs.length; i++) {
     if (inputs[i] === inp) { if (inputs[i + 1]) inputs[i + 1].focus(); return; }
+  }
+}
+
+// ── MODO ESCANEO (pistola QR + cámara) ────────────────────────
+// Carga un código en la PRÓXIMA unidad vacía. Bloquea duplicados.
+function _prepFeed(code) {
+  code = String(code || '').trim();
+  var msg = document.getElementById('prep-scan-msg');
+  if (!code) return false;
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  for (var d = 0; d < inputs.length; d++) {
+    if (inputs[d].value.trim().toUpperCase() === code.toUpperCase()) {
+      if (msg) { msg.textContent = '⚠ Ese código ya estaba cargado: ' + code; msg.style.color = 'var(--amber-m)'; }
+      _prepBeep(false);
+      return false;
+    }
+  }
+  for (var i = 0; i < inputs.length; i++) {
+    if (!inputs[i].value.trim()) {
+      inputs[i].value = code;
+      _prepFlash(inputs[i]);
+      _prepCount();
+      var filled = 0; for (var k = 0; k < inputs.length; k++) if (inputs[k].value.trim()) filled++;
+      _prepBeep(true);
+      if (msg) {
+        msg.style.color = 'var(--green-m)';
+        msg.textContent = (filled === inputs.length)
+          ? '✓ ¡Todas las unidades cargadas (' + filled + '/' + inputs.length + ')! Ya podés confirmar.'
+          : '✓ ' + code + '  ·  ' + filled + '/' + inputs.length;
+      }
+      if (filled === inputs.length) _prepCamStop();
+      return true;
+    }
+  }
+  if (msg) { msg.textContent = 'Ya están todas las unidades cargadas.'; msg.style.color = 'var(--tx-d)'; }
+  return false;
+}
+
+// Enter (o sufijo del lector) en el campo de escaneo → carga y limpia para el siguiente
+function _prepScanKey(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var el = document.getElementById('prep-scan');
+  _prepFeed(el.value);
+  el.value = '';
+  el.focus();
+}
+
+function _prepFlash(el) {
+  var o = el.style.background;
+  el.style.background = 'rgba(26,158,74,.25)';
+  setTimeout(function() { el.style.background = o || ''; }, 450);
+}
+
+var _prepAudioCtx = null;
+function _prepBeep(ok) {
+  try {
+    if (!_prepAudioCtx) _prepAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var c = _prepAudioCtx, o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.frequency.value = ok ? 880 : 220; g.gain.value = 0.05;
+    o.start(); setTimeout(function() { try { o.stop(); } catch(e) {} }, ok ? 90 : 200);
+  } catch(e) {}
+}
+
+// ── Cámara (html5-qrcode, best-effort en Apps Script) ─────────
+var _prepCam = null, _prepCamLast = { code: '', t: 0 }, _prepQrLoading = false;
+
+function _prepLoadQrLib(cb) {
+  if (window.Html5Qrcode) { cb(true); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+  s.onload = function() { cb(!!window.Html5Qrcode); };
+  s.onerror = function() { cb(false); };
+  document.head.appendChild(s);
+}
+
+function _prepCamToggle() {
+  if (_prepCam) { _prepCamStop(); return; }
+  var wrap = document.getElementById('prep-cam-wrap');
+  var btn  = document.getElementById('prep-cam-btn');
+  var msg  = document.getElementById('prep-cam-msg');
+  wrap.style.display = 'block';
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Abriendo…';
+  msg.style.color = 'var(--tx-d)'; msg.textContent = 'Cargando cámara…';
+  _prepLoadQrLib(function(ok) {
+    if (!ok) { msg.style.color = 'var(--red)'; msg.textContent = 'No se pudo cargar el lector de cámara (revisá la conexión). Usá el lector físico.'; btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; return; }
+    try {
+      _prepCam = new Html5Qrcode('prep-cam');
+      _prepCam.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 200 },
+        function(text) {
+          var now = Date.now();
+          if (text === _prepCamLast.code && (now - _prepCamLast.t) < 1600) return; // evitar releer el mismo QR
+          _prepCamLast = { code: text, t: now };
+          _prepFeed(text);
+        },
+        function(err) {}
+      ).then(function() {
+        btn.innerHTML = '<i class="fa fa-times"></i> Cerrar cámara';
+        msg.style.color = 'var(--tx-d)'; msg.textContent = 'Apuntá la cámara al QR de cada unidad.';
+      }).catch(function(e) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = 'No se pudo abrir la cámara (' + (e && e.message ? e.message : e) + '). Usá el lector físico.';
+        btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; _prepCam = null;
+      });
+    } catch(e) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'La cámara no está disponible en este entorno. Usá el lector físico.';
+      btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; _prepCam = null;
+    }
+  });
+}
+
+function _prepCamStop() {
+  var btn  = document.getElementById('prep-cam-btn'); if (btn) btn.innerHTML = '<i class="fa fa-camera"></i> Cámara';
+  var wrap = document.getElementById('prep-cam-wrap'); if (wrap) wrap.style.display = 'none';
+  if (_prepCam) {
+    try {
+      _prepCam.stop().then(function() { try { _prepCam.clear(); } catch(e) {} _prepCam = null; })
+                     .catch(function() { _prepCam = null; });
+    } catch(e) { _prepCam = null; }
   }
 }
 
@@ -3183,7 +3327,7 @@ function cerrarModal(which) {
   if (which === 'faltante') { document.getElementById('modal-faltante').style.display   = 'none'; _modalFalt = null; }
   if (which === 'resp-tel') { document.getElementById('modal-resp-tel').style.display   = 'none'; _modalRT   = null; }
   if (which === 'cancelar') { document.getElementById('modal-cancelar').style.display   = 'none'; _modalCanc = null; }
-  if (which === 'prep')     { document.getElementById('modal-prep').style.display       = 'none'; _modalPrep = null; }
+  if (which === 'prep')     { _prepCamStop(); document.getElementById('modal-prep').style.display = 'none'; _modalPrep = null; }
   if (which === 'resumen')  { cerrarResumen(); }
 }
 
