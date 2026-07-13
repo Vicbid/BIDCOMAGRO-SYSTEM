@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.36 -->
+<!-- @version 1.37 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1766,10 +1766,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div class="dji-card-head"><i class="fa fa-screwdriver-wrench"></i> Mano de obra <span style="font-size:11px;font-weight:400;color:var(--tx-d)">(opcional · una sola · precio editable)</span></div>
         <div class="dji-card-body">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="cot-mo-sel" class="form-select" style="flex:1;min-width:180px;font-size:13px">
+            <select id="cot-mo-sel" class="form-select" style="flex:1;min-width:180px;font-size:13px" onchange="_cotAgregarMO()">
               <option value="">— Cargando… —</option>
             </select>
-            <button class="btn-main" style="width:auto;padding:8px 16px;background:#3a9e3a" onclick="_cotAgregarMO()"><i class="fa fa-plus"></i> Agregar</button>
           </div>
           <div style="margin-top:8px"><button onclick="_cotAgregarMOManual()" style="background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline">+ Agregar mano de obra manual</button></div>
         </div>
@@ -4486,7 +4485,8 @@ function _cotCargarManoObra() {
 function _cotAgregarMO() {
   var sel = document.getElementById('cot-mo-sel');
   var idx = parseInt(sel.value);
-  if (isNaN(idx) || !_cotMOCatalogo[idx]) { toast('Elegí una tarea de mano de obra', 'err'); return; }
+  // Se dispara al elegir en el dropdown (sin botón): volver a la opción vacía no hace nada.
+  if (isNaN(idx) || !_cotMOCatalogo[idx]) return;
   var mo  = _cotMOCatalogo[idx];
   var reemplazo = _cotMO.length > 0;
   // Una sola mano de obra por presupuesto, sin cantidad: agregar reemplaza la anterior.
