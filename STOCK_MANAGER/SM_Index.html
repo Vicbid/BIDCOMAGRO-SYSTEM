@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.6 -->
+<!-- @version 5.7 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -581,6 +581,7 @@ tr:last-child td{border-bottom:none}
         <button class="btn-p" style="background:var(--purple,#6f42c1)" onclick="abrirModalReserva()"><i class="fa fa-bookmark"></i> Nueva Reserva</button>
         <button id="btn-sug-compra" class="btn-p" style="background:var(--orange,#f39c12)" onclick="toggleSugCompra()"><i class="fa fa-chart-line"></i> Sugeridos compra</button>
         <button class="btn-p" style="background:#0e7490" onclick="abrirSlotting()"><i class="fa fa-layer-group"></i> Slotting</button>
+        <button class="btn-p" style="background:var(--blue)" onclick="abrirImprimirSO('')"><i class="fa fa-tags"></i> Imprimir SO</button>
 
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
           <span id="stock-quiebre-badge" style="display:none"><span class="b-crit" id="stock-quiebre-n">0</span> en quiebre</span>
@@ -1306,6 +1307,42 @@ tr:last-child td{border-bottom:none}
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
         <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
         <button id="confirmar-ajuste-btn" class="btn-p" onclick="confirmarAjuste()"><i class="fa fa-save"></i> Confirmar ajuste</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Imprimir etiquetas SO (productos sin N° de serie) -->
+<div class="modal fade" id="modal-so" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
+        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-tags" style="color:var(--blue);margin-right:5px"></i>Imprimir etiquetas SO</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:16px">
+        <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código de barras (Code128) para escanear en el picking.</div>
+        <div class="mb-3">
+          <label class="flbl">SKU</label>
+          <input type="text" id="so-sku" class="form-control" placeholder="Escaneá o ingresá el SKU..." style="text-transform:uppercase;font-family:monospace" oninput="this.value=this.value.toUpperCase();_soDesc()">
+          <div id="so-desc" style="font-size:11px;color:var(--tx-d);margin-top:4px;min-height:14px"></div>
+        </div>
+        <div class="mb-3">
+          <label class="flbl">Cantidad de etiquetas</label>
+          <input type="number" id="so-cant" class="form-control" min="1" max="200" value="1">
+        </div>
+        <div class="mb-3">
+          <label class="flbl">Operador</label>
+          <select id="so-op" class="form-select">
+            <option>Victor Almao</option>
+            <option>Juan Cuaresma</option>
+            <option>Jeremías Silvestre</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
+        <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
+        <button id="so-print-btn" class="btn-p" onclick="confirmarImprimirSO()"><i class="fa fa-print"></i> Generar e imprimir</button>
       </div>
     </div>
   </div>
@@ -2441,6 +2478,7 @@ function renderStock(data) {
       '<td class="hide-mob" style="font-size:11px">'+_renderFechaConteo(r.fechaConteo, r.diasDesdeConteo)+'</td>' +
       '<td style="white-space:nowrap">' +
         (userRole === 'ADMIN' ? '<button class="btn-s" style="margin-right:4px" onclick=\'abrirAjuste("'+r.codigo+'","'+r.descripcion.replace(/"/g,'')+'",'+r.stockActual+','+r.requireSN+')\'>Ajustar</button>' : '') +
+        '<button class="btn-s" style="margin-right:4px" title="Imprimir etiquetas SO" onclick=\'abrirImprimirSO("'+r.codigo+'","'+r.descripcion.replace(/"/g,'')+'")\'><i class="fa fa-tags"></i></button>' +
         (userRole === 'ADMIN' ? '<button class="btn-s blue" onclick=\'abrirEditar('+r.fila+',"'+r.codigo+'",'+r.stockMinimo+',"'+(r.categoria||'')+'","'+r.ubicacion+'",'+r.requireSN+')\'>Config</button>' : '') +
       '</td></tr>';
   });
@@ -2772,6 +2810,101 @@ function abrirAjuste(cod, desc, actual, requireSN) {
   document.getElementById('ajuste-ubic').value = _ajItem ? (_ajItem.ubicacion || '') : '';
   if (_snRequested) _actualizarSNContador();
   modal('modal-ajuste').show();
+}
+
+// ── ETIQUETAS SO (productos sin N° de serie) ──────────────────
+function abrirImprimirSO(cod, desc) {
+  var skuEl = document.getElementById('so-sku');
+  skuEl.value = (cod || '').toUpperCase();
+  document.getElementById('so-cant').value = 1;
+  document.getElementById('so-desc').textContent = desc || '';
+  document.getElementById('so-print-btn').disabled = false;
+  modal('modal-so').show();
+  if (!cod) setTimeout(function(){ skuEl.focus(); }, 250);
+  else _soDesc();
+}
+
+function _soDesc() {
+  var sku = (document.getElementById('so-sku').value || '').trim().toUpperCase();
+  var el = document.getElementById('so-desc');
+  if (!sku) { el.textContent = ''; return; }
+  for (var i = 0; i < stockData.length; i++) {
+    if (String(stockData[i].codigo).toUpperCase() === sku) { el.textContent = stockData[i].descripcion || ''; return; }
+  }
+  el.textContent = '';
+}
+
+function confirmarImprimirSO() {
+  var sku  = (document.getElementById('so-sku').value || '').trim().toUpperCase();
+  var cant = parseInt(document.getElementById('so-cant').value, 10) || 0;
+  var op   = document.getElementById('so-op').value || '';
+  if (!sku)  { toast('Ingresá el SKU', 'err'); return; }
+  if (cant <= 0) { toast('La cantidad debe ser mayor a 0', 'err'); return; }
+
+  // Abrir la ventana YA (gesto del usuario) para que no la bloquee el navegador
+  var win = window.open('', '_blank', 'width=480,height=640');
+  if (win) win.document.write('<html><body style="font-family:sans-serif;padding:24px;color:#333">Generando etiquetas SO…</body></html>');
+
+  var btn = document.getElementById('so-print-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Generando…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Generar e imprimir';
+      if (!r || !r.ok) { if (win) win.close(); toast((r && r.error) || 'Error al generar', 'err'); return; }
+      _imprimirEtiquetasSO(win, r.labels);
+      toast(r.labels.length + ' etiqueta' + (r.labels.length === 1 ? '' : 's') + ' SO generada' + (r.labels.length === 1 ? '' : 's') + ' (' + sku + ')', 'ok');
+      modal('modal-so').hide();
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Generar e imprimir';
+      if (win) win.close();
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+    })
+    .generarSO(sku, cant, op);
+}
+
+// Escribe en la ventana la hoja de etiquetas (Code128, 2 por fila, 50×25mm) y la manda a imprimir.
+function _imprimirEtiquetasSO(win, labels) {
+  if (!win) { toast('El navegador bloqueó la ventana de impresión. Permití las ventanas emergentes.', 'err'); return; }
+  var data = JSON.stringify(labels || []);
+  var html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas SO</title>' +
+    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>' +
+    '<style>' +
+      '@page{size:100mm 25mm;margin:0}' +
+      '*{margin:0;padding:0;box-sizing:border-box}' +
+      'body{font-family:Arial,Helvetica,sans-serif}' +
+      '.row{width:100mm;height:25mm;display:flex;page-break-after:always}' +
+      '.row:last-child{page-break-after:auto}' +
+      '.cell{width:50mm;height:25mm;padding:1mm 1.5mm;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}' +
+      '.sku{font-size:8pt;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:47mm;text-align:center}' +
+      '.bc{width:47mm;height:15mm;display:block}' +
+      '.noprint{padding:14px;font-family:sans-serif;color:#333}' +
+      '@media print{.noprint{display:none}}' +
+    '</style></head><body>' +
+    '<div class="noprint">Preparando impresión… Si no se abre el diálogo, elegí la impresora <b>Xprinter XP-470B</b> y verificá tamaño de etiqueta 50×25mm.</div>' +
+    '<div id="sheet"></div>' +
+    '<script>' +
+      'var LABELS=' + data + ';' +
+      'function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}' +
+      'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><svg class=\\"bc\\" id=\\"bc"+idx+"\\"></svg></div>"):"<div class=\\"cell\\"></div>";}' +
+      'function render(){' +
+        'var s=document.getElementById("sheet"),h="";' +
+        'for(var i=0;i<LABELS.length;i+=2){h+="<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>";}' +
+        's.innerHTML=h;' +
+        'for(var j=0;j<LABELS.length;j++){try{' +
+          'JsBarcode("#bc"+j,LABELS[j].so,{format:"CODE128",displayValue:true,fontSize:20,textMargin:1,height:70,margin:2,width:1});' +
+          'var sv=document.getElementById("bc"+j);' +
+          'var w=sv.getAttribute("width"),ht=sv.getAttribute("height");' +
+          'if(w&&ht){sv.setAttribute("viewBox","0 0 "+w+" "+ht);sv.removeAttribute("width");sv.removeAttribute("height");sv.setAttribute("preserveAspectRatio","xMidYMid meet");}' +
+        '}catch(e){}}' +
+        'setTimeout(function(){window.focus();window.print();},400);' +
+      '}' +
+      'if(window.JsBarcode){render();}else{var t=setInterval(function(){if(window.JsBarcode){clearInterval(t);render();}},60);setTimeout(function(){clearInterval(t);if(!window.JsBarcode){document.body.innerHTML="<p style=\\"font-family:sans-serif;padding:20px;color:#b00\\">No se pudo cargar el generador de c\\u00f3digo de barras (revis\\u00e1 la conexi\\u00f3n).</p>";}},6000);}' +
+    '<\/script></body></html>';
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 function _wmsTipoBadge(tipo) {
