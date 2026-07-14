@@ -415,7 +415,7 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
     }
 
     var pdfBloque = pdfUrl
-      ? '<div style="margin-top:16px;text-align:center"><a href="' + pdfUrl + '" target="_blank" style="display:inline-block;padding:11px 26px;background:#3a9e3a;color:#fff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:700">📄 Descargar presupuesto (PDF)</a></div>'
+      ? '<div style="margin-top:16px;text-align:center"><a href="' + pdfUrl + '" target="_blank" style="display:inline-block;padding:11px 26px;background:#3a9e3a;color:#fff;border-radius:7px;text-decoration:none;font-size:13px;font-weight:700"> Descargar presupuesto (PDF)</a></div>'
       : '';
 
     var repTabla = '';
