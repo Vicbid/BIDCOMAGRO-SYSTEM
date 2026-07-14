@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.38 -->
+<!-- @version 1.39 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2633,7 +2633,13 @@ function cerrarSesion() {
     sessionStorage.removeItem('portal_session');
     sessionStorage.setItem('portal_logout', '1'); // fuerza el modal de PIN tras recargar
   } catch(e) {}
-  // Recarga limpia: vuelve a exigir el ingreso con PIN (overlay + modal desde cero)
+  // Recarga limpia navegando la ventana TOP al web app. NO usar location.reload():
+  // dentro del iframe sandbox de Apps Script recarga el frame interno y deja la página
+  // en blanco (el contenido real se sirve vía el wrapper de Google, no es recargable).
+  // Navegar el top hace un doGet fresco → muestra el login. Fallback a reload si no hay URL.
+  try {
+    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
+  } catch(e) {}
   location.reload();
 }
 
