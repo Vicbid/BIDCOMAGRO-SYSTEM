@@ -41,7 +41,9 @@ var SCHEMA = {
     MANO_OBRA: 22,
     NOTAS_INTERNAS: 23,
     HISTORIAL_ESTADOS: 24,
-    ULTIMA_MODIFICACION: 25
+    ULTIMA_MODIFICACION: 25,
+    ORIGEN_REPUESTO: 26,   // AA: quién pone el repuesto — "Adelantado" | "Stock reseller" | ""
+    CIERRE_TIPO: 27        // AB: cómo cerramos — "Reposicion" | "NC" | ""
   },
   STOCK_REPUESTOS: {
     CODIGO: 0,

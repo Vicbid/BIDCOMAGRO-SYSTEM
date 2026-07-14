@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.7
+// @version 1.8
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -74,6 +74,19 @@ function enviarCasoAlHub(data) {
 
     hoja.appendRow(fila);
     SpreadsheetApp.flush();
+
+    // Origen del repuesto → col AA (27) del HUB: precarga el badge "quién pone la pieza".
+    //   aftEstado 'repuesto' = el reseller reparó con su stock (pide reposición) → "Stock reseller"
+    //   cualquier otro       = necesita que le adelantemos el repuesto            → "Adelantado"
+    if (data.aftEstado) {
+      try {
+        var origenVal = (data.aftEstado === 'repuesto') ? 'Stock reseller' : 'Adelantado';
+        var nuevaFila = hoja.getLastRow();
+        if (hoja.getMaxColumns() < 27) hoja.insertColumnsAfter(hoja.getMaxColumns(), 27 - hoja.getMaxColumns());
+        hoja.getRange(nuevaFila, 27).setValue(origenVal);
+      } catch(eOrig) { Logger.log('enviarCasoAlHub origen: ' + eOrig); }
+    }
+
     lock.releaseLock();
 
     var cotizUrl = '';

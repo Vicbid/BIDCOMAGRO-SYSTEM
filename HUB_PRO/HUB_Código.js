@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.17
+// @version 2.18
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -250,6 +250,19 @@ function getGuiaUrl() {
 var _ESTADOS_CERRADOS = { 'Finalizado':1, 'Entregado':1, 'CANCELADO':1, 'Rechazado DJI':1, 'Sin respuesta · Cerrado':1 };
 function _esCerrada(estado) { return _ESTADOS_CERRADOS[String(estado||'').trim()] === 1; }
 
+// Origen del repuesto (quién lo pone): col AA si tiene valor; si no, se deriva del texto
+// que el Portal deja al inicio del informe técnico (col M) en casos viejos.
+//   "Stock reseller" = el reseller reparó/repara con su stock (pide reposición)
+//   "Adelantado"     = nosotros adelantamos el repuesto
+function _origenRepuestoDe(f) {
+  var v = String(f[SCHEMA.OT.ORIGEN_REPUESTO] || "").trim();
+  if (v) return v;
+  var informe = String(f[SCHEMA.OT.TRABAJO] || "").toUpperCase();
+  if (informe.indexOf("YA REPARADO") !== -1) return "Stock reseller";
+  if (informe.indexOf("PENDIENTE") !== -1 && informe.indexOf("NECESITA REPUESTOS") !== -1) return "Adelantado";
+  return "";
+}
+
 // Refresco liviano: solo la lista de órdenes (viva), sin el catálogo estático.
 // incluirCerradas=false (default) → solo OTs activas + cerradasCount (para no mandar
 // cientos de OTs cerradas en cada refresh). incluirCerradas=true → todas (vista Finalizados).
@@ -349,6 +362,8 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
         fechaIngreso: (f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) ? f[SCHEMA.OT.FECHA_INGRESO].getTime() : null,
         prioridad: String(f[17]).toUpperCase() === "URGENTE",
         circuito:  tipo,
+        origenRepuesto: _origenRepuestoDe(f),               // AA: quién pone el repuesto (badge)
+        cierreTipo:     String(f[SCHEMA.OT.CIERRE_TIPO]||"").trim(), // AB: reposición vs NC
         esBateria: mapaBaterias[String(f[5]||'').trim().toLowerCase()] === true,
         dias:      dias,
         diasEstado: diasEstado,
@@ -571,6 +586,10 @@ function actualizarOrden(data) {
     var old  = hoja.getRange(fila, 1, 1, 26).getValues()[0];
     var estadoAnterior = String(old[SCHEMA.OT.ESTADO] || "");
 
+    // getRange NO auto-expande columnas: asegurar que existan AA/AB antes de escribirlas.
+    var _maxCol = hoja.getMaxColumns();
+    if (_maxCol < SCHEMA.OT.CIERRE_TIPO + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.CIERRE_TIPO + 1) - _maxCol);
+
     // ── CONTROL DE CONCURRENCIA OPTIMISTA ──────────────────────
     var rawUM = old[SCHEMA.OT.ULTIMA_MODIFICACION];
     var currentUMms = (rawUM instanceof Date) ? rawUM.getTime() : 0;
@@ -617,6 +636,9 @@ function actualizarOrden(data) {
     hoja.getRange(fila, SCHEMA.OT.REPUESTOS        + 1).setValue(data.repuestos);
     hoja.getRange(fila, SCHEMA.OT.PRIORIDAD        + 1).setValue(data.prioridad ? "URGENTE" : "NORMAL");
     hoja.getRange(fila, SCHEMA.OT.CIRCUITO         + 1).setValue(data.circuito);
+    // Origen del repuesto (AA) y tipo de cierre (AB) — informativos, editables en HUB
+    if (data.origenRepuesto !== undefined) hoja.getRange(fila, SCHEMA.OT.ORIGEN_REPUESTO + 1).setValue(data.origenRepuesto || "");
+    if (data.cierreTipo     !== undefined) hoja.getRange(fila, SCHEMA.OT.CIERRE_TIPO     + 1).setValue(data.cierreTipo || "");
     if (data.manoObraGuardada !== undefined) {
       hoja.getRange(fila, SCHEMA.OT.MANO_OBRA      + 1).setValue(data.manoObraGuardada);
       if (data.notasInternas !== undefined) {
@@ -1626,7 +1648,7 @@ function armarEmailTecnico(data, estado, tec) {
 function armarEmailSupervisor(data, ant, nvo, tec, back) {
   var alertas = "";
   if (data.prioridad) alertas += bloqueCard("⚡ URGENTE","OT marcada como urgente.","#e74c3c");
-  if (back)            alertas += bloqueCard("📦 Backorder","Repuestos pendientes de envío.","#e67e22");
+  if (back)            alertas += bloqueCard(" Backorder","Repuestos pendientes de envío.","#e67e22");
   if (nvo==="Finalizado") alertas += bloqueCard("✓ Finalizada","Orden cerrada correctamente.","#27ae60");
   return construirEmailHTML(
     "Alerta — " + data.ot, "Supervisor",

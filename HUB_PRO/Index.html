@@ -1,4 +1,4 @@
-<!-- @version 2.11 -->
+<!-- @version 2.12 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1090,6 +1090,26 @@ body.compact tbody td{padding:6px 14px!important}
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
 
+        <!-- Origen del repuesto (quién pone la pieza) + Cierre (reposición vs NC) -->
+        <div id="repo-block" style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px">
+          <div style="flex:1;min-width:230px">
+            <label class="flbl" style="display:flex;align-items:center;gap:8px">Origen del repuesto <span id="f-origen-badge"></span></label>
+            <select id="f-origen" class="form-control" onchange="markDirty();_pintarRepoBadges()">
+              <option value="">— Sin definir —</option>
+              <option value="Adelantado">🔧 Repuesto adelantado por nosotros</option>
+              <option value="Stock reseller">📦 Reseller reparó con su stock (reposición)</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:230px">
+            <label class="flbl" style="display:flex;align-items:center;gap:8px">Cierre del caso <span id="f-cierre-badge"></span></label>
+            <select id="f-cierre" class="form-control" onchange="markDirty();_pintarRepoBadges()">
+              <option value="">— Sin definir —</option>
+              <option value="Reposicion">📦 Parte de reposición enviada</option>
+              <option value="NC">🧾 Nota de Crédito (NC) solicitada</option>
+            </select>
+          </div>
+        </div>
+
         <div class="row g-3 mb-1">
           <div class="col-md-6" style="position:relative">
             <label class="flbl">Equipo / Modelo</label>
@@ -1620,7 +1640,11 @@ function render() {
     h+='<td>'+c.reseller+'</td>';
     h+='<td><span class="eq">'+c.equipo+'</span></td>';
     h+='<td>'+tecHtml+'</td>';
-    h+='<td>'+(esCancelado?'<span class="badge-cancelado">CANCELADO</span>':'<span class="b-est">'+c.estado+'</span>')+'</td>';
+    var _repB = '';
+    if (c.origenRepuesto) _repB += _repoBadge(_origenLabel(c.origenRepuesto), _origenColor(c.origenRepuesto));
+    if (c.cierreTipo)     _repB += _repoBadge(_cierreLabel(c.cierreTipo), _cierreColor(c.cierreTipo));
+    h+='<td>'+(esCancelado?'<span class="badge-cancelado">CANCELADO</span>':'<span class="b-est">'+c.estado+'</span>')
+       +(_repB?'<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">'+_repB+'</div>':'')+'</td>';
     h+='<td>'+diasHtml+'</td>';
     // Fecha estimada calculada en frontend
     var diasEst = {'Taller-IW':30,'Taller-OOW':30,'Reseller-IW':30,'Reseller-OOW':30,'Reseller Propio-IW':30,'Reseller Propio-OOW':30}; //Dias para calcular fecha estimada de finalizacion
@@ -2242,6 +2266,10 @@ function abrir(c){
   document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Cargando repuestos...</div>';
   document.getElementById('f-tra').value = '';
   document.getElementById('f-notas').value = actual.notasInternas || '';
+  // Origen del repuesto + tipo de cierre (badges claros)
+  document.getElementById('f-origen').value = actual.origenRepuesto || '';
+  document.getElementById('f-cierre').value = actual.cierreTipo || '';
+  _pintarRepoBadges();
 
   // Ocultar botón de cancelar si la OT ya está cancelada o finalizada
   var btnCancelar = document.getElementById('btn-cancelar-caso');
@@ -2255,6 +2283,21 @@ function abrir(c){
 function updBadge(v){
   var m={Taller:'TALLER',Reseller:'RESELLER','Reseller Propio':'RESELLER PROPIO'};
   document.getElementById('c-badge').textContent=m[v]||v;
+}
+
+// ── Badges: origen del repuesto + tipo de cierre ──────────────
+function _origenLabel(v){ return v==='Stock reseller' ? '📦 Reparó con su stock' : (v==='Adelantado' ? '🔧 Adelantado por nosotros' : ''); }
+function _origenColor(v){ return v==='Stock reseller' ? '#1a9e4a' : (v==='Adelantado' ? '#d4890a' : ''); }
+function _cierreLabel(v){ return v==='Reposicion' ? '📦 Reposición' : (v==='NC' ? '🧾 NC' : ''); }
+function _cierreColor(v){ return v==='Reposicion' ? '#00a3e0' : (v==='NC' ? '#8e44ad' : ''); }
+function _repoBadge(label,color){
+  return label ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;color:#fff;background:'+color+';white-space:nowrap">'+label+'</span>' : '';
+}
+function _pintarRepoBadges(){
+  var o=document.getElementById('f-origen'), c=document.getElementById('f-cierre');
+  var ob=document.getElementById('f-origen-badge'), cb=document.getElementById('f-cierre-badge');
+  if(ob) ob.innerHTML=_repoBadge(_origenLabel(o?o.value:''), _origenColor(o?o.value:''));
+  if(cb) cb.innerHTML=_repoBadge(_cierreLabel(c?c.value:''), _cierreColor(c?c.value:''));
 }
 
 function renderEst(){
@@ -2557,6 +2600,8 @@ function guardar(){
     repuestos:          rs.length ? rs.join(' ; ') : 'Sin consumo de repuestos',
     manoObraGuardada:   manoObraSeleccionada.length ? JSON.stringify(manoObraSeleccionada) : '',
     notasInternas:      document.getElementById('f-notas').value || '',
+    origenRepuesto:     document.getElementById('f-origen').value || '',
+    cierreTipo:         document.getElementById('f-cierre').value || '',
     prioridad:          urgente,
     circuito:           circ,
     factura:            document.getElementById('f-fecha-act').value || '',
