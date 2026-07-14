@@ -1,4 +1,4 @@
-<!-- @version 3.24 -->
+<!-- @version 3.25 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1089,6 +1089,11 @@ var STEPS_CARGAR   = [
   { pct: 15, msg: 'Conectando con el sistema…', icon: '📡' },
   { pct: 50, msg: 'Cargando pedidos…',          icon: '📦' },
   { pct: 82, msg: 'Calculando KPIs…',           icon: '📊' }
+];
+var STEPS_STOCK    = [
+  { pct: 15, msg: 'Conectando con el inventario…', icon: '📡' },
+  { pct: 55, msg: 'Leyendo stock de CARMEN…',      icon: '📦' },
+  { pct: 85, msg: 'Cargando ubicaciones WMS…',     icon: '🗺️' }
 ];
 var STEPS_DESPACHO = [
   { pct: 10, msg: 'Procesando despacho…',        icon: '📋' },
@@ -3564,13 +3569,11 @@ function cerrarStock() {
 }
 
 function _cargarStockRemoto(q) {
-  document.getElementById('stk-content').innerHTML =
-    '<div class="stk-empty" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 20px">' +
-      '<div class="spinner"></div>' +
-      '<div>Cargando stock… <span style="color:var(--tx-d);font-size:11px">(leyendo CARMEN + MASTER)</span></div>' +
-    '</div>';
+  // Misma pantalla de carga que al ingresar a WOS (overlay con barra + pasos).
+  wosLoadStart(STEPS_STOCK);
   google.script.run
     .withSuccessHandler(function(res) {
+      wosLoadDone();
       document.getElementById('btn-stock').classList.remove('loading');
       if (!res.ok) {
         document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Error: ' + escH(res.error) + '</div>';
@@ -3581,6 +3584,7 @@ function _cargarStockRemoto(q) {
       _renderStock();
     })
     .withFailureHandler(function(e) {
+      wosLoadDone();
       document.getElementById('btn-stock').classList.remove('loading');
       document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Error de conexión: ' + escH(e.message) + '</div>';
     })
