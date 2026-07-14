@@ -1,4 +1,4 @@
-<!-- @version 3.21 -->
+<!-- @version 3.23 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -810,6 +810,15 @@ body{overflow:hidden}
       <div id="prep-scan-msg" style="font-size:11px;color:var(--tx-m);margin-top:5px;min-height:14px"></div>
     </div>
     <div class="modal-body" id="modal-prep-body"></div>
+    <div style="padding:9px 16px;border-top:1px solid var(--brd);background:var(--surf);flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label for="prep-peso" style="font-size:12px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:6px">
+        <i class="fa fa-weight-hanging" style="color:var(--blue)"></i> Peso exacto del paquete (kg):
+      </label>
+      <input id="prep-peso" type="number" min="0" step="0.001" placeholder="kg" inputmode="decimal"
+             oninput="_prepCount()"
+             style="width:100px;padding:7px 10px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-weight:700;text-align:right;outline:none;box-sizing:border-box">
+      <span style="font-size:11px;color:var(--tx-d)">Obligatorio — se usa al despachar</span>
+    </div>
     <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
       <span class="email-notice" id="modal-prep-cnt" style="font-weight:700">—</span>
       <button class="btn btn-ghost" onclick="cerrarModal('prep')">Cancelar</button>
@@ -1419,7 +1428,7 @@ function _renderTablaCompacta(lista) {
     if (est === 'Pendiente_Revision' || est === 'Confirmado') accion = '<button class="btn btn-teal" style="padding:3px 10px;font-size:11px" onclick="accion(\'' + escH(p.numero) + '\',\'preparar\')">📦 Preparar</button>';
     else if (est === 'Preparado' || est === 'Preparado Parcial') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">✅ Despachar</button>';
     else if (est === 'En_Espera_Reseller') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">✅ Despachar disponible</button>';
-    else if (est === 'Backorder') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">📦 Despachar lo que llegó</button>';
+    else if (est === 'Backorder') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalPreparar(\'' + escH(p.numero) + '\', true)">📦 Preparar lo que llegó</button>';
     else if (est === 'Listo_Retiro') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="accion(\'' + escH(p.numero) + '\',\'confirmarRetiro\')">✅ Confirmar retiro</button>';
     h += '<tr onclick="toggleCard(\'' + escH(p.numero) + '\')" style="cursor:pointer">' +
       '<td class="c-num">' + escH(p.numero) + '</td>' +
@@ -2185,9 +2194,8 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Generar nota de entrega</button>';
   }
   if (est === 'Backorder') {
-    btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería: si llegó todo usá "Todo disponible", si llegó solo parte usá "Despachar lo que llegó".</div>' + btns;
-    btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">📦 Despachar lo que llegó</button>';
-    btns += '<button class="btn btn-primary" onclick="accion(\'' + n + '\',\'reactivar\')">✅ Todo disponible</button>';
+    btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería, prepará lo que llegó (podés preparar cantidades parciales por ítem); lo que falte queda en backorder para el próximo envío.</div>' + btns;
+    btns += '<button class="btn btn-success" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
   }
 
   if (est === 'Listo_Retiro') {
@@ -2331,66 +2339,79 @@ function accion(numero, tipo) {
 // nota de entrega para poder auditar (picker dice 10, reseller dice 4).
 var _modalPrep = null;
 
-function abrirModalPreparar(numero) {
+function abrirModalPreparar(numero, parcial) {
+  parcial = !!parcial;
   var ped = _buscarPedido(numero);
   if (!ped) { toast('Pedido no encontrado', 'err'); return; }
 
-  // Misma verificación de stock que la preparación directa
-  var sinStock = [];
-  for (var si = 0; si < ped.items.length; si++) {
-    var it0 = ped.items[si];
-    if (it0.cantPend <= 0) continue;
-    if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
-      sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
+  // Modo NORMAL: exige stock completo para todos los ítems (bloquea si falta).
+  // Modo PARCIAL (backorder): no bloquea; incluye solo los ítems con stock y permite cantidad parcial.
+  if (!parcial) {
+    var sinStock = [];
+    for (var si = 0; si < ped.items.length; si++) {
+      var it0 = ped.items[si];
+      if (it0.cantPend <= 0) continue;
+      if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
+        sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
+      }
+    }
+    if (sinStock.length > 0) {
+      alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Faltan \xedtems en stock" para gestionar los faltantes.');
+      return;
     }
   }
-  if (sinStock.length > 0) {
-    alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Faltan \xedtems en stock" para gestionar los faltantes.');
-    return;
-  }
 
-  _modalPrep = { numero: numero, items: [] };
-  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + ' \x2014 ingresá el N\xba de serie de CADA unidad';
+  _modalPrep = { numero: numero, items: [], parcial: parcial };
+  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + (parcial ? ' \x2014 prepar\xe1 lo que lleg\xf3 (cantidad por \xedtem editable)' : ' \x2014 ingresá el N\xba de serie de CADA unidad');
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
-    '<strong>Obligatorio:</strong> un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>. Queda en la nota de entrega para auditar el env\xedo.' +
+    (parcial ? '<strong>Backorder:</strong> ajust\xe1 cu\xe1ntas unidades de cada \xedtem lleg\xf3, ' : '<strong>Obligatorio:</strong> ') +
+    'un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>.' +
+    (parcial ? ' Lo que no prepares queda en backorder.' : ' Queda en la nota de entrega para auditar el env\xedo.') +
     '</div>';
   var hayItems = false;
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
     if (it.cantPend <= 0) continue;
+    var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
+    // En parcial, saltear ítems sin stock (quedan en backorder). En normal, incluir todo.
+    if (parcial && stk !== null && stk <= 0) continue;
+    var qMax = (stk === null) ? it.cantPend : Math.min(it.cantPend, stk);
+    if (qMax <= 0) continue;
+    var qty = parcial ? qMax : it.cantPend;   // en normal siempre cantPend
     hayItems = true;
-    var qty = it.cantPend;
-    _modalPrep.items.push({ row: it.row, sku: it.sku, cantPend: qty });
     var prev = String(it.seriales || '').split(',');
+    _modalPrep.items.push({ row: it.row, sku: it.sku, cantPend: it.cantPend, qtyPrep: qty, prevSers: prev });
     html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
         '<div style="min-width:0"><span class="modal-item-sku">' + escH(it.sku) + '</span> ' +
           '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
-        '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
-          '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+          (parcial
+            ? '<span style="font-size:11px;font-weight:700;color:var(--tx)">Preparar</span>' +
+              '<input type="number" id="prep-qty-' + it.row + '" min="1" max="' + qMax + '" value="' + qty + '" ' +
+                'oninput="_prepQtyChange(' + it.row + ')" ' +
+                'style="width:56px;padding:5px 7px;border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;text-align:center;outline:none">' +
+              '<span style="font-size:11px;color:var(--tx-d)">de ' + it.cantPend + (stk !== null ? ' \xb7 lleg\xf3 ' + stk : '') + '</span>'
+            : '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>') +
         '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">';
-    for (var u = 0; u < qty; u++) {
-      var pv = String(prev[u] || '').trim().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-      html += '<div class="modal-ser-item">' +
-        '<span class="modal-ser-lbl">' + (u + 1) + '</span>' +
-        '<input class="modal-ser-single prep-ser" data-row="' + it.row + '" type="text" placeholder="N\xba de serie" value="' + pv + '" ' +
-          'oninput="_prepCount()" onkeydown="_prepKey(event,this)">' +
-      '</div>';
-    }
-    html += '</div>' +
+      '<div id="prep-ser-wrap-' + it.row + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px"></div>' +
       '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--surf)">' +
         '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:2px">De qu\xe9 ubicaci\xf3n WMS lo sac\xe1s</div>' +
         '<div id="prep-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
       '</div>' +
     '</div>';
   }
-  if (!hayItems) { toast('Este pedido no tiene unidades pendientes de preparar', 'err'); _modalPrep = null; return; }
+  if (!hayItems) { toast(parcial ? 'Todav\xeda no lleg\xf3 stock de este pedido' : 'Este pedido no tiene unidades pendientes de preparar', 'err'); _modalPrep = null; return; }
 
   document.getElementById('modal-prep-body').innerHTML = html;
   document.getElementById('modal-prep').style.display = 'flex';
+  // Render inicial de los inputs de N° de serie por ítem (según la cantidad a preparar)
+  for (var ri = 0; ri < _modalPrep.items.length; ri++) {
+    var pit = _modalPrep.items[ri];
+    _prepRenderSers(pit.row, pit.qtyPrep, pit.prevSers);
+  }
   // Cargar ubicaciones WMS (bins) para elegir de dónde se saca cada ítem
   var _prepSkus = [];
   for (var ps = 0; ps < _modalPrep.items.length; ps++) {
@@ -2410,10 +2431,59 @@ function abrirModalPreparar(numero) {
   // Reset de la barra de escaneo
   var scEl = document.getElementById('prep-scan'); if (scEl) scEl.value = '';
   var smEl = document.getElementById('prep-scan-msg'); if (smEl) smEl.textContent = '';
+  // Peso del paquete: precargar si ya se había guardado (re-preparación), si no vacío
+  var pesoEl = document.getElementById('prep-peso');
+  if (pesoEl) pesoEl.value = (ped.pesoPrep && ped.pesoPrep > 0) ? ped.pesoPrep : '';
   _prepCamStop();
   _prepCount();
   // Foco en el campo de escaneo (flujo principal con pistola)
   setTimeout(function() { var f = document.getElementById('prep-scan'); if (f) f.focus(); }, 60);
+}
+
+// Renderiza los inputs de N° de serie de un ítem según la cantidad a preparar.
+// Preserva lo ya tipeado; si se pasa prevVals (seriales previos), los usa de base.
+function _prepRenderSers(row, qty, prevVals) {
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!wrap) return;
+  var base = prevVals;
+  if (!base) {
+    base = [];
+    var old = wrap.querySelectorAll('.prep-ser');
+    for (var oi = 0; oi < old.length; oi++) base.push(old[oi].value);
+  }
+  var html = '';
+  for (var u = 0; u < qty; u++) {
+    var pv = String(base[u] || '').trim().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    html += '<div class="modal-ser-item">' +
+      '<span class="modal-ser-lbl">' + (u + 1) + '</span>' +
+      '<input class="modal-ser-single prep-ser" data-row="' + row + '" type="text" placeholder="N\xba de serie" value="' + pv + '" ' +
+        'oninput="_prepCount()" onkeydown="_prepKey(event,this)">' +
+    '</div>';
+  }
+  wrap.innerHTML = html;
+}
+
+// Cambio de cantidad a preparar de un ítem (modo parcial): re-renderiza SN + bins.
+function _prepQtyChange(row) {
+  var inp = document.getElementById('prep-qty-' + row);
+  if (!inp) return;
+  var q   = parseInt(inp.value, 10) || 0;
+  var max = parseInt(inp.max, 10) || 0;
+  if (max > 0 && q > max) { q = max; inp.value = max; }
+  if (q < 1) { q = 1; inp.value = 1; }
+  _prepRenderSers(row, q);   // preserva lo tipeado
+  // Actualizar qtyPrep del ítem
+  if (_modalPrep && _modalPrep.items) {
+    for (var i = 0; i < _modalPrep.items.length; i++) {
+      if (_modalPrep.items[i].row === row) { _modalPrep.items[i].qtyPrep = q; break; }
+    }
+  }
+  // Actualizar bins (si ya cargaron): el total a repartir pasa a ser la nueva cantidad
+  if (_ubicAlloc[row]) {
+    _ubicAlloc[row].cantTotal = q;
+    _renderBinAlloc(row, _ubicAlloc[row].locs, _autoAlocar(_ubicAlloc[row].locs, q), q, 'prep');
+  }
+  _prepCount();
 }
 
 function _prepCount() {
@@ -2421,9 +2491,12 @@ function _prepCount() {
   var total = inputs.length, filled = 0;
   for (var i = 0; i < inputs.length; i++) if (inputs[i].value.trim()) filled++;
   var cnt = document.getElementById('modal-prep-cnt');
-  var ok = filled === total && total > 0;
+  var pesoEl = document.getElementById('prep-peso');
+  var pesoOk = pesoEl && (parseFloat(pesoEl.value) > 0);
+  var seriesOk = filled === total && total > 0;
+  var ok = seriesOk && pesoOk;
   if (cnt) {
-    cnt.textContent = filled + ' / ' + total + ' unidades con N\xba de serie / SO';
+    cnt.textContent = filled + ' / ' + total + ' unidades con N\xba de serie / SO' + (seriesOk && !pesoOk ? ' \xb7 falta el peso del paquete' : '');
     cnt.style.color = ok ? 'var(--green-m)' : 'var(--amber-m)';
   }
   var btn = document.getElementById('btn-confirmar-prep');
@@ -2581,11 +2654,21 @@ function confirmarPreparar() {
   for (var d = 0; d < vals.length; d++) { if (seen[vals[d]]) { dup = vals[d]; break; } seen[vals[d]] = true; }
   if (dup) { toast('N\xba de serie repetido: ' + dup + '. Cada unidad debe ser \xfanica.', 'err'); return; }
 
+  // Peso exacto del paquete (obligatorio — se pide acá para que no se olvide al despachar)
+  var pesoEl = document.getElementById('prep-peso');
+  var pesoPrep = pesoEl ? (parseFloat(String(pesoEl.value).replace(',', '.')) || 0) : 0;
+  if (!(pesoPrep > 0)) {
+    toast('Ingres\xe1 el peso exacto del paquete (kg) antes de marcar como preparado.', 'err');
+    if (pesoEl) pesoEl.focus();
+    return;
+  }
+
   var payload = [];
   for (var rk in byRow) {
     var _rw = parseInt(rk, 10);
-    // Bins elegidos al preparar (se guardan en la fila; el descuento del WMS ocurre al despachar)
-    payload.push({ row: _rw, seriales: byRow[rk].join(', '), ubicaciones: _getBinAllocForRow(_rw, 'prep') });
+    // qtyPrep = unidades preparadas de esta fila (= nº de SN cargados). Bins se guardan
+    // en la fila; el descuento del WMS ocurre al despachar.
+    payload.push({ row: _rw, qtyPrep: byRow[rk].length, seriales: byRow[rk].join(', '), ubicaciones: _getBinAllocForRow(_rw, 'prep') });
   }
 
   var numero = _modalPrep.numero;
@@ -2607,7 +2690,7 @@ function confirmarPreparar() {
       toast('Sin respuesta del servidor — puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_prepararConSeriales(numero, payload, _usuario ? _usuario.email : '');
+    .WOS_prepararConSeriales(numero, payload, _usuario ? _usuario.email : '', pesoPrep);
 }
 
 // ── MODAL: Despacho ───────────────────────────────────────────
@@ -2782,6 +2865,10 @@ function abrirModalDespacho(numero) {
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
         (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
         ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>';
+      // Cantidad por defecto a despachar = unidades preparadas (nº de SN registrados al
+      // preparar), acotada a lo pendiente. Si no hay SN registrados, despacha todo lo pendiente.
+      var _nSers = String(it.seriales || '').split(',').filter(function(s){ return s.trim(); }).length;
+      var _defDesp = (_nSers > 0) ? Math.min(_nSers, it.cantPend) : it.cantPend;
       html += '<div class="modal-item-row" style="flex-direction:column;align-items:stretch;gap:6px">' +
         '<div style="display:flex;align-items:center;gap:12px">' +
           '<div class="modal-item-info">' +
@@ -2789,7 +2876,7 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaLine + '</div>' +
           '</div>' +
-          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + _defDesp + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
         (it.seriales ? '<div style="font-size:10px;color:var(--teal-m);font-family:var(--f-mono);word-break:break-word">🏷 Series registradas: ' + escH(it.seriales) + '</div>' : '') +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
@@ -2869,6 +2956,12 @@ function abrirModalDespacho(numero) {
     }
     var numBultos = maxCajaPick + 1;   // al menos 1
     for (var bi = 0; bi < numBultos; bi++) _agregarBulto();
+    // Pre-llenar el peso del 1er bulto con el peso capturado al preparar (editable; si hay
+    // varios bultos el operador lo reparte). Así nunca se despacha sin peso.
+    if (ped.pesoPrep && ped.pesoPrep > 0) {
+      var _firstPeso = document.querySelector('#bultos-list .bulto-peso');
+      if (_firstPeso && !_firstPeso.value) _firstPeso.value = ped.pesoPrep;
+    }
     // Pre-llenar selectores de caja según pick state
     if (numBultos > 1) {
       for (var pi2 = 0; pi2 < ped.items.length; pi2++) {
@@ -2910,7 +3003,7 @@ function _prepInyectarUbicaciones(map) {
       wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicaci\xf3n en WMS</span>';
       continue;
     }
-    var cantTotal = it.cantPend || 0;
+    var cantTotal = (it.qtyPrep != null ? it.qtyPrep : it.cantPend) || 0;
     _ubicAlloc[it.row] = { locs: locs, cantTotal: cantTotal };
     _renderBinAlloc(it.row, locs, _autoAlocar(locs, cantTotal), cantTotal, 'prep');
   }

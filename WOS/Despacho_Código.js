@@ -1,4 +1,4 @@
-// @version 3.7
+// @version 3.9
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -263,6 +263,7 @@ function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
         transportista:   String(r[COL.TRANSPORTISTA_DESP] || '').trim(),
         fechaDespacho:   (fdRaw instanceof Date) ? Utilities.formatDate(fdRaw, Session.getScriptTimeZone(), 'dd/MM/yyyy') : '',
         esOT:            _esNumeroOT(num),
+        pesoPrep:        Number(r[COL.PESO_PREP]) || 0,   // peso del paquete capturado al preparar
         items:           []
       };
       orden.push(num);
@@ -461,7 +462,7 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
 // Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad (OBLIGATORIO).
 // Esto crea el manifiesto por unidad para poder auditar despachos (picker dice 10, reseller dice 4).
 // seriales: [{ row: <fila 1-indexada>, seriales: "SN1, SN2, SO-...-003" }]
-function WOS_prepararConSeriales(numero, seriales, operario) {
+function WOS_prepararConSeriales(numero, seriales, operario, peso) {
   try {
     numero = String(numero || '').trim();
     var hoja = _getHojaPorNumero(numero);
@@ -469,15 +470,17 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
     var datos = hoja.getDataRange().getValues();
     var ahora = new Date();
     operario  = String(operario || '');
+    var pesoNum = Number(peso) || 0;   // peso exacto del paquete (kg), capturado al preparar
 
-    // getRange NO auto-expande columnas: asegurar que exista col AA (UBIC_PREP) antes de escribirla.
-    // Insertar al final (después de Z) no desplaza A–Z ni afecta la fórmula CANT_PEND (=E-F-Z).
+    // getRange NO auto-expande columnas: asegurar que existan las cols AA/AB (UBIC_PREP/PESO_PREP)
+    // antes de escribirlas. Insertar al final (después de Z) no desplaza A–Z ni afecta CANT_PEND (=E-F-Z).
     var _maxCol = hoja.getMaxColumns();
-    if (_maxCol < COL.UBIC_PREP + 1) hoja.insertColumnsAfter(_maxCol, (COL.UBIC_PREP + 1) - _maxCol);
+    if (_maxCol < COL.PESO_PREP + 1) hoja.insertColumnsAfter(_maxCol, (COL.PESO_PREP + 1) - _maxCol);
 
-    // fila (1-indexada) → seriales / ubicaciones (bins elegidos al preparar)
+    // fila (1-indexada) → seriales / ubicaciones (bins) / cantidad preparada
     var serMap  = {};
     var ubicMap = {};
+    var qtyMap  = {};   // fila → unidades preparadas (para estado Preparado vs Preparado Parcial)
     if (Object.prototype.toString.call(seriales) === '[object Array]') {
       for (var s = 0; s < seriales.length; s++) {
         var rw = parseInt(seriales[s].row, 10);
@@ -485,6 +488,9 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
           serMap[rw]  = String(seriales[s].seriales || '').trim();
           var bins = seriales[s].ubicaciones;
           ubicMap[rw] = (Object.prototype.toString.call(bins) === '[object Array]') ? bins : [];
+          var qp = parseInt(seriales[s].qtyPrep, 10);
+          if (!(qp > 0)) qp = serMap[rw] ? serMap[rw].split(',').length : 0;   // fallback: nº de SN
+          qtyMap[rw] = qp;
         }
       }
     }
@@ -492,11 +498,21 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
     var reseller = '', tocadas = 0;
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
-      var estActual = String(datos[i][COL.ESTADO] || '');
-      // No tocar filas ya cerradas (entregadas / canceladas) — solo lo que se está preparando
-      if (estActual === EST.ENTREGADO || estActual === EST.CANCELADO || estActual === EST.ENTREGADO_CONF) continue;
       var fila = i + 1;
-      hoja.getRange(fila, COL.ESTADO       + 1).setValue(EST.PREPARADO);
+      // Solo tocar las filas enviadas en el payload; las demás (ej. sin stock en un backorder
+      // parcial) quedan como están (Backorder). En el caso normal el payload trae todos los pendientes.
+      if (qtyMap[fila] === undefined || qtyMap[fila] <= 0) continue;
+      var estActual = String(datos[i][COL.ESTADO] || '');
+      // No tocar filas ya cerradas (entregadas / canceladas)
+      if (estActual === EST.ENTREGADO || estActual === EST.CANCELADO || estActual === EST.ENTREGADO_CONF) continue;
+      // Estado según cantidad preparada vs pendiente de esa fila.
+      // cantPend = solicitado - despachado - cancelado (igual que la col G del sheet y el front).
+      var _cantSol    = Number(datos[i][COL.CANT_SOL])    || 0;
+      var _cantDesp   = Number(datos[i][COL.CANT_DESP])   || 0;
+      var _cantCancel = Number(datos[i][COL.CANT_CANCEL]) || 0;
+      var _cantPend   = _cantSol - _cantDesp - _cantCancel;
+      var _estNuevo = (qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL;
+      hoja.getRange(fila, COL.ESTADO       + 1).setValue(_estNuevo);
       hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
       if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
       if (serMap[fila] !== undefined && serMap[fila] !== '') {
@@ -507,6 +523,8 @@ function WOS_prepararConSeriales(numero, seriales, operario) {
         var _binsFila = ubicMap[fila] || [];
         hoja.getRange(fila, COL.UBIC_PREP + 1).setValue(_binsFila.length ? JSON.stringify(_binsFila) : '');
       }
+      // Peso exacto del paquete → col AB. Se pide al preparar para que no se olvide al despachar.
+      hoja.getRange(fila, COL.PESO_PREP + 1).setValue(pesoNum > 0 ? pesoNum : '');
       if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
       tocadas++;
     }

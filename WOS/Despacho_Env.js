@@ -68,6 +68,7 @@ var COL = {
   SERIALES:           24,  // Y: números de serie despachados (separados por coma)
   CANT_CANCEL:        25,  // Z: unidades canceladas por reseller (Opción B) — fórmula CANT_PEND actualizar a =E-F-Z
   UBIC_PREP:          26,  // AA: bins elegidos al preparar, JSON [{bin,cant}] por ítem — descuento WMS se aplica al despachar
+  PESO_PREP:          27,  // AB: peso exacto del paquete (kg) capturado al preparar — pre-llena el peso del bulto al despachar
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };
