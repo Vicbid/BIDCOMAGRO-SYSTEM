@@ -1,4 +1,4 @@
-<!-- @version 3.23 -->
+<!-- @version 3.24 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -3564,7 +3564,11 @@ function cerrarStock() {
 }
 
 function _cargarStockRemoto(q) {
-  document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Cargando stock…</div>';
+  document.getElementById('stk-content').innerHTML =
+    '<div class="stk-empty" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 20px">' +
+      '<div class="spinner"></div>' +
+      '<div>Cargando stock… <span style="color:var(--tx-d);font-size:11px">(leyendo CARMEN + MASTER)</span></div>' +
+    '</div>';
   google.script.run
     .withSuccessHandler(function(res) {
       document.getElementById('btn-stock').classList.remove('loading');
