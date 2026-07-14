@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.37 -->
+<!-- @version 1.38 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6491,11 +6491,23 @@ var _resellerLista   = [];   // se llena en window.onload junto con el resto de 
 var _regEmpresaActual = '';  // empresa seleccionada en paso 1
 
 function abrirRegistro() {
-  // Cerrar modal de login si está abierto
-  if (typeof bootstrap !== 'undefined') {
-    var loginM = bootstrap.Modal.getInstance(document.getElementById('modal-pin'));
-    if (loginM) loginM.hide();
+  // Si el modal de login está abierto, esperar a que CIERRE del todo antes de mostrar
+  // el registro. Mostrarlo sincrónicamente deja activo el focus-trap del login (hide()
+  // es asíncrono) que roba el foco y no deja escribir en los campos. Ver hidden.bs.modal.
+  var loginEl = document.getElementById('modal-pin');
+  var loginM  = (typeof bootstrap !== 'undefined' && loginEl) ? bootstrap.Modal.getInstance(loginEl) : null;
+  if (loginM && loginEl.classList.contains('show')) {
+    loginEl.addEventListener('hidden.bs.modal', function _onLoginHidden() {
+      loginEl.removeEventListener('hidden.bs.modal', _onLoginHidden);
+      _mostrarRegistro();
+    });
+    loginM.hide();
+  } else {
+    _mostrarRegistro();
   }
+}
+
+function _mostrarRegistro() {
   // Poblar dropdown con la lista ya cargada
   var sel = document.getElementById('reg-empresa-sel');
   sel.innerHTML = '<option value="">— Seleccioná tu empresa —</option>';
