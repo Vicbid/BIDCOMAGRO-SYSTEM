@@ -1059,9 +1059,9 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
           "</div>" +
           (sheetUrl || pdfUrl ?
           "<p style='margin:12px 0 0;font-size:12px;color:#5e6778'>Nota de Entrega:&nbsp; " +
-            (pdfUrl   ? "<a href='" + pdfUrl   + "' target='_blank' style='color:#00a3e0;font-weight:700;text-decoration:none'>📄 PDF</a>" : '') +
+            (pdfUrl   ? "<a href='" + pdfUrl   + "' target='_blank' style='color:#00a3e0;font-weight:700;text-decoration:none'> PDF</a>" : '') +
             (sheetUrl && pdfUrl ? "&nbsp;&nbsp;\xb7&nbsp;&nbsp;" : '') +
-            (sheetUrl ? "<a href='" + sheetUrl + "' target='_blank' style='color:#188038;font-weight:700;text-decoration:none'>📊 Planilla (Google Sheets)</a>" : '') +
+            (sheetUrl ? "<a href='" + sheetUrl + "' target='_blank' style='color:#188038;font-weight:700;text-decoration:none'>Planilla (Google Sheets)</a>" : '') +
           "</p>" : '') +
         "</div>" +
       "</div>";
