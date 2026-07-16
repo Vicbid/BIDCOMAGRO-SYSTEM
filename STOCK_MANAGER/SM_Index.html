@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.15 -->
+<!-- @version 5.16 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1323,9 +1323,15 @@ tr:last-child td{border-bottom:none}
       <div class="modal-body" style="padding:16px">
         <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código QR para escanear en el picking.</div>
         <div class="mb-3">
-          <label class="flbl">SKU</label>
-          <input type="text" id="so-sku" class="form-control" placeholder="Escaneá o ingresá el SKU..." style="text-transform:uppercase;font-family:monospace" oninput="this.value=this.value.toUpperCase();_soDesc()">
-          <div id="so-desc" style="font-size:11px;color:var(--tx-d);margin-top:4px;min-height:14px"></div>
+          <label class="flbl">Repuesto <span style="font-weight:400;color:var(--tx-d)">(buscá por código o nombre)</span></label>
+          <input type="text" id="so-sku" class="form-control" placeholder="Ej: 12345 o &quot;motor T40&quot;…" autocomplete="off" style="font-family:monospace" oninput="_soBuscar()" onkeydown="if(event.key==='Enter'){event.preventDefault();_soBuscarEnter();}">
+          <div id="so-results" style="display:none;max-height:220px;overflow-y:auto;margin-top:4px;border:1px solid var(--brd);border-radius:8px;background:var(--surf)"></div>
+          <div id="so-sel" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(0,163,224,.06);border:1px solid rgba(0,163,224,.25);border-radius:8px">
+            <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--blue)" id="so-sel-cod"></div>
+            <div style="font-size:12px;color:var(--tx-m);margin-top:1px" id="so-sel-desc"></div>
+            <div style="font-size:11px;color:var(--tx-d);margin-top:3px" id="so-sel-mod"></div>
+          </div>
+          <div id="so-desc" style="font-size:11px;color:var(--tx-d);margin-top:4px;min-height:0"></div>
         </div>
         <div class="mb-3">
           <div style="display:flex;gap:6px;margin-bottom:10px">
@@ -2852,18 +2858,28 @@ function abrirAjuste(cod, desc, actual, requireSN) {
 // ── ETIQUETAS SO (productos sin N° de serie) ──────────────────
 var _soMode = 'unidad';  // 'unidad' = 1 código por unidad · 'bolsa' = 1 código = N unidades
 
+var _soSkuSel = '';        // SKU confirmado (elegido de la lista o match exacto)
+var _soLastMatches = [];   // últimos resultados del buscador (para Enter)
+
 function abrirImprimirSO(cod, desc) {
-  var skuEl = document.getElementById('so-sku');
-  skuEl.value = (cod || '').toUpperCase();
+  _soSkuSel = '';
+  _soLastMatches = [];
+  document.getElementById('so-sku').value = '';
   document.getElementById('so-cant').value = 1;
   document.getElementById('so-uxb').value = 50;
   document.getElementById('so-nbolsas').value = 1;
   _soSetMode('unidad');
-  document.getElementById('so-desc').textContent = desc || '';
-  document.getElementById('so-print-btn').disabled = false;
+  document.getElementById('so-results').style.display = 'none';
+  document.getElementById('so-results').innerHTML = '';
+  document.getElementById('so-sel').style.display = 'none';
+  document.getElementById('so-desc').textContent = '';
+  document.getElementById('so-print-btn').disabled = true;   // se habilita al elegir un repuesto
   modal('modal-so').show();
-  if (!cod) setTimeout(function(){ skuEl.focus(); }, 250);
-  else _soDesc();
+  // Asegurar que el buscador tenga el stock cargado (el modal se abre desde el botón general o desde una fila)
+  _soAsegurarStock(function() {
+    if (cod) { _soPick(cod); }   // vino de una fila de stock → ya seleccionado
+    else { setTimeout(function() { document.getElementById('so-sku').focus(); }, 250); }
+  });
 }
 
 // Cambia entre etiqueta por unidad y etiqueta por bolsa.
@@ -2879,20 +2895,100 @@ function _soSetMode(mode) {
   if (wb) wb.style.display = (mode === 'bolsa')  ? 'block' : 'none';
 }
 
-function _soDesc() {
-  var sku = (document.getElementById('so-sku').value || '').trim().toUpperCase();
-  var el = document.getElementById('so-desc');
-  if (!sku) { el.textContent = ''; return; }
+// ── Buscador de repuesto (SKU / nombre / modelo) para etiquetas SO ────
+function _soNorm(s) { return String(s || '').toLowerCase().trim(); }
+function _soFindStock(codigo) {
+  var c = String(codigo || '').toUpperCase();
   for (var i = 0; i < stockData.length; i++) {
-    if (String(stockData[i].codigo).toUpperCase() === sku) { el.textContent = stockData[i].descripcion || ''; return; }
+    if (String(stockData[i].codigo).toUpperCase() === c) return stockData[i];
   }
-  el.textContent = '';
+  return null;
+}
+// Carga stockData en silencio si aún no está (el buscador lo necesita).
+function _soAsegurarStock(cb) {
+  if (stockData && stockData.length) { if (cb) cb(); return; }
+  google.script.run
+    .withSuccessHandler(function(d) { stockData = d || []; if (cb) cb(); })
+    .withFailureHandler(function() { if (cb) cb(); })
+    .cargarStock('');
+}
+function _soBuscar() {
+  _soSkuSel = '';
+  document.getElementById('so-print-btn').disabled = true;
+  document.getElementById('so-sel').style.display = 'none';
+  var raw = document.getElementById('so-sku').value;
+  var q = _soNorm(raw);
+  var res = document.getElementById('so-results');
+  if (q.length < 2) { res.style.display = 'none'; res.innerHTML = ''; _soLastMatches = []; return; }
+  var matches = [];
+  for (var i = 0; i < stockData.length; i++) {
+    var it = stockData[i];
+    var cod = _soNorm(it.codigo), desc = _soNorm(it.descripcion), mod = _soNorm(it.modelos);
+    if (cod.indexOf(q) === -1 && desc.indexOf(q) === -1 && mod.indexOf(q) === -1) continue;
+    var score = (cod === q) ? 10 : (cod.indexOf(q) === 0 ? 6 : (desc.indexOf(q) === 0 ? 4 : 1));
+    matches.push({ it: it, score: score });
+  }
+  matches.sort(function(a, b) { return b.score - a.score; });
+  matches = matches.slice(0, 20);
+  _soLastMatches = matches.map(function(m) { return m.it; });
+  if (!matches.length) {
+    res.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--tx-d)">Sin resultados para "' + escH(raw) + '"</div>';
+    res.style.display = 'block';
+    return;
+  }
+  var html = '';
+  for (var k = 0; k < matches.length; k++) {
+    var m = matches[k].it;
+    var mod2 = String(m.modelos || '').trim();
+    var stk = (typeof m.stockActual === 'number') ? (' <span style="font-weight:400;color:var(--tx-d)">· stock ' + m.stockActual + '</span>') : '';
+    html += '<div onclick="_soPick(&quot;' + escH(String(m.codigo)).replace(/&quot;/g, '&#34;') + '&quot;)" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--brd)" onmouseover="this.style.background=\'rgba(0,163,224,.06)\'" onmouseout="this.style.background=\'\'">' +
+      '<div style="font-family:monospace;font-weight:700;font-size:12px">' + escH(m.codigo) + stk + '</div>' +
+      '<div style="font-size:12px;color:var(--tx-m)">' + escH(m.descripcion || '') + (mod2 ? ' <span style="color:var(--tx-d)">· ' + escH(mod2) + '</span>' : '') + '</div>' +
+    '</div>';
+  }
+  res.innerHTML = html;
+  res.style.display = 'block';
+}
+// Enter: match exacto por código, o el primer resultado de la lista.
+function _soBuscarEnter() {
+  var exact = _soFindStock(document.getElementById('so-sku').value);
+  if (exact) { _soPick(exact.codigo); return; }
+  if (_soLastMatches.length) { _soPick(_soLastMatches[0].codigo); }
+}
+// Selecciona un repuesto: fija el SKU, muestra nombre + modelos y habilita imprimir.
+function _soPick(codigo) {
+  var it = _soFindStock(codigo);
+  _soSkuSel = it ? String(it.codigo) : String(codigo || '');
+  document.getElementById('so-sku').value = _soSkuSel;
+  var card = document.getElementById('so-sel');
+  if (it) {
+    document.getElementById('so-sel-cod').textContent  = it.codigo;
+    document.getElementById('so-sel-desc').textContent = it.descripcion || '';
+    var mod = String(it.modelos || '').trim();
+    document.getElementById('so-sel-mod').innerHTML = mod
+      ? ('🛠 Compatible con: ' + escH(mod))
+      : '<span style="color:var(--tx-d)">Sin modelos cargados para este SKU</span>';
+    card.style.display = 'block';
+  } else {
+    card.style.display = 'none';
+  }
+  document.getElementById('so-results').style.display = 'none';
+  document.getElementById('so-desc').textContent = '';
+  document.getElementById('so-print-btn').disabled = !_soSkuSel;
+  // Ir directo a la cantidad para imprimir rápido
+  var q = document.getElementById(_soMode === 'bolsa' ? 'so-uxb' : 'so-cant');
+  if (q) { try { q.focus(); q.select(); } catch(e) {} }
 }
 
 function confirmarImprimirSO() {
-  var sku = (document.getElementById('so-sku').value || '').trim().toUpperCase();
   var op  = document.getElementById('so-op').value || '';
-  if (!sku) { toast('Ingresá el SKU', 'err'); return; }
+  // Debe haber un repuesto ELEGIDO de la lista (evita SKU mal tipeado / ceros de menos).
+  if (!_soSkuSel) {
+    var tecleado = _soFindStock(document.getElementById('so-sku').value);  // salvo match exacto de código
+    if (tecleado) { _soPick(tecleado.codigo); }
+  }
+  if (!_soSkuSel) { toast('Elegí el repuesto de la lista (buscá por código o nombre)', 'err'); return; }
+  var sku = _soSkuSel.toUpperCase();
 
   var esBolsa = (_soMode === 'bolsa');
   var uxb = 0, nbolsas = 0, cant = 0;
