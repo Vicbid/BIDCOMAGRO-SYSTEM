@@ -29,7 +29,8 @@ var SCHEMA = {
     LAYOUT_ALMACEN:    'LAYOUT_ALMACEN',
     HISTORIAL_COMPRAS: 'HISTORIAL_COMPRAS',
     CATALOGO_DJI:      'CATALOGO_DJI',
-    SO_ETIQUETAS:      'SO_ETIQUETAS'
+    SO_ETIQUETAS:      'SO_ETIQUETAS',
+    EQUIPOS_DEPOSITO:  'EQUIPOS_DEPOSITO'
   },
   OT: {
     FECHA_INGRESO: 0,
@@ -167,6 +168,23 @@ var SCHEMA = {
     PANO:          2,
     ORDEN_PANO:    3,
     NUM_ALTURAS:   4
+  },
+  // Inventario de EQUIPOS COMPLETOS en depósito (por N° de serie). Distinto del stock de repuestos.
+  EQUIPOS_DEPOSITO: {
+    SN:            0,   // A: N° de serie (identificador)
+    MODELO:        1,   // B
+    CONDICION:     2,   // C: Nuevo / Usado
+    DESTINO:       3,   // D: Venta / Harvesting / HV / Donante de partes
+    ESTADO:        4,   // E: Completo / Incompleto
+    UBICACION:     5,   // F
+    FECHA_INGRESO: 6,   // G
+    ORIGEN:        7,   // H: compra / CAS / cliente / RMA…
+    VALOR:         8,   // I: valor para conciliaciones
+    FALTANTES:     9,   // J: nota de qué le falta (texto; Fase 2 lo estructura)
+    OBSERVACIONES: 10,  // K
+    SITUACION:     11,  // L: En depósito / Vendido / Baja
+    FECHA_ACT:     12,  // M: última actualización
+    OPERADOR:      13   // N
   }
 };
 

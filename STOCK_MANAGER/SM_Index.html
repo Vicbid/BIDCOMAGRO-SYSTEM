@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.16 -->
+<!-- @version 5.17 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -379,6 +379,9 @@ tr:last-child td{border-bottom:none}
       <button class="nav-tab" id="nt-stock" onclick="showTab('stock','nt-stock')">
         <i class="fa fa-boxes"></i><span>Stock</span>
       </button>
+      <button class="nav-tab" id="nt-equip" onclick="showTab('equip','nt-equip')">
+        <i class="fa fa-helicopter"></i><span>Equipos</span>
+      </button>
 
       <span class="sb-section-lbl">Compras &amp; Ventas</span>
       <button class="nav-tab" id="nt-comp" onclick="showTab('comp','nt-comp')">
@@ -606,6 +609,56 @@ tr:last-child td{border-bottom:none}
       </div>
 
     </div><!-- /stock -->
+
+
+    <!-- ══ EQUIPOS EN DEPÓSITO ════════════════════════ -->
+    <div class="tab-view" id="tab-equip">
+      <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
+        <i class="fa fa-helicopter" style="color:var(--blue);font-size:13px"></i>
+        <span style="font-weight:600;color:var(--tx)">Equipos completos en depósito</span>
+        <span style="color:var(--tx-m)">Inventario por N° de serie para conciliaciones (distinto del stock de repuestos).</span>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="equip-buscar" class="form-control" placeholder="Buscar por SN, modelo u origen..." style="max-width:280px" oninput="filtrarEquipos()">
+        <select id="equip-f-destino" class="form-select" style="max-width:170px" onchange="filtrarEquipos()">
+          <option value="">Todos los destinos</option>
+          <option>Venta</option><option>Harvesting</option><option>HV</option><option>Donante de partes</option>
+        </select>
+        <select id="equip-f-estado" class="form-select" style="max-width:150px" onchange="filtrarEquipos()">
+          <option value="">Completo e incompleto</option>
+          <option>Completo</option><option>Incompleto</option>
+        </select>
+        <select id="equip-f-situacion" class="form-select" style="max-width:150px" onchange="filtrarEquipos()">
+          <option value="En depósito">En depósito</option>
+          <option>Vendido</option>
+          <option>Baja</option>
+          <option value="">Todas las situaciones</option>
+        </select>
+        <button class="btn-p green" onclick="abrirEquipo('')"><i class="fa fa-plus"></i> Nuevo equipo</button>
+        <button class="btn-p" style="background:var(--blue)" onclick="_copiarEquipos()"><i class="fa fa-copy"></i> Copiar para Excel</button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--tx-d)">
+          <span><span id="equip-cnt-inc" class="b-crit">0</span> incompletos</span>
+          <span><span id="equip-cnt">0</span> equipos</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="tbl-wrap">
+          <table id="tbl-equip">
+            <thead><tr>
+              <th>N° de serie</th><th>Modelo</th><th class="hide-mob">Condición</th>
+              <th>Destino</th><th>Estado</th><th class="hide-mob">Ubicación</th>
+              <th>Faltantes</th><th class="hide-mob">Origen</th><th class="hide-mob">Valor</th>
+              <th>Situación</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-equip">
+              <tr><td colspan="11"><div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /equipos -->
 
 
     <!-- ══ COMPRAS DJI ════════════════════════ -->
@@ -1312,6 +1365,87 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<!-- Modal: Alta / edición de EQUIPO en depósito -->
+<div class="modal fade" id="modal-equipo" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:560px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
+        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-helicopter" style="color:var(--blue);margin-right:5px"></i><span id="equipo-modal-titulo">Nuevo equipo</span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:16px">
+        <input type="hidden" id="equipo-sn-orig">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="flbl">N° de serie *</label>
+            <input type="text" id="equipo-sn" class="form-control" placeholder="Escaneá o ingresá el SN" style="font-family:monospace">
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Modelo</label>
+            <input type="text" id="equipo-modelo" class="form-control" list="equip-modelos-dl" placeholder="Ej: T40, T50…">
+            <datalist id="equip-modelos-dl"></datalist>
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Condición</label>
+            <select id="equipo-condicion" class="form-select">
+              <option>Nuevo</option><option>Usado</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Destino</label>
+            <select id="equipo-destino" class="form-select">
+              <option>Venta</option>
+              <option>Harvesting</option>
+              <option>HV</option>
+              <option>Donante de partes</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Estado</label>
+            <select id="equipo-estado" class="form-select">
+              <option>Completo</option><option>Incompleto</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Ubicación</label>
+            <input type="text" id="equipo-ubic" class="form-control" placeholder="Zona / estante del depósito">
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Fecha de ingreso</label>
+            <input type="date" id="equipo-fecha" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Origen</label>
+            <input type="text" id="equipo-origen" class="form-control" placeholder="Compra / CAS / cliente / RMA…">
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Valor <span style="font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+            <input type="number" id="equipo-valor" class="form-control" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="col-md-6">
+            <label class="flbl">Situación</label>
+            <select id="equipo-situacion" class="form-select">
+              <option>En depósito</option><option>Vendido</option><option>Baja</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="flbl">Faltantes <span style="font-weight:400;color:var(--tx-d)">(qué le falta — texto libre por ahora)</span></label>
+            <textarea id="equipo-faltantes" class="form-control" rows="2" placeholder="Ej: le saqué la batería y una hélice (prestadas)"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="flbl">Observaciones</label>
+            <textarea id="equipo-obs" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
+        <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
+        <button id="equipo-guardar-btn" class="btn-p" onclick="guardarEquipoUI()"><i class="fa fa-save"></i> Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Imprimir etiquetas SO (productos sin N° de serie) -->
 <div class="modal fade" id="modal-so" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
@@ -1978,6 +2112,172 @@ function showTab(id, btnId) {
   if (id==='vent')  cargarVentasTab();
   if (id==='mov')   cargarMovimientosTab();
   if (id==='wms')   _wmsTabAbierto();
+  if (id==='equip') cargarEquiposTab();
+}
+
+// ══════════════════════════════════════════
+//  EQUIPOS EN DEPÓSITO (inventario por N° de serie)
+// ══════════════════════════════════════════
+var equiposData = [];
+var _equipModelosLoaded = false;
+
+function cargarEquiposTab() {
+  if (!_equipModelosLoaded) {
+    _equipModelosLoaded = true;
+    google.script.run.withSuccessHandler(function(lista) {
+      var dl = document.getElementById('equip-modelos-dl');
+      if (dl && lista && lista.length) dl.innerHTML = lista.map(function(m) { return '<option value="' + escH(m) + '">'; }).join('');
+    }).withFailureHandler(function() {}).getModelosActivos();
+  }
+  document.getElementById('tbody-equip').innerHTML = '<tr><td colspan="11"><div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div></td></tr>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      equiposData = (r && r.ok && r.equipos) ? r.equipos : [];
+      renderEquipos();
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('tbody-equip').innerHTML = '<tr><td colspan="11"><div class="empty-state">Error al cargar</div></td></tr>';
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+    })
+    .getEquiposDeposito();
+}
+
+function _equipoDestBadge(dest) {
+  var map = { 'Venta': '#1a9e4a', 'Harvesting': '#d4890a', 'HV': '#00a3e0', 'Donante de partes': '#8e44ad' };
+  var c = map[dest] || '#7a8699';
+  return '<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;color:#fff;background:' + c + '">' + escH(dest || '—') + '</span>';
+}
+function _equipoEstBadge(est) {
+  if (est === 'Incompleto') return '<span class="b-crit">Incompleto</span>';
+  if (est === 'Completo')   return '<span style="color:var(--green,#1a9e4a);font-weight:700">Completo</span>';
+  return '<span style="color:var(--tx-d)">—</span>';
+}
+
+function _equiposFiltrados() {
+  var q  = (document.getElementById('equip-buscar').value || '').toLowerCase().trim();
+  var fd = document.getElementById('equip-f-destino').value;
+  var fe = document.getElementById('equip-f-estado').value;
+  var fs = document.getElementById('equip-f-situacion').value;
+  return equiposData.filter(function(e) {
+    if (fd && e.destino !== fd) return false;
+    if (fe && e.estado !== fe) return false;
+    if (fs && (e.situacion || 'En depósito') !== fs) return false;
+    if (q && ((e.sn + ' ' + e.modelo + ' ' + e.origen).toLowerCase().indexOf(q) === -1)) return false;
+    return true;
+  });
+}
+
+function filtrarEquipos() { renderEquipos(); }
+
+function renderEquipos() {
+  var list = _equiposFiltrados();
+  var tb = document.getElementById('tbody-equip');
+  document.getElementById('equip-cnt').textContent = list.length;
+  var inc = 0; for (var i = 0; i < list.length; i++) if (list[i].estado === 'Incompleto') inc++;
+  document.getElementById('equip-cnt-inc').textContent = inc;
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="11"><div class="empty-state">Sin equipos' + (equiposData.length ? ' con esos filtros' : '') + '</div></td></tr>'; return; }
+  var h = '';
+  for (var k = 0; k < list.length; k++) {
+    var e = list[k];
+    var falt = e.faltantes
+      ? ('<span title="' + escH(e.faltantes) + '" style="color:#d4890a">' + escH(e.faltantes.length > 40 ? e.faltantes.slice(0, 40) + '…' : e.faltantes) + '</span>')
+      : '<span style="color:var(--tx-d)">—</span>';
+    var sit = e.situacion === 'Vendido' ? '<span class="b-info">Vendido</span>'
+            : (e.situacion === 'Baja' ? '<span class="b-muted">Baja</span>' : '<span style="color:var(--tx-m)">En depósito</span>');
+    h += '<tr>' +
+      '<td style="font-family:monospace;font-weight:700">' + escH(e.sn) + '</td>' +
+      '<td>' + escH(e.modelo || '—') + '</td>' +
+      '<td class="hide-mob">' + escH(e.condicion || '—') + '</td>' +
+      '<td>' + _equipoDestBadge(e.destino) + '</td>' +
+      '<td>' + _equipoEstBadge(e.estado) + '</td>' +
+      '<td class="hide-mob">' + escH(e.ubicacion || '—') + '</td>' +
+      '<td>' + falt + '</td>' +
+      '<td class="hide-mob">' + escH(e.origen || '—') + '</td>' +
+      '<td class="hide-mob">' + (e.valor > 0 ? ('$' + e.valor.toLocaleString('es-AR')) : '—') + '</td>' +
+      '<td>' + sit + '</td>' +
+      '<td><button class="btn-s" onclick="abrirEquipo(&quot;' + escH(String(e.sn)).replace(/&quot;/g, '&#34;') + '&quot;)">Editar</button></td>' +
+    '</tr>';
+  }
+  tb.innerHTML = h;
+}
+
+// _fmtFecha del backend devuelve dd/MM/yyyy → pasar a yyyy-MM-dd para el input date.
+function _equipoFechaISO(f) {
+  var m = String(f || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? (m[3] + '-' + m[2] + '-' + m[1]) : '';
+}
+
+function abrirEquipo(sn) {
+  var e = null;
+  if (sn) { for (var i = 0; i < equiposData.length; i++) { if (equiposData[i].sn === sn) { e = equiposData[i]; break; } } }
+  document.getElementById('equipo-modal-titulo').textContent = e ? ('Editar equipo · ' + sn) : 'Nuevo equipo';
+  document.getElementById('equipo-sn-orig').value  = e ? e.sn : '';
+  document.getElementById('equipo-sn').value       = e ? e.sn : '';
+  document.getElementById('equipo-modelo').value   = e ? e.modelo : '';
+  document.getElementById('equipo-condicion').value= e ? (e.condicion || 'Nuevo') : 'Nuevo';
+  document.getElementById('equipo-destino').value  = e ? (e.destino || 'Venta') : 'Venta';
+  document.getElementById('equipo-estado').value   = e ? (e.estado || 'Completo') : 'Completo';
+  document.getElementById('equipo-ubic').value     = e ? e.ubicacion : '';
+  document.getElementById('equipo-fecha').value    = (e && e.fechaIngreso) ? _equipoFechaISO(e.fechaIngreso) : '';
+  document.getElementById('equipo-origen').value   = e ? e.origen : '';
+  document.getElementById('equipo-valor').value    = (e && e.valor) ? e.valor : '';
+  document.getElementById('equipo-situacion').value= e ? (e.situacion || 'En depósito') : 'En depósito';
+  document.getElementById('equipo-faltantes').value= e ? e.faltantes : '';
+  document.getElementById('equipo-obs').value      = e ? e.observaciones : '';
+  modal('modal-equipo').show();
+  if (!e) setTimeout(function() { document.getElementById('equipo-sn').focus(); }, 250);
+}
+
+function guardarEquipoUI() {
+  var sn = (document.getElementById('equipo-sn').value || '').trim();
+  if (!sn) { toast('Ingresá el N° de serie', 'err'); document.getElementById('equipo-sn').focus(); return; }
+  var data = {
+    sn: sn,
+    snOriginal:    document.getElementById('equipo-sn-orig').value || '',
+    modelo:        document.getElementById('equipo-modelo').value.trim(),
+    condicion:     document.getElementById('equipo-condicion').value,
+    destino:       document.getElementById('equipo-destino').value,
+    estado:        document.getElementById('equipo-estado').value,
+    ubicacion:     document.getElementById('equipo-ubic').value.trim(),
+    fechaIngreso:  document.getElementById('equipo-fecha').value || '',
+    origen:        document.getElementById('equipo-origen').value.trim(),
+    valor:         document.getElementById('equipo-valor').value,
+    faltantes:     document.getElementById('equipo-faltantes').value.trim(),
+    observaciones: document.getElementById('equipo-obs').value.trim(),
+    situacion:     document.getElementById('equipo-situacion').value
+  };
+  var btn = document.getElementById('equipo-guardar-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Guardando…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-save"></i> Guardar';
+      if (!r || !r.ok) { toast((r && r.error) || 'Error al guardar', 'err'); return; }
+      toast(r.alta ? ('Equipo ' + sn + ' agregado') : ('Equipo ' + sn + ' actualizado'), 'ok');
+      modal('modal-equipo').hide();
+      cargarEquiposTab();
+    })
+    .withFailureHandler(function(e) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-save"></i> Guardar'; toast('Error: ' + (e && e.message ? e.message : e), 'err'); })
+    .guardarEquipo(data);
+}
+
+// Copia los equipos filtrados como TSV (pegar en Excel/Sheets) para conciliaciones.
+function _copiarEquipos() {
+  var rows = _equiposFiltrados();
+  if (!rows.length) { toast('No hay equipos para copiar', 'err'); return; }
+  var head = ['N° serie', 'Modelo', 'Condición', 'Destino', 'Estado', 'Ubicación', 'Fecha ingreso', 'Origen', 'Valor', 'Faltantes', 'Observaciones', 'Situación'];
+  var lines = [head.join('\t')];
+  for (var i = 0; i < rows.length; i++) {
+    var e = rows[i];
+    lines.push([e.sn, e.modelo, e.condicion, e.destino, e.estado, e.ubicacion, e.fechaIngreso, e.origen, e.valor || '',
+      String(e.faltantes || '').replace(/[\t\n]/g, ' '), String(e.observaciones || '').replace(/[\t\n]/g, ' '), e.situacion].join('\t'));
+  }
+  var ta = document.createElement('textarea');
+  ta.value = lines.join('\n');
+  ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  toast(ok ? ('Copiado ' + rows.length + ' equipos — pegalo en Excel/Sheets') : 'No se pudo copiar', ok ? 'ok' : 'err');
 }
 
 function modal(id) { return new bootstrap.Modal(document.getElementById(id)); }
