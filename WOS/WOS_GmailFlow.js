@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.11
+// @version 2.13
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -745,9 +745,11 @@ function WOS_diagnosticoCarmen() {
 // Reconcilia, por (pedido, SKU): esperado = CANT_DESP (lo despachado, acumulado en la hoja
 // de pedidos) vs actual = suma de líneas en "Entregados" con ese pedido como Origen.
 // La diferencia positiva = lo que falta descontar. IDEMPOTENTE: solo escribe el gap.
-// desdeISO (opcional, 'YYYY-MM-DD'): considera solo filas despachadas desde esa fecha.
+// desdeISO (opcional): 'YYYY-MM-DD' (desde medianoche) o 'YYYY-MM-DDTHH:mm:ss' (hora exacta,
+// p.ej. '2026-07-15T12:00:00'). Considera solo filas con FECHA_DESPACHO desde ese instante.
 function _wosCalcularEntregadosFaltantes(desdeISO) {
-  var desde = desdeISO ? new Date(String(desdeISO) + 'T00:00:00') : null;
+  var desde = null;
+  if (desdeISO) { var _s = String(desdeISO); desde = new Date(_s.indexOf('T') >= 0 ? _s : _s + 'T00:00:00'); }
   var tz = Session.getScriptTimeZone();
 
   // 1. Esperado por (numero, SKU): sumar CANT_DESP de las filas despachadas de ambas hojas.
@@ -843,6 +845,17 @@ function WOS_aplicarEntregadosFaltantes(desdeISO) {
     return { ok: false, error: e.toString() };
   } finally { try { lock.releaseLock(); } catch(eF) {} }
 }
+
+// ── Wrappers sin argumentos para correr desde el botón "Ejecutar" del editor ──
+// El botón Run no permite pasar 'desdeISO'. Estas fijan el corte del incidente.
+// INCIDENTE 15/07: el sheet "Entregados" se quedó sin filas ~12:00 de ayer y NADA de lo
+// despachado DESPUÉS quedó registrado. Corte exacto = 2026-07-15 12:00 (hora Buenos Aires).
+// Como después del corte "Entregados" está vacío, para esas filas actual=0 y "faltante" =
+// cantidad DESPACHADA completa: NO resta nada, escribe tal cual lo que entregaste y no se
+// anotó. Deja afuera lo anterior (junio y el 06/07), que es otro tema.
+var _WOS_CORTE = '2026-07-15T12:00:00';
+function WOS_previewFaltantes_Desde15Jul12h() { return WOS_previewEntregadosFaltantes(_WOS_CORTE); }
+function WOS_aplicarFaltantes_Desde15Jul12h() { return WOS_aplicarEntregadosFaltantes(_WOS_CORTE); }
 
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
