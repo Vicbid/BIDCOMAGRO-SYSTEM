@@ -244,6 +244,31 @@ function getUserRole() {
   }
 }
 
+// Lista de operadores para los selectores del front. Toma los nombres de la hoja
+// Usuarios_Internos (col 0) SOLO de los que son técnicos (col D / índice 3 == "si"),
+// únicos y ordenados. Reemplaza las listas hardcodeadas.
+function getOperadores() {
+  try {
+    var d = getSheetValues(SCHEMA.SHEETS.USUARIOS);  // Usuarios_Internos: 0=nombre,1=email,2=rol,3=esTecnico
+    var vistos = {}, out = [];
+    for (var i = 1; i < d.length; i++) {
+      var esTecnico = String(d[i][3] || '').trim().toLowerCase();  // col D
+      if (esTecnico !== 'si' && esTecnico !== 'sí') continue;      // solo técnicos
+      var nombre = String(d[i][0] || '').trim();
+      if (!nombre) continue;
+      var key = nombre.toLowerCase();
+      if (vistos[key]) continue;
+      vistos[key] = true;
+      out.push(nombre);
+    }
+    out.sort(function(a, b) { return a.localeCompare(b, 'es'); });
+    return { ok: true, operadores: out };
+  } catch(e) {
+    Logger.log('getOperadores: ' + e);
+    return { ok: false, operadores: [], error: e.toString() };
+  }
+}
+
 // ============================================================
 //  HELPERS INTERNOS
 // ============================================================

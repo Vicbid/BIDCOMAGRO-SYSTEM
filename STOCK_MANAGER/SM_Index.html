@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.14 -->
+<!-- @version 5.15 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1296,7 +1296,7 @@ tr:last-child td{border-bottom:none}
         </div>
         <div class="mb-3">
           <label class="flbl">Operador</label>
-          <select id="ajuste-op" class="form-select">
+          <select id="ajuste-op" class="form-select op-select">
             <option>Victor Almao</option>
             <option>Juan Cuaresma</option>
             <option>Jeremías Silvestre</option>
@@ -1352,7 +1352,7 @@ tr:last-child td{border-bottom:none}
         </div>
         <div class="mb-3">
           <label class="flbl">Operador</label>
-          <select id="so-op" class="form-select">
+          <select id="so-op" class="form-select op-select">
             <option>Victor Almao</option>
             <option>Juan Cuaresma</option>
             <option>Jeremías Silvestre</option>
@@ -1493,7 +1493,7 @@ tr:last-child td{border-bottom:none}
           </div>
           <div class="col-md-3">
             <label class="flbl">Operador</label>
-            <select id="cas-op" class="form-select">
+            <select id="cas-op" class="form-select op-select">
               <option>Juan Cuaresma</option>
               <option>Victor Almao</option>
             </select>
@@ -1626,7 +1626,7 @@ tr:last-child td{border-bottom:none}
         </div>
         <div class="mb-3">
           <label class="flbl">Operador</label>
-          <select id="est-cas-op" class="form-select">
+          <select id="est-cas-op" class="form-select op-select">
             <option>Juan Cuaresma</option><option>Victor Almao</option><option>Jeremías Silvestre</option>
           </select>
         </div>
@@ -1802,7 +1802,7 @@ tr:last-child td{border-bottom:none}
           </div>
           <div class="col-md-6">
             <label class="flbl">Operador</label>
-            <select id="venta-op" class="form-select">
+            <select id="venta-op" class="form-select op-select">
               <option>Juan Cuaresma</option>
               <option>Victor Almao</option>
               <option>Jeremías Silvestre</option>
@@ -1914,6 +1914,20 @@ var ESTADOS_CAS  = ["Comprado","Pagado","Envío confirmado","Forwarder HK","En v
 //  UI HELPERS
 // ══════════════════════════════════════════
 function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Operadores tomados de Usuarios_Internos (getOperadores). Llena todos los <select class="op-select">.
+var _operadores = [];
+function _llenarOperadores() {
+  if (!_operadores || !_operadores.length) return;  // sin datos → deja los <option> de fallback del HTML
+  var opts = '';
+  for (var j = 0; j < _operadores.length; j++) opts += '<option>' + escH(_operadores[j]) + '</option>';
+  var sels = document.querySelectorAll('select.op-select');
+  for (var i = 0; i < sels.length; i++) {
+    var sel = sels[i], prev = sel.value;
+    sel.innerHTML = opts;
+    if (prev) { for (var k = 0; k < sel.options.length; k++) { if (sel.options[k].value === prev) { sel.value = prev; break; } } }
+  }
+}
 function sp(on, label) {
   document.getElementById('spin').className = on ? 'on' : '';
   var lbl = document.getElementById('spin-lbl');
@@ -2078,6 +2092,10 @@ window.onload = function() {
     .withSuccessHandler(applyRoleUI)
     .withFailureHandler(function() { applyRoleUI('OPERADOR'); })
     .getUserRole();
+  google.script.run
+    .withSuccessHandler(function(r) { if (r && r.ok && r.operadores && r.operadores.length) { _operadores = r.operadores; _llenarOperadores(); } })
+    .withFailureHandler(function() {})
+    .getOperadores();
   google.script.run.withSuccessHandler(function(lista) {
     resellers = lista;
     var sel = document.getElementById('venta-reseller');
@@ -3726,10 +3744,11 @@ function recibirCASParcial() {
   }
   h += '</div>';
   h += '<div style="margin-top:12px"><label class="flbl">Operador</label>' +
-    '<select id="recep-parcial-op" class="form-select">' +
+    '<select id="recep-parcial-op" class="form-select op-select">' +
     '<option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option>' +
     '</select></div>';
   document.getElementById('detalle-cas-body').innerHTML = h;
+  _llenarOperadores();   // llena el select recién creado con la lista de Usuarios_Internos
   document.getElementById('btn-recibir-todo').style.display    = 'none';
   document.getElementById('btn-recibir-parcial').style.display = 'none';
   document.getElementById('btn-confirmar-recibo').style.display = '';
