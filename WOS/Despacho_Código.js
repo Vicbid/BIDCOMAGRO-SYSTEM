@@ -1,4 +1,4 @@
-// @version 3.10
+// @version 3.11
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -543,6 +543,49 @@ function _wosUpsertMaestro(list, operario) {
   } catch(e) {
     Logger.log('_wosUpsertMaestro: ' + e);
   }
+}
+
+// ── Círculo cerrado con Stock Manager: resolver una bolsa por su código SO ─────
+// SM registra en SO_ETIQUETAS (planilla MASTER) los códigos de bolsa con su cantidad de
+// unidades (col CANTIDAD). Al escanear "SO-...-000041" en la preparación por bolsa, WOS
+// trae esa cantidad para autocompletarla. Devuelve { ok, cantidad, sku } (cantidad 0 = no es bolsa).
+function WOS_resolverBolsa(codigo) {
+  try {
+    codigo = String(codigo || '').trim().toUpperCase();
+    if (!codigo) return { ok: true, cantidad: 0 };
+    var map = _wosMapaBolsas();
+    var hit = map[codigo];
+    if (hit && hit.cantidad > 1) return { ok: true, cantidad: hit.cantidad, sku: hit.sku };
+    return { ok: true, cantidad: 0 };
+  } catch(e) {
+    Logger.log('WOS_resolverBolsa: ' + e);
+    return { ok: false, cantidad: 0, error: e.toString() };
+  }
+}
+
+// Mapa { SO(mayúsculas) → {cantidad, sku} } SOLO de las bolsas (CANTIDAD>1) de SO_ETIQUETAS.
+// Se cachea 2 min (el mapa es chico: excluye los SO de 1 unidad).
+function _wosMapaBolsas() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('wos_bolsas_v1');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+  var map = {};
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('SO_ETIQUETAS');
+    if (hoja) {
+      var data = hoja.getDataRange().getValues();
+      // Layout SM SO_ETIQUETAS: SO(0), SKU(1), DESC(2), FECHA(3), OPERADOR(4), CANTIDAD(5)
+      for (var i = 1; i < data.length; i++) {
+        var cant = parseInt(data[i][5], 10) || 0;
+        if (cant > 1) {
+          var so = String(data[i][0] || '').trim().toUpperCase();
+          if (so) map[so] = { cantidad: cant, sku: String(data[i][1] || '').trim() };
+        }
+      }
+    }
+  } catch(e) { Logger.log('_wosMapaBolsas: ' + e); }
+  try { var s = JSON.stringify(map); if (s.length < 90000) cache.put('wos_bolsas_v1', s, 120); } catch(e) {}
+  return map;
 }
 
 // Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad o bolsa (OBLIGATORIO).

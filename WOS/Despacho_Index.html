@@ -1,4 +1,4 @@
-<!-- @version 3.26 -->
+<!-- @version 3.27 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2377,7 +2377,7 @@ function abrirModalPreparar(numero, parcial) {
   }
 
   _modalPrep = { numero: numero, items: [], parcial: parcial };
-  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + (parcial ? ' \x2014 prepar\xe1 lo que lleg\xf3 (cantidad por \xedtem editable)' : ' \x2014 ingresá el N\xba de serie de CADA unidad');
+  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + (parcial ? ' \x2014 prepar\xe1 lo que lleg\xf3 (cantidad por \xedtem editable)' : ' \x20 ingresá el N\xba de serie de CADA unidad');
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
     (parcial ? '<strong>Backorder:</strong> ajust\xe1 cu\xe1ntas unidades de cada \xedtem lleg\xf3, ' : '<strong>Obligatorio:</strong> ') +
@@ -2641,7 +2641,7 @@ function _prepBagRowHtml(row, qty, code) {
     '<span style="font-size:11px;color:var(--tx-d)">u.</span>' +
     '<span style="font-size:12px;color:var(--tx-d)">\xd7</span>' +
     '<input type="text" class="prep-ser prep-bag-code" data-row="' + row + '" data-bag="1" placeholder="SO / N\xba serie de la bolsa" value="' + pv + '" ' +
-      'oninput="_prepCount()" onkeydown="_prepKey(event,this)" ' +
+      'oninput="_prepCount()" onchange="_prepBolsaResolver(this)" onkeydown="_prepKey(event,this)" ' +
       'style="flex:1;min-width:110px;padding:5px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;font-family:var(--f-mono);outline:none">' +
     '<button type="button" onclick="_prepDelBolsa(this,' + row + ')" title="Quitar bolsa" ' +
       'style="background:none;border:none;color:var(--red-m);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">🗑</button>' +
@@ -2696,6 +2696,29 @@ function _prepBolsaChange(row) {
   }
   _prepAutoAllocBins(row, sum);
   _prepCount();
+}
+// Círculo cerrado con Stock Manager: si el código de una bolsa fue creado en SM
+// (SO con cantidad), autocompletar la cantidad de unidades de esa bolsa.
+function _prepBolsaResolver(inp) {
+  if (!inp || !inp.classList || !inp.classList.contains('prep-bag-code')) return;
+  var code = String(inp.value || '').trim();
+  if (!code) return;
+  var rowEl = inp.closest ? inp.closest('.prep-bag-row') : null;
+  if (!rowEl) return;
+  var qtyEl = rowEl.querySelector('.prep-bag-qty');
+  if (!qtyEl) return;
+  var rowAttr = parseInt(inp.getAttribute('data-row'), 10);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok && r.cantidad > 1) {
+        qtyEl.value = r.cantidad;
+        if (!isNaN(rowAttr)) _prepBolsaChange(rowAttr);
+        var msg = document.getElementById('prep-scan-msg');
+        if (msg) { msg.style.color = 'var(--green-m)'; msg.textContent = '📦 Bolsa de ' + r.cantidad + ' u. (' + code + ')'; }
+      }
+    })
+    .withFailureHandler(function() {})
+    .WOS_resolverBolsa(code);
 }
 // Re-reparte los bins al total dado (si ya cargaron las ubicaciones).
 function _prepAutoAllocBins(row, cantTotal) {
@@ -2775,6 +2798,8 @@ function _prepFeed(code) {
     if (!inputs[i].value.trim()) {
       inputs[i].value = code;
       _prepFlash(inputs[i]);
+      // Círculo cerrado: si es el código de una bolsa creada en Stock Manager, traer su cantidad.
+      if (inputs[i].classList && inputs[i].classList.contains('prep-bag-code')) _prepBolsaResolver(inputs[i]);
       _prepCount();
       var filled = 0; for (var k = 0; k < inputs.length; k++) if (inputs[k].value.trim()) filled++;
       _prepBeep(true);

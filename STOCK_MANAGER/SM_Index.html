@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.13 -->
+<!-- @version 5.14 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1328,8 +1328,27 @@ tr:last-child td{border-bottom:none}
           <div id="so-desc" style="font-size:11px;color:var(--tx-d);margin-top:4px;min-height:14px"></div>
         </div>
         <div class="mb-3">
-          <label class="flbl">Cantidad de etiquetas</label>
-          <input type="number" id="so-cant" class="form-control" min="1" max="200" value="1">
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <button type="button" id="so-mode-unidad-btn" class="btn-p" style="flex:1" onclick="_soSetMode('unidad')">Por unidad</button>
+            <button type="button" id="so-mode-bolsa-btn" class="btn-s" style="flex:1" onclick="_soSetMode('bolsa')">🔩 Por bolsa</button>
+          </div>
+          <div id="so-modo-unidad">
+            <label class="flbl">Cantidad de etiquetas</label>
+            <input type="number" id="so-cant" class="form-control" min="1" max="200" value="1">
+          </div>
+          <div id="so-modo-bolsa" style="display:none">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="flbl">Unidades por bolsa</label>
+                <input type="number" id="so-uxb" class="form-control" min="1" value="50">
+              </div>
+              <div class="col-6">
+                <label class="flbl">Cuántas bolsas</label>
+                <input type="number" id="so-nbolsas" class="form-control" min="1" max="200" value="1">
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--tx-d);margin-top:6px;line-height:1.45">1 etiqueta SO por bolsa (código único = N unidades). Se marca el SKU como <strong>por bolsa</strong> para que WOS lo reconozca solo y autocomplete la cantidad al escanear.</div>
+          </div>
         </div>
         <div class="mb-3">
           <label class="flbl">Operador</label>
@@ -2813,15 +2832,33 @@ function abrirAjuste(cod, desc, actual, requireSN) {
 }
 
 // ── ETIQUETAS SO (productos sin N° de serie) ──────────────────
+var _soMode = 'unidad';  // 'unidad' = 1 código por unidad · 'bolsa' = 1 código = N unidades
+
 function abrirImprimirSO(cod, desc) {
   var skuEl = document.getElementById('so-sku');
   skuEl.value = (cod || '').toUpperCase();
   document.getElementById('so-cant').value = 1;
+  document.getElementById('so-uxb').value = 50;
+  document.getElementById('so-nbolsas').value = 1;
+  _soSetMode('unidad');
   document.getElementById('so-desc').textContent = desc || '';
   document.getElementById('so-print-btn').disabled = false;
   modal('modal-so').show();
   if (!cod) setTimeout(function(){ skuEl.focus(); }, 250);
   else _soDesc();
+}
+
+// Cambia entre etiqueta por unidad y etiqueta por bolsa.
+function _soSetMode(mode) {
+  _soMode = mode;
+  var bu = document.getElementById('so-mode-unidad-btn');
+  var bb = document.getElementById('so-mode-bolsa-btn');
+  if (bu) bu.className = (mode === 'unidad') ? 'btn-p' : 'btn-s';
+  if (bb) bb.className = (mode === 'bolsa')  ? 'btn-p' : 'btn-s';
+  var wu = document.getElementById('so-modo-unidad');
+  var wb = document.getElementById('so-modo-bolsa');
+  if (wu) wu.style.display = (mode === 'unidad') ? 'block' : 'none';
+  if (wb) wb.style.display = (mode === 'bolsa')  ? 'block' : 'none';
 }
 
 function _soDesc() {
@@ -2835,11 +2872,21 @@ function _soDesc() {
 }
 
 function confirmarImprimirSO() {
-  var sku  = (document.getElementById('so-sku').value || '').trim().toUpperCase();
-  var cant = parseInt(document.getElementById('so-cant').value, 10) || 0;
-  var op   = document.getElementById('so-op').value || '';
-  if (!sku)  { toast('Ingresá el SKU', 'err'); return; }
-  if (cant <= 0) { toast('La cantidad debe ser mayor a 0', 'err'); return; }
+  var sku = (document.getElementById('so-sku').value || '').trim().toUpperCase();
+  var op  = document.getElementById('so-op').value || '';
+  if (!sku) { toast('Ingresá el SKU', 'err'); return; }
+
+  var esBolsa = (_soMode === 'bolsa');
+  var uxb = 0, nbolsas = 0, cant = 0;
+  if (esBolsa) {
+    uxb     = parseInt(document.getElementById('so-uxb').value, 10) || 0;
+    nbolsas = parseInt(document.getElementById('so-nbolsas').value, 10) || 0;
+    if (uxb <= 0)     { toast('Unidades por bolsa debe ser mayor a 0', 'err'); return; }
+    if (nbolsas <= 0) { toast('¿Cuántas bolsas? Debe ser mayor a 0', 'err'); return; }
+  } else {
+    cant = parseInt(document.getElementById('so-cant').value, 10) || 0;
+    if (cant <= 0) { toast('La cantidad debe ser mayor a 0', 'err'); return; }
+  }
 
   // Abrir la ventana YA (gesto del usuario) para que no la bloquee el navegador
   var win = window.open('', '_blank', 'width=480,height=640');
@@ -2847,20 +2894,24 @@ function confirmarImprimirSO() {
 
   var btn = document.getElementById('so-print-btn');
   btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Generando…';
-  google.script.run
+  var runner = google.script.run
     .withSuccessHandler(function(r) {
       btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Generar e imprimir';
       if (!r || !r.ok) { if (win) win.close(); toast((r && r.error) || 'Error al generar', 'err'); return; }
       _imprimirEtiquetasSO(win, r.labels);
-      toast(r.labels.length + ' etiqueta' + (r.labels.length === 1 ? '' : 's') + ' SO generada' + (r.labels.length === 1 ? '' : 's') + ' (' + sku + ')', 'ok');
+      var n = r.labels.length;
+      toast(esBolsa
+        ? (n + ' bolsa' + (n === 1 ? '' : 's') + ' de ' + uxb + ' u. (' + sku + ') — SKU marcado por bolsa')
+        : (n + ' etiqueta' + (n === 1 ? '' : 's') + ' SO generada' + (n === 1 ? '' : 's') + ' (' + sku + ')'), 'ok');
       modal('modal-so').hide();
     })
     .withFailureHandler(function(e) {
       btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Generar e imprimir';
       if (win) win.close();
       toast('Error: ' + (e && e.message ? e.message : e), 'err');
-    })
-    .generarSO(sku, cant, op);
+    });
+  if (esBolsa) runner.generarBolsasSO(sku, uxb, nbolsas, op);
+  else         runner.generarSO(sku, cant, op);
 }
 
 // Escribe en la ventana la hoja de etiquetas (QR, 2 por fila, 50×25mm) y la manda a imprimir.
@@ -2882,6 +2933,7 @@ function _imprimirEtiquetasSO(win, labels) {
       '.txt{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1mm}' +
       '.sku{font-size:8pt;font-weight:bold;line-height:1.05;word-break:break-all}' +
       '.so{font-size:6.5pt;font-family:Consolas,monospace;font-weight:bold;line-height:1.05;word-break:break-all}' +
+      '.bolsa{font-size:8pt;font-weight:bold;line-height:1.1;color:#000;background:#ffd400;display:inline-block;padding:0.2mm 1mm;border-radius:1mm;margin-top:0.4mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
       '.noprint{padding:14px;font-family:sans-serif;color:#333}' +
       '@media print{.noprint{display:none}}' +
     '</style></head><body>' +
@@ -2890,7 +2942,7 @@ function _imprimirEtiquetasSO(win, labels) {
     '<script>' +
       'var LABELS=' + data + ';' +
       'function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}' +
-      'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"qr\\" id=\\"qr"+idx+"\\"></div><div class=\\"txt\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><div class=\\"so\\">"+esc(l.so)+"</div></div></div>"):"<div class=\\"cell\\"></div>";}' +
+      'function cell(l,idx){return l?("<div class=\\"cell\\"><div class=\\"qr\\" id=\\"qr"+idx+"\\"></div><div class=\\"txt\\"><div class=\\"sku\\">"+esc(l.sku)+"</div><div class=\\"so\\">"+esc(l.so)+"</div>"+((l.cantidad&&l.cantidad>1)?("<div class=\\"bolsa\\">BOLSA x"+esc(l.cantidad)+" u.</div>"):"")+"</div></div>"):"<div class=\\"cell\\"></div>";}' +
       'function render(){' +
         'var s=document.getElementById("sheet"),h="";' +
         'for(var i=0;i<LABELS.length;i+=2){h+="<div class=\\"row\\">"+cell(LABELS[i],i)+cell(LABELS[i+1],i+1)+"</div>";}' +
