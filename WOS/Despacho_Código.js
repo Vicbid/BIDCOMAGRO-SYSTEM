@@ -1,4 +1,4 @@
-// @version 3.9
+// @version 3.10
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -459,9 +459,97 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
   }
 }
 
-// Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad (OBLIGATORIO).
-// Esto crea el manifiesto por unidad para poder auditar despachos (picker dice 10, reseller dice 4).
-// seriales: [{ row: <fila 1-indexada>, seriales: "SN1, SN2, SO-...-003" }]
+// ── MAESTRO DE ARTÍCULOS (auto-construido) ────────────────────
+// Registra qué SKU se prepara "por bolsa" (1 código SO por bolsa de N unidades) para
+// que la próxima preparación de ese SKU venga pre-marcada. Se llena solo con el uso.
+
+// Devuelve la hoja MAESTRO_ARTICULOS, creándola con encabezado si no existe.
+function _wosGetHojaMaestro() {
+  var ss = SpreadsheetApp.openById(NOTAS_SS_ID);
+  var hoja = ss.getSheetByName(HOJA_MAESTRO);
+  if (!hoja) {
+    hoja = ss.insertSheet(HOJA_MAESTRO);
+    hoja.appendRow(['SKU', 'Descripci\xf3n', 'Por bolsa', 'Bulto x defecto', '\xdaltima actualizaci\xf3n', 'Operador']);
+    hoja.getRange(1, 1, 1, 6).setFontWeight('bold');
+    hoja.setFrozenRows(1);
+  }
+  return hoja;
+}
+
+function _invalidarMaestroCache() {
+  try { CacheService.getScriptCache().remove('wos_maestro_v1'); } catch(e) {}
+}
+
+// Mapa { SKU(mayúsculas) → { porBolsa:bool, bulto:N } } para pre-marcar el modal de preparación.
+function WOS_maestroArticulos() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('wos_maestro_v1');
+    if (cached) { try { return { ok: true, map: JSON.parse(cached) }; } catch(e) {} }
+    var hoja = _wosGetHojaMaestro();
+    var data = hoja.getDataRange().getValues();
+    var map = {};
+    for (var i = 1; i < data.length; i++) {
+      var sku = String(data[i][COL_MAESTRO.SKU] || '').trim();
+      if (!sku) continue;
+      var pb = data[i][COL_MAESTRO.POR_BOLSA];
+      var s  = String(pb).trim().toUpperCase();
+      var porBolsa = (pb === true || s === 'TRUE' || s === 'SI' || s === 'S\xcd' || s === '1');
+      map[sku.toUpperCase()] = { porBolsa: porBolsa, bulto: parseInt(data[i][COL_MAESTRO.BULTO], 10) || 0 };
+    }
+    try { cache.put('wos_maestro_v1', JSON.stringify(map), 300); } catch(e) {}
+    return { ok: true, map: map };
+  } catch(e) {
+    Logger.log('WOS_maestroArticulos: ' + e);
+    return { ok: false, error: e.toString(), map: {} };
+  }
+}
+
+// Upsert por SKU. list: [{ sku, desc, porBolsa, bulto }]. Refleja siempre la última elección
+// del operario (marcar o desmarcar por bolsa). Nunca rompe la preparación (todo en try/catch).
+function _wosUpsertMaestro(list, operario) {
+  try {
+    if (!list || !list.length) return;
+    var hoja = _wosGetHojaMaestro();
+    var data = hoja.getDataRange().getValues();
+    var idx = {};
+    for (var i = 1; i < data.length; i++) {
+      var s = String(data[i][COL_MAESTRO.SKU] || '').trim().toUpperCase();
+      if (s) idx[s] = i;
+    }
+    var now = new Date();
+    for (var j = 0; j < list.length; j++) {
+      var it  = list[j];
+      var sku = String(it.sku || '').trim();
+      if (!sku) continue;
+      var su = sku.toUpperCase();
+      var fila;
+      if (idx[su] !== undefined) {
+        fila = idx[su] + 1;
+      } else {
+        hoja.appendRow([sku, it.desc || '', '', '', '', '']);
+        fila = hoja.getLastRow();
+        idx[su] = fila - 1;
+      }
+      hoja.getRange(fila, COL_MAESTRO.SKU       + 1).setValue(sku);
+      if (it.desc) hoja.getRange(fila, COL_MAESTRO.DESC + 1).setValue(it.desc);
+      hoja.getRange(fila, COL_MAESTRO.POR_BOLSA + 1).setValue(it.porBolsa ? true : false);
+      var bulto = parseInt(it.bulto, 10) || 0;
+      if (bulto > 0) hoja.getRange(fila, COL_MAESTRO.BULTO + 1).setValue(bulto);
+      hoja.getRange(fila, COL_MAESTRO.FECHA + 1).setValue(now);
+      if (operario) hoja.getRange(fila, COL_MAESTRO.OPERADOR + 1).setValue(operario);
+    }
+    _invalidarMaestroCache();
+  } catch(e) {
+    Logger.log('_wosUpsertMaestro: ' + e);
+  }
+}
+
+// Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad o bolsa (OBLIGATORIO).
+// Esto crea el manifiesto para poder auditar despachos (picker dice 10, reseller dice 4).
+// Para consumibles (tornillos/gaskets) un mismo código representa toda una bolsa: en la lista de
+// seriales queda como "SO-123 x50" y qtyPrep (unidades reales) lo manda el front (suma de bolsas).
+// seriales: [{ row, qtyPrep, seriales:"SN1, SN2" | "SO-1 x50, SO-2 x20", ubicaciones, sku, desc, porBolsa, bulto }]
 function WOS_prepararConSeriales(numero, seriales, operario, peso) {
   try {
     numero = String(numero || '').trim();
@@ -481,6 +569,7 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
     var serMap  = {};
     var ubicMap = {};
     var qtyMap  = {};   // fila → unidades preparadas (para estado Preparado vs Preparado Parcial)
+    var maestroUpd = [];   // {sku, desc, porBolsa, bulto} para aprender qué SKU va por bolsa
     if (Object.prototype.toString.call(seriales) === '[object Array]') {
       for (var s = 0; s < seriales.length; s++) {
         var rw = parseInt(seriales[s].row, 10);
@@ -491,6 +580,14 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
           var qp = parseInt(seriales[s].qtyPrep, 10);
           if (!(qp > 0)) qp = serMap[rw] ? serMap[rw].split(',').length : 0;   // fallback: nº de SN
           qtyMap[rw] = qp;
+          if (seriales[s].sku && seriales[s].porBolsa !== undefined) {
+            maestroUpd.push({
+              sku:      String(seriales[s].sku).trim(),
+              desc:     String(seriales[s].desc || '').trim(),
+              porBolsa: !!seriales[s].porBolsa,
+              bulto:    parseInt(seriales[s].bulto, 10) || 0
+            });
+          }
         }
       }
     }
@@ -529,6 +626,9 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
       tocadas++;
     }
     if (!tocadas) return { ok: false, error: 'No se encontraron filas activas del pedido ' + numero + '.' };
+
+    // Aprender qué SKU se prepara por bolsa (no rompe la preparación si falla).
+    _wosUpsertMaestro(maestroUpd, operario);
 
     SpreadsheetApp.flush();
     _wosLogAccion('Preparado · N\xba de serie registrados', numero, reseller, operario, '');

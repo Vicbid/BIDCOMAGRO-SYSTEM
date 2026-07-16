@@ -5,6 +5,17 @@ var PLANIF_SS_ID           = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
 var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab WMS en Carmen
 var HOJA_PEDIDOS    = 'Pedidos_resellers';
 var HOJA_PEDIDOS_OT = 'Pedidos_OTs'; // mismo schema (COL) que Pedidos_resellers — repuestos de reparaciones (HUB PRO)
+// Maestro de artículos auto-construido: cuando un operario marca un SKU como "por bolsa"
+// en la preparación, ese SKU queda registrado acá y la próxima vez viene pre-marcado.
+var HOJA_MAESTRO    = 'MAESTRO_ARTICULOS'; // tab en NOTAS_SS_ID
+var COL_MAESTRO = {
+  SKU:       0,   // A
+  DESC:      1,   // B: última descripción vista
+  POR_BOLSA: 2,   // C: TRUE = se prepara por bolsa (1 código SO por bolsa de N unidades)
+  BULTO:     3,   // D: tamaño de bolsa por defecto (ej. 50) — solo sugerencia
+  FECHA:     4,   // E: última actualización
+  OPERADOR:  5    // F: quién lo marcó por última vez
+};
 // Defaults — sobreescritos por WOS_CONFIG en MASTER si existe
 var EMAIL_SOPORTE     = 'soporteagrasdji@bidcom.com.ar';
 var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar';

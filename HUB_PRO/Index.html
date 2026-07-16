@@ -1096,7 +1096,7 @@ body.compact tbody td{padding:6px 14px!important}
             <label class="flbl" style="display:flex;align-items:center;gap:8px">Origen del repuesto <span id="f-origen-badge"></span></label>
             <select id="f-origen" class="form-control" onchange="markDirty();_pintarRepoBadges()">
               <option value="">— Sin definir —</option>
-              <option value="Adelantado">🔧 Repuesto adelantado por nosotros</option>
+              <option value="Adelantado">🔧 Repuesto Repuesto adelantado</option>
               <option value="Stock reseller">📦 Reseller reparó con su stock (reposición)</option>
             </select>
           </div>
@@ -2286,7 +2286,7 @@ function updBadge(v){
 }
 
 // ── Badges: origen del repuesto + tipo de cierre ──────────────
-function _origenLabel(v){ return v==='Stock reseller' ? '📦 Reparó con su stock' : (v==='Adelantado' ? '🔧 Adelantado por nosotros' : ''); }
+function _origenLabel(v){ return v==='Stock reseller' ? '📦 Reparó con su stock' : (v==='Adelantado' ? '🔧 Repuesto adelantado' : ''); }
 function _origenColor(v){ return v==='Stock reseller' ? '#1a9e4a' : (v==='Adelantado' ? '#d4890a' : ''); }
 function _cierreLabel(v){ return v==='Reposicion' ? '📦 Reposición' : (v==='NC' ? '🧾 NC' : ''); }
 function _cierreColor(v){ return v==='Reposicion' ? '#00a3e0' : (v==='NC' ? '#8e44ad' : ''); }

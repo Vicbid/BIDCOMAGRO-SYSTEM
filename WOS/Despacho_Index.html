@@ -1,4 +1,4 @@
-<!-- @version 3.25 -->
+<!-- @version 3.26 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1042,6 +1042,15 @@ var _modalDesp = null;
 var _ubicAlloc = {}; // row → { locs:[{ubicacion,cantidad}], cantTotal:N }
 var _modalFalt = null;
 var _usuario   = { email: '', nombre: '', tipo: '' };
+var _maestro   = {}; // SKU(mayúsculas) → { porBolsa:bool, bulto:N } — se prepara por bolsa
+
+// Trae el maestro de artículos (qué SKU va "por bolsa"). Cacheado en el server 5 min.
+function _cargarMaestro() {
+  google.script.run
+    .withSuccessHandler(function(r) { if (r && r.ok && r.map) _maestro = r.map; })
+    .withFailureHandler(function() {})
+    .WOS_maestroArticulos();
+}
 
 var SLA_HORAS_HABILES = 96; // 4 días hábiles (lunes–viernes)
 
@@ -1564,6 +1573,7 @@ function _cargarWmsSnapshot() {
 // ── Carga inicial ─────────────────────────────────────────────
 function cargar() {
   wosLoadStart(STEPS_CARGAR);
+  _cargarMaestro();   // refresca en paralelo qué SKU va por bolsa (para pre-marcar la preparación)
   var btn = document.getElementById('btn-refresh');
   btn.classList.add('loading');
   google.script.run
@@ -2371,7 +2381,7 @@ function abrirModalPreparar(numero, parcial) {
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
     (parcial ? '<strong>Backorder:</strong> ajust\xe1 cu\xe1ntas unidades de cada \xedtem lleg\xf3, ' : '<strong>Obligatorio:</strong> ') +
-    'un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>.' +
+    'un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>. Para tornillos, gaskets y dem\xe1s consumibles pas\xe1 el \xedtem a <strong>🔩 Por bolsa</strong>: 1 c\xf3digo SO por bolsa de N unidades.' +
     (parcial ? ' Lo que no prepares queda en backorder.' : ' Queda en la nota de entrega para auditar el env\xedo.') +
     '</div>';
   var hayItems = false;
@@ -2386,12 +2396,24 @@ function abrirModalPreparar(numero, parcial) {
     var qty = parcial ? qMax : it.cantPend;   // en normal siempre cantPend
     hayItems = true;
     var prev = String(it.seriales || '').split(',');
-    _modalPrep.items.push({ row: it.row, sku: it.sku, cantPend: it.cantPend, qtyPrep: qty, prevSers: prev });
+    // ¿Este SKU se prepara por bolsa? Pre-marcar desde el maestro, o si el manifiesto previo ya trae bolsas ("SO x50").
+    var _skuU  = String(it.sku || '').toUpperCase();
+    var _mEntry = _maestro[_skuU] || null;
+    var _prevBags = _parseManifest(it.seriales);
+    var _prevEsBolsa = false;
+    for (var _pb = 0; _pb < _prevBags.length; _pb++) { if (_prevBags[_pb].qty > 1) { _prevEsBolsa = true; break; } }
+    var _mode  = (_prevEsBolsa || (_mEntry && _mEntry.porBolsa)) ? 'bolsa' : 'unidad';
+    var _bulto = (_mEntry && _mEntry.bulto) ? _mEntry.bulto : 0;
+    _modalPrep.items.push({
+      row: it.row, sku: it.sku, desc: it.desc || '', cantPend: it.cantPend,
+      qtyPrep: qty, target: qty, qMax: qMax, parcial: parcial,
+      prevSers: prev, prevBags: _prevBags, mode: _mode, bulto: _bulto, bagsSeeded: false
+    });
     html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
         '<div style="min-width:0"><span class="modal-item-sku">' + escH(it.sku) + '</span> ' +
           '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
-        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+        '<div id="prep-qtybox-' + it.row + '" style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
           (parcial
             ? '<span style="font-size:11px;font-weight:700;color:var(--tx)">Preparar</span>' +
               '<input type="number" id="prep-qty-' + it.row + '" min="1" max="' + qMax + '" value="' + qty + '" ' +
@@ -2400,6 +2422,10 @@ function abrirModalPreparar(numero, parcial) {
               '<span style="font-size:11px;color:var(--tx-d)">de ' + it.cantPend + (stk !== null ? ' \xb7 lleg\xf3 ' + stk : '') + '</span>'
             : '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>') +
         '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin:0 0 8px">' +
+        '<button type="button" id="prep-mode-unidad-' + it.row + '" onclick="_prepSetMode(' + it.row + ',\'unidad\')" style="' + _prepModeBtnStyle(_mode === 'unidad') + '">🔢 Por unidad</button>' +
+        '<button type="button" id="prep-mode-bolsa-' + it.row + '" onclick="_prepSetMode(' + it.row + ',\'bolsa\')" style="' + _prepModeBtnStyle(_mode === 'bolsa') + '">🔩 Por bolsa</button>' +
       '</div>' +
       '<div id="prep-ser-wrap-' + it.row + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px"></div>' +
       '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--surf)">' +
@@ -2412,10 +2438,9 @@ function abrirModalPreparar(numero, parcial) {
 
   document.getElementById('modal-prep-body').innerHTML = html;
   document.getElementById('modal-prep').style.display = 'flex';
-  // Render inicial de los inputs de N° de serie por ítem (según la cantidad a preparar)
+  // Render inicial por ítem según su modo (por unidad = 1 código c/u; por bolsa = 1 código por bolsa)
   for (var ri = 0; ri < _modalPrep.items.length; ri++) {
-    var pit = _modalPrep.items[ri];
-    _prepRenderSers(pit.row, pit.qtyPrep, pit.prevSers);
+    _prepSetMode(_modalPrep.items[ri].row, _modalPrep.items[ri].mode);
   }
   // Cargar ubicaciones WMS (bins) para elegir de dónde se saca cada ítem
   var _prepSkus = [];
@@ -2491,17 +2516,231 @@ function _prepQtyChange(row) {
   _prepCount();
 }
 
-function _prepCount() {
-  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+// ── MANIFIESTO DE SERIALES / BOLSAS ───────────────────────────
+// "SO-123 x50" = una bolsa de 50 unidades con un único código. "SN-9" = 1 unidad.
+// Un mismo código puede representar N unidades para consumibles (tornillos, gaskets).
+function _parseManifest(str) {
+  var out = [], parts = String(str || '').split(',');
+  for (var i = 0; i < parts.length; i++) {
+    var t = parts[i].trim();
+    if (!t) continue;
+    var m = t.match(/^(.*?)\s+x(\d+)$/i);
+    if (m) out.push({ code: m[1].trim(), qty: parseInt(m[2], 10) || 1 });
+    else   out.push({ code: t, qty: 1 });
+  }
+  return out;
+}
+// Unidades reales que representa un manifiesto (suma de bolsas; cada serial suelto = 1).
+function _serialUnits(str) {
+  var b = _parseManifest(str), n = 0;
+  for (var i = 0; i < b.length; i++) n += (b[i].qty || 1);
+  return n;
+}
+// Arma el string de manifiesto desde bolsas [{qty, code}]. Bolsa (qty>1) → "CODE xN".
+function _bagsToManifest(bags) {
+  var out = [];
+  for (var i = 0; i < bags.length; i++) {
+    var c = String(bags[i].code || '').trim();
+    if (!c) continue;
+    var q = parseInt(bags[i].qty, 10) || 1;
+    out.push(q > 1 ? (c + ' x' + q) : c);
+  }
+  return out.join(', ');
+}
+// Reparte un objetivo en bolsas del tamaño por defecto (si no hay tamaño, una sola bolsa).
+function _autoSeedBags(target, bulto) {
+  target = parseInt(target, 10) || 0;
+  bulto  = parseInt(bulto, 10) || 0;
+  if (target <= 0) return [{ qty: 1, code: '' }];
+  if (bulto <= 1)  return [{ qty: target, code: '' }];
+  var out = [], rem = target;
+  while (rem > 0) { var t = Math.min(bulto, rem); out.push({ qty: t, code: '' }); rem -= t; }
+  return out;
+}
+// Tamaño de bolsa a recordar en el maestro para este SKU (la bolsa más grande usada).
+function _prepBultoRepresentativo(bags, fallback) {
+  var mx = 0;
+  for (var i = 0; i < bags.length; i++) if (bags[i].qty > mx) mx = bags[i].qty;
+  return mx > 0 ? mx : (parseInt(fallback, 10) || 0);
+}
+
+// ── MODO POR UNIDAD / POR BOLSA (preparación) ─────────────────
+function _prepItemGet(row) {
+  if (!_modalPrep || !_modalPrep.items) return null;
+  for (var i = 0; i < _modalPrep.items.length; i++) if (_modalPrep.items[i].row === row) return _modalPrep.items[i];
+  return null;
+}
+function _prepModeBtnStyle(active) {
+  return 'font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;cursor:pointer;outline:none;white-space:nowrap;border:1.5px solid ' +
+    (active ? 'var(--blue);background:var(--blue);color:#fff' : 'var(--brd);background:transparent;color:var(--tx-d)');
+}
+function _prepBagAddStyle() {
+  return 'font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-l);border:1px solid var(--blue-l);border-radius:14px;padding:4px 10px;cursor:pointer;outline:none';
+}
+
+// Cambia el modo de un ítem, re-dibuja su bloque y recalcula.
+function _prepSetMode(row, mode) {
+  var it = _prepItemGet(row);
+  if (!it) return;
+  it.mode = mode;
+  var bu = document.getElementById('prep-mode-unidad-' + row);
+  var bb = document.getElementById('prep-mode-bolsa-' + row);
+  if (bu) bu.style.cssText = _prepModeBtnStyle(mode === 'unidad');
+  if (bb) bb.style.cssText = _prepModeBtnStyle(mode === 'bolsa');
+  var qbox = document.getElementById('prep-qtybox-' + row);
+  if (qbox) qbox.style.display = (mode === 'bolsa') ? 'none' : (it.parcial ? 'flex' : 'flex');
+  _prepRenderMode(row);
+  _prepCount();
+}
+
+// Dibuja el contenido del bloque de un ítem según su modo.
+function _prepRenderMode(row) {
+  var it = _prepItemGet(row);
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!it || !wrap) return;
+  if (it.mode === 'bolsa') {
+    wrap.style.display = 'block';
+    var bags;
+    if (it.bagsSeeded) {
+      bags = _prepBolsaReadDom(row);
+    } else {
+      var anyBag = false, pb = it.prevBags || [];
+      for (var p = 0; p < pb.length; p++) { if (pb[p].qty > 1) { anyBag = true; break; } }
+      if (anyBag) { bags = []; for (var q = 0; q < pb.length; q++) bags.push({ qty: pb[q].qty, code: pb[q].code }); }
+      else bags = _autoSeedBags(it.target, it.bulto);
+      it.bagsSeeded = true;
+    }
+    _prepRenderBolsas(row, bags);
+    _prepBolsaChange(row);
+  } else {
+    wrap.style.display = 'grid';
+    wrap.style.gridTemplateColumns = 'repeat(auto-fill,minmax(150px,1fr))';
+    wrap.style.gap = '6px';
+    _prepRenderSers(row, it.qtyPrep, it.prevSers);
+    it.prevSers = null;               // solo pre-cargar la primera vez
+    _prepAutoAllocBins(row, it.qtyPrep);
+  }
+}
+
+// Lee las bolsas actuales del DOM → [{qty, code}].
+function _prepBolsaReadDom(row) {
+  var rows = document.querySelectorAll('#prep-ser-wrap-' + row + ' .prep-bag-row');
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var q = rows[i].querySelector('.prep-bag-qty');
+    var c = rows[i].querySelector('.prep-bag-code');
+    out.push({ qty: q ? (parseInt(q.value, 10) || 0) : 0, code: c ? c.value.trim() : '' });
+  }
+  return out;
+}
+function _prepBagRowHtml(row, qty, code) {
+  var pv = String(code || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  return '<div class="prep-bag-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    '<input type="number" min="1" class="prep-bag-qty" value="' + (parseInt(qty, 10) || 1) + '" oninput="_prepBolsaChange(' + row + ')" ' +
+      'style="width:56px;padding:5px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;text-align:center;outline:none">' +
+    '<span style="font-size:11px;color:var(--tx-d)">u.</span>' +
+    '<span style="font-size:12px;color:var(--tx-d)">\xd7</span>' +
+    '<input type="text" class="prep-ser prep-bag-code" data-row="' + row + '" data-bag="1" placeholder="SO / N\xba serie de la bolsa" value="' + pv + '" ' +
+      'oninput="_prepCount()" onkeydown="_prepKey(event,this)" ' +
+      'style="flex:1;min-width:110px;padding:5px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;font-family:var(--f-mono);outline:none">' +
+    '<button type="button" onclick="_prepDelBolsa(this,' + row + ')" title="Quitar bolsa" ' +
+      'style="background:none;border:none;color:var(--red-m);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">🗑</button>' +
+  '</div>';
+}
+function _prepRenderBolsas(row, bags) {
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!wrap) return;
+  var html = '<div style="background:rgba(0,82,204,.05);border:1px solid var(--blue-l);border-radius:8px;padding:8px 10px">' +
+    '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:6px">🔩 Bolsas \xb7 1 c\xf3digo (SO) por bolsa</div>' +
+    '<div id="prep-bolsas-' + row + '">';
+  for (var i = 0; i < bags.length; i++) html += _prepBagRowHtml(row, bags[i].qty, bags[i].code);
+  html += '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',10)" style="' + _prepBagAddStyle() + '">+ Bolsa 10</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',20)" style="' + _prepBagAddStyle() + '">+ Bolsa 20</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',50)" style="' + _prepBagAddStyle() + '">+ Bolsa 50</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',1)" style="' + _prepBagAddStyle() + '">+ Otra</button>' +
+    '</div>' +
+    '<div id="prep-bolsa-sum-' + row + '" style="font-size:11px;font-weight:700;margin-top:6px"></div>' +
+  '</div>';
+  wrap.innerHTML = html;
+}
+function _prepAddBolsa(row, qty) {
+  var cont = document.getElementById('prep-bolsas-' + row);
+  if (!cont) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _prepBagRowHtml(row, qty, '');
+  cont.appendChild(tmp.firstChild);
+  _prepBolsaChange(row);
+  var codes = cont.querySelectorAll('.prep-bag-code');
+  if (codes.length) codes[codes.length - 1].focus();
+}
+function _prepDelBolsa(el, row) {
+  var rowEl = el.closest ? el.closest('.prep-bag-row') : el.parentNode;
+  if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+  _prepBolsaChange(row);
+}
+// Recalcula la suma de bolsas de un ítem, su indicador, los bins y el gate global.
+function _prepBolsaChange(row) {
+  var it = _prepItemGet(row);
+  if (!it) return;
+  var bags = _prepBolsaReadDom(row);
+  var sum = 0;
+  for (var i = 0; i < bags.length; i++) sum += bags[i].qty;
+  it.qtyPrep = sum;
+  var sumEl = document.getElementById('prep-bolsa-sum-' + row);
+  if (sumEl) {
+    var okQty = it.parcial ? (sum >= 1 && sum <= it.qMax) : (sum === it.target);
+    sumEl.textContent = 'Σ ' + sum + ' u.' + (it.parcial ? ' (hasta ' + it.qMax + ')' : ' de ' + it.target) + (okQty ? ' ✓' : '');
+    sumEl.style.color = okQty ? 'var(--green-m)' : 'var(--amber-m)';
+  }
+  _prepAutoAllocBins(row, sum);
+  _prepCount();
+}
+// Re-reparte los bins al total dado (si ya cargaron las ubicaciones).
+function _prepAutoAllocBins(row, cantTotal) {
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  d.cantTotal = cantTotal;
+  _renderBinAlloc(row, d.locs, _autoAlocar(d.locs, cantTotal), cantTotal, 'prep');
+}
+// Estado de validez + unidades de un ítem según su modo.
+function _prepItemState(it) {
+  if (it.mode === 'bolsa') {
+    var bags = _prepBolsaReadDom(it.row);
+    var sum = 0, allCoded = (bags.length > 0);
+    for (var i = 0; i < bags.length; i++) { sum += bags[i].qty; if (bags[i].qty < 1 || !bags[i].code) allCoded = false; }
+    var qtyOk = it.parcial ? (sum >= 1 && sum <= it.qMax) : (sum === it.target);
+    return { units: sum, valid: allCoded && qtyOk };
+  }
+  var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
   var total = inputs.length, filled = 0;
-  for (var i = 0; i < inputs.length; i++) if (inputs[i].value.trim()) filled++;
-  var cnt = document.getElementById('modal-prep-cnt');
+  for (var j = 0; j < inputs.length; j++) if (inputs[j].value.trim()) filled++;
+  return { units: filled, valid: (total > 0 && filled === total) };
+}
+
+function _prepCount() {
+  if (!_modalPrep || !_modalPrep.items) return;
+  var totalCodes = 0, filledCodes = 0, allValid = true;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it = _modalPrep.items[i];
+    if (!_prepItemState(it).valid) allValid = false;
+    if (it.mode === 'bolsa') {
+      var bags = _prepBolsaReadDom(it.row);
+      totalCodes += bags.length;
+      for (var b = 0; b < bags.length; b++) if (bags[b].code) filledCodes++;
+    } else {
+      var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
+      totalCodes += inputs.length;
+      for (var k = 0; k < inputs.length; k++) if (inputs[k].value.trim()) filledCodes++;
+    }
+  }
   var pesoEl = document.getElementById('prep-peso');
-  var pesoOk = pesoEl && (parseFloat(pesoEl.value) > 0);
-  var seriesOk = filled === total && total > 0;
-  var ok = seriesOk && pesoOk;
+  var pesoOk = pesoEl && (parseFloat(String(pesoEl.value).replace(',', '.')) > 0);
+  var ok = allValid && pesoOk && totalCodes > 0;
+  var cnt = document.getElementById('modal-prep-cnt');
   if (cnt) {
-    cnt.textContent = filled + ' / ' + total + ' unidades con N\xba de serie / SO' + (seriesOk && !pesoOk ? ' \xb7 falta el peso del paquete' : '');
+    cnt.textContent = filledCodes + ' / ' + totalCodes + ' c\xf3digos (SN/SO)' + (allValid && !pesoOk ? ' \xb7 falta el peso del paquete' : '');
     cnt.style.color = ok ? 'var(--green-m)' : 'var(--amber-m)';
   }
   var btn = document.getElementById('btn-confirmar-prep');
@@ -2643,21 +2882,38 @@ function _prepCamStop() {
 
 function confirmarPreparar() {
   if (!_modalPrep) return;
-  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
-  var byRow = {}, vals = [], vacios = 0;
-  for (var i = 0; i < inputs.length; i++) {
-    var r = inputs[i].getAttribute('data-row');
-    var v = inputs[i].value.trim();
-    if (!v) vacios++;
-    if (!byRow[r]) byRow[r] = [];
-    byRow[r].push(v);
-    if (v) vals.push(v.toUpperCase());
+  // Construir el payload por ítem según su modo (por unidad = 1 código c/u; por bolsa = 1 código por bolsa).
+  var payload = [], allCodes = [], faltan = false;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it = _modalPrep.items[i];
+    if (!_prepItemState(it).valid) faltan = true;
+    if (it.mode === 'bolsa') {
+      var bags = _prepBolsaReadDom(it.row), clean = [], sum = 0;
+      for (var b = 0; b < bags.length; b++) {
+        if (bags[b].qty >= 1 && bags[b].code) { clean.push(bags[b]); sum += bags[b].qty; allCodes.push(bags[b].code.toUpperCase()); }
+      }
+      payload.push({
+        row: it.row, sku: it.sku, desc: it.desc, qtyPrep: sum,
+        seriales: _bagsToManifest(clean), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
+        porBolsa: true, bulto: _prepBultoRepresentativo(clean, it.bulto)
+      });
+    } else {
+      var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
+      var codes = [];
+      for (var k = 0; k < inputs.length; k++) { var v = inputs[k].value.trim(); if (v) { codes.push(v); allCodes.push(v.toUpperCase()); } }
+      payload.push({
+        row: it.row, sku: it.sku, desc: it.desc, qtyPrep: codes.length,
+        seriales: codes.join(', '), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
+        porBolsa: false, bulto: 0
+      });
+    }
   }
-  if (vacios > 0) { toast('Faltan ' + vacios + ' N\xba de serie. Complet\xe1 todos o us\xe1 “SO a los vac\xedos”.', 'err'); return; }
-  // Serie duplicada = probable error de tipeo/escaneo
+  if (faltan) { toast('Complet\xe1 cada \xedtem: todos los c\xf3digos (SN/SO) y la cantidad de cada bolsa.', 'err'); return; }
+
+  // Código duplicado = probable error de tipeo/escaneo
   var seen = {}, dup = null;
-  for (var d = 0; d < vals.length; d++) { if (seen[vals[d]]) { dup = vals[d]; break; } seen[vals[d]] = true; }
-  if (dup) { toast('N\xba de serie repetido: ' + dup + '. Cada unidad debe ser \xfanica.', 'err'); return; }
+  for (var d = 0; d < allCodes.length; d++) { if (seen[allCodes[d]]) { dup = allCodes[d]; break; } seen[allCodes[d]] = true; }
+  if (dup) { toast('C\xf3digo repetido: ' + dup + '. Cada c\xf3digo (SN/SO) debe ser \xfanico.', 'err'); return; }
 
   // Peso exacto del paquete (obligatorio — se pide acá para que no se olvide al despachar)
   var pesoEl = document.getElementById('prep-peso');
@@ -2668,14 +2924,6 @@ function confirmarPreparar() {
     return;
   }
 
-  var payload = [];
-  for (var rk in byRow) {
-    var _rw = parseInt(rk, 10);
-    // qtyPrep = unidades preparadas de esta fila (= nº de SN cargados). Bins se guardan
-    // en la fila; el descuento del WMS ocurre al despachar.
-    payload.push({ row: _rw, qtyPrep: byRow[rk].length, seriales: byRow[rk].join(', '), ubicaciones: _getBinAllocForRow(_rw, 'prep') });
-  }
-
   var numero = _modalPrep.numero;
   var enPicking = document.getElementById('pk-overlay') && document.getElementById('pk-overlay').style.display === 'flex';
   cerrarModal('prep');
@@ -2684,6 +2932,7 @@ function confirmarPreparar() {
     .withSuccessHandler(function(res) {
       sp(false);
       if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'Error desconocido'), 'err'); return; }
+      _cargarMaestro();   // refrescar qué SKU quedó marcado por bolsa
       try { localStorage.removeItem('wos_pick_' + numero); if (typeof _pickState !== 'undefined') delete _pickState[numero]; } catch(e) {}
       for (var k in _pkState) { if (k.indexOf(numero + '___') === 0) delete _pkState[k]; }
       toast('Pedido ' + numero + ' → Preparado 📦', 'ok');
@@ -2870,10 +3119,10 @@ function abrirModalDespacho(numero) {
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
         (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
         ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>';
-      // Cantidad por defecto a despachar = unidades preparadas (nº de SN registrados al
-      // preparar), acotada a lo pendiente. Si no hay SN registrados, despacha todo lo pendiente.
-      var _nSers = String(it.seriales || '').split(',').filter(function(s){ return s.trim(); }).length;
-      var _defDesp = (_nSers > 0) ? Math.min(_nSers, it.cantPend) : it.cantPend;
+      // Cantidad por defecto a despachar = unidades preparadas (SN registrados o suma de bolsas
+      // "SO x50"), acotada a lo pendiente. Si no hay nada registrado, despacha todo lo pendiente.
+      var _uPrep = _serialUnits(it.seriales);
+      var _defDesp = (_uPrep > 0) ? Math.min(_uPrep, it.cantPend) : it.cantPend;
       html += '<div class="modal-item-row" style="flex-direction:column;align-items:stretch;gap:6px">' +
         '<div style="display:flex;align-items:center;gap:12px">' +
           '<div class="modal-item-info">' +

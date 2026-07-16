@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.9
+// @version 2.10
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -455,6 +455,9 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
         for (var sni = 0; sni < sNums.length; sni++) {
           var snVal = String(sNums[sni]).trim();
           if (!snVal) continue;
+          // "SO-123 x50" = bolsa de 50 unidades con un único código → mostrarlo claro para auditar.
+          var _bag = snVal.match(/^(.*?)\s+x(\d+)$/i);
+          if (_bag) snVal = _bag[1] + '   \xb7   bolsa de ' + _bag[2] + ' u.';
           var snBg = sni % 2 === 0 ? '#f7f8fa' : '#ffffff';
           sSheet.getRange(sri, 1, 1, 2).merge()
             .setValue(sni + 1)
