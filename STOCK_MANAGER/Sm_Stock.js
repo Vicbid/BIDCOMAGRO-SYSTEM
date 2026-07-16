@@ -196,11 +196,70 @@ function ajustarInventario(codigo, cantNueva, motivo, operador, ubicacion) {
       // Stock Actual en Carmen es fórmula — no escribir ahí; solo registrar el movimiento
       _registrarMovimiento("AJUSTE_INVENTARIO", codigo, String(d[i][1]), diff, nueva,
         "Ajuste: "+motivo, operador||"Sistema");
-      _registrarMovimientoCarmen(codigo, String(d[i][1]), ubicacion, diff, motivo || 'Ajuste');
+      // Origen LEGIBLE en la línea de Carmen (Recibidos/Entregados): motivo + operador
+      var _origenAjuste = (motivo ? 'Ajuste: ' + motivo : 'Ajuste') + (operador ? ' \xb7 ' + operador : '');
+      _registrarMovimientoCarmen(codigo, String(d[i][1]), ubicacion, diff, _origenAjuste);
       return { ok: true, anterior: anterior, nueva: nueva };
     }
     return { ok: false, msg: "Código no encontrado" };
   } catch(e) { return { ok: false, msg: e.toString() }; }
+}
+
+// Reconciliación SM ↔ Carmen: compara el stock de SM (STOCK_REPUESTOS) contra el de
+// Carmen (STOCK) por SKU y devuelve las diferencias. SOLO LECTURA — no modifica nada.
+// Sirve para conciliaciones: detecta cualquier drift si algún movimiento no llegó a Carmen.
+function reconciliarStockCarmen() {
+  try {
+    var S   = SCHEMA.STOCK_REPUESTOS;
+    var dSm = getSheetValues(SCHEMA.SHEETS.STOCK);
+    _carmenStockMapCache = null;           // forzar lectura fresca de Carmen
+    var carmen = _getCarmenStockMap();     // { SKU_UPPER: stock }
+    var difs = [], totalSm = 0, totalCarmen = 0, revisados = 0, soloEnSm = 0, soloEnCarmen = 0;
+    var vistos = {};
+
+    for (var i = 1; i < dSm.length; i++) {
+      var sku = String(dSm[i][S.CODIGO] || '').trim().toUpperCase();
+      if (!sku) continue;
+      vistos[sku] = true;
+      revisados++;
+      var smStock  = parseInt(dSm[i][S.STOCK_ACTUAL]) || 0;
+      var enCarmen = carmen.hasOwnProperty(sku);
+      var cStock   = enCarmen ? (parseInt(carmen[sku]) || 0) : null;
+      totalSm += smStock;
+      if (enCarmen) totalCarmen += cStock; else soloEnSm++;
+      if (!enCarmen || cStock !== smStock) {
+        difs.push({
+          sku:         sku,
+          descripcion: String(dSm[i][S.DESCRIPCION] || ''),
+          sm:          smStock,
+          carmen:      enCarmen ? cStock : null,
+          diff:        enCarmen ? (smStock - cStock) : null,
+          soloEnSm:    !enCarmen
+        });
+      }
+    }
+    // SKUs presentes en Carmen pero no en SM
+    for (var k in carmen) {
+      if (!vistos[k]) {
+        soloEnCarmen++;
+        difs.push({ sku: k, descripcion: '', sm: null, carmen: parseInt(carmen[k]) || 0, diff: null, soloEnCarmen: true });
+      }
+    }
+    // Ordenar: primero los que faltan de un lado, luego por mayor diferencia absoluta
+    difs.sort(function(a, b) {
+      var da = (a.diff === null) ? 1e9 : Math.abs(a.diff);
+      var db = (b.diff === null) ? 1e9 : Math.abs(b.diff);
+      return db - da;
+    });
+    return {
+      ok: true, diferencias: difs, revisados: revisados,
+      totalSm: totalSm, totalCarmen: totalCarmen,
+      soloEnSm: soloEnSm, soloEnCarmen: soloEnCarmen
+    };
+  } catch(e) {
+    Logger.log('reconciliarStockCarmen: ' + e);
+    return { ok: false, error: e.toString(), diferencias: [] };
+  }
 }
 
 function editarConfigStock(fila, minimo, categoria, ubicacion, requireSN) {
@@ -1032,7 +1091,13 @@ function registrarEventoLedgerSeguro(params) {
     if (delta > 0) hojaStr.getRange(filaIdx + 1, S.ULTIMA_ENTRADA + 1).setValue(ahora);
     if (delta < 0) hojaStr.getRange(filaIdx + 1, S.ULTIMA_SALIDA  + 1).setValue(ahora);
 
-    // Carmen se actualiza vía Entregados/Recibidos + fórmula en col C — no tocar con setValue
+    // Espejo a Carmen: TODO ingreso escribe una línea en "Recibidos" y TODO egreso en
+    // "Entregados" (mismo formato que compras y que WOS al despachar). El Stock Actual de
+    // Carmen es fórmula (Recibidos/Entregados) → nunca se toca con setValue.
+    // Origen LEGIBLE = referencia + operador. Ubicación tomada del propio ítem (STOCK_REPUESTOS).
+    var _ubicItem      = String(dStr[filaIdx][S.UBICACION] || '').trim();
+    var _origenLegible = (referencia || tipo || 'Movimiento') + (operador ? ' \xb7 ' + operador : '');
+    _registrarMovimientoCarmen(sku, descripcion, _ubicItem, delta, _origenLegible);
 
     // 6. Invalidar caché de getSheetValues para que la próxima lectura sea fresca
     invalidateSheetValues(SCHEMA.SHEETS.STOCK);
