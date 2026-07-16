@@ -1,4 +1,4 @@
-<!-- @version 3.27 -->
+<!-- @version 3.28 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2849,11 +2849,28 @@ var _prepCam = null, _prepCamLast = { code: '', t: 0 }, _prepQrLoading = false;
 
 function _prepLoadQrLib(cb) {
   if (window.Html5Qrcode) { cb(true); return; }
-  var s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
-  s.onload = function() { cb(!!window.Html5Qrcode); };
-  s.onerror = function() { cb(false); };
-  document.head.appendChild(s);
+  // Varias CDNs de respaldo: si una está bloqueada/caída, prueba la siguiente.
+  var urls = [
+    'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  ];
+  var i = 0;
+  (function tryNext() {
+    if (window.Html5Qrcode) { cb(true); return; }
+    if (i >= urls.length) { cb(false); return; }
+    var s = document.createElement('script');
+    s.src = urls[i++];
+    s.onload  = function() { cb(!!window.Html5Qrcode); };
+    s.onerror = function() { tryNext(); };
+    document.head.appendChild(s);
+  })();
+}
+
+function _prepCamFail(msg, btn, texto) {
+  if (msg) { msg.style.color = 'var(--red)'; msg.textContent = texto; }
+  if (btn) btn.innerHTML = '<i class="fa fa-camera"></i> Cámara';
+  _prepCam = null;   // dejamos el panel abierto con el mensaje para que el operario lo lea
 }
 
 function _prepCamToggle() {
@@ -2863,34 +2880,69 @@ function _prepCamToggle() {
   var msg  = document.getElementById('prep-cam-msg');
   wrap.style.display = 'block';
   btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Abriendo…';
-  msg.style.color = 'var(--tx-d)'; msg.textContent = 'Cargando cámara…';
-  _prepLoadQrLib(function(ok) {
-    if (!ok) { msg.style.color = 'var(--red)'; msg.textContent = 'No se pudo cargar el lector de cámara (revisá la conexión). Usá el lector físico.'; btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; return; }
-    try {
-      _prepCam = new Html5Qrcode('prep-cam');
-      _prepCam.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: 200 },
-        function(text) {
-          var now = Date.now();
-          if (text === _prepCamLast.code && (now - _prepCamLast.t) < 1600) return; // evitar releer el mismo QR
-          _prepCamLast = { code: text, t: now };
-          _prepFeed(text);
-        },
-        function(err) {}
-      ).then(function() {
-        btn.innerHTML = '<i class="fa fa-times"></i> Cerrar cámara';
-        msg.style.color = 'var(--tx-d)'; msg.textContent = 'Apuntá la cámara al QR de cada unidad.';
-      }).catch(function(e) {
-        msg.style.color = 'var(--red)';
-        msg.textContent = 'No se pudo abrir la cámara (' + (e && e.message ? e.message : e) + '). Usá el lector físico.';
-        btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; _prepCam = null;
+  msg.style.color = 'var(--tx-d)'; msg.textContent = 'Pidiendo permiso de cámara…';
+
+  // 1) ¿El entorno expone la cámara? (Apps Script embebido a veces la bloquea por Permissions-Policy)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    _prepCamFail(msg, btn, 'Este entorno no expone la cámara (mediaDevices no disponible). Usá el lector físico (pistola), o abrí WOS en una pestaña nueva del navegador.');
+    return;
+  }
+  // 2) Pedir permiso explícito → dispara el prompt y nos da el error REAL si falla.
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(function(stream) {
+      try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch(e) {}  // lo reabre html5-qrcode
+      _prepLoadQrLib(function(ok) {
+        if (!ok) { _prepCamFail(msg, btn, 'No se pudo cargar el lector de cámara (revisá la conexión). Usá el lector físico.'); return; }
+        _prepCamStart(msg, btn);
       });
-    } catch(e) {
-      msg.style.color = 'var(--red)';
-      msg.textContent = 'La cámara no está disponible en este entorno. Usá el lector físico.';
-      btn.innerHTML = '<i class="fa fa-camera"></i> Cámara'; wrap.style.display = 'none'; _prepCam = null;
+    })
+    .catch(function(err) {
+      var name = (err && err.name) ? err.name : '';
+      var m;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        m = '🚫 Cámara bloqueada. Si el navegador pidió permiso, tocá "Permitir" y reintentá. Si NO apareció ningún permiso, es el sandbox de Apps Script — usá el lector físico (pistola) o abrí WOS en una pestaña nueva.';
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        m = 'No se encontró una cámara en este dispositivo. Usá el lector físico (pistola).';
+      } else if (name === 'NotReadableError' || name === 'AbortError') {
+        m = 'La cámara está en uso por otra app. Cerrala y reintentá, o usá el lector físico.';
+      } else {
+        m = 'No se pudo abrir la cámara (' + (name || (err && err.message) || 'desconocido') + '). Usá el lector físico.';
+      }
+      _prepCamFail(msg, btn, m);
+    });
+}
+
+// Arranca html5-qrcode eligiendo la cámara trasera si se puede (más confiable que facingMode).
+function _prepCamStart(msg, btn) {
+  var config = { fps: 10, qrbox: 220 };
+  var onScan = function(text) {
+    var now = Date.now();
+    if (text === _prepCamLast.code && (now - _prepCamLast.t) < 1600) return; // evitar releer el mismo QR
+    _prepCamLast = { code: text, t: now };
+    _prepFeed(text);
+  };
+  var okStart = function() {
+    if (btn) btn.innerHTML = '<i class="fa fa-times"></i> Cerrar cámara';
+    if (msg) { msg.style.color = 'var(--tx-d)'; msg.textContent = 'Apuntá la cámara al QR de cada unidad / bolsa.'; }
+  };
+  var failStart = function(e) { _prepCamFail(msg, btn, 'No se pudo iniciar la cámara (' + ((e && e.name) || (e && e.message) || e) + '). Usá el lector físico.'); };
+  try {
+    _prepCam = new Html5Qrcode('prep-cam');
+  } catch(e) { _prepCamFail(msg, btn, 'La cámara no está disponible en este entorno (' + ((e && e.message) || e) + '). Usá el lector físico.'); return; }
+  Html5Qrcode.getCameras().then(function(cams) {
+    var camId = null;
+    if (cams && cams.length) {
+      for (var i = 0; i < cams.length; i++) {
+        var lbl = (cams[i].label || '').toLowerCase();
+        if (lbl.indexOf('back') >= 0 || lbl.indexOf('rear') >= 0 || lbl.indexOf('trase') >= 0 || lbl.indexOf('environment') >= 0) { camId = cams[i].id; break; }
+      }
+      if (!camId) camId = cams[cams.length - 1].id;   // suele ser la trasera en celulares
     }
+    var target = camId ? camId : { facingMode: 'environment' };
+    _prepCam.start(target, config, onScan, function() {}).then(okStart).catch(failStart);
+  }).catch(function() {
+    // getCameras falló → intento directo con facingMode
+    _prepCam.start({ facingMode: 'environment' }, config, onScan, function() {}).then(okStart).catch(failStart);
   });
 }
 
