@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.10
+// @version 2.11
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -710,6 +710,140 @@ function _parseUbicPrep(raw) {
   }
 }
 
+// Diagnóstico de acceso a Carmen para el descuento de stock del despacho.
+// Ejecutar desde el editor de Apps Script de WOS (Run ▶) y ver el resultado.
+// Dice si abre la planilla, lista las pestañas (para ver si "Entregados" existe / cómo se
+// llama) y prueba escribir+borrar una fila de test en "Entregados".
+function WOS_diagnosticoCarmen() {
+  var out = { carmenId: CARMEN_SS_ID, abrio: false, ok: false };
+  try {
+    var ss = SpreadsheetApp.openById(CARMEN_SS_ID);
+    out.abrio = true;
+    out.nombrePlanilla = ss.getName();
+    var tabs = ss.getSheets().map(function(s) { return s.getName(); });
+    out.pestanas = tabs;
+    out.tieneEntregados  = tabs.indexOf('Entregados') !== -1;
+    out.tieneUbicaciones = tabs.indexOf(CARMEN_UBICACIONES_TAB) !== -1;
+    var hoja = ss.getSheetByName('Entregados');
+    if (hoja) {
+      hoja.appendRow(['__TEST_WOS__', 'diagnostico (borrar)', 0, 'TEST', '', '', new Date(), '']);
+      SpreadsheetApp.flush();
+      hoja.deleteRow(hoja.getLastRow());
+      SpreadsheetApp.flush();
+      out.escrituraOK = true;
+    }
+    out.ok = out.tieneEntregados && out.escrituraOK === true;
+  } catch(e) {
+    out.error = e.toString();
+  }
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+// ── RECUPERACIÓN de líneas de "Entregados" que no se escribieron ──────────────
+// (p. ej. cuando el sheet de Carmen se quedó sin filas y el appendRow falló).
+// Reconcilia, por (pedido, SKU): esperado = CANT_DESP (lo despachado, acumulado en la hoja
+// de pedidos) vs actual = suma de líneas en "Entregados" con ese pedido como Origen.
+// La diferencia positiva = lo que falta descontar. IDEMPOTENTE: solo escribe el gap.
+// desdeISO (opcional, 'YYYY-MM-DD'): considera solo filas despachadas desde esa fecha.
+function _wosCalcularEntregadosFaltantes(desdeISO) {
+  var desde = desdeISO ? new Date(String(desdeISO) + 'T00:00:00') : null;
+  var tz = Session.getScriptTimeZone();
+
+  // 1. Esperado por (numero, SKU): sumar CANT_DESP de las filas despachadas de ambas hojas.
+  var esperado = {};
+  var hojas = [_getHojaPedidos(), _getHojaPedidosOT()];
+  for (var h = 0; h < hojas.length; h++) {
+    var hoja = hojas[h];
+    if (!hoja) continue;
+    var d = hoja.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var cd = Number(d[i][COL.CANT_DESP]) || 0;
+      if (cd <= 0) continue;
+      var fd = d[i][COL.FECHA_DESPACHO];
+      if (desde) { if (!(fd instanceof Date) || fd < desde) continue; }
+      var numero = String(d[i][COL.NUMERO] || '').trim();
+      var sku    = String(d[i][COL.SKU] || '').trim().toUpperCase();
+      if (!numero || !sku) continue;
+      var key = numero + '||' + sku;
+      if (!esperado[key]) esperado[key] = { numero: numero, sku: sku, desc: String(d[i][COL.DESC] || ''), cant: 0, fecha: '' };
+      esperado[key].cant += cd;
+      if (fd instanceof Date) esperado[key].fecha = Utilities.formatDate(fd, tz, 'dd/MM/yyyy');
+    }
+  }
+
+  // 2. Actual en "Entregados" por (numero, SKU): sumar cantidad donde Origen==numero y SKU==sku.
+  var carmenSS = SpreadsheetApp.openById(CARMEN_SS_ID);
+  var hojaEnt  = carmenSS.getSheetByName('Entregados');
+  if (!hojaEnt) return { ok: false, error: 'No existe la pesta\xf1a "Entregados" en Carmen.' };
+  var actual = {};
+  var dE = hojaEnt.getDataRange().getValues();
+  // Entregados: 0=SKU, 1=desc, 2=cant, 3=Origen(pedido), 6=fecha, 7=ubic
+  for (var e = 1; e < dE.length; e++) {
+    var sku2 = String(dE[e][0] || '').trim().toUpperCase();
+    var orig = String(dE[e][3] || '').trim();
+    if (!sku2 || !orig) continue;
+    // El Origen de un despacho puede venir como "PR-00028" o "PR-00028 (recupero)".
+    var origNum = orig.replace(/\s*\(recupero\)\s*$/i, '').trim();
+    var k2 = origNum + '||' + sku2;
+    actual[k2] = (actual[k2] || 0) + (Number(dE[e][2]) || 0);
+  }
+
+  // 3. Gaps
+  var faltantes = [], totalUnidades = 0;
+  for (var key in esperado) {
+    var esp = esperado[key];
+    var act = actual[key] || 0;
+    var falta = esp.cant - act;
+    if (falta > 0) {
+      faltantes.push({ numero: esp.numero, sku: esp.sku, desc: esp.desc, esperado: esp.cant, actual: act, faltante: falta, fecha: esp.fecha });
+      totalUnidades += falta;
+    }
+  }
+  faltantes.sort(function(a, b) { return b.faltante - a.faltante; });
+  return { ok: true, faltantes: faltantes, totalUnidades: totalUnidades, hojaEnt: hojaEnt };
+}
+
+// PREVIEW (solo lectura): corré esto primero desde el editor de WOS y revisá la lista.
+function WOS_previewEntregadosFaltantes(desdeISO) {
+  try {
+    var r = _wosCalcularEntregadosFaltantes(desdeISO);
+    if (!r.ok) return r;
+    Logger.log('PREVIEW Entregados faltantes: ' + r.faltantes.length + ' l\xedneas, ' + r.totalUnidades + ' unidades.');
+    for (var i = 0; i < r.faltantes.length; i++) {
+      var f = r.faltantes[i];
+      Logger.log('  ' + f.numero + ' | ' + f.sku + ' | ' + (f.desc || '') +
+        ' | despachado=' + f.esperado + ' en Entregados=' + f.actual + ' \x2192 FALTA ' + f.faltante +
+        (f.fecha ? ' | ' + f.fecha : ''));
+    }
+    return { ok: true, lineas: r.faltantes.length, totalUnidades: r.totalUnidades, faltantes: r.faltantes };
+  } catch(e) { Logger.log('WOS_previewEntregadosFaltantes: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// APLICAR: escribe en "Entregados" solo las líneas faltantes (marcadas "<pedido> (recupero)").
+function WOS_aplicarEntregadosFaltantes(desdeISO) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); } catch(eL) { return { ok: false, error: 'Otra operaci\xf3n de despacho en curso. Reintent\xe1 en unos segundos.' }; }
+  try {
+    var r = _wosCalcularEntregadosFaltantes(desdeISO);
+    if (!r.ok) return r;
+    if (!r.faltantes.length) return { ok: true, escritas: 0, totalUnidades: 0, mensaje: 'No hay l\xedneas faltantes: todo cuadra.' };
+    var hojaEnt = r.hojaEnt;
+    var tz = Session.getScriptTimeZone();
+    var fecha = Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy');
+    for (var i = 0; i < r.faltantes.length; i++) {
+      var f = r.faltantes[i];
+      hojaEnt.appendRow([f.sku, f.desc, f.faltante, f.numero + ' (recupero)', '', '', fecha, '']);
+    }
+    SpreadsheetApp.flush();
+    Logger.log('RECUPERADAS ' + r.faltantes.length + ' l\xedneas de Entregados (' + r.totalUnidades + ' unidades).');
+    return { ok: true, escritas: r.faltantes.length, totalUnidades: r.totalUnidades, detalle: r.faltantes };
+  } catch(e) {
+    Logger.log('WOS_aplicarEntregadosFaltantes: ' + e);
+    return { ok: false, error: e.toString() };
+  } finally { try { lock.releaseLock(); } catch(eF) {} }
+}
+
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
   // dos pestañas) no corran en paralelo y dupliquen nota de entrega + mail.
@@ -762,11 +896,26 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var carmenSS    = null;
     var carmenHoja  = null;
     var carmenUbicH = null;
-    try {
-      carmenSS    = SpreadsheetApp.openById(CARMEN_SS_ID);
-      carmenHoja  = carmenSS.getSheetByName('Entregados');
-      carmenUbicH = carmenSS.getSheetByName(CARMEN_UBICACIONES_TAB);
-    } catch(eC) {}
+    var _carmenErr  = '';
+    // Reintento por si openById falla de forma transitoria (blip de Google).
+    for (var _tryC = 0; _tryC < 3 && !carmenHoja; _tryC++) {
+      try {
+        carmenSS    = SpreadsheetApp.openById(CARMEN_SS_ID);
+        carmenHoja  = carmenSS.getSheetByName('Entregados');
+        carmenUbicH = carmenSS.getSheetByName(CARMEN_UBICACIONES_TAB);
+      } catch(eC) { _carmenErr = eC.toString(); Utilities.sleep(600); }
+    }
+    // El descuento de stock (línea en "Entregados") es OBLIGATORIO. Si no se puede escribir,
+    // se ABORTA el despacho ACÁ — antes de tocar el pedido y antes de mandar el mail — para
+    // NUNCA despachar sin descontar (antes fallaba en silencio y el mail salía igual).
+    if (!carmenSS || !carmenHoja) {
+      Logger.log('WOS_despacharCompleto: Carmen inaccesible. err=' + _carmenErr +
+        ' abrio=' + (!!carmenSS) + ' Entregados=' + (!!carmenHoja));
+      return { ok: false, error: 'NO se despach\xf3 nada: WOS no pudo escribir el descuento de stock en Carmen ' +
+        '(' + (carmenSS ? 'no existe la pesta\xf1a "Entregados"' : 'no se pudo abrir la planilla Carmen') + ')' +
+        (_carmenErr ? ' \x2014 ' + _carmenErr : '') + '. Revis\xe1 permisos/nombre de pesta\xf1a y reintent\xe1. ' +
+        'Ejecut\xe1 WOS_diagnosticoCarmen desde el editor para ver el detalle.' };
+    }
 
     // Calcular número de nota antes del loop para poder escribirlo en col P por ítem
     var notaNumStr   = _wosNextNotaNum(numero);

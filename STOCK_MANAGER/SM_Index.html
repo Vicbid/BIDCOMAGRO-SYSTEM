@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.18 -->
+<!-- @version 5.17 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -723,7 +723,6 @@ tr:last-child td{border-bottom:none}
           <option>PEDIDO_DJI</option>
         </select>
         <button class="btn-p" onclick="cargarMovimientosTab()"><i class="fa fa-sync-alt"></i> Actualizar</button>
-        <button class="btn-p" style="background:var(--purple,#6f42c1)" onclick="conciliarCarmen()"><i class="fa fa-scale-balanced"></i> Conciliar con Carmen</button>
         <div style="margin-left:auto;font-size:11px;color:var(--tx-d)"><span id="mov-cnt">0</span> registros</div>
       </div>
 
@@ -1361,26 +1360,6 @@ tr:last-child td{border-bottom:none}
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
         <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
         <button id="confirmar-ajuste-btn" class="btn-p" onclick="confirmarAjuste()"><i class="fa fa-save"></i> Confirmar ajuste</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Conciliación de stock SM ↔ Carmen -->
-<div class="modal fade" id="modal-concilia" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:720px">
-    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
-      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
-        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-scale-balanced" style="color:var(--blue);margin-right:5px"></i>Conciliación de stock · Stock Manager ↔ Carmen</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" style="padding:16px">
-        <div id="concilia-resumen" style="margin-bottom:12px"></div>
-        <div id="concilia-body"></div>
-      </div>
-      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
-        <button class="btn-s" data-bs-dismiss="modal">Cerrar</button>
-        <button id="concilia-copiar-btn" class="btn-p" style="display:none" onclick="_copiarConcilia()"><i class="fa fa-copy"></i> Copiar diferencias</button>
       </div>
     </div>
   </div>
@@ -2299,86 +2278,6 @@ function _copiarEquipos() {
   var ok = false; try { ok = document.execCommand('copy'); } catch(e) {}
   document.body.removeChild(ta);
   toast(ok ? ('Copiado ' + rows.length + ' equipos — pegalo en Excel/Sheets') : 'No se pudo copiar', ok ? 'ok' : 'err');
-}
-
-// ══════════════════════════════════════════
-//  CONCILIACIÓN STOCK MANAGER ↔ CARMEN
-// ══════════════════════════════════════════
-var _conciliaData = [];
-
-function conciliarCarmen() {
-  sp(true, 'Comparando stock con Carmen…');
-  google.script.run
-    .withSuccessHandler(function(r) {
-      sp(false);
-      if (!r || !r.ok) { toast('Error al conciliar: ' + ((r && r.error) || ''), 'err'); return; }
-      _renderConcilia(r);
-      modal('modal-concilia').show();
-    })
-    .withFailureHandler(function(e) { sp(false); toast('Error: ' + (e && e.message ? e.message : e), 'err'); })
-    .reconciliarStockCarmen();
-}
-
-function _renderConcilia(r) {
-  _conciliaData = r.diferencias || [];
-  var n = _conciliaData.length;
-  var okAll = n === 0;
-  var totalDif = r.totalSm - r.totalCarmen;
-  document.getElementById('concilia-resumen').innerHTML =
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px">' +
-      '<span style="padding:3px 10px;border-radius:10px;font-weight:700;color:#fff;background:' + (okAll ? '#1a9e4a' : '#d63031') + '">' +
-        (okAll ? '✓ Todo cuadra' : ('⚠ ' + n + ' diferencia' + (n === 1 ? '' : 's'))) + '</span>' +
-      '<span style="color:var(--tx-m)">Revisados: <strong>' + r.revisados + '</strong> SKU</span>' +
-      '<span style="color:var(--tx-m)">Total SM: <strong>' + r.totalSm + '</strong></span>' +
-      '<span style="color:var(--tx-m)">Total Carmen: <strong>' + r.totalCarmen + '</strong></span>' +
-      (totalDif !== 0 ? '<span style="color:#d63031;font-weight:700">Δ ' + (totalDif > 0 ? '+' : '') + totalDif + '</span>' : '') +
-    '</div>' +
-    ((r.soloEnSm || r.soloEnCarmen) ? '<div style="font-size:11px;color:var(--tx-d);margin-top:6px">' + (r.soloEnSm ? (r.soloEnSm + ' SKU solo en SM · ') : '') + (r.soloEnCarmen ? (r.soloEnCarmen + ' SKU solo en Carmen') : '') + '</div>' : '');
-
-  document.getElementById('concilia-copiar-btn').style.display = n ? '' : 'none';
-
-  var body = document.getElementById('concilia-body');
-  if (okAll) {
-    body.innerHTML = '<div class="empty-state" style="color:var(--green,#1a9e4a)"><i class="fa fa-circle-check" style="font-size:22px"></i><div style="margin-top:6px">El stock de Stock Manager coincide con Carmen en todos los SKU.</div></div>';
-    return;
-  }
-  var h = '<div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table><thead><tr>' +
-    '<th>Código</th><th>Descripción</th><th style="text-align:right">SM</th><th style="text-align:right">Carmen</th><th style="text-align:right">Diferencia</th></tr></thead><tbody>';
-  for (var i = 0; i < _conciliaData.length; i++) {
-    var d = _conciliaData[i];
-    var smTxt = (d.sm === null) ? '<span style="color:var(--tx-d)">—</span>' : d.sm;
-    var caTxt = (d.carmen === null) ? '<span style="color:var(--tx-d)">—</span>' : d.carmen;
-    var difTxt;
-    if (d.soloEnSm)          difTxt = '<span class="b-crit">solo en SM</span>';
-    else if (d.soloEnCarmen) difTxt = '<span class="b-info">solo en Carmen</span>';
-    else difTxt = '<strong style="color:' + (d.diff === 0 ? 'var(--tx)' : '#d63031') + '">' + (d.diff > 0 ? '+' : '') + d.diff + '</strong>';
-    h += '<tr>' +
-      '<td style="font-family:monospace;font-weight:700">' + escH(d.sku) + '</td>' +
-      '<td>' + escH(d.descripcion || '—') + '</td>' +
-      '<td style="text-align:right">' + smTxt + '</td>' +
-      '<td style="text-align:right">' + caTxt + '</td>' +
-      '<td style="text-align:right">' + difTxt + '</td>' +
-    '</tr>';
-  }
-  h += '</tbody></table></div>';
-  body.innerHTML = h;
-}
-
-function _copiarConcilia() {
-  if (!_conciliaData.length) return;
-  var lines = [['Código', 'Descripción', 'SM', 'Carmen', 'Diferencia'].join('\t')];
-  for (var i = 0; i < _conciliaData.length; i++) {
-    var d = _conciliaData[i];
-    var dif = d.soloEnSm ? 'solo en SM' : (d.soloEnCarmen ? 'solo en Carmen' : d.diff);
-    lines.push([d.sku, String(d.descripcion || '').replace(/[\t\n]/g, ' '), (d.sm === null ? '' : d.sm), (d.carmen === null ? '' : d.carmen), dif].join('\t'));
-  }
-  var ta = document.createElement('textarea');
-  ta.value = lines.join('\n');
-  ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
-  document.body.appendChild(ta); ta.focus(); ta.select();
-  var ok = false; try { ok = document.execCommand('copy'); } catch(e) {}
-  document.body.removeChild(ta);
-  toast(ok ? ('Copiado ' + _conciliaData.length + ' diferencias') : 'No se pudo copiar', ok ? 'ok' : 'err');
 }
 
 function modal(id) { return new bootstrap.Modal(document.getElementById(id)); }
