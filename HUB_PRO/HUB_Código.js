@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.18
+// @version 2.19
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -216,7 +216,11 @@ var CONFIG = {
     "Caso Enviado","Aprobado por DJI","Bateria enviada a reseller"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
-  ESTADOS_NOTIFICAR_SUPERVISOR: ["Finalizado"],
+  // Vacío: al finalizar ya se avisa al reseller ("Actualización de su Orden de Servicio").
+  // El aviso "Alerta —" al supervisor en cada finalización era redundante (el supervisor es
+  // quien finaliza) → se quitó "Finalizado". El supervisor sigue recibiendo URGENTE/Backorder,
+  // y la solicitud de facturación (OOW) se manda igual desde el bloque 4.
+  ESTADOS_NOTIFICAR_SUPERVISOR: [],
   SUPERVISOR_RECIBE_URGENTES:   true,
   SUPERVISOR_RECIBE_BACKORDER:  true
 };
