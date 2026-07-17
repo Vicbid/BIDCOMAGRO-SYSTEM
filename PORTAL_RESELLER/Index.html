@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.46 -->
+<!-- @version 1.47 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6650,7 +6650,7 @@ function _renderHistorialLista(lista) {
 
     // Fila de despacho: tracking + NE (solo si fue enviado y hay datos)
     var despRow = '';
-    if ((est === 'enviado' || est === 'enviado_parcial') && (h.notaEntrega || h.tracking)) {
+    if ((est === 'enviado' || est === 'enviado_parcial' || est === 'recibido') && (h.notaEntrega || h.tracking)) {
       despRow = '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px;padding:8px 10px;background:rgba(26,158,74,.06);border:1px solid rgba(26,158,74,.2);border-radius:6px">';
       if (h.notaEntrega) {
         var neLink = h.neUrl
@@ -6680,7 +6680,7 @@ function _renderHistorialLista(lista) {
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
             (h.pdfUrl ? '<a href="' + _escHtml(h.pdfUrl) + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(214,48,49,.08);border:1px solid rgba(214,48,49,.2);color:var(--red);border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
-            ((est === 'enviado' || est === 'enviado_parcial')
+            (est === 'enviado'
               ? '<button id="btn-recibir-' + idSafe + '" onclick="_confirmarRecepcion(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.3);color:#14713a;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-circle-check"></i> Confirmar recepción</button>'
               : '') +
             '<button onclick="_pedRepetirPedido(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-a);border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-rotate-right"></i> Repetir</button>' +

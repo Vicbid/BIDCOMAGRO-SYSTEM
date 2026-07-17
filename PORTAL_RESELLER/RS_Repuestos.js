@@ -44,7 +44,7 @@ function registrarPedidoRepuestos(ot, lista) {
       var legible = lista.map(function(it) {
         return '[' + (it.cantidad || 1) + 'x] ' + it.sku + ' (' + (it.nombre || '') + ')';
       }).join("\n");
-      ref.hoja.getRange(i + 1, SCHEMA.OT.TRABAJO + 1).setValue(inf + "\n\n📦 PEDIDO REPUESTOS (" + fh + "):\n" + legible);
+      ref.hoja.getRange(i + 1, SCHEMA.OT.TRABAJO + 1).setValue(inf + "\n\n PEDIDO REPUESTOS (" + fh + "):\n" + legible);
 
       // Merge en col Q (REPUESTOS) con formato Hub: SKU | desc | P:X E:Y
       var repActual = String(ref.datos[i][SCHEMA.OT.REPUESTOS] || "").trim();

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.2
+// @version 2.3
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -791,7 +791,8 @@ function generarPedidoRepuestosPortal(params) {
 function _mapEstadoWosSimple(estadoWos) {
   var e = String(estadoWos || '').trim();
   if (e === 'Cancelado') return 'cancelado';
-  if (e === 'Entregado_Cerrado' || e === 'Listo_Retiro' || e === 'Entregado_Confirmado') return 'enviado';
+  if (e === 'Entregado_Confirmado') return 'recibido';   // ya confirmado por el reseller
+  if (e === 'Entregado_Cerrado' || e === 'Listo_Retiro') return 'enviado';
   return 'en_proceso';
 }
 
@@ -930,10 +931,11 @@ function obtenerHistorialPedidosPortal(reseller) {
           var num = String(wosData[j][0] || '').trim();
           var est = String(wosData[j][9] || '').trim();
           if (!num) continue;
-          if (!wosEstados[num]) wosEstados[num] = { total: 0, enviado: 0, cancelado: 0, tracking: '', notaEntrega: '', neUrl: '', fechaDespacho: '' };
+          if (!wosEstados[num]) wosEstados[num] = { total: 0, enviado: 0, recibido: 0, cancelado: 0, tracking: '', notaEntrega: '', neUrl: '', fechaDespacho: '' };
           wosEstados[num].total++;
           var mapped = _mapEstadoWosSimple(est);
           if (mapped === 'enviado')   wosEstados[num].enviado++;
+          if (mapped === 'recibido')  wosEstados[num].recibido++;
           if (mapped === 'cancelado') wosEstados[num].cancelado++;
           // Recoger datos de despacho (primera fila no vacía gana)
           if (!wosEstados[num].tracking     && wosData[j][16]) wosEstados[num].tracking     = String(wosData[j][16]).trim();
@@ -959,13 +961,15 @@ function obtenerHistorialPedidosPortal(reseller) {
             continue;
           }
           console.log('[HIST] ID "' + out[k].id + '" → total=' + ws.total + ' enviado=' + ws.enviado + ' cancelado=' + ws.cancelado);
-          out[k]._debug = 'total=' + ws.total + ' enviado=' + ws.enviado + ' cancelado=' + ws.cancelado;
+          out[k]._debug = 'total=' + ws.total + ' enviado=' + ws.enviado + ' recibido=' + ws.recibido + ' cancelado=' + ws.cancelado;
           var noCancel = ws.total - ws.cancelado;
+          var entregadas = ws.enviado + ws.recibido; // líneas entregadas (confirmadas o no)
           if (ws.cancelado === ws.total) {
             out[k].estadoSimple = 'cancelado';
-          } else if (ws.enviado === noCancel) {
-            out[k].estadoSimple = 'enviado';
-          } else if (ws.enviado > 0) {
+          } else if (entregadas === noCancel) {
+            // Pedido COMPLETO (todo entregado): si ya lo confirmaron → recibido; si no → enviado (muestra botón)
+            out[k].estadoSimple = (ws.recibido > 0) ? 'recibido' : 'enviado';
+          } else if (entregadas > 0) {
             out[k].estadoSimple = 'enviado_parcial';
           } else {
             out[k].estadoSimple = 'en_proceso';
