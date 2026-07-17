@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.44 -->
+<!-- @version 1.45 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5848,6 +5848,16 @@ var _rtvResellers    = [];
 var _rtvTodos        = [];   // todos los pedidos cargados (cache para filtro local)
 var _rtvOrdenesTodos = [];   // todas las órdenes cargadas (cache para filtro local)
 var _rtvSubTab       = 'pedidos';
+var _rtvEntryLoading = false;  // overlay de carga activo durante el ingreso del RTV
+var _rtvLoadingSteps = [
+  { pct: 22, msg: 'Verificando tu acceso RTV...',            icon: 'fa-user-shield' },
+  { pct: 55, msg: 'Cargando pedidos de tus resellers...',   icon: 'fa-box-open' },
+  { pct: 82, msg: 'Calculando cumplimiento por pedido...',  icon: 'fa-chart-line' }
+];
+// Oculta el overlay de ingreso una vez que terminó la carga de pedidos (la subvista visible).
+function _rtvOcultarEntryLoading() {
+  if (_rtvEntryLoading) { _rtvEntryLoading = false; _pedOcultarCargando(); }
+}
 
 function _iniciarSesionRTV(res) {
   _rtvEmail     = res.email || '';
@@ -5880,6 +5890,8 @@ function _iniciarSesionRTV(res) {
 
   _rtvSubTab = 'pedidos';
   showTab('rtv', 'tb-rtv');
+  _rtvEntryLoading = true;
+  _pedMostrarCargando(_rtvLoadingSteps);   // ventana de carga durante el ingreso
   _rtvActualizar();
 }
 
@@ -5991,9 +6003,11 @@ function _rtvCargar() {
       var cnt = document.getElementById('rtv-cnt-ped');
       if (cnt) cnt.textContent = _rtvTodos.length;
       if (_rtvSubTab === 'pedidos') _rtvFiltrar();
+      _rtvOcultarEntryLoading();
     })
     .withFailureHandler(function() {
       wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">Error al cargar pedidos.</div>';
+      _rtvOcultarEntryLoading();
     })
     .obtenerPedidosRTV();
 }
@@ -6219,9 +6233,10 @@ var _pedLoadingSteps = [
   { pct: 90, msg: 'Casi listo...',                    icon: 'fa-circle-notch' }
 ];
 
-function _pedMostrarCargando() {
+function _pedMostrarCargando(steps) {
   var ov = document.getElementById('ped-loading-overlay');
   if (!ov) return;
+  var pasos = (steps && steps.length) ? steps : _pedLoadingSteps;
   document.getElementById('ped-loading-bar').style.width = '0%';
   document.getElementById('ped-loading-bar').style.transition = 'none';
   ov.style.display = 'flex';
@@ -6236,10 +6251,10 @@ function _pedMostrarCargando() {
     if (msg) { msg.style.opacity = '0'; setTimeout(function(){ msg.textContent = s.msg; msg.style.opacity = '1'; }, 160); }
     if (icon) icon.className = 'fa ' + s.icon;
   }
-  _applyStep(_pedLoadingSteps[0]); idx = 1;
+  _applyStep(pasos[0]); idx = 1;
   _pedLoadingTimer = setInterval(function() {
-    if (idx >= _pedLoadingSteps.length) { clearInterval(_pedLoadingTimer); return; }
-    _applyStep(_pedLoadingSteps[idx]); idx++;
+    if (idx >= pasos.length) { clearInterval(_pedLoadingTimer); return; }
+    _applyStep(pasos[idx]); idx++;
   }, 2200);
 }
 

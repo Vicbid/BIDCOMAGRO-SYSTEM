@@ -1,31 +1,49 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
 // ============================================================
 
-// Detecta si el usuario logueado es un RTV verificando su email
-// contra columna EMAIL_RTV de la hoja Resellers.
-// Retorna { ok, resellers: [nombres asignados] }
+// Super-RTV: emails (dominio bidcom) que ven TODOS los resellers, no solo los de su EMAIL_RTV.
+// Solo lectura, igual que cualquier RTV. Autorización server-side por identidad de Google.
+var _RTV_SUPER = ['soporteagrasdji@bidcom.com.ar'];
+function _esRTVSuper(email) {
+  return _RTV_SUPER.indexOf(String(email || '').toLowerCase().trim()) !== -1;
+}
+
+// Mapa {nombreLower → nombre} de resellers que este email puede ver como RTV.
+// Super-RTV → todos los resellers; RTV normal → los que lo tienen en la columna EMAIL_RTV.
+function _resellersAutorizadosRTV(email) {
+  var emailLow = String(email || '').toLowerCase().trim();
+  var sup      = _esRTVSuper(emailLow);
+  var datos    = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+  var RS       = SCHEMA.RESELLERS;
+  var out      = {};
+  for (var i = 1; i < datos.length; i++) {
+    var nombre = String(datos[i][RS.NOMBRE] || '').trim();
+    if (!nombre) continue;
+    if (sup) { out[nombre.toLowerCase()] = nombre; continue; }
+    var rtvEmail = String(datos[i][RS.EMAIL_RTV] || '').trim().toLowerCase();
+    if (rtvEmail && rtvEmail === emailLow) out[nombre.toLowerCase()] = nombre;
+  }
+  return out;
+}
+
+// Detecta si el usuario logueado es un RTV (o super-RTV) verificando su email de sesión.
+// Retorna { ok, email, resellers: [nombres], esSuper }
 function obtenerDatosRTV() {
   try {
     var email = '';
     try { email = Session.getActiveUser().getEmail(); } catch(e) {}
     if (!email) return { ok: false };
-
-    var datos   = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-    var RS      = SCHEMA.RESELLERS;
     var emailLow = email.toLowerCase().trim();
+
+    var mapa = _resellersAutorizadosRTV(emailLow);
     var resellers = [];
-
-    for (var i = 1; i < datos.length; i++) {
-      var rtvEmail = String(datos[i][RS.EMAIL_RTV] || '').trim().toLowerCase();
-      if (rtvEmail !== emailLow) continue;
-      var nombre = String(datos[i][RS.NOMBRE] || '').trim();
-      if (nombre) resellers.push(nombre);
-    }
-
+    for (var k in mapa) resellers.push(mapa[k]);
     if (!resellers.length) return { ok: false };
-    return { ok: true, email: email, resellers: resellers };
+    resellers.sort();
+
+    return { ok: true, email: email, resellers: resellers, esSuper: _esRTVSuper(emailLow) };
   } catch(e) {
     Logger.log('obtenerDatosRTV: ' + e);
     return { ok: false };
@@ -117,16 +135,8 @@ function obtenerPedidosRTV() {
     try { email = Session.getActiveUser().getEmail().toLowerCase().trim(); } catch(e) {}
     if (!email) return { ok: false, error: 'Sin sesión', pedidos: [] };
 
-    // Determinar resellers autorizados para este RTV
-    var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-    var RS    = SCHEMA.RESELLERS;
-    var autorizado = {};
-    for (var i = 1; i < datos.length; i++) {
-      var rtvEmail = String(datos[i][RS.EMAIL_RTV] || '').trim().toLowerCase();
-      if (rtvEmail !== email) continue;
-      var nombre = String(datos[i][RS.NOMBRE] || '').trim();
-      if (nombre) autorizado[nombre.toLowerCase()] = nombre;
-    }
+    // Determinar resellers autorizados para este RTV (super-RTV ve todos)
+    var autorizado = _resellersAutorizadosRTV(email);
     if (!Object.keys(autorizado).length) return { ok: false, error: 'Sin resellers asignados', pedidos: [] };
 
     var cumpl = _mapaCumplimientoPedidos();  // numero → entregado/pendiente/% (fuente: Pedidos_resellers)
@@ -184,16 +194,8 @@ function obtenerOrdenesRTV() {
     try { email = Session.getActiveUser().getEmail().toLowerCase().trim(); } catch(e) {}
     if (!email) return { ok: false, error: 'Sin sesión', ordenes: [] };
 
-    // Resellers autorizados para este RTV
-    var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-    var RS    = SCHEMA.RESELLERS;
-    var autorizado = {};
-    for (var i = 1; i < datos.length; i++) {
-      var rtvEmail = String(datos[i][RS.EMAIL_RTV] || '').trim().toLowerCase();
-      if (rtvEmail !== email) continue;
-      var nombre = String(datos[i][RS.NOMBRE] || '').trim();
-      if (nombre) autorizado[nombre.toLowerCase()] = nombre;
-    }
+    // Resellers autorizados para este RTV (super-RTV ve todos)
+    var autorizado = _resellersAutorizadosRTV(email);
     if (!Object.keys(autorizado).length) return { ok: false, error: 'Sin resellers asignados', ordenes: [] };
 
     var ref = _leerOrdenes();
