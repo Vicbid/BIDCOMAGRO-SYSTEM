@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.3
+// @version 2.4
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -138,12 +138,12 @@ function _siguienteNumeroPedido() {
 }
 
 // ── Búsqueda con estado de stock ──────────────────────────────
-function buscarRepuestoConStockPortal(query, reseller) {
+function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
   try {
     var q = _normText(String(query || '').trim());
     if (q.length < 2) return { ok: true, items: [] };
 
-    var _descInfo = _resellerDescuentoInfo(reseller);
+    var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
     var stockMap = {};
@@ -350,6 +350,21 @@ function _resellerDescuentoInfo(nombreReseller) {
   return { pct: pct, factor: (100 - pct) / 100 };
 }
 
+// ── Descuento resuelto (reseller normal vs. super-RTV) ────────────────────
+// Si pctOverride es un número válido (0-100) → descuento GLOBAL manual del super-RTV
+// (0 = PVP / precio de lista). Si no viene, cae al descuento propio del reseller.
+function _descInfoResolve(reseller, pctOverride) {
+  if (pctOverride !== undefined && pctOverride !== null && String(pctOverride).trim() !== '') {
+    var p = Number(pctOverride);
+    if (!isNaN(p)) {
+      if (p < 0)   p = 0;
+      if (p > 100) p = 100;
+      return { pct: p, factor: (100 - p) / 100 };
+    }
+  }
+  return _resellerDescuentoInfo(reseller);
+}
+
 // ── Verificación en batch para importación Excel ──────────────
 function verificarStockItems(skus) {
   try {
@@ -522,7 +537,16 @@ function confirmarPedidoPortal(params) {
   try {
     lock.waitLock(30000);
 
-    var reseller  = String(params.reseller      || '').trim();
+    // ── Modo super-RTV: carga a nombre de cualquier cliente con descuento GLOBAL manual ──
+    // Autorización server-side: NO se confía en el cliente; se re-verifica el email de sesión.
+    var modoSuper = (params && params.modoSuper === true);
+    if (modoSuper) {
+      var _superEmail = '';
+      try { _superEmail = Session.getActiveUser().getEmail(); } catch(eSU) {}
+      if (!_esRTVSuper(_superEmail)) return { ok: false, error: 'No autorizado para carga super-RTV.' };
+    }
+
+    var reseller  = String((modoSuper ? params.cliente : params.reseller) || '').trim();
     var items     = params.items                || [];
     var obs       = String(params.observaciones || '').trim();
     var formaPago = String(params.formaPago     || '').trim();
@@ -559,8 +583,8 @@ function confirmarPedidoPortal(params) {
     // ── A0b. Explosión de kits (ej: C → A + B, misma cantidad) ────
     items = _explotarKits(items);
 
-    // ── A. Precio enforcement desde Lista_Repuestos (con dto del reseller) ─
-    var descInfo = _resellerDescuentoInfo(reseller);
+    // ── A. Precio enforcement desde Lista_Repuestos (dto del reseller o global del super) ─
+    var descInfo = modoSuper ? _descInfoResolve(null, params.descuentoPct) : _resellerDescuentoInfo(reseller);
     var priceMap = _buildPriceMap(descInfo.factor);
     var total = 0;
     for (var pi = 0; pi < items.length; pi++) {
@@ -572,18 +596,23 @@ function confirmarPedidoPortal(params) {
       if ((itPi.precio || 0) > 0) total += itPi.precio * (Number(itPi.cantidad) || 1);
     }
 
-    // ── B. Metadatos del reseller ─────────────────────────────────
+    // ── B. Metadatos del reseller / cliente ───────────────────────
+    // Super-RTV: el cliente puede ser externo (no está en Resellers) → usar el email tipeado (si lo hay).
     var emailReseller = '';
-    try {
-      var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-      var rLow = reseller.toLowerCase();
-      for (var ri = 1; ri < dRes.length; ri++) {
-        if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
-          emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
-          break;
+    if (modoSuper) {
+      emailReseller = String(params.emailCliente || '').trim();
+    } else {
+      try {
+        var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+        var rLow = reseller.toLowerCase();
+        for (var ri = 1; ri < dRes.length; ri++) {
+          if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
+            emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
+            break;
+          }
         }
-      }
-    } catch(eR) { Logger.log('confirmarPedidoPortal email: ' + eR); }
+      } catch(eR) { Logger.log('confirmarPedidoPortal email: ' + eR); }
+    }
     var resellerMeta = _lookupResellerMeta(reseller);
 
     var numero = _siguienteNumeroPedido();
@@ -1095,9 +1124,9 @@ function _diasHabilesEntre(desde, hasta) {
 // Formato: [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs]
 // statusCode: D=disponible, B=backorder, R=consultar_Backorder
 // indices 8-10: strings pre-normalizados para búsqueda sin llamar _normText en cada keystroke
-function obtenerIndiceRepuestosPortal(reseller) {
+function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
   try {
-    var _descInfo = _resellerDescuentoInfo(reseller);
+    var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
     var stockMap = {};
