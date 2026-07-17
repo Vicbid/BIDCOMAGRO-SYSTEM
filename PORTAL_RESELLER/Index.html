@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.41 -->
+<!-- @version 1.42 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6023,7 +6023,7 @@ function _rtvRenderPedidos(pedidos) {
     'Entregado':   { bg:'rgba(26,158,74,.12)',  color:'#1a9e4a' },
     'Cancelado':   { bg:'rgba(214,48,49,.1)',   color:'#d63031' }
   };
-  var html = '<div class="dji-card" style="padding:0;overflow:hidden">';
+  var html = _rtvResumenHTML(pedidos) + '<div class="dji-card" style="padding:0;overflow:hidden">';
   for (var i = 0; i < pedidos.length; i++) {
     var p   = pedidos[i];
     var est = estadoColor[p.estado] || { bg:'var(--raise)', color:'var(--tx-m)' };
@@ -6048,6 +6048,49 @@ function _rtvRenderPedidos(pedidos) {
   }
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+// Resumen general (arriba de la lista): cumplimiento ponderado por unidades + conteo de estados.
+// Recalcula sobre la lista visible → respeta el filtro por reseller.
+function _rtvResumenHTML(pedidos) {
+  var totEnt = 0, totBase = 0, comp = 0, parc = 0, pend = 0, sinD = 0;
+  for (var i = 0; i < pedidos.length; i++) {
+    var c = pedidos[i].cumplimiento;
+    if (!c || !c.tieneDatos) { sinD++; continue; }
+    var base = c.solicitado - c.cancelado;
+    totEnt  += c.entregado;
+    totBase += base;
+    if (c.porcentaje >= 100)  comp++;
+    else if (c.entregado > 0) parc++;
+    else                      pend++;
+  }
+  var pct = totBase > 0 ? Math.round(totEnt / totBase * 100) : 0;
+  var col = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
+  var pendU = totBase - totEnt; if (pendU < 0) pendU = 0;
+  return '<div class="dji-card" style="padding:14px 16px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:190px">' +
+          '<div style="font-size:11px;color:var(--tx-d);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Cumplimiento general</div>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="flex:1;height:11px;background:var(--brd);border-radius:6px;overflow:hidden;min-width:120px"><div style="width:' + pct + '%;height:100%;background:' + col + '"></div></div>' +
+            '<span style="font-size:20px;font-weight:800;color:' + col + '">' + pct + '%</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--tx-m);margin-top:5px"><strong style="color:#1a9e4a">' + totEnt + '</strong> entregadas · <strong style="color:' + (pendU > 0 ? '#d63031' : 'var(--tx-m)') + '">' + pendU + '</strong> pendientes <span style="color:var(--tx-d)">(de ' + totBase + ' u.)</span></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          _rtvChip(comp, 'completos', '#1a9e4a') +
+          _rtvChip(parc, 'parciales', '#e67e22') +
+          _rtvChip(pend, 'pendientes', '#d63031') +
+          (sinD ? _rtvChip(sinD, 'sin datos', 'var(--tx-d)') : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+function _rtvChip(num, label, color) {
+  return '<div style="text-align:center;padding:6px 12px;background:var(--raise);border-radius:8px;min-width:66px">' +
+      '<div style="font-size:17px;font-weight:800;color:' + color + '">' + num + '</div>' +
+      '<div style="font-size:9px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">' + label + '</div>' +
+    '</div>';
 }
 
 // Barra compacta de cumplimiento (entregado/solicitado) para el encabezado del pedido.
