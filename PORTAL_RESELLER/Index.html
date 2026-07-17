@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.43 -->
+<!-- @version 1.44 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6057,13 +6057,13 @@ function _rtvResumenHTML(pedidos) {
   for (var i = 0; i < pedidos.length; i++) {
     var c = pedidos[i].cumplimiento;
     if (!c || !c.tieneDatos) { sinD++; continue; }
-    if (c.anulado)           { canc++; continue; }  // cancelado no cuenta como pendiente ni en el %
-    var base = c.solicitado - c.cancelado;
+    if (c.anulado)           { canc++; continue; }  // cancelado: fuera del % y de "pendientes"
+    if (c.entregado <= 0)    { pend++; continue; }  // pendiente (sin entregas aún): no definido → fuera del %
+    // parcial o completo: es lo único que cuenta para el % general
     totEnt  += c.entregado;
-    totBase += base;
-    if (c.porcentaje >= 100)  comp++;
-    else if (c.entregado > 0) parc++;
-    else                      pend++;
+    totBase += (c.solicitado - c.cancelado);
+    if (c.porcentaje >= 100) comp++;
+    else                     parc++;
   }
   var pct = totBase > 0 ? Math.round(totEnt / totBase * 100) : 0;
   var col = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
@@ -6077,6 +6077,7 @@ function _rtvResumenHTML(pedidos) {
             '<span style="font-size:20px;font-weight:800;color:' + col + '">' + pct + '%</span>' +
           '</div>' +
           '<div style="font-size:11px;color:var(--tx-m);margin-top:5px"><strong style="color:#1a9e4a">' + totEnt + '</strong> entregadas · <strong style="color:' + (pendU > 0 ? '#d63031' : 'var(--tx-m)') + '">' + pendU + '</strong> pendientes <span style="color:var(--tx-d)">(de ' + totBase + ' u.)</span></div>' +
+          (pend > 0 ? '<div style="font-size:10px;color:var(--tx-d);margin-top:3px"><i class="fa fa-circle-info" style="margin-right:3px"></i>El % excluye ' + pend + ' pedido(s) aún sin entregas (no definidos)</div>' : '') +
         '</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           _rtvChip(comp, 'completos', '#1a9e4a') +
