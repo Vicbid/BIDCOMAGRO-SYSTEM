@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.40 -->
+<!-- @version 1.41 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6035,6 +6035,7 @@ function _rtvRenderPedidos(pedidos) {
           '<span style="font-size:11px;font-weight:700;color:var(--tx);flex:1;min-width:120px">' + _escHtml(p.reseller) + '</span>' +
           '<span style="font-size:11px;color:var(--tx-d);white-space:nowrap">' + _escHtml(p.fecha) + '</span>' +
           '<span style="font-size:11px;color:var(--tx-m);white-space:nowrap">' + p.cantItems + ' ítem(s)</span>' +
+          _rtvCumplBar(p.cumplimiento) +
           '<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:' + est.bg + ';color:' + est.color + ';white-space:nowrap">' + _escHtml(p.estado) + '</span>' +
           (p.total > 0 ? '<span style="font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap">' + _fmtPedUsd(p.total) + '</span>' : '') +
           (p.pdfUrl ? '<a href="' + _escHtml(p.pdfUrl) + '" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--red);font-weight:600;text-decoration:none;white-space:nowrap"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
@@ -6047,6 +6048,21 @@ function _rtvRenderPedidos(pedidos) {
   }
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+// Barra compacta de cumplimiento (entregado/solicitado) para el encabezado del pedido.
+function _rtvCumplBar(c) {
+  if (!c || !c.tieneDatos) return '<span style="font-size:10px;color:var(--tx-d);white-space:nowrap">sin datos de entrega</span>';
+  var pct  = c.porcentaje;
+  var col  = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
+  var base = c.solicitado - c.cancelado;
+  var tip  = 'Entregado ' + c.entregado + ' de ' + base + ' u.' + (c.cancelado ? ' · ' + c.cancelado + ' cancel.' : '');
+  return '<div title="' + tip + '" style="display:flex;align-items:center;gap:7px;flex:0 0 auto;min-width:120px">' +
+      '<div style="width:70px;height:7px;background:var(--brd);border-radius:4px;overflow:hidden">' +
+        '<div style="width:' + pct + '%;height:100%;background:' + col + '"></div>' +
+      '</div>' +
+      '<span style="font-size:11px;font-weight:800;color:' + col + ';white-space:nowrap">' + pct + '%</span>' +
+    '</div>';
 }
 
 function _rtvToggleDetalle(row) {
@@ -6063,27 +6079,74 @@ function _rtvDetalleHTML(p) {
   if (p.obs) {
     html += '<div style="font-size:11px;color:var(--tx-m);margin:10px 0 8px;padding:8px 12px;background:var(--raise);border-radius:var(--r)"><i class="fa fa-comment" style="margin-right:5px;color:var(--tx-d)"></i>' + _escHtml(p.obs) + '</div>';
   }
-  if (p.items && p.items.length) {
-    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">' +
+
+  var c = p.cumplimiento;
+  if (c && c.tieneDatos && c.items && c.items.length) {
+    // ── Resumen de cumplimiento del pedido ──
+    var base = c.solicitado - c.cancelado;
+    var col  = c.porcentaje >= 100 ? '#1a9e4a' : (c.porcentaje > 0 ? '#e67e22' : '#d63031');
+    html += '<div style="margin:10px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:140px;height:9px;background:var(--brd);border-radius:5px;overflow:hidden">' +
+          '<div style="width:' + c.porcentaje + '%;height:100%;background:' + col + '"></div>' +
+        '</div>' +
+        '<span style="font-size:12px;font-weight:800;color:' + col + ';white-space:nowrap">' + c.porcentaje + '% cumplido</span>' +
+      '</div>';
+    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin:2px 0 10px;color:var(--tx-m)">' +
+        '<span><strong style="color:#1a9e4a">' + c.entregado + '</strong> entregado</span>' +
+        '<span><strong style="color:' + (c.pendiente > 0 ? '#d63031' : 'var(--tx-m)') + '">' + c.pendiente + '</strong> pendiente</span>' +
+        (c.cancelado ? '<span><strong style="color:var(--tx-d)">' + c.cancelado + '</strong> cancelado</span>' : '') +
+        '<span style="color:var(--tx-d)">de ' + base + ' u. a entregar</span>' +
+      '</div>';
+    // ── Detalle por ítem: pedido / entregado / pendiente ──
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px">' +
+      '<thead><tr style="background:var(--panel)">' +
+        '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">SKU</th>' +
+        '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">Descripción</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Pedido</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Entregado</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Pendiente</th>' +
+      '</tr></thead><tbody>';
+    for (var k = 0; k < c.items.length; k++) {
+      var it   = c.items[k];
+      var alt  = k % 2 === 0 ? '#fff' : 'var(--panel)';
+      var iBase = it.solicitado - it.cancelado;
+      var completo = it.pendiente <= 0 && iBase > 0;
+      html +=
+        '<tr style="background:' + alt + '">' +
+          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
+          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(it.descripcion || '') +
+            (it.cancelado ? ' <span style="font-size:9px;color:var(--tx-d)">(' + it.cancelado + ' cancel.)</span>' : '') + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700">' + iBase + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a9e4a">' + it.entregado + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700;color:' + (it.pendiente > 0 ? '#d63031' : 'var(--tx-d)') + '">' +
+            (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente) + '</td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+  } else if (p.items && p.items.length) {
+    // Fallback: pedido aún sin filas en Pedidos_resellers → mostrar snapshot (cantidad pedida)
+    html += '<div style="font-size:10px;color:var(--tx-d);margin:8px 0 4px"><i class="fa fa-hourglass-half"></i> Aún sin datos de entrega — se muestra lo pedido.</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px">' +
       '<thead><tr style="background:var(--panel)">' +
         '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">SKU</th>' +
         '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">Descripción</th>' +
         '<th style="padding:6px 10px;text-align:center;color:var(--tx-d);font-weight:600">Cant.</th>' +
         '<th style="padding:6px 10px;text-align:right;color:var(--tx-d);font-weight:600">Precio</th>' +
       '</tr></thead><tbody>';
-    for (var k = 0; k < p.items.length; k++) {
-      var it  = p.items[k];
-      var alt = k % 2 === 0 ? '#fff' : 'var(--panel)';
+    for (var m = 0; m < p.items.length; m++) {
+      var itm = p.items[m];
+      var altm = m % 2 === 0 ? '#fff' : 'var(--panel)';
       html +=
-        '<tr style="background:' + alt + '">' +
-          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
-          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(it.descripcion || '') + '</td>' +
-          '<td style="padding:6px 10px;text-align:center;font-weight:700">' + (it.cantidad || 1) + '</td>' +
-          '<td style="padding:6px 10px;text-align:right;color:var(--tx-m)">' + (it.precio > 0 ? _fmtPedUsd(it.precio) : '—') + '</td>' +
+        '<tr style="background:' + altm + '">' +
+          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(itm.sku || '—') + '</td>' +
+          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(itm.descripcion || '') + '</td>' +
+          '<td style="padding:6px 10px;text-align:center;font-weight:700">' + (itm.cantidad || 1) + '</td>' +
+          '<td style="padding:6px 10px;text-align:right;color:var(--tx-m)">' + (itm.precio > 0 ? _fmtPedUsd(itm.precio) : '—') + '</td>' +
         '</tr>';
     }
     html += '</tbody></table>';
   }
+
   if (p.formaPago || p.envio) {
     html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:var(--tx-m)">' +
       (p.formaPago ? '<span><strong>Pago:</strong> ' + _escHtml(p.formaPago) + '</span>' : '') +

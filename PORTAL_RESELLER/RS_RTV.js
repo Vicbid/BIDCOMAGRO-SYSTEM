@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
 // ============================================================
@@ -32,6 +32,75 @@ function obtenerDatosRTV() {
   }
 }
 
+// Lee Pedidos_resellers (Notas de Entrega — fuente de verdad de lo despachado) y arma
+// un mapa numero → cumplimiento en CANTIDADES (unidades), con detalle por SKU.
+// Columnas de Pedidos_resellers: 0=NUMERO, 2=SKU, 3=DESC, 4=SOLICITADA(E), 5=DESPACHADA(F),
+// 7=PRECIO(H), 25=CANCELADA(Z). WOS actualiza col F al despachar y col Z al cancelar.
+function _mapaCumplimientoPedidos() {
+  var mapa = {};
+  try {
+    var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+    var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
+    if (!wosHoja) return mapa;
+    var d = wosHoja.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var num = String(d[i][0] || '').trim();
+      if (!num) continue;
+      var sku  = String(d[i][2] || '').trim();
+      var desc = String(d[i][3] || '').trim();
+      var sol  = Number(d[i][4])  || 0;
+      var des  = Number(d[i][5])  || 0;
+      var pre  = Number(d[i][7])  || 0;
+      var can  = Number(d[i][25]) || 0;
+      if (!mapa[num]) mapa[num] = { solicitado: 0, entregado: 0, cancelado: 0, items: {}, orden: [] };
+      var reg = mapa[num];
+      reg.solicitado += sol;
+      reg.entregado  += des;
+      reg.cancelado  += can;
+      var key = sku.toUpperCase() || ('__' + desc);
+      if (!reg.items[key]) { reg.items[key] = { sku: sku, descripcion: desc, precio: pre, solicitado: 0, entregado: 0, cancelado: 0 }; reg.orden.push(key); }
+      var it = reg.items[key];
+      it.solicitado += sol;
+      it.entregado  += des;
+      it.cancelado  += can;
+      if (!it.precio && pre) it.precio = pre;
+    }
+  } catch(e) { Logger.log('_mapaCumplimientoPedidos: ' + e); }
+  return mapa;
+}
+
+// Convierte un registro del mapa en el resumen listo para el front:
+// entregado / pendiente / cancelado / porcentaje de cumplimiento + detalle por ítem.
+// % = entregado / (solicitado - cancelado); lo cancelado no cuenta como "a entregar".
+function _resumenCumplimiento(reg) {
+  var solicitado = reg ? reg.solicitado : 0;
+  var entregado  = reg ? reg.entregado  : 0;
+  var cancelado  = reg ? reg.cancelado  : 0;
+  var base       = solicitado - cancelado;
+  var pendiente  = base - entregado; if (pendiente < 0) pendiente = 0;
+  var porcentaje;
+  if (base <= 0) porcentaje = (entregado > 0 ? 100 : 0);
+  else           porcentaje = Math.round(entregado / base * 100);
+  if (porcentaje > 100) porcentaje = 100;
+  if (porcentaje < 0)   porcentaje = 0;
+  var items = [];
+  if (reg && reg.orden) {
+    for (var i = 0; i < reg.orden.length; i++) {
+      var it    = reg.items[reg.orden[i]];
+      var iBase = it.solicitado - it.cancelado;
+      var iPend = iBase - it.entregado; if (iPend < 0) iPend = 0;
+      items.push({
+        sku: it.sku, descripcion: it.descripcion, precio: it.precio,
+        solicitado: it.solicitado, entregado: it.entregado, cancelado: it.cancelado, pendiente: iPend
+      });
+    }
+  }
+  return {
+    solicitado: solicitado, entregado: entregado, cancelado: cancelado,
+    pendiente: pendiente, porcentaje: porcentaje, tieneDatos: !!(reg && solicitado > 0), items: items
+  };
+}
+
 // Retorna los pedidos de los resellers asignados al RTV llamante.
 // La verificación se hace server-side: no se acepta la lista del cliente,
 // se re-calcula desde el email de la sesión activa.
@@ -53,6 +122,8 @@ function obtenerPedidosRTV() {
     }
     if (!Object.keys(autorizado).length) return { ok: false, error: 'Sin resellers asignados', pedidos: [] };
 
+    var cumpl = _mapaCumplimientoPedidos();  // numero → entregado/pendiente/% (fuente: Pedidos_resellers)
+
     var dPed  = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
     var pedidos = [];
@@ -66,12 +137,14 @@ function obtenerPedidosRTV() {
         ? Utilities.formatDate(fecha, 'GMT-3', 'dd/MM/yyyy HH:mm')
         : String(fecha || '');
 
+      var id = String(dPed[j][P.ID] || '').trim();
+
       var itemsJson = String(dPed[j][P.ITEMS_JSON] || '[]');
       var items = [];
       try { items = JSON.parse(itemsJson); } catch(e) {}
 
       pedidos.push({
-        id:        String(dPed[j][P.ID]           || ''),
+        id:        id,
         fecha:     fechaStr,
         reseller:  reseller,
         cantItems: Number(dPed[j][P.CANT_ITEMS]   || 0),
@@ -81,7 +154,8 @@ function obtenerPedidosRTV() {
         pdfUrl:    String(dPed[j][P.PDF_URL]       || ''),
         formaPago: String(dPed[j][P.FORMA_PAGO]    || ''),
         envio:     String(dPed[j][P.ENVIO]         || ''),
-        items:     items
+        items:     items,
+        cumplimiento: _resumenCumplimiento(cumpl[id])
       });
 
       if (pedidos.length >= 200) break;
