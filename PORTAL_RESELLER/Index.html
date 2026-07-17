@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.39 -->
+<!-- @version 1.40 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4422,6 +4422,11 @@ var _pedBusTimer      = null;
 var _pedBusSeq        = 0;      // anti-race: descarta respuestas de búsquedas viejas
 var _pedIndice        = null;   // null=cargando · array=listo (búsqueda local instantánea)
 var _pedKits          = {};     // { KITSKU: [{sku, cantidadPorKit}] } — explota C → A + B en el carrito
+var _pedDtoPct        = 40;     // % de descuento del reseller actual (lo trae obtenerIndiceRepuestosPortal; default 40)
+// factor = precio que paga / precio de lista (0.60 para 40% dto). Revierte a PVP y decide si mostrar el descuento.
+function _pedFactor()        { return (100 - _pedDtoPct) / 100; }
+function _pedTieneDto()      { return _pedDtoPct > 0; }
+function _pedPvpDesde(precio){ var f = _pedFactor(); return (precio > 0 && f > 0) ? Math.round(precio / f * 100) / 100 : precio; }
 var _pedDemandaTimer  = null;   // timer para loguear búsquedas sin resultado
 var _pedEstMap        = { D:'disponible', B:'backorder', R:'consultar_Backorder' };
 var _pedHistorialItems= {};     // id → itemsJson, para "Repetir pedido"
@@ -4443,7 +4448,7 @@ function pedirPinPedidos() {
 // ══════════════════════════════════════════
 //  COTIZADOR DE PRESUPUESTOS (cliente final)
 //  Reutiliza el índice de repuestos (_pedIndice/_pedBuscarLocal).
-//  Precio base = PVP de lista = precio40 / 0.60. Descuento por ítem (25% inicial).
+//  Precio base = PVP de lista = precio del índice / factor del reseller (_pedPvpDesde). Descuento por ítem (25% inicial).
 // ══════════════════════════════════════════
 var _cotCart      = [];
 var _cotMO        = [];   // líneas de mano de obra
@@ -4515,8 +4520,9 @@ function _cotAgregarMOManual() {
 function _cotMOQuitar(i)      { _cotMO.splice(i, 1); _cotRenderCart(); }
 function _cotMOSetPrecio(i, v) { var p = parseFloat(String(v).replace(',', '.')); if (isNaN(p) || p < 0) p = 0; _cotMO[i].precio = p; _cotRenderCart(); }
 
+// El índice trae el precio con el dto del reseller; revertir al PVP de lista usa el mismo factor.
 function _cotBaseDesde40(precio40) {
-  return precio40 > 0 ? Math.round(precio40 / 0.60 * 100) / 100 : 0;
+  return _pedPvpDesde(precio40);
 }
 
 function _cotBuscar(immediate) {
@@ -4535,7 +4541,7 @@ function _cotBuscar(immediate) {
   _cotBusTimer = setTimeout(function() {
     google.script.run.withSuccessHandler(function(r) {
       _cotRenderResultados((r && r.ok && r.items) ? r.items : []);
-    }).buscarRepuestoConStockPortal(q);
+    }).buscarRepuestoConStockPortal(q, resellerActual);
   }, immediate ? 0 : 250);
 }
 
@@ -5265,7 +5271,7 @@ function _pedBuscar(immediate) {
         if (seq !== _pedBusSeq) return;
         _pedRenderResultados(r);
       })
-      .buscarRepuestoConStockPortal(q);
+      .buscarRepuestoConStockPortal(q, resellerActual);
   }, delay);
 }
 
@@ -5276,6 +5282,7 @@ function _pedCargarIndice() {
   google.script.run
     .withSuccessHandler(function(r) {
       _pedIndice = (r && r.ok && r.items) ? r.items : [];
+      if (r && typeof r.descuentoPct === 'number') _pedDtoPct = r.descuentoPct;
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
@@ -5284,7 +5291,7 @@ function _pedCargarIndice() {
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
-    .obtenerIndiceRepuestosPortal();
+    .obtenerIndiceRepuestosPortal(resellerActual);
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
   google.script.run
     .withSuccessHandler(function(r) { _pedKits = (r && r.ok && r.kits) ? r.kits : {}; })
@@ -5338,7 +5345,7 @@ function _pedRenderResultados(r) {
     var descE = _escHtml(it.descripcion);
     var modE  = _escHtml(it.modelos || '');
     // data-attributes evitan problemas con comillas/caracteres especiales en onclick
-    var pvpDisp    = it.precio > 0 ? Math.round(it.precio / 0.60 * 100) / 100 : 0;
+    var pvpDisp    = _pedPvpDesde(it.precio);
     var stkActual  = (it.stockActual !== null && it.stockActual !== undefined) ? it.stockActual : -1;
     var remplzE    = _escHtml(it.reemplazadoPor || '');
     html +=
@@ -5351,10 +5358,10 @@ function _pedRenderResultados(r) {
           (_pedKits[it.sku.toUpperCase()] ? '<div style="font-size:10px;color:#5c5fc0;font-weight:600;margin-top:2px"><i class="fa fa-boxes-stacked"></i> Se pedirá como ' + _escHtml(_pedKits[it.sku.toUpperCase()].map(function(c){return c.sku;}).join(' + ')) + '</div>' : '') +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
-          (pvpDisp > 0 ?
+          (it.precio > 0 ?
             '<div style="text-align:right;line-height:1.2">' +
-              '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(pvpDisp) + '</div>' +
-              '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">-40% ' + _fmtPedUsd(it.precio) + '</div>' +
+              (_pedTieneDto() ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(pvpDisp) + '</div>' : '') +
+              '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">' + (_pedTieneDto() ? '-' + _pedDtoPct + '% ' : '') + _fmtPedUsd(it.precio) + '</div>' +
             '</div>'
           : '') +
           '<span class="rep-add-btn"><i class="fa fa-plus"></i></span>' +
@@ -5584,7 +5591,7 @@ function _pedRenderCarrito() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;line-height:1.2">' +
           (p > 0 ?
-            '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(Math.round(p/0.60*100)/100) + '</div>' +
+            (_pedTieneDto() ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(_pedPvpDesde(p)) + '</div>' : '') +
             '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">' + _fmtPedUsd(p) + '</div>'
           : '—') +
         '</div>' +
@@ -5602,12 +5609,14 @@ function _pedRenderCarrito() {
   if (total > 0) {
     html +=
       '<div style="padding:10px 13px;background:var(--surf);display:flex;flex-direction:column;align-items:flex-end;gap:3px">' +
+        (_pedTieneDto() ?
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">PVP estimado:</span>' +
+            '<span style="font-size:12px;color:var(--tx-d);text-decoration:line-through;font-weight:600">' + _fmtPedUsd(_pedPvpDesde(total)) + '</span>' +
+          '</div>'
+        : '') +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="font-size:10px;color:var(--tx-d)">PVP estimado:</span>' +
-          '<span style="font-size:12px;color:var(--tx-d);text-decoration:line-through;font-weight:600">' + _fmtPedUsd(Math.round(total/0.60*100)/100) + '</span>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="font-size:11px;color:var(--tx-m)">Tu precio <span style="font-size:10px;font-weight:700;color:var(--green)">(-40%)</span>:</span>' +
+          '<span style="font-size:11px;color:var(--tx-m)">Tu precio ' + (_pedTieneDto() ? '<span style="font-size:10px;font-weight:700;color:var(--green)">(-' + _pedDtoPct + '%)</span> ' : '') + ':</span>' +
           '<span style="font-size:16px;font-weight:800;color:var(--blue)">' + _fmtPedUsd(total) + '</span>' +
         '</div>' +
         '<div style="font-size:9px;color:var(--tx-d);margin-top:2px">Precios expresados no incluyen impuestos</div>' +
@@ -5792,9 +5801,9 @@ function _pedRenderRevision() {
       var entry = g.items[j];
       var it2   = entry.it;
       var exc2  = entry.exc;
-      var pvp2   = it2.precio > 0 ? Math.round(it2.precio / 0.60 * 100) / 100 : 0;
+      var pvp2   = _pedPvpDesde(it2.precio);
       var sub    = it2.precio > 0 ? _fmtPedUsd(it2.precio * it2.cantidad) : '—';
-      var subPvp = pvp2 > 0 ? _fmtPedUsd(pvp2 * it2.cantidad) : '';
+      var subPvp = (_pedTieneDto() && pvp2 > 0) ? _fmtPedUsd(pvp2 * it2.cantidad) : '';
       html +=
         '<div style="display:flex;align-items:center;padding:9px 14px;gap:8px;font-size:12px;border-bottom:1px solid var(--brd);' + (exc2 ? 'opacity:.38;text-decoration:line-through' : '') + '">' +
           '<div style="flex:0 0 130px;font-family:monospace;font-size:11px;font-weight:700;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(it2.sku || '—') + '</div>' +

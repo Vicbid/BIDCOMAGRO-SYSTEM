@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 
@@ -107,7 +107,9 @@ var SCHEMA = {
     EMAIL_RTV: 13,
     GRUPO: 14,      // Col O — nombre del grupo (igual para todas las sucursales del mismo dueño)
     PIN_GRUPO: 15,  // Col P — PIN del grupo (mismo valor en todas las filas del grupo)
-    ACTIVO: 16      // Col Q — estado de la cuenta: vacío = activo; "NO"/"BAJA"/"INACTIVO"/"FALSE"/"0" = desactivado
+    ACTIVO: 16,     // Col Q — estado de la cuenta: vacío = activo; "NO"/"BAJA"/"INACTIVO"/"FALSE"/"0" = desactivado
+    DESCUENTO: 17   // Col R — % de descuento sobre precio de lista (vacío = 40%, histórico). 0 = sin descuento.
+                    // Se localiza por encabezado "Descuento"/"Dto" si existe; este índice es el fallback.
   },
   MOVIMIENTOS_STOCK: {
     FECHA:            0,

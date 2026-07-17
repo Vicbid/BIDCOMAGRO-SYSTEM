@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.0
+// @version 2.1
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -138,10 +138,13 @@ function _siguienteNumeroPedido() {
 }
 
 // ── Búsqueda con estado de stock ──────────────────────────────
-function buscarRepuestoConStockPortal(query) {
+function buscarRepuestoConStockPortal(query, reseller) {
   try {
     var q = _normText(String(query || '').trim());
     if (q.length < 2) return { ok: true, items: [] };
+
+    var _descInfo = _resellerDescuentoInfo(reseller);
+    var _factor   = _descInfo.factor;
 
     var stockMap = {};
     var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
@@ -151,7 +154,7 @@ function buscarRepuestoConStockPortal(query) {
       if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
     }
 
-    var priceMap = _buildPriceMap();
+    var priceMap = _buildPriceMap(_factor);
 
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
@@ -220,7 +223,7 @@ function buscarRepuestoConStockPortal(query) {
             descripcionEs:  '',
             modelos:        String(accRows2[ai2][2] || '').trim(),
             estado:         aEst2,
-            precio:         Math.round((Number(accRows2[ai2][3]) || 0) * 0.60 * 100) / 100,
+            precio:         Math.round((Number(accRows2[ai2][3]) || 0) * _factor * 100) / 100,
             stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
             reemplazadoPor: '',
             _score:         aScore2
@@ -291,7 +294,9 @@ function _buildBinMap(skusArray) {
   return binMap;
 }
 
-function _buildPriceMap() {
+// factor = precio que paga el reseller / precio de lista (0.60 = 40% dto). Default 0.60 (histórico).
+function _buildPriceMap(factor) {
+  var f = (typeof factor === 'number' && !isNaN(factor) && factor > 0) ? factor : 0.60;
   var map = {};
   try {
     var dLista = getSheetValues(SCHEMA.SHEETS.LISTA_REPUESTOS);
@@ -299,10 +304,50 @@ function _buildPriceMap() {
     for (var p = 1; p < dLista.length; p++) {
       var pCod = String(dLista[p][L.CODIGO] || '').trim().toUpperCase();
       var pVal = Number(dLista[p][L.PRECIO]) || 0;
-      if (pCod && pVal > 0) map[pCod] = Math.round(pVal * 0.60 * 100) / 100; // 40% dto reseller
+      if (pCod && pVal > 0) map[pCod] = Math.round(pVal * f * 100) / 100; // precio reseller (dto por reseller)
     }
   } catch(e) { Logger.log('_buildPriceMap: ' + e); }
   return map;
+}
+
+// ── Descuento por reseller ────────────────────────────────────────────────
+// Devuelve { pct, factor } para un reseller. pct = % de descuento sobre lista.
+// Fuente: columna de la hoja Resellers localizada por encabezado ("descuento"/"dto");
+// si no existe el encabezado, usa el índice fijo SCHEMA.RESELLERS.DESCUENTO.
+// Celda vacía, reseller no encontrado o valor inválido → 40% (comportamiento histórico).
+// factor = (100 - pct) / 100  (0.60 para 40%, 1.0 para 0%).
+function _resellerDescuentoInfo(nombreReseller) {
+  var DEFAULT_PCT = 40;
+  var pct = DEFAULT_PCT;
+  try {
+    var nombre = String(nombreReseller || '').trim().toLowerCase();
+    if (nombre) {
+      var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+      if (datos && datos.length >= 2) {
+        var colDesc = -1;
+        var header = datos[0];
+        for (var j = 0; j < header.length; j++) {
+          var h = _normText(header[j]);
+          if (h.indexOf('descuento') !== -1 || h.indexOf('dto') !== -1) { colDesc = j; break; }
+        }
+        if (colDesc === -1) colDesc = SCHEMA.RESELLERS.DESCUENTO;
+        for (var i = 1; i < datos.length; i++) {
+          if (String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() !== nombre) continue;
+          var raw = datos[i][colDesc];
+          var s = String(raw === null || raw === undefined ? '' : raw).trim().replace('%', '').replace(',', '.');
+          if (s !== '') {
+            var n = Number(s);
+            if (!isNaN(n)) pct = n;
+          }
+          break;
+        }
+      }
+    }
+  } catch(e) { Logger.log('_resellerDescuentoInfo: ' + e); }
+  if (isNaN(pct)) pct = DEFAULT_PCT;
+  if (pct < 0)   pct = 0;
+  if (pct > 100) pct = 100;
+  return { pct: pct, factor: (100 - pct) / 100 };
 }
 
 // ── Verificación en batch para importación Excel ──────────────
@@ -514,8 +559,9 @@ function confirmarPedidoPortal(params) {
     // ── A0b. Explosión de kits (ej: C → A + B, misma cantidad) ────
     items = _explotarKits(items);
 
-    // ── A. Precio enforcement desde Lista_Repuestos ───────────────
-    var priceMap = _buildPriceMap();
+    // ── A. Precio enforcement desde Lista_Repuestos (con dto del reseller) ─
+    var descInfo = _resellerDescuentoInfo(reseller);
+    var priceMap = _buildPriceMap(descInfo.factor);
     var total = 0;
     for (var pi = 0; pi < items.length; pi++) {
       var itPi   = items[pi];
@@ -618,7 +664,7 @@ function confirmarPedidoPortal(params) {
     if (sinCatalogo.length) invalidateSheetValues(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
 
     // ── D. PDF ────────────────────────────────────────────────────
-    var pdfUrl = _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio);
+    var pdfUrl = _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio, descInfo);
 
     // ── E. Registrar en PEDIDOS_REPUESTOS (estado='Recibido') ─────
     var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
@@ -643,7 +689,7 @@ function confirmarPedidoPortal(params) {
     }
 
     // ── F. Email a logística ──────────────────────────────────────
-    var threadId = _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago);
+    var threadId = _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago, descInfo);
 
     // ── G. Guardar Thread_ID (string crudo) en columna R ─────────
     // WOS_GmailFlow.js lo lee con COL.THREAD_ID para reply en hilo.
@@ -993,8 +1039,11 @@ function _diasHabilesEntre(desde, hasta) {
 // Formato: [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs]
 // statusCode: D=disponible, B=backorder, R=consultar_Backorder
 // indices 8-10: strings pre-normalizados para búsqueda sin llamar _normText en cada keystroke
-function obtenerIndiceRepuestosPortal() {
+function obtenerIndiceRepuestosPortal(reseller) {
   try {
+    var _descInfo = _resellerDescuentoInfo(reseller);
+    var _factor   = _descInfo.factor;
+
     var stockMap = {};
     var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
     var S = SCHEMA.STOCK_INVENTARIO;
@@ -1002,7 +1051,7 @@ function obtenerIndiceRepuestosPortal() {
       var cod = String(dStock[s][S.CODIGO] || '').trim().toUpperCase();
       if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
     }
-    var priceMap = _buildPriceMap();
+    var priceMap = _buildPriceMap(_factor);
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
     var items = [];
@@ -1037,7 +1086,7 @@ function obtenerIndiceRepuestosPortal() {
           if (!aSku && !aDesc) continue;
           var aSkuUp = aSku.toUpperCase();
           var aMod   = String(accRows[ai][2] || '').trim();
-          var aPvp   = Math.round((Number(accRows[ai][3]) || 0) * 0.60 * 100) / 100;
+          var aPvp   = Math.round((Number(accRows[ai][3]) || 0) * _factor * 100) / 100;
           var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
           items.push([
             aSku, aDesc, aMod, aE,
@@ -1050,7 +1099,7 @@ function obtenerIndiceRepuestosPortal() {
       }
     } catch(eAcc) { Logger.log('obtenerIndiceRepuestosPortal ACCESORIOS: ' + eAcc); }
 
-    return { ok: true, items: items };
+    return { ok: true, items: items, descuentoPct: _descInfo.pct };
   } catch(ex) {
     Logger.log('obtenerIndiceRepuestosPortal: ' + ex);
     return { ok: false, items: [] };
@@ -1265,11 +1314,15 @@ function registrarDemandaPerdidaPortal(sku, cantidad, resellerName, accion) {
 }
 
 // ── Genera PDF del pedido via SpreadsheetApp → DriveApp.getAs ─────
-function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio) {
+function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio, descInfo) {
   var tempSs = null;
   try {
     var meta     = resellerMeta || { nombre: String(reseller || ''), direccion: '', telefono: '' };
     var fechaStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+    // Descuento aplicado (para revertir a PVP de lista y rotular). Default 40% / 0.60.
+    var _dPct    = (descInfo && typeof descInfo.pct    === 'number') ? descInfo.pct    : 40;
+    var _dFactor = (descInfo && typeof descInfo.factor === 'number' && descInfo.factor > 0) ? descInfo.factor : 0.60;
+    var _dLabel  = _dPct > 0 ? ('precio reseller \xb7 ' + _dPct + '% dto.') : 'precio reseller \xb7 sin descuento';
 
     // Stock en tiempo real de Carmen
     var _pdfStockMap = {};
@@ -1377,7 +1430,7 @@ function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, fo
       } else {
         estadoLabel = 'Backorder';
       }
-      var pvp    = p > 0 ? Math.round(p / 0.60 * 100) / 100 : 0;
+      var pvp    = (p > 0 && _dFactor > 0) ? Math.round(p / _dFactor * 100) / 100 : p;
       var rowVals = [
         it.sku         || '—',
         it.descripcion || '—',
@@ -1400,7 +1453,7 @@ function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, fo
     // 4. FILA TOTAL
     // ──────────────────────────────────────────────────────────────
     if (total > 0) {
-      sheet.getRange(ri, 1, 1, 5).merge().setValue('TOTAL ESTIMADO (precio reseller \xb7 40% dto. \xb7 no incluye impuestos)')
+      sheet.getRange(ri, 1, 1, 5).merge().setValue('TOTAL ESTIMADO (' + _dLabel + ' \xb7 no incluye impuestos)')
         .setFontSize(9).setFontWeight('bold').setFontColor('#5e6778')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
       sheet.getRange(ri, 6, 1, 2).merge().setValue(_fmtUsd(total))
@@ -1504,7 +1557,9 @@ function _buscarThreadIdEnLogs(numero) {
 }
 
 // ── Email interno con GmailThread — responde en hilo si ya existe ─
-function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago) {
+function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago, descInfo) {
+  var _dPct    = (descInfo && typeof descInfo.pct === 'number') ? descInfo.pct : 40;
+  var _dTotLbl = _dPct > 0 ? ('precio reseller c/' + _dPct + '% dto.') : 'precio reseller (sin descuento)';
   // Declarados fuera del try para que el log final siempre pueda escribirlos
   var asunto      = '[PEDIDO] ' + numero + ' — ' + reseller + ' — ' + items.length + ' ítem(s)';
   var estadoLog   = 'PENDING';
@@ -1605,7 +1660,7 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
 
     var totalBloque = (total && total > 0)
       ? "<div style='text-align:right;margin-top:10px'>" +
-          "<span style='font-size:13px;color:#444'>Total estimado (precio reseller c/40% dto.): </span>" +
+          "<span style='font-size:13px;color:#444'>Total estimado (" + _dTotLbl + "): </span>" +
           "<strong style='font-size:15px;color:#00a3e0'>" + _fmtUsd(total) + "</strong>" +
           "<div style='font-size:10px;color:#999;margin-top:3px'>Precios expresados no incluyen impuestos</div>" +
         "</div>"
