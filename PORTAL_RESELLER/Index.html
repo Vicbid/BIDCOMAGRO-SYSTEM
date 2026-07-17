@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.42 -->
+<!-- @version 1.43 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6053,10 +6053,11 @@ function _rtvRenderPedidos(pedidos) {
 // Resumen general (arriba de la lista): cumplimiento ponderado por unidades + conteo de estados.
 // Recalcula sobre la lista visible → respeta el filtro por reseller.
 function _rtvResumenHTML(pedidos) {
-  var totEnt = 0, totBase = 0, comp = 0, parc = 0, pend = 0, sinD = 0;
+  var totEnt = 0, totBase = 0, comp = 0, parc = 0, pend = 0, canc = 0, sinD = 0;
   for (var i = 0; i < pedidos.length; i++) {
     var c = pedidos[i].cumplimiento;
     if (!c || !c.tieneDatos) { sinD++; continue; }
+    if (c.anulado)           { canc++; continue; }  // cancelado no cuenta como pendiente ni en el %
     var base = c.solicitado - c.cancelado;
     totEnt  += c.entregado;
     totBase += base;
@@ -6081,6 +6082,7 @@ function _rtvResumenHTML(pedidos) {
           _rtvChip(comp, 'completos', '#1a9e4a') +
           _rtvChip(parc, 'parciales', '#e67e22') +
           _rtvChip(pend, 'pendientes', '#d63031') +
+          (canc ? _rtvChip(canc, 'cancelados', 'var(--tx-d)') : '') +
           (sinD ? _rtvChip(sinD, 'sin datos', 'var(--tx-d)') : '') +
         '</div>' +
       '</div>' +
@@ -6096,6 +6098,7 @@ function _rtvChip(num, label, color) {
 // Barra compacta de cumplimiento (entregado/solicitado) para el encabezado del pedido.
 function _rtvCumplBar(c) {
   if (!c || !c.tieneDatos) return '<span style="font-size:10px;color:var(--tx-d);white-space:nowrap">sin datos de entrega</span>';
+  if (c.anulado) return '<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:rgba(214,48,49,.1);color:#d63031;white-space:nowrap"><i class="fa fa-ban" style="margin-right:3px"></i>Cancelado</span>';
   var pct  = c.porcentaje;
   var col  = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
   var base = c.solicitado - c.cancelado;
@@ -6127,19 +6130,25 @@ function _rtvDetalleHTML(p) {
   if (c && c.tieneDatos && c.items && c.items.length) {
     // ── Resumen de cumplimiento del pedido ──
     var base = c.solicitado - c.cancelado;
-    var col  = c.porcentaje >= 100 ? '#1a9e4a' : (c.porcentaje > 0 ? '#e67e22' : '#d63031');
-    html += '<div style="margin:10px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-        '<div style="flex:1;min-width:140px;height:9px;background:var(--brd);border-radius:5px;overflow:hidden">' +
-          '<div style="width:' + c.porcentaje + '%;height:100%;background:' + col + '"></div>' +
-        '</div>' +
-        '<span style="font-size:12px;font-weight:800;color:' + col + ';white-space:nowrap">' + c.porcentaje + '% cumplido</span>' +
+    if (c.anulado) {
+      html += '<div style="margin:10px 0;padding:9px 13px;background:rgba(214,48,49,.08);border-left:4px solid #d63031;border-radius:var(--r);font-size:12px;color:#d63031;font-weight:700">' +
+        '<i class="fa fa-ban" style="margin-right:6px"></i>Pedido cancelado — ' + c.cancelado + ' u. canceladas, 0 entregadas' +
       '</div>';
-    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin:2px 0 10px;color:var(--tx-m)">' +
-        '<span><strong style="color:#1a9e4a">' + c.entregado + '</strong> entregado</span>' +
-        '<span><strong style="color:' + (c.pendiente > 0 ? '#d63031' : 'var(--tx-m)') + '">' + c.pendiente + '</strong> pendiente</span>' +
-        (c.cancelado ? '<span><strong style="color:var(--tx-d)">' + c.cancelado + '</strong> cancelado</span>' : '') +
-        '<span style="color:var(--tx-d)">de ' + base + ' u. a entregar</span>' +
-      '</div>';
+    } else {
+      var col = c.porcentaje >= 100 ? '#1a9e4a' : (c.porcentaje > 0 ? '#e67e22' : '#d63031');
+      html += '<div style="margin:10px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+          '<div style="flex:1;min-width:140px;height:9px;background:var(--brd);border-radius:5px;overflow:hidden">' +
+            '<div style="width:' + c.porcentaje + '%;height:100%;background:' + col + '"></div>' +
+          '</div>' +
+          '<span style="font-size:12px;font-weight:800;color:' + col + ';white-space:nowrap">' + c.porcentaje + '% cumplido</span>' +
+        '</div>';
+      html += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin:2px 0 10px;color:var(--tx-m)">' +
+          '<span><strong style="color:#1a9e4a">' + c.entregado + '</strong> entregado</span>' +
+          '<span><strong style="color:' + (c.pendiente > 0 ? '#d63031' : 'var(--tx-m)') + '">' + c.pendiente + '</strong> pendiente</span>' +
+          (c.cancelado ? '<span><strong style="color:var(--tx-d)">' + c.cancelado + '</strong> cancelado</span>' : '') +
+          '<span style="color:var(--tx-d)">de ' + base + ' u. a entregar</span>' +
+        '</div>';
+    }
     // ── Detalle por ítem: pedido / entregado / pendiente ──
     html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px">' +
       '<thead><tr style="background:var(--panel)">' +
@@ -6153,16 +6162,17 @@ function _rtvDetalleHTML(p) {
       var it   = c.items[k];
       var alt  = k % 2 === 0 ? '#fff' : 'var(--panel)';
       var iBase = it.solicitado - it.cancelado;
+      var anuladoItem = it.cancelado > 0 && iBase <= 0;   // ítem totalmente cancelado
       var completo = it.pendiente <= 0 && iBase > 0;
       html +=
         '<tr style="background:' + alt + '">' +
           '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
           '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(it.descripcion || '') +
             (it.cancelado ? ' <span style="font-size:9px;color:var(--tx-d)">(' + it.cancelado + ' cancel.)</span>' : '') + '</td>' +
-          '<td style="padding:6px 8px;text-align:center;font-weight:700">' + iBase + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700">' + (anuladoItem ? '—' : iBase) + '</td>' +
           '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a9e4a">' + it.entregado + '</td>' +
           '<td style="padding:6px 8px;text-align:center;font-weight:700;color:' + (it.pendiente > 0 ? '#d63031' : 'var(--tx-d)') + '">' +
-            (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente) + '</td>' +
+            (anuladoItem ? '<span style="color:#d63031;font-size:10px">Cancelado</span>' : (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente)) + '</td>' +
         '</tr>';
     }
     html += '</tbody></table>';

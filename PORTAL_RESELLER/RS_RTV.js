@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
 // ============================================================
@@ -35,7 +35,9 @@ function obtenerDatosRTV() {
 // Lee Pedidos_resellers (Notas de Entrega — fuente de verdad de lo despachado) y arma
 // un mapa numero → cumplimiento en CANTIDADES (unidades), con detalle por SKU.
 // Columnas de Pedidos_resellers: 0=NUMERO, 2=SKU, 3=DESC, 4=SOLICITADA(E), 5=DESPACHADA(F),
-// 7=PRECIO(H), 25=CANCELADA(Z). WOS actualiza col F al despachar y col Z al cancelar.
+// 7=PRECIO(H), 9=ESTADO(J), 25=CANCELADA(Z). WOS actualiza col F al despachar y col Z al cancelar.
+// Cancelación (mismo criterio que WOS): fuente primaria = CANT_CANCEL (col Z); fallback datos
+// viejos = línea con estado "Cancelado" sin CANT_CANCEL → se cancela toda la cantidad solicitada.
 function _mapaCumplimientoPedidos() {
   var mapa = {};
   try {
@@ -51,7 +53,9 @@ function _mapaCumplimientoPedidos() {
       var sol  = Number(d[i][4])  || 0;
       var des  = Number(d[i][5])  || 0;
       var pre  = Number(d[i][7])  || 0;
+      var est  = String(d[i][9] || '').trim().toLowerCase();
       var can  = Number(d[i][25]) || 0;
+      if (can <= 0 && est === 'cancelado') can = sol;  // dato viejo: estado cancelado sin CANT_CANCEL
       if (!mapa[num]) mapa[num] = { solicitado: 0, entregado: 0, cancelado: 0, items: {}, orden: [] };
       var reg = mapa[num];
       reg.solicitado += sol;
@@ -78,6 +82,8 @@ function _resumenCumplimiento(reg) {
   var cancelado  = reg ? reg.cancelado  : 0;
   var base       = solicitado - cancelado;
   var pendiente  = base - entregado; if (pendiente < 0) pendiente = 0;
+  // Pedido totalmente cancelado (todos los ítems anulados) → no es "0% pendiente", es "Cancelado".
+  var anulado    = (solicitado > 0 && base <= 0 && cancelado > 0);
   var porcentaje;
   if (base <= 0) porcentaje = (entregado > 0 ? 100 : 0);
   else           porcentaje = Math.round(entregado / base * 100);
@@ -97,7 +103,8 @@ function _resumenCumplimiento(reg) {
   }
   return {
     solicitado: solicitado, entregado: entregado, cancelado: cancelado,
-    pendiente: pendiente, porcentaje: porcentaje, tieneDatos: !!(reg && solicitado > 0), items: items
+    pendiente: pendiente, porcentaje: porcentaje, anulado: anulado,
+    tieneDatos: !!(reg && solicitado > 0), items: items
   };
 }
 
