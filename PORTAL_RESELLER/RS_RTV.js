@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
 // ============================================================
@@ -43,7 +43,18 @@ function obtenerDatosRTV() {
     if (!resellers.length) return { ok: false };
     resellers.sort();
 
-    return { ok: true, email: email, resellers: resellers, esSuper: _esRTVSuper(emailLow) };
+    // Mapa reseller → email de su RTV (solo los autorizados). El super lo usa para
+    // filtrar por RTV en el front; para un RTV normal apunta todo a su propio email.
+    var datosR = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+    var RS2    = SCHEMA.RESELLERS;
+    var resellerRtv = {};
+    for (var r = 1; r < datosR.length; r++) {
+      var nom = String(datosR[r][RS2.NOMBRE] || '').trim();
+      if (!nom || !mapa[nom.toLowerCase()]) continue;
+      resellerRtv[nom] = String(datosR[r][RS2.EMAIL_RTV] || '').trim().toLowerCase();
+    }
+
+    return { ok: true, email: email, resellers: resellers, esSuper: _esRTVSuper(emailLow), resellerRtv: resellerRtv };
   } catch(e) {
     Logger.log('obtenerDatosRTV: ' + e);
     return { ok: false };

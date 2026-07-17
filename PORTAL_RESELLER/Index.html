@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.45 -->
+<!-- @version 1.46 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2032,6 +2032,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
     <div class="dji-card" style="margin-bottom:12px;padding:12px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="rtv-filtro-rtv" style="display:none;align-items:center;gap:10px">
+          <label style="font-size:12px;color:#7c3aed;white-space:nowrap;font-weight:700"><i class="fa fa-user-shield" style="margin-right:4px"></i>RTV:</label>
+          <select id="rtv-sel-rtv" onchange="_rtvOnFiltroRTV()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
+            <option value="">Todos los RTV</option>
+          </select>
+        </div>
         <label style="font-size:12px;color:var(--tx-m);white-space:nowrap;font-weight:600">Reseller:</label>
         <select id="rtv-sel-reseller" onchange="_rtvOnFiltro()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
           <option value="">Todos</option>
@@ -5848,6 +5854,8 @@ var _rtvResellers    = [];
 var _rtvTodos        = [];   // todos los pedidos cargados (cache para filtro local)
 var _rtvOrdenesTodos = [];   // todas las órdenes cargadas (cache para filtro local)
 var _rtvSubTab       = 'pedidos';
+var _rtvResellerRtv  = {};     // { nombreReseller → emailRTV } — para el filtro por RTV del super
+var _rtvSelRtv       = '';     // RTV elegido en el selector ('' = todos, '__none__' = sin RTV)
 var _rtvEntryLoading = false;  // overlay de carga activo durante el ingreso del RTV
 var _rtvLoadingSteps = [
   { pct: 22, msg: 'Verificando tu acceso RTV...',            icon: 'fa-user-shield' },
@@ -5860,8 +5868,10 @@ function _rtvOcultarEntryLoading() {
 }
 
 function _iniciarSesionRTV(res) {
-  _rtvEmail     = res.email || '';
-  _rtvResellers = res.resellers || [];
+  _rtvEmail       = res.email || '';
+  _rtvResellers   = res.resellers || [];
+  _rtvResellerRtv = res.resellerRtv || {};
+  _rtvSelRtv      = '';
 
   // Badge en header
   document.getElementById('header-rtv-nombre').textContent = _rtvEmail;
@@ -5877,16 +5887,12 @@ function _iniciarSesionRTV(res) {
     var b = document.getElementById(id); if (b) b.style.display = 'none';
   });
 
-  // Poblar filtro de resellers
-  var sel = document.getElementById('rtv-sel-reseller');
-  if (sel) {
-    sel.innerHTML = '<option value="">Todos (' + _rtvResellers.length + ')</option>';
-    for (var i = 0; i < _rtvResellers.length; i++) {
-      var o = document.createElement('option');
-      o.value = _rtvResellers[i]; o.textContent = _rtvResellers[i];
-      sel.appendChild(o);
-    }
-  }
+  // Selector de RTV: solo para el super (ve varios RTV); el RTV normal ve solo lo suyo
+  var grpRtv = document.getElementById('rtv-filtro-rtv');
+  if (grpRtv) grpRtv.style.display = res.esSuper ? 'flex' : 'none';
+  if (res.esSuper) _rtvPoblarSelRtv();
+
+  _rtvPoblarSelReseller('');   // reseller sub-selector (todos)
 
   _rtvSubTab = 'pedidos';
   showTab('rtv', 'tb-rtv');
@@ -5920,6 +5926,69 @@ function _rtvOnFiltro() {
   else _rtvFiltrarOrdenes();
 }
 
+// Puebla el selector de RTV (solo super) con los RTV distintos y su conteo de resellers.
+function _rtvPoblarSelRtv() {
+  var sel = document.getElementById('rtv-sel-rtv');
+  if (!sel) return;
+  var counts = {}, sinRtv = 0;
+  for (var nombre in _rtvResellerRtv) {
+    var e = _rtvResellerRtv[nombre] || '';
+    if (!e) { sinRtv++; continue; }
+    counts[e] = (counts[e] || 0) + 1;
+  }
+  var emails = Object.keys(counts).sort();
+  var html = '<option value="">Todos los RTV (' + _rtvResellers.length + ')</option>';
+  for (var i = 0; i < emails.length; i++) {
+    html += '<option value="' + _escHtml(emails[i]) + '">' + _escHtml(emails[i]) + ' (' + counts[emails[i]] + ')</option>';
+  }
+  if (sinRtv) html += '<option value="__none__">Sin RTV asignado (' + sinRtv + ')</option>';
+  sel.innerHTML = html;
+}
+
+// Puebla el selector de reseller, opcionalmente acotado al RTV elegido.
+function _rtvPoblarSelReseller(rtvFiltro) {
+  var sel = document.getElementById('rtv-sel-reseller');
+  if (!sel) return;
+  var lista = [];
+  for (var i = 0; i < _rtvResellers.length; i++) {
+    var nombre = _rtvResellers[i];
+    if (rtvFiltro && !_rtvResellerCoincide(nombre, rtvFiltro)) continue;
+    lista.push(nombre);
+  }
+  lista.sort();
+  var html = '<option value="">Todos (' + lista.length + ')</option>';
+  for (var j = 0; j < lista.length; j++) {
+    html += '<option value="' + _escHtml(lista[j]) + '">' + _escHtml(lista[j]) + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+// ¿El reseller pertenece al RTV filtrado? ('' = cualquiera; '__none__' = sin RTV asignado)
+function _rtvResellerCoincide(nombre, rtvFiltro) {
+  if (!rtvFiltro) return true;
+  var e = _rtvResellerRtv[nombre] || '';
+  return (rtvFiltro === '__none__') ? (e === '') : (e === rtvFiltro);
+}
+
+// Al cambiar el RTV: acota el sub-selector de resellers a ese RTV y re-filtra.
+function _rtvOnFiltroRTV() {
+  var sel = document.getElementById('rtv-sel-rtv');
+  _rtvSelRtv = sel ? (sel.value || '') : '';
+  _rtvPoblarSelReseller(_rtvSelRtv);
+  _rtvOnFiltro();
+}
+
+// Aplica ambos filtros (RTV + reseller) a una lista de pedidos/órdenes.
+function _rtvAplicarFiltros(arr) {
+  var selR = document.getElementById('rtv-sel-reseller');
+  var fReseller = selR ? (selR.value || '') : '';
+  return (arr || []).filter(function(x) {
+    if (fReseller && x.reseller !== fReseller) return false;
+    if (_rtvSelRtv && !_rtvResellerCoincide(x.reseller, _rtvSelRtv)) return false;
+    return true;
+  });
+}
+
 function _rtvCargarOrdenes() {
   var wrap = document.getElementById('rtv-ordenes-wrap');
   if (!wrap) return;
@@ -5938,9 +6007,7 @@ function _rtvCargarOrdenes() {
 }
 
 function _rtvFiltrarOrdenes() {
-  var sel    = document.getElementById('rtv-sel-reseller');
-  var filtro = sel ? (sel.value || '') : '';
-  var lista  = filtro ? _rtvOrdenesTodos.filter(function(o){ return o.reseller === filtro; }) : _rtvOrdenesTodos;
+  var lista = _rtvAplicarFiltros(_rtvOrdenesTodos);
   var countEl = document.getElementById('rtv-count');
   if (countEl) countEl.textContent = lista.length + ' orden(es)';
   _rtvRenderOrdenes(lista);
@@ -6013,11 +6080,7 @@ function _rtvCargar() {
 }
 
 function _rtvFiltrar() {
-  var sel    = document.getElementById('rtv-sel-reseller');
-  var filtro = sel ? (sel.value || '') : '';
-  var lista  = filtro
-    ? _rtvTodos.filter(function(p) { return p.reseller === filtro; })
-    : _rtvTodos;
+  var lista = _rtvAplicarFiltros(_rtvTodos);
   var countEl = document.getElementById('rtv-count');
   if (countEl) countEl.textContent = lista.length + ' pedido(s)';
   _rtvRenderPedidos(lista);
