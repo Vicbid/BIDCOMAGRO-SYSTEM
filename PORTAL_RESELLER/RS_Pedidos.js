@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.1
+// @version 2.2
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -797,31 +797,83 @@ function _mapEstadoWosSimple(estadoWos) {
 
 // ── Confirmar recepción de repuestos desde el portal ─────────
 function RS_confirmarRecepcion(numero, reseller) {
+  // Lock + guarda de idempotencia: 30 clicks seguidos NO cierran 30 veces ni mandan 30 mails.
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); }
+  catch(eL) { return { ok: false, error: 'Otra confirmación en curso. Reintentá en unos segundos.' }; }
   try {
     var ss    = SpreadsheetApp.openById('1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw');
     var hoja  = ss.getSheetByName('Pedidos_resellers');
     if (!hoja) return { ok: false, error: 'Hoja no encontrada' };
     var datos = hoja.getDataRange().getValues();
+
+    // 1. Escanear el pedido: ¿ya está confirmado? ¿hay algo para cerrar? ¿thread para responder?
+    var existePedido = false, yaConfirmado = false, threadId = '';
+    for (var g = 1; g < datos.length; g++) {
+      if (String(datos[g][0] || '').trim() !== numero) continue;
+      existePedido = true;
+      var eg = String(datos[g][9] || '').trim();
+      if (eg === 'Entregado_Confirmado') yaConfirmado = true;
+      if (!threadId && datos[g][17]) threadId = String(datos[g][17]).trim(); // col R (18) = Thread_ID
+    }
+    if (!existePedido) return { ok: false, error: 'Pedido no encontrado' };
+    // Ya estaba confirmado → no re-cierra ni reenvía mail (idempotente)
+    if (yaConfirmado) return { ok: true, actualizados: 0, yaConfirmado: true };
+
+    // 2. Cerrar las líneas entregadas
     var actualizados = 0;
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][0] || '').trim() !== numero) continue;
       var est = String(datos[i][9] || '').trim();
       if (est === 'Entregado_Cerrado' || est === 'Listo_Retiro') {
-        hoja.getRange(i + 1, 10).setValue('Entregado_Confirmado');
+        var rEst = hoja.getRange(i + 1, 10);
+        rEst.clearDataValidations();
+        rEst.setValue('Entregado_Confirmado');
         hoja.getRange(i + 1, 19).setValue(new Date()); // FECHA_ESTADO col 19 (S)
         actualizados++;
       }
     }
-    if (actualizados > 0) SpreadsheetApp.flush();
-    // Log en WOS_Log
+    // Nada entregado para cerrar → no hay confirmación válida, no se manda mail
+    if (actualizados === 0) return { ok: true, actualizados: 0 };
+    SpreadsheetApp.flush();
+
+    // 3. Mail de cierre — UNA sola vez (protegido por lock + guarda de arriba)
+    try { _rsEnviarCierreRecepcion(numero, reseller, threadId); }
+    catch(eM) { Logger.log('RS_confirmarRecepcion mail: ' + eM); }
+
+    // 4. Log
     try {
       var logHoja = ss.getSheetByName('WOS_Log');
       if (logHoja) logHoja.appendRow([new Date(), numero, reseller, 'Recepción confirmada por reseller', reseller, '']);
     } catch(eLog) {}
+
     return { ok: true, actualizados: actualizados };
   } catch(e) {
     return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eF) {}
   }
+}
+
+// Mail "pedido cerrado" al reseller. Responde en el hilo del pedido si existe; si no, mail directo.
+function _rsEnviarCierreRecepcion(numero, reseller, threadId) {
+  var cuerpo =
+    "<p style='font-size:13px;color:#555;line-height:1.6;margin:0'>" +
+      "Registramos la confirmación de recepción de tu pedido <strong style='color:#00a3e0'>" + numero + "</strong>. " +
+      "El pedido queda cerrado. Gracias por trabajar con BIDCOMAGRO." +
+    "</p>";
+  var htmlBody = _construirEmailHTML('Recepción confirmada — Pedido ' + numero, reseller, cuerpo,
+                                     'Pedido ' + numero + ' · ' + reseller + '.');
+  var plain = 'Hola ' + reseller + ',\n\nRegistramos la confirmación de recepción del pedido ' + numero +
+              '. El pedido queda cerrado. Gracias por trabajar con BIDCOMAGRO.';
+  var opts = { htmlBody: htmlBody, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR };
+
+  if (threadId) {
+    try { GmailApp.getThreadById(threadId).replyAll(plain, opts); return; }
+    catch(eT) { Logger.log('_rsEnviarCierreRecepcion thread ' + threadId + ': ' + eT); }
+  }
+  var email = _emailReseller(reseller);
+  if (email) GmailApp.sendEmail(email, 'Recepción confirmada — Pedido ' + numero, plain, opts);
 }
 
 // ── Historial de pedidos por reseller ────────────────────────

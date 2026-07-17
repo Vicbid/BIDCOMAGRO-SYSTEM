@@ -1,4 +1,4 @@
-<!-- @version 3.28 -->
+<!-- @version 3.29 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -4039,7 +4039,11 @@ function cerrarListaCompras() {
 //  para no prometer las mismas unidades a dos líneas/resellers distintos.
 // ════════════════════════════════════════════════════════════
 var _despachableData = [];
-var DP_ESTADOS = { 'Confirmado':1, 'Preparado':1, 'Preparado Parcial':1, 'Backorder':1 };
+// "Despacho parcial" = todo lo que le DEBEMOS al reseller: cualquier línea con cantPend>0 que
+// NO esté en un estado terminal. Antes era un whitelist (Confirmado/Preparado/Parcial/Backorder)
+// que dejaba afuera las líneas En_Espera_Reseller (faltantes ya notificados al reseller) y las
+// Pendiente_Revision → no aparecían aunque se debieran. Ahora se excluyen solo los estados cerrados.
+var DP_ESTADOS_CERRADOS = { 'Entregado_Cerrado':1, 'Entregado_Confirmado':1, 'Listo_Retiro':1, 'Cancelado':1 };
 
 function abrirDespachable() {
   document.getElementById('dp-overlay').style.display = 'flex';
@@ -4068,7 +4072,7 @@ function _computeDespachable() {
     var pits = ped.items || [];
     for (var k = 0; k < pits.length; k++) {
       var it = pits[k];
-      if (!(it.cantPend > 0) || !DP_ESTADOS[it.estado]) continue;
+      if (!(it.cantPend > 0) || DP_ESTADOS_CERRADOS[it.estado]) continue;
       lineas.push({
         numero: ped.numero, reseller: ped.reseller || '(sin reseller)', fechaMs: ped.fechaMs || 0,
         sku: String(it.sku || '').trim().toUpperCase(), skuRaw: it.sku, desc: it.desc || '',
@@ -4119,7 +4123,7 @@ function _renderDespachable() {
   var cont = document.getElementById('dp-content');
   if (!data.length) {
     document.getElementById('dp-sub').textContent = 'Sin pedidos pendientes de despacho';
-    cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes (Confirmado / Preparado / Backorder) para despachar. ¡Todo al día!</div>';
+    cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes de despacho (nada que debamos). ¡Todo al día!</div>';
     return;
   }
   var totUAhora = 0, totUFalta = 0;
