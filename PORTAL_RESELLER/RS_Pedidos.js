@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.4
+// @version 2.5
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -614,6 +614,16 @@ function confirmarPedidoPortal(params) {
       } catch(eR) { Logger.log('confirmarPedidoPortal email: ' + eR); }
     }
     var resellerMeta = _lookupResellerMeta(reseller);
+
+    // Super-RTV: dirección de envío tipeada (el cliente externo no tiene perfil de reseller).
+    // Se refleja en el PDF (bloque del cliente) y en observaciones (planilla + mail a logística).
+    if (modoSuper && envio !== 'Retiro') {
+      var _dirEnv = String(params.direccionEnvio || '').trim();
+      if (_dirEnv) {
+        resellerMeta.direccion = _dirEnv;
+        obs = (obs ? obs + '\n' : '') + 'Dirección de envío: ' + _dirEnv;
+      }
+    }
 
     var numero = _siguienteNumeroPedido();
 

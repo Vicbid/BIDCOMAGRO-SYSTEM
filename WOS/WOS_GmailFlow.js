@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.13
+// @version 2.14
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -873,8 +873,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var esRetiroDesp = String(ped.envio || '').toLowerCase().indexOf('retiro') >= 0;
     if (!ped.threadId && !esRetiroDesp) return { ok: false, error: 'Sin Thread_ID en col R. Verificar que el Portal guardó el hilo al crear el pedido.' };
 
+    // Cliente externo (carga super-RTV): puede no figurar en Resellers → sin email propio.
+    // El aviso de despacho sale por replyAll al hilo ancla (col R), que incluye al cliente si
+    // dejó su mail (va en CC del pedido) + facturación. El email directo es solo fallback (abajo).
+    // Solo se aborta si NO hay email NI hilo NI es retiro: no habría ningún canal de aviso.
     var email = _wosGetEmailReseller(ped.reseller);
-    if (!email) return { ok: false, error: 'Email no encontrado para: ' + ped.reseller };
+    if (!email && !ped.threadId && !esRetiroDesp) return { ok: false, error: 'Sin email ni hilo para avisar el despacho de: ' + ped.reseller };
 
     operario    = String(operario || '');
     var transp  = String(transportista || '').trim();
@@ -1278,8 +1282,10 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       var despThread = GmailApp.getThreadById(ped.threadId);
       despThread.replyAll(plainCombinado, replyOpts);
     } catch(eThread) {
-      Logger.log('WOS_despacharCompleto: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
-      GmailApp.sendEmail(email, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
+      // Sin email de cliente (externo) → al menos facturación recibe la sección administrativa.
+      var _destFallback = email || EMAIL_FACTURACION;
+      Logger.log('WOS_despacharCompleto: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + _destFallback);
+      GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
     }
 
     // ── Estado final por ítem ────────────────────────────────────
@@ -1388,8 +1394,9 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
     if (!ped.reseller) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     if (!ped.threadId)  return { ok: false, error: 'Sin Thread_ID en col R. Verificar Hito 1 del Portal.' };
 
+    // Cliente externo (super-RTV): puede no estar en Resellers. El aviso va por replyAll al hilo
+    // (threadId ya garantizado arriba); el email directo es solo fallback (abajo). No se aborta.
     var email = _wosGetEmailReseller(ped.reseller);
-    if (!email) return { ok: false, error: 'Email no encontrado para reseller: ' + ped.reseller };
 
     // ── Tabla de faltantes ────────────────────────────────────
     var tablaFalt =
@@ -1495,8 +1502,13 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       var faltThread = GmailApp.getThreadById(ped.threadId);
       faltThread.replyAll(plainBody, faltOpts);
     } catch(eThread) {
-      Logger.log('WOS_notificarFaltante: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
-      GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+      // Sin email (cliente externo) y sin hilo → no hay a quién preguntar Opción A/B; se omite el envío.
+      if (email) {
+        Logger.log('WOS_notificarFaltante: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
+        GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+      } else {
+        Logger.log('WOS_notificarFaltante: thread no disponible y sin email (cliente externo) → se omite el aviso; los estados igual cambian');
+      }
     }
 
     // ── Cambiar estado por ítem: faltantes → En_Espera_Reseller, disponibles → Preparado ──

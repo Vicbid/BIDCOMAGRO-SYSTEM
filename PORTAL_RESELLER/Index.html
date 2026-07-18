@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.48 -->
+<!-- @version 1.49 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1617,6 +1617,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               </select>
             </div>
           </div>
+          <!-- Dirección de envío (solo modo super, cuando Entrega = Envío) -->
+          <div id="ped-super-dir-wrap" style="display:none;margin-bottom:12px">
+            <label class="flbl">Dirección de envío <span style="color:var(--red);font-weight:700">*</span></label>
+            <textarea id="ped-super-dir" class="form-control" placeholder="Calle y número, localidad, provincia, CP y referencias" style="min-height:52px;resize:vertical"></textarea>
+          </div>
           <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
           <textarea id="ped-obs" class="form-control" placeholder="Notas adicionales para el pedido..." style="min-height:58px;resize:vertical"></textarea>
           <div id="ped-dir-strip" style="margin-top:12px"></div>
@@ -2274,6 +2279,7 @@ window.onload = function() {
   });
   document.getElementById('ped-cart-envio').addEventListener('change', function() {
     _actualizarPedDirStrip();
+    _superToggleEnvio();
   });
 
   // Login obligatorio: el overlay solo se quita con usuario válido (reseller o RTV).
@@ -4877,7 +4883,25 @@ function _superAbrirCarga() {
   var cli = document.getElementById('ped-super-cliente'); if (cli) cli.value = '';
   var em  = document.getElementById('ped-super-email');   if (em)  em.value  = '';
   var dt  = document.getElementById('ped-super-dto');     if (dt)  dt.value  = '0';
+  var dir = document.getElementById('ped-super-dir');     if (dir) dir.value = '';
+  // Estos pedidos ya vienen pagos: forma de pago por defecto "Pagado" (editable si hiciera falta)
+  var pagoSel = document.getElementById('ped-cart-pago');
+  if (pagoSel) {
+    if (!pagoSel.querySelector('option[value="Pagado"]')) {
+      var op = document.createElement('option'); op.value = 'Pagado'; op.textContent = 'Pagado ✅'; pagoSel.appendChild(op);
+    }
+    pagoSel.value = 'Pagado';
+  }
+  _superToggleEnvio();
   _pedRenderCarrito();
+}
+
+// Muestra la dirección de envío solo en modo super y cuando Entrega = Envío (en Retiro se oculta).
+function _superToggleEnvio() {
+  var wrap = document.getElementById('ped-super-dir-wrap');
+  if (!wrap) return;
+  var envio = (document.getElementById('ped-cart-envio').value || '').trim();
+  wrap.style.display = (_superPedido && envio !== 'Retiro') ? 'block' : 'none';
 }
 
 // Al cambiar cliente/email/descuento: guardar en estado y re-precio de catálogo + carrito.
@@ -5826,7 +5850,15 @@ function _pedGenerarPedido() {
     return;
   }
   var pagoVal = (document.getElementById('ped-cart-pago').value || '').trim();
+  if (_superPedido && !pagoVal) pagoVal = 'Pagado';   // pedidos del super ya vienen pagos
   if (!pagoVal) { toast('Seleccioná una forma de pago antes de confirmar el pedido', 'err'); return; }
+
+  // Modo super: si es Envío, la dirección es obligatoria (el cliente externo no tiene perfil)
+  var _dirSuper = '';
+  if (_superPedido && _envioVal !== 'Retiro') {
+    _dirSuper = (document.getElementById('ped-super-dir').value || '').trim();
+    if (!_dirSuper) { toast('Ingresá la dirección de envío (o elegí Retiro)', 'err'); document.getElementById('ped-super-dir').focus(); return; }
+  }
 
   _pedUltimosItems = _pedCart.slice();
   var params = {
@@ -5837,10 +5869,11 @@ function _pedGenerarPedido() {
     envio:         (document.getElementById('ped-cart-envio').value || '').trim()
   };
   if (_superPedido) {
-    params.modoSuper    = true;
-    params.cliente      = _superPedido.cliente;
-    params.emailCliente = _superPedido.email;
-    params.descuentoPct = _superPedido.dtoPct;
+    params.modoSuper     = true;
+    params.cliente       = _superPedido.cliente;
+    params.emailCliente  = _superPedido.email;
+    params.descuentoPct  = _superPedido.dtoPct;
+    params.direccionEnvio = _dirSuper;
   }
 
   _pedMostrarCargando();
