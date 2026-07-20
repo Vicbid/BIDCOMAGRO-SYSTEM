@@ -1,6 +1,12 @@
-// @version 1.2
+// @version 1.3
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+
+// ── ComandasPedidos · _CONFIG (se edita desde el Launcher) ──
+// Planilla de LOG de ComandasPedidos donde vive la pestaña _CONFIG (clave/valor).
+// El scope 'spreadsheets' del Launcher ya permite leerla/escribirla por ID (sin re-auth).
+var CP_LOG_SS_ID  = '1mOOeUDPORa9d1csQJ1fCL4ON592SvjMr1y3VKmWBN44';
+var CP_CONFIG_TAB = '_CONFIG';
 
 // Estado de la cuenta del reseller: col Q de la hoja Resellers (índice 16, columna 1-based 17).
 // Vacío = activo. NO / BAJA / INACTIVO / FALSE / 0 / false = desactivado. Debe coincidir con RS_Auth.js _resellerInactivo.
@@ -295,6 +301,88 @@ function LAUNCH_setWosConfig(data) {
     ]);
     return { ok: true };
   } catch(e) { return { ok: false, error: e.toString() }; }
+}
+
+// ── ComandasPedidos · _CONFIG ────────────────────────────────
+// Esquema de la config editable de ComandasPedidos desde el Launcher.
+// DEBE reflejar CP_CONFIG_DEFAULTS de ComandasPedidos/CP_Código.js (claves y sentido).
+// tipo: 'sino' (SI/NO), 'num' (numérico), 'email'/'text' (texto).
+var CP_CFG_SCHEMA = [
+  { grupo:'Automático',   clave:'AUTO_MAIL_DESPACHO',     label:'Envío automático al reseller + RTV', tipo:'sino', ayuda:'SI = al detectar la guía manda solo el mail final al reseller y RTV. Requiere el trigger CP_autoMailEnvios instalado en ComandasPedidos.' },
+  { grupo:'Automático',   clave:'EMAIL_PRUEBA',           label:'Modo prueba (redirigir TODO a este mail)', tipo:'email', ayuda:'Si tiene un mail, TODOS los correos se mandan SOLO ahí (no a los reales). VACIAR para volver a producción.' },
+  { grupo:'Destinatarios',clave:'MAIL_APROBACION',        label:'Mail de aprobación (Sole)', tipo:'text', ayuda:'Destinatario del pedido de autorización en Masterchief.' },
+  { grupo:'Destinatarios',clave:'MAIL_DESTINATARIOS',     label:'Destinatarios fijos del despacho', tipo:'text', ayuda:'Se agregan siempre al mail de despacho. Varios separados por coma.' },
+  { grupo:'Destinatarios',clave:'MAIL_CC',                label:'CC (con copia)', tipo:'text', ayuda:'Varios separados por coma.' },
+  { grupo:'Destinatarios',clave:'MAIL_BCC',               label:'CCO (copia oculta)', tipo:'text', ayuda:'Copia oculta del mail al reseller + aprobación. Varios con coma.' },
+  { grupo:'Textos',       clave:'MAIL_ASUNTO',            label:'Asunto · mail al reseller', tipo:'text', ayuda:'Placeholders disponibles: {IDVENTA} {COMANDA} {CLIENTE}.' },
+  { grupo:'Textos',       clave:'ASUNTO_APROBACION',      label:'Asunto · mail de aprobación', tipo:'text', ayuda:'Placeholders disponibles: {COMANDA} {IDVENTA}.' },
+  { grupo:'Textos',       clave:'MAIL_REMITENTE_NOMBRE',  label:'Nombre del remitente', tipo:'text', ayuda:'Aparece como el "De" del correo.' },
+  { grupo:'Textos',       clave:'OCA_TRACKING_URL',       label:'URL de tracking OCA', tipo:'text', ayuda:'Placeholder {GUIA}. Se usa para linkear la guía en el mail.' },
+  { grupo:'Tiempos',      clave:'RECORDATORIO_HORAS',     label:'Recordatorio a Sole (horas)', tipo:'num', ayuda:'Cada cuántas horas recordar una comanda sin despachar.' },
+  { grupo:'Tiempos',      clave:'SLA_WARN_HORAS',         label:'SLA · pasa a amarillo (horas)', tipo:'num', ayuda:'Antigüedad a partir de la cual el semáforo se pone amarillo.' },
+  { grupo:'Tiempos',      clave:'SLA_DANGER_HORAS',       label:'SLA · pasa a rojo (horas)', tipo:'num', ayuda:'Antigüedad a partir de la cual el semáforo se pone rojo.' },
+  { grupo:'Permisos',     clave:'OPERADORES_AUTORIZADOS', label:'Operadores autorizados', tipo:'text', ayuda:'Mails (coma) que pueden crear/borrar envíos y mandar mail. VACÍO = todos.' },
+  { grupo:'Permisos',     clave:'MAIL_MAX_POR_10MIN',     label:'Tope de mails por 10 min', tipo:'num', ayuda:'Límite anti-abuso de correos enviados por ventana de 10 minutos.' }
+];
+
+// Lee la pestaña _CONFIG de ComandasPedidos → { ok, schema, valores:{CLAVE:valor}, existeHoja }.
+function LAUNCH_getComandasConfig() {
+  try {
+    var ss   = SpreadsheetApp.openById(CP_LOG_SS_ID);
+    var hoja = ss.getSheetByName(CP_CONFIG_TAB);
+    var valores = {};
+    if (hoja) {
+      var data = hoja.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        var k = String(data[i][0] || '').trim();
+        if (k) valores[k.toUpperCase()] = String(data[i][1] == null ? '' : data[i][1]);
+      }
+    }
+    return { ok: true, schema: CP_CFG_SCHEMA, valores: valores, existeHoja: !!hoja };
+  } catch(e) {
+    Logger.log('LAUNCH_getComandasConfig: ' + e);
+    return { ok: false, error: e.toString(), schema: CP_CFG_SCHEMA, valores: {} };
+  }
+}
+
+// Escribe SOLO las claves recibidas (por clave, sin borrar la hoja) → preserva cualquier otra
+// fila/clave que ComandasPedidos maneje y que el Launcher no conozca. Crea la hoja si no existe.
+function LAUNCH_setComandasConfig(data) {
+  try {
+    data = data || {};
+    var ss   = SpreadsheetApp.openById(CP_LOG_SS_ID);
+    var hoja = ss.getSheetByName(CP_CONFIG_TAB);
+    if (!hoja) {
+      hoja = ss.insertSheet(CP_CONFIG_TAB);
+      hoja.getRange(1, 1, 1, 2).setValues([['Clave', 'Valor']]);
+      hoja.setFrozenRows(1);
+      hoja.setColumnWidth(1, 210); hoja.setColumnWidth(2, 460);
+    }
+    // índice fila (1-based) por clave existente, para actualizar sin pisar claves ajenas
+    var last = hoja.getLastRow();
+    var filaDe = {};
+    if (last >= 2) {
+      var col = hoja.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < col.length; i++) {
+        var k = String(col[i][0] || '').trim().toUpperCase();
+        if (k) filaDe[k] = i + 2;
+      }
+    }
+    var nuevas = [];
+    Object.keys(data).forEach(function(clave) {
+      var K = String(clave || '').trim().toUpperCase();
+      if (!K) return;
+      var val = data[clave] == null ? '' : String(data[clave]);
+      if (filaDe[K]) hoja.getRange(filaDe[K], 2).setValue(val);
+      else nuevas.push([K, val]);
+    });
+    if (nuevas.length) hoja.getRange(hoja.getLastRow() + 1, 1, nuevas.length, 2).setValues(nuevas);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) {
+    Logger.log('LAUNCH_setComandasConfig: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 function LAUNCH_getCampana() {
