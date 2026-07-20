@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.15
+// @version 2.16
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -856,6 +856,69 @@ function WOS_aplicarEntregadosFaltantes(desdeISO) {
 var _WOS_CORTE = '2026-07-15T12:00:00';
 function WOS_previewFaltantes_Desde15Jul12h() { return WOS_previewEntregadosFaltantes(_WOS_CORTE); }
 function WOS_aplicarFaltantes_Desde15Jul12h() { return WOS_aplicarEntregadosFaltantes(_WOS_CORTE); }
+
+// ── Diagnóstico/arreglo: líneas 'Cancelado' sin CANT_CANCEL (col Z) ───────────
+// Antes del fix de Opción B, una línea cancelada quedaba con estado 'Cancelado' pero
+// CANT_CANCEL vacío → CANT_PEND (=E−F−Z) seguía > 0 y bloqueaba la preparación del pedido
+// ("No se puede preparar — sin stock suficiente"). Escanea Pedidos_resellers y Pedidos_OTs.
+//   · WOS_previewCanceladosSinCancel(): SOLO lista las filas afectadas (no toca nada).
+//   · WOS_aplicarCanceladosSinCancel(): setea Z = pendiente (CANT_SOL − CANT_DESP) → CANT_PEND = 0.
+// Correr desde el editor de Apps Script (botón Ejecutar). Ver el resultado en el log / return.
+function WOS_previewCanceladosSinCancel() { return _wosScanCanceladosSinCancel(false); }
+function WOS_aplicarCanceladosSinCancel() { return _wosScanCanceladosSinCancel(true); }
+
+function _wosScanCanceladosSinCancel(aplicar) {
+  var out = { ok: true, aplicar: !!aplicar, afectados: [], total: 0, porHoja: {} };
+  try {
+    var hojas = [
+      { nombre: 'Pedidos_resellers', hoja: _getHojaPedidos() },
+      { nombre: 'Pedidos_OTs',       hoja: _getHojaPedidosOT() }
+    ];
+    for (var h = 0; h < hojas.length; h++) {
+      var hoja = hojas[h].hoja;
+      if (!hoja) { out.porHoja[hojas[h].nombre] = 'hoja no encontrada'; continue; }
+      var datos = hoja.getDataRange().getValues();
+      var cnt = 0;
+      for (var i = 1; i < datos.length; i++) {
+        if (String(datos[i][COL.ESTADO] || '').trim() !== EST.CANCELADO) continue;
+        var sol  = Number(datos[i][COL.CANT_SOL])    || 0;
+        var desp = Number(datos[i][COL.CANT_DESP])   || 0;
+        var canc = Number(datos[i][COL.CANT_CANCEL]) || 0;
+        var pend = sol - desp - canc;   // lo que la fórmula col G sigue mostrando como pendiente
+        if (canc > 0 || pend <= 0) continue;   // ya tiene Z, o ya está en 0 → nada que arreglar
+        var fila = i + 1;
+        var nuevoZ = Math.max(0, sol - desp);
+        out.afectados.push({
+          hoja:     hojas[h].nombre,
+          fila:     fila,
+          numero:   String(datos[i][COL.NUMERO]   || ''),
+          reseller: String(datos[i][COL.RESELLER] || ''),
+          sku:      String(datos[i][COL.SKU]      || ''),
+          cantSol:  sol,
+          cantDesp: desp,
+          pendiente: pend,
+          nuevoCancel: nuevoZ
+        });
+        cnt++;
+        if (aplicar) hoja.getRange(fila, COL.CANT_CANCEL + 1).setValue(nuevoZ);
+      }
+      out.porHoja[hojas[h].nombre] = cnt;
+    }
+    if (aplicar) SpreadsheetApp.flush();
+    out.total = out.afectados.length;
+    Logger.log('WOS ' + (aplicar ? 'APLICAR' : 'PREVIEW') + ' cancelados sin CANT_CANCEL: ' +
+      out.total + ' fila(s) → ' + JSON.stringify(out.porHoja));
+    for (var a = 0; a < out.afectados.length; a++) {
+      var r = out.afectados[a];
+      Logger.log('  [' + r.hoja + ' fila ' + r.fila + '] ' + r.numero + ' · ' + r.reseller +
+        ' · ' + r.sku + ' · sol=' + r.cantSol + ' desp=' + r.cantDesp + ' → Z=' + r.nuevoCancel);
+    }
+    return out;
+  } catch(e) {
+    Logger.log('_wosScanCanceladosSinCancel: ' + e);
+    return { ok: false, error: e.toString(), afectados: out.afectados, total: out.afectados.length };
+  }
+}
 
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
