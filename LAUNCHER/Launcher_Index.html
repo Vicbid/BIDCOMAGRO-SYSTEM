@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.4 -->
+<!-- @version 1.5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -616,13 +616,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 </div>
 
 <script>
+var _ovTimer = null;
+function _cerrarOverlay() {
+  var ov = document.getElementById('overlay'); if (ov) ov.classList.add('gone');
+  var ri = document.getElementById('ri');       if (ri) ri.classList.remove('spin');
+}
 function load() {
   var ri = document.getElementById('ri');
-  ri.classList.add('spin');
+  if (ri) ri.classList.add('spin');
+  // Red de seguridad: si el server no contesta en 15 s, salimos del overlay igual
+  // (nunca quedar pegado en "Conectando…"); el auto-refresh de 2 min reintenta solo.
+  clearTimeout(_ovTimer);
+  _ovTimer = setTimeout(function() {
+    var ov = document.getElementById('overlay');
+    if (ov && !ov.classList.contains('gone')) {
+      _cerrarOverlay();
+      var ts = document.getElementById('ts'); if (ts) ts.textContent = 'Sin respuesta del servidor — reintentando sola…';
+    }
+  }, 15000);
   google.script.run
     .withSuccessHandler(function(d) {
-      ri.classList.remove('spin');
-      document.getElementById('overlay').classList.add('gone');
+      clearTimeout(_ovTimer);
+      _cerrarOverlay();
       if (!d || !d.ok) return;
 
       // HUB
@@ -656,8 +671,9 @@ function load() {
       document.getElementById('ts').textContent = 'Actualizado: ' + d.ts;
     })
     .withFailureHandler(function(e) {
-      ri.classList.remove('spin');
-      document.getElementById('overlay').classList.add('gone');
+      clearTimeout(_ovTimer);
+      _cerrarOverlay();
+      var ts = document.getElementById('ts'); if (ts) ts.textContent = 'No se pudo conectar con el servidor — reintentando sola…';
     })
     .obtenerKPIs();
 }
