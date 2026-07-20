@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.1
+// @version 1.2
 
 // ============================================================
 //  COMPRAS DJI
@@ -731,7 +731,6 @@ function obtenerDetalleCAS(idCas) {
     var CD = SCHEMA.COMPRAS_DETALLE;
     var M  = SCHEMA.MOVIMIENTOS_STOCK;
     var R  = SCHEMA.RESERVAS_STOCK;
-    var SD = SCHEMA.SOLICITUDES_DESPACHO;
     var tz = Session.getScriptTimeZone();
 
     // 1. Manifest
@@ -785,17 +784,32 @@ function obtenerDetalleCAS(idCas) {
       }
     }
 
-    // 4. Coverage: for each manifest item, how many are pending in SOLICITUDES?
+    // 4. Coverage: para cada SKU del manifiesto, ¿cuántas unidades quedan PENDIENTES de
+    //    entregar a resellers? Fuente = Pedidos_resellers (WOS) — la demanda real del canal.
+    //    Pendiente por línea = max(0, CANT_SOL − CANT_DESP − CANT_CANCEL): descuenta lo ya
+    //    despachado y lo cancelado (una línea cerrada o anulada aporta 0). Misma fórmula que el
+    //    mail de "Backorders desbloqueados". Antes se leía SOLICITUDES_DESPACHO (solo repuestos de
+    //    OT + ventas directas), que NO incluye los pedidos de resellers → cobertura equivocada.
     var cobertura = [];
     if (manifest.length) {
-      var dSol   = getSheetValues(SCHEMA.SHEETS.SOLICITUDES);
       var pendMap = {};
-      for (var si = 1; si < dSol.length; si++) {
-        var est = String(dSol[si][SD.ESTADO] || '');
-        if (est === 'Despachado' || est === 'Cancelado') continue;
-        var skuSol = String(dSol[si][SD.CODIGO] || '').trim().toUpperCase();
-        pendMap[skuSol] = (pendMap[skuSol] || 0) + (parseInt(dSol[si][SD.CANT_SOLICITADA]) || 0);
-      }
+      try {
+        var hojaPR = SpreadsheetApp.openById(WOS_NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
+        if (hojaPR) {
+          var dPR = hojaPR.getDataRange().getValues();
+          // COL (Despacho_Env.js): 2=SKU, 4=CANT_SOL(E), 5=CANT_DESP(F), 9=ESTADO(J), 25=CANT_CANCEL(Z)
+          for (var pr = 1; pr < dPR.length; pr++) {
+            var skuPR = String(dPR[pr][2] || '').trim().toUpperCase();
+            if (!skuPR) continue;
+            var solPR  = Number(dPR[pr][4])  || 0;
+            var despPR = Number(dPR[pr][5])  || 0;
+            var cancPR = Number(dPR[pr][25]) || 0;
+            if (cancPR <= 0 && String(dPR[pr][9] || '').trim().toLowerCase() === 'cancelado') cancPR = solPR; // dato viejo: cancelado sin CANT_CANCEL
+            var pendPR = Math.max(0, solPR - despPR - cancPR);
+            if (pendPR > 0) pendMap[skuPR] = (pendMap[skuPR] || 0) + pendPR;
+          }
+        }
+      } catch(ePR) { Logger.log('obtenerDetalleCAS cobertura Pedidos_resellers: ' + ePR); }
       for (var ci2 = 0; ci2 < manifest.length; ci2++) {
         var skuUp  = manifest[ci2].sku.trim().toUpperCase();
         var pending = pendMap[skuUp] || 0;

@@ -544,7 +544,7 @@ function agregarComentario(ot, comentario, autor) {
             _filaDetalle("Orden", "<strong>" + ot + "</strong>") +
             _filaDetalle("Estado actual", String(ref.datos[i][4] || "—")) +
           "</div>",
-          "El reseller dejó un comentario en col L. Revisá el HUB PRO."
+          "El reseller dejó un comentario Revisá el HUB PRO."
         );
         var supThreadId = _obtenerThreadId(ot, PORTAL_CONFIG.EMAIL_SUPERVISOR);
         if (supThreadId) {

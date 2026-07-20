@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.14
+// @version 2.15
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1653,6 +1653,7 @@ function WOS_detectarRespuestasResellers() {
             if (String(datos[row.rowNum - 1][COL.ESTADO] || '').trim() !== EST.EN_ESPERA) continue;
             var cantDisp = (faltantesMap[row.sku] !== undefined) ? faltantesMap[row.sku] : 0;
             var cantSolOrig = Number(datos[row.rowNum - 1][COL.CANT_SOL]) || 0;
+            var cantDespB   = Number(datos[row.rowNum - 1][COL.CANT_DESP]) || 0;
             var rEstB = hoja.getRange(row.rowNum, COL.ESTADO + 1);
             rEstB.clearDataValidations();
             if (cantDisp >= cantSolOrig && cantSolOrig > 0) {
@@ -1662,6 +1663,10 @@ function WOS_detectarRespuestasResellers() {
               rEstB.setValue(EST.PREP_PARCIAL);
             } else {
               rEstB.setValue(EST.CANCELADO);
+              // Registrar la cancelación en CANT_CANCEL (col Z) para que CANT_PEND (=E−F−Z) quede en 0.
+              // Sin esto la línea cancelada seguía figurando como pendiente sin stock y bloqueaba la
+              // preparación ("No se puede preparar — sin stock suficiente") en Despacho_Index.
+              hoja.getRange(row.rowNum, COL.CANT_CANCEL + 1).setValue(Math.max(0, cantSolOrig - cantDespB));
             }
             hoja.getRange(row.rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraB);
           }

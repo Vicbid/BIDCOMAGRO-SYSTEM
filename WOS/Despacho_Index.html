@@ -1,4 +1,4 @@
-<!-- @version 3.29 -->
+<!-- @version 3.30 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2366,6 +2366,7 @@ function abrirModalPreparar(numero, parcial) {
     for (var si = 0; si < ped.items.length; si++) {
       var it0 = ped.items[si];
       if (it0.cantPend <= 0) continue;
+      if (it0.estado === 'Cancelado') continue; // faltante cancelado (Opción B): no es pendiente aunque col G no se haya actualizado
       if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
         sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
       }
@@ -2388,6 +2389,7 @@ function abrirModalPreparar(numero, parcial) {
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
     if (it.cantPend <= 0) continue;
+    if (it.estado === 'Cancelado') continue; // no serializar líneas canceladas (faltante Opción B)
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
     // En parcial, saltear ítems sin stock (quedan en backorder). En normal, incluir todo.
     if (parcial && stk !== null && stk <= 0) continue;
