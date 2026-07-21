@@ -1,5 +1,9 @@
 <!DOCTYPE html>
+<<<<<<< HEAD
 <!-- @version 1.0 -->
+=======
+<!-- @version 1.5 -->
+>>>>>>> dev
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -188,10 +192,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         </div>
       </div>
       <div class="card-foot">
-        <a id="btn-hub" class="btn-mod off" target="_blank">
+        <a id="btn-hub" class="btn-mod off" target="_blank" style="margin-bottom:7px">
           <i class="fa fa-external-link-alt"></i>
           <span>Abrir HUB PRO</span>
           <span class="no-url-txt" id="hub-notcfg">· configurar URL</span>
+        </a>
+        <a id="btn-guia" target="_blank" style="display:none;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;border:1px solid rgba(0,163,224,.3);border-radius:8px;font-size:11px;font-weight:600;color:var(--blue);text-decoration:none;background:rgba(0,163,224,.06);transition:background .13s" onmouseover="this.style.background='rgba(0,163,224,.12)'" onmouseout="this.style.background='rgba(0,163,224,.06)'">
+          <i class="fa fa-map"></i>&nbsp; Guía de flujos
         </a>
       </div>
     </div>
@@ -330,6 +337,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     </div>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalComandas()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(13,148,136,.1);color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-clipboard-list"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · Comandas</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Mails de despacho · modo prueba · SLA · permisos</div>
+    </div>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
   <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCampana()">
     <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
       <i class="fa fa-seedling"></i>
@@ -423,7 +440,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Email de facturación (CC al despachar)</label>
-        <input id="wos-email-fact" type="email" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <input id="wos-email-fact" type="text" placeholder="ej: cecilia@bidcom.com.ar,lucia@bidcom.com.ar" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Para múltiples destinatarios, separar con coma sin espacios.</div>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">ID carpeta Drive · Notas de Entrega (PDF)</label>
@@ -436,6 +454,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
           <i class="fa fa-save"></i> Guardar
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMANDAS CONFIG -->
+<div class="modal-bg" id="modal-comandas">
+  <div class="modal-box" style="width:560px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#fff;z-index:2">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(13,148,136,.1);color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-clipboard-list"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Configuración · Comandas</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Parámetros de ComandasPedidos · hoja _CONFIG</div>
+      </div>
+      <button onclick="cerrarModalComandas()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="cp-cfg-fields" style="padding:18px 22px;display:flex;flex-direction:column;gap:14px"></div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;display:flex;align-items:center;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:#fff">
+      <span id="cp-cfg-status" style="font-size:11px;color:#9ba5b4"></span>
+      <button onclick="cpCfgGuardar()" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+        <i class="fa fa-save"></i> Guardar
+      </button>
     </div>
   </div>
 </div>
@@ -512,7 +553,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Reseller</label>
-        <select id="pin-reseller" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+        <select id="pin-reseller" onchange="pinEstadoRefrescar()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
           <option value="">— Cargando resellers… —</option>
         </select>
       </div>
@@ -523,6 +564,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         <button onclick="pinReset()" style="flex:1;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
           <i class="fa fa-sync-alt"></i> Reset PIN
         </button>
+      </div>
+      <!-- ── Estado de la cuenta (baja / reactivar) ── -->
+      <div id="pin-estado-box" style="display:none;border-top:1px solid #f0f2f5;padding-top:14px">
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Estado de la cuenta</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="pin-estado-badge" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px"></span>
+          <button id="pin-estado-btn" onclick="pinToggleEstado()" style="margin-left:auto;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px"></button>
+        </div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:6px">Una cuenta de baja no aparece en el login del portal ni puede ingresar. Reactivar conserva su PIN y email.</div>
       </div>
       <div id="pin-status" style="font-size:12px;min-height:16px;color:#9ba5b4"></div>
     </div>
@@ -570,13 +620,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 </div>
 
 <script>
+var _ovTimer = null;
+function _cerrarOverlay() {
+  var ov = document.getElementById('overlay'); if (ov) ov.classList.add('gone');
+  var ri = document.getElementById('ri');       if (ri) ri.classList.remove('spin');
+}
 function load() {
   var ri = document.getElementById('ri');
-  ri.classList.add('spin');
+  if (ri) ri.classList.add('spin');
+  // Red de seguridad: si el server no contesta en 15 s, salimos del overlay igual
+  // (nunca quedar pegado en "Conectando…"); el auto-refresh de 2 min reintenta solo.
+  clearTimeout(_ovTimer);
+  _ovTimer = setTimeout(function() {
+    var ov = document.getElementById('overlay');
+    if (ov && !ov.classList.contains('gone')) {
+      _cerrarOverlay();
+      var ts = document.getElementById('ts'); if (ts) ts.textContent = 'Sin respuesta del servidor — reintentando sola…';
+    }
+  }, 15000);
   google.script.run
     .withSuccessHandler(function(d) {
-      ri.classList.remove('spin');
-      document.getElementById('overlay').classList.add('gone');
+      clearTimeout(_ovTimer);
+      _cerrarOverlay();
       if (!d || !d.ok) return;
 
       // HUB
@@ -610,8 +675,9 @@ function load() {
       document.getElementById('ts').textContent = 'Actualizado: ' + d.ts;
     })
     .withFailureHandler(function(e) {
-      ri.classList.remove('spin');
-      document.getElementById('overlay').classList.add('gone');
+      clearTimeout(_ovTimer);
+      _cerrarOverlay();
+      var ts = document.getElementById('ts'); if (ts) ts.textContent = 'No se pudo conectar con el servidor — reintentando sola…';
     })
     .obtenerKPIs();
 }
@@ -631,10 +697,18 @@ function setUrl(btnId, notCfgId, url, cls) {
     btn.href = url;
     btn.className = 'btn-mod ' + cls;
     if (nc) nc.style.display = 'none';
+    if (btnId === 'btn-hub') {
+      var guia = document.getElementById('btn-guia');
+      if (guia) { guia.href = url + '?page=guia'; guia.style.display = 'flex'; }
+    }
   } else {
     btn.href = '#';
     btn.className = 'btn-mod off';
     if (nc) nc.style.display = '';
+    if (btnId === 'btn-hub') {
+      var guia2 = document.getElementById('btn-guia');
+      if (guia2) guia2.style.display = 'none';
+    }
   }
 }
 
@@ -740,23 +814,28 @@ google.script.run
   .LAUNCH_getCampana();
 campanaCargarStats();
 
+var _resellerEstados = {}; // nombre → activo (bool)
 google.script.run
   .withSuccessHandler(function(lista) {
     var sel = document.getElementById('pin-reseller');
     if (!sel || !lista) return;
     sel.innerHTML = '<option value="">— Seleccionar reseller —</option>';
+    _resellerEstados = {};
     for (var i = 0; i < lista.length; i++) {
+      var nombre = lista[i].nombre;
+      _resellerEstados[nombre] = lista[i].activo;
       var opt = document.createElement('option');
-      opt.value = lista[i];
-      opt.textContent = lista[i];
+      opt.value = nombre;
+      opt.textContent = lista[i].activo ? nombre : '⛔ ' + nombre + ' (de baja)';
       sel.appendChild(opt);
     }
+    pinEstadoRefrescar();
   })
   .withFailureHandler(function() {
     var sel = document.getElementById('pin-reseller');
     if (sel) sel.innerHTML = '<option value="">— Error al cargar —</option>';
   })
-  .LAUNCH_getResellersLista();
+  .LAUNCH_getResellersConEstado();
 
 function abrirModalWos() {
   document.getElementById('modal-wos').classList.add('show');
@@ -781,6 +860,71 @@ function wosGuardar() {
       emailFact:    document.getElementById('wos-email-fact').value.trim(),
       pdfFolderId:  document.getElementById('wos-pdf-folder').value.trim()
     });
+}
+
+// ── Config ComandasPedidos (carga diferida: lee la planilla de LOG solo al abrir) ──
+var _cpCfgSchema = [];
+function _cpEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];}); }
+
+function abrirModalComandas() {
+  document.getElementById('modal-comandas').classList.add('show');
+  var cont = document.getElementById('cp-cfg-fields');
+  cont.innerHTML = '<div style="padding:20px;text-align:center;color:#9ba5b4;font-size:13px"><i class="fa fa-spinner fa-spin" style="margin-right:6px"></i>Cargando configuración…</div>';
+  google.script.run
+    .withSuccessHandler(cpCfgRender)
+    .withFailureHandler(function(e){ cont.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">Error al cargar: '+_cpEsc(e&&(e.message||e))+'</div>'; })
+    .LAUNCH_getComandasConfig();
+}
+function cerrarModalComandas() {
+  document.getElementById('modal-comandas').classList.remove('show');
+}
+function cpCfgRender(res) {
+  var cont = document.getElementById('cp-cfg-fields');
+  if (!res || !res.schema) { cont.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">No se pudo leer la configuración'+(res&&res.error?': '+_cpEsc(res.error):'')+'.</div>'; return; }
+  _cpCfgSchema = res.schema;
+  var val = res.valores || {};
+  var html = '';
+  if (!res.existeHoja) html += '<div style="background:#fff8e6;border:1px solid #f3dca6;border-radius:8px;padding:10px 12px;font-size:12px;color:#8a5a00">La hoja _CONFIG todavía no existe; al guardar se crea con estos valores.</div>';
+  var grupoActual = '';
+  res.schema.forEach(function(f){
+    if (f.grupo !== grupoActual){
+      grupoActual = f.grupo;
+      html += '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0d9488;margin:6px 0 -4px">'+_cpEsc(grupoActual)+'</div>';
+    }
+    var v  = val[f.clave] != null ? val[f.clave] : '';
+    var id = 'cpf-' + f.clave;
+    html += '<div><label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">'+_cpEsc(f.label)+'</label>';
+    if (f.tipo === 'sino'){
+      var on = String(v).trim().toUpperCase().indexOf('SI') === 0 || String(v).trim().toUpperCase().indexOf('SÍ') === 0;
+      html += '<select id="'+id+'" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">'
+            + '<option value="NO"'+(on?'':' selected')+'>NO — desactivado</option>'
+            + '<option value="SI"'+(on?' selected':'')+'>SI — activado</option></select>';
+    } else {
+      var tipoInput = f.tipo === 'num' ? 'number' : 'text';
+      var mono = (f.clave === 'OCA_TRACKING_URL') ? 'font-family:monospace;' : '';
+      html += '<input id="'+id+'" type="'+tipoInput+'" value="'+_cpEsc(v)+'" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;'+mono+'">';
+    }
+    if (f.ayuda) html += '<div style="font-size:10px;color:#9ba5b4;margin-top:4px">'+_cpEsc(f.ayuda)+'</div>';
+    html += '</div>';
+  });
+  cont.innerHTML = html;
+}
+function cpCfgGuardar() {
+  var st = document.getElementById('cp-cfg-status');
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var payload = {};
+  _cpCfgSchema.forEach(function(f){
+    var el = document.getElementById('cpf-' + f.clave);
+    if (el) payload[f.clave] = String(el.value == null ? '' : el.value).trim();
+  });
+  google.script.run
+    .withSuccessHandler(function(res){
+      st.textContent = res && res.ok ? '✓ Guardado' : '✗ Error: ' + ((res && res.error) || '');
+      st.style.color = res && res.ok ? 'var(--green)' : 'var(--red)';
+      setTimeout(function(){ st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e){ st.textContent = '✗ ' + (e && (e.message || e)); st.style.color = 'var(--red)'; })
+    .LAUNCH_setComandasConfig(payload);
 }
 
 function abrirModalCampana() {
@@ -967,6 +1111,7 @@ function avisoGuardar() {
 // ── PIN Portal Reseller ───────────────────────────────────────
 function abrirModalPin() {
   document.getElementById('modal-pin').classList.add('show');
+  pinEstadoRefrescar();
 }
 
 function cerrarModalPin() {
@@ -990,6 +1135,71 @@ function pinRecordar() {
       st.style.color = 'var(--red)';
     })
     .LAUNCH_recordarPin(nombre);
+}
+
+// ── Estado de la cuenta (baja / reactivar) ──
+function pinEstadoRefrescar() {
+  var nombre = document.getElementById('pin-reseller').value;
+  var box    = document.getElementById('pin-estado-box');
+  if (!nombre || !(nombre in _resellerEstados)) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  var activo = _resellerEstados[nombre];
+  var badge  = document.getElementById('pin-estado-badge');
+  var btn    = document.getElementById('pin-estado-btn');
+  if (activo) {
+    badge.textContent = '● Activo';
+    badge.style.background = 'rgba(39,174,96,.12)'; badge.style.color = 'var(--green)';
+    btn.innerHTML = '<i class="fa fa-user-slash"></i> Dar de baja';
+    btn.style.background = 'var(--red)';
+  } else {
+    badge.textContent = '● De baja';
+    badge.style.background = 'rgba(231,76,60,.12)'; badge.style.color = 'var(--red)';
+    btn.innerHTML = '<i class="fa fa-user-check"></i> Reactivar';
+    btn.style.background = 'var(--green)';
+  }
+}
+
+function pinToggleEstado() {
+  var nombre = document.getElementById('pin-reseller').value;
+  if (!nombre || !(nombre in _resellerEstados)) return;
+  var activoActual = _resellerEstados[nombre];
+  var nuevoActivo  = !activoActual;
+  var accion = nuevoActivo ? 'reactivar' : 'dar de baja';
+  if (!confirm('¿Seguro que querés ' + accion + ' a ' + nombre + '?' +
+      (nuevoActivo ? '\nVolverá a poder ingresar al portal.'
+                   : '\nNo podrá ingresar al portal ni aparecerá en el login. Su PIN y email se conservan.'))) return;
+  var st  = document.getElementById('pin-status');
+  var btn = document.getElementById('pin-estado-btn');
+  st.textContent = nuevoActivo ? 'Reactivando…' : 'Dando de baja…';
+  st.style.color = '#9ba5b4';
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      if (res && res.ok) {
+        _resellerEstados[nombre] = res.activo;
+        // reflejar en el texto de la opción del select
+        var sel = document.getElementById('pin-reseller');
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === nombre) {
+            sel.options[i].textContent = res.activo ? nombre : '⛔ ' + nombre + ' (de baja)';
+            break;
+          }
+        }
+        pinEstadoRefrescar();
+        st.textContent = res.activo ? '✓ ' + nombre + ' reactivado' : '✓ ' + nombre + ' dado de baja';
+        st.style.color = 'var(--green)';
+      } else {
+        st.textContent = '✗ ' + ((res && res.error) || 'Error');
+        st.style.color = 'var(--red)';
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      st.textContent = '✗ ' + (e && (e.message || e));
+      st.style.color = 'var(--red)';
+    })
+    .LAUNCH_setResellerActivo(nombre, nuevoActivo);
 }
 
 function pinReset() {
@@ -1060,9 +1270,18 @@ function pinReset() {
       <div class="tool-card">
         <div class="tool-icon editor"><i class="fa fa-robot"></i></div>
         <div class="tool-body">
-          <div class="tool-name">Instalar detector automático</div>
+          <div class="tool-name">Instalar detector automático de respuestas</div>
           <div class="tool-desc">Crea el trigger que escanea Gmail cada 10 minutos para detectar respuestas A/B de resellers. Debe ejecutarse una vez desde el editor del proyecto WOS.</div>
           <div class="tool-editor-note">Apps Script → WOS → WOS_instalarTriggerDetector()</div>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-icon editor"><i class="fa fa-box-open"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Instalar trigger de backorder</div>
+          <div class="tool-desc">Crea el trigger diario que detecta automáticamente pedidos con demanda perdida (CANT_CANCEL > 0) y genera las notas de compra pendientes. Ejecutar una vez desde el editor del proyecto WOS.</div>
+          <div class="tool-editor-note">Apps Script → WOS → WOS_instalarTriggerBackorder()</div>
         </div>
       </div>
     </div>

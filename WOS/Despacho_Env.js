@@ -1,12 +1,33 @@
+<<<<<<< HEAD
 // @version 1.0
 var NOTAS_SS_ID   = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID  = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var PLANIF_SS_ID  = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
 var HOJA_PEDIDOS  = 'Pedidos_resellers';
+=======
+var NOTAS_SS_ID            = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
+var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
+var PLANIF_SS_ID           = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
+var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab WMS en Carmen
+var HOJA_PEDIDOS    = 'Pedidos_resellers';
+var HOJA_PEDIDOS_OT = 'Pedidos_OTs'; // mismo schema (COL) que Pedidos_resellers — repuestos de reparaciones (HUB PRO)
+// Maestro de artículos auto-construido: cuando un operario marca un SKU como "por bolsa"
+// en la preparación, ese SKU queda registrado acá y la próxima vez viene pre-marcado.
+var HOJA_MAESTRO    = 'MAESTRO_ARTICULOS'; // tab en NOTAS_SS_ID
+var COL_MAESTRO = {
+  SKU:       0,   // A
+  DESC:      1,   // B: última descripción vista
+  POR_BOLSA: 2,   // C: TRUE = se prepara por bolsa (1 código SO por bolsa de N unidades)
+  BULTO:     3,   // D: tamaño de bolsa por defecto (ej. 50) — solo sugerencia
+  FECHA:     4,   // E: última actualización
+  OPERADOR:  5    // F: quién lo marcó por última vez
+};
+>>>>>>> dev
 // Defaults — sobreescritos por WOS_CONFIG en MASTER si existe
 var EMAIL_SOPORTE     = 'soporteagrasdji@bidcom.com.ar';
-var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar';
+var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar';
 var WOS_PDF_FOLDER_ID = '1yVefFM-vZ-Skmg2a_V9fsA-3XTAKx3Pz';
 
 var _wosConfigCache = null;
@@ -46,7 +67,7 @@ var COL = {
   DESC:           3,   // D
   CANT_SOL:       4,   // E
   CANT_DESP:      5,   // F
-  CANT_PEND:      6,   // G (fórmula =E-F en sheet)
+  CANT_PEND:      6,   // G (fórmula =E-F-Z en sheet)
   PRECIO:         7,   // H
   STOCK_ORI:      8,   // I
   ESTADO:         9,   // J
@@ -64,6 +85,10 @@ var COL = {
   PESO_ENVIO:         21,  // V: peso del envío en kg
   NE_URL:             22,  // W: link Drive de la Nota de Entrega
   OPERARIO:           23,  // X: email del operario que realizó la última acción
+  SERIALES:           24,  // Y: números de serie despachados (separados por coma)
+  CANT_CANCEL:        25,  // Z: unidades canceladas por reseller (Opción B) — fórmula CANT_PEND actualizar a =E-F-Z
+  UBIC_PREP:          26,  // AA: bins elegidos al preparar, JSON [{bin,cant}] por ítem — descuento WMS se aplica al despachar
+  PESO_PREP:          27,  // AB: peso exacto del paquete (kg) capturado al preparar — pre-llena el peso del bulto al despachar
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };
@@ -83,4 +108,17 @@ var EST = {
 
 function _getHojaPedidos() {
   return SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName(HOJA_PEDIDOS);
+}
+
+function _getHojaPedidosOT() {
+  return SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName(HOJA_PEDIDOS_OT);
+}
+
+// Resuelve a qué hoja pertenece un número de pedido — 'OT-' = repuestos de reparación, resto = Pedidos_resellers.
+// Ambas hojas comparten el mismo layout de columnas (COL).
+function _esNumeroOT(numero) {
+  return String(numero || '').trim().toUpperCase().indexOf('OT-') === 0;
+}
+function _getHojaPorNumero(numero) {
+  return _esNumeroOT(numero) ? _getHojaPedidosOT() : _getHojaPedidos();
 }

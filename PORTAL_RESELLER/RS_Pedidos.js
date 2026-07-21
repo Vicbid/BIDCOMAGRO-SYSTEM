@@ -1,7 +1,9 @@
 // ============================================================
-// @version 1.1
+// @version 2.6
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
+
+var _ACCESORIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
 
 function _asegurarHojasPedidos() {
   var ss = getDb();
@@ -27,6 +29,98 @@ function _asegurarHojasPedidos() {
     hojaDesc.getRange(1, 1, 1, 5).setBackground('#d63031').setFontColor('#fff').setFontWeight('bold');
     hojaDesc.setColumnWidth(3, 260);
   }
+
+  var hojaKits = ss.getSheetByName(SCHEMA.SHEETS.KITS);
+  if (!hojaKits) {
+    hojaKits = ss.insertSheet(SCHEMA.SHEETS.KITS);
+    hojaKits.appendRow(['Kit SKU','Componente SKU','Cantidad por kit','Descripción (opcional)']);
+    hojaKits.setFrozenRows(1);
+    hojaKits.getRange(1, 1, 1, 4).setBackground('#5c5fc0').setFontColor('#fff').setFontWeight('bold');
+    hojaKits.setColumnWidth(1, 150);
+    hojaKits.setColumnWidth(2, 150);
+    hojaKits.setColumnWidth(4, 260);
+  }
+}
+
+// ── Explosión de kits ─────────────────────────────────────────
+// Un SKU "kit" que el reseller pide se reemplaza por sus componentes.
+// Hoja KITS: A=Kit SKU · B=Componente SKU · C=Cantidad por kit · D=Descripción (opcional).
+// Ej: pide 10 de "C" (kit = A + B) → 10 de A + 10 de B. Multiplica por la cantidad pedida.
+function _explotarKits(items) {
+  if (!items || !items.length) return items;
+
+  var kitsMap = {}, hayKits = false;
+  try {
+    var dK = getSheetValues(SCHEMA.SHEETS.KITS);
+    for (var i = 1; i < dK.length; i++) {
+      var kit  = String(dK[i][0] || '').trim().toUpperCase();
+      var comp = String(dK[i][1] || '').trim();
+      if (!kit || !comp) continue;
+      var qk = Number(dK[i][2]) || 1;
+      if (qk < 1) qk = 1;
+      if (!kitsMap[kit]) kitsMap[kit] = [];
+      kitsMap[kit].push({ sku: comp, cantidadPorKit: qk, descripcion: String(dK[i][3] || '').trim() });
+      hayKits = true;
+    }
+  } catch(eK) { Logger.log('_explotarKits leer KITS: ' + eK); return items; }
+  if (!hayKits) return items;
+
+  // Descripciones de los componentes desde DB_REPUESTOS (no dependen de lo que ordenó el reseller)
+  var descMap = {};
+  try {
+    var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+    var D   = SCHEMA.DB_REPUESTOS;
+    for (var d = 1; d < dDb.length; d++) {
+      var cod = String(dDb[d][D.CODIGO] || '').trim().toUpperCase();
+      if (cod) descMap[cod] = String(dDb[d][D.DESCRIPCION] || '').trim();
+    }
+  } catch(eDb) { Logger.log('_explotarKits descMap: ' + eDb); }
+
+  var out = [];
+  for (var p = 0; p < items.length; p++) {
+    var it    = items[p];
+    var skuU  = String(it.sku || '').trim().toUpperCase();
+    var comps = kitsMap[skuU];
+    if (comps && comps.length) {
+      var qBase = Number(it.cantidad) || 1;
+      for (var c = 0; c < comps.length; c++) {
+        var cSkuU = comps[c].sku.toUpperCase();
+        out.push({
+          sku:         comps[c].sku,
+          descripcion: descMap[cSkuU] || comps[c].descripcion || comps[c].sku,
+          precio:      0,                                  // se recalcula en el enforcement de precios
+          cantidad:    qBase * comps[c].cantidadPorKit,
+          modelos:     it.modelos || ''
+        });
+      }
+      Logger.log('_explotarKits: ' + it.sku + ' x' + qBase + ' → ' + comps.length + ' componente(s)');
+    } else {
+      out.push(it);
+    }
+  }
+  return out;
+}
+
+// Mapa de kits para el frontend: { KITSKU: [{sku, cantidadPorKit}, ...] }.
+// Permite explotar C → A + B en vivo en el carrito (igual que la sustitución 1→1).
+function obtenerKitsPortal() {
+  try {
+    var kits = {};
+    var dK = getSheetValues(SCHEMA.SHEETS.KITS);
+    for (var i = 1; i < dK.length; i++) {
+      var kit  = String(dK[i][0] || '').trim().toUpperCase();
+      var comp = String(dK[i][1] || '').trim();
+      if (!kit || !comp) continue;
+      var qk = Number(dK[i][2]) || 1;
+      if (qk < 1) qk = 1;
+      if (!kits[kit]) kits[kit] = [];
+      kits[kit].push({ sku: comp, cantidadPorKit: qk });
+    }
+    return { ok: true, kits: kits };
+  } catch(e) {
+    Logger.log('obtenerKitsPortal: ' + e);
+    return { ok: false, kits: {} };
+  }
 }
 
 function _siguienteNumeroPedido() {
@@ -44,10 +138,13 @@ function _siguienteNumeroPedido() {
 }
 
 // ── Búsqueda con estado de stock ──────────────────────────────
-function buscarRepuestoConStockPortal(query) {
+function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
   try {
     var q = _normText(String(query || '').trim());
     if (q.length < 2) return { ok: true, items: [] };
+
+    var _descInfo = _descInfoResolve(reseller, pctOverride);
+    var _factor   = _descInfo.factor;
 
     var stockMap = {};
     var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
@@ -57,7 +154,7 @@ function buscarRepuestoConStockPortal(query) {
       if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
     }
 
-    var priceMap = _buildPriceMap();
+    var priceMap = _buildPriceMap(_factor);
 
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
@@ -101,8 +198,42 @@ function buscarRepuestoConStockPortal(query) {
       });
     }
 
+    // Buscar también en ACCESORIOS
+    try {
+      var accSheet2 = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
+      if (accSheet2) {
+        var accRows2 = accSheet2.getDataRange().getValues();
+        for (var ai2 = 1; ai2 < accRows2.length; ai2++) {
+          var aSku2  = String(accRows2[ai2][0] || '').trim();
+          var aDesc2 = String(accRows2[ai2][1] || '').trim();
+          if (!aSku2 && !aDesc2) continue;
+          var nASku2  = _normText(aSku2);
+          var nADesc2 = _normText(aDesc2);
+          if (nASku2.indexOf(q) === -1 && nADesc2.indexOf(q) === -1) continue;
+          var aScore2;
+          if (nASku2 === q)               aScore2 = 10;
+          else if (nASku2.indexOf(q) === 0)   aScore2 = 6;
+          else if (nADesc2.indexOf(q) === 0)  aScore2 = 4;
+          else                                aScore2 = 1;
+          var aSkuUp2 = aSku2.toUpperCase();
+          var aEst2 = stockMap[aSkuUp2] !== undefined ? (stockMap[aSkuUp2] > 0 ? 'disponible' : 'backorder') : 'consultar_Backorder';
+          matches.push({
+            sku:            aSku2,
+            descripcion:    aDesc2,
+            descripcionEs:  '',
+            modelos:        String(accRows2[ai2][2] || '').trim(),
+            estado:         aEst2,
+            precio:         Math.round((Number(accRows2[ai2][3]) || 0) * _factor * 100) / 100,
+            stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
+            reemplazadoPor: '',
+            _score:         aScore2
+          });
+        }
+      }
+    } catch(eAcc2) { Logger.log('buscarRepuestoConStockPortal ACCESORIOS: ' + eAcc2); }
+
     matches.sort(function(a, b) { return b._score - a._score; });
-    var items = matches.slice(0, 15);
+    var items = matches.slice(0, 20);
     for (var k = 0; k < items.length; k++) { delete items[k]._score; }
 
     return { ok: true, items: items };
@@ -163,7 +294,9 @@ function _buildBinMap(skusArray) {
   return binMap;
 }
 
-function _buildPriceMap() {
+// factor = precio que paga el reseller / precio de lista (0.60 = 40% dto). Default 0.60 (histórico).
+function _buildPriceMap(factor) {
+  var f = (typeof factor === 'number' && !isNaN(factor) && factor > 0) ? factor : 0.60;
   var map = {};
   try {
     var dLista = getSheetValues(SCHEMA.SHEETS.LISTA_REPUESTOS);
@@ -171,10 +304,65 @@ function _buildPriceMap() {
     for (var p = 1; p < dLista.length; p++) {
       var pCod = String(dLista[p][L.CODIGO] || '').trim().toUpperCase();
       var pVal = Number(dLista[p][L.PRECIO]) || 0;
-      if (pCod && pVal > 0) map[pCod] = Math.round(pVal * 0.60 * 100) / 100; // 40% dto reseller
+      if (pCod && pVal > 0) map[pCod] = Math.round(pVal * f * 100) / 100; // precio reseller (dto por reseller)
     }
   } catch(e) { Logger.log('_buildPriceMap: ' + e); }
   return map;
+}
+
+// ── Descuento por reseller ────────────────────────────────────────────────
+// Devuelve { pct, factor } para un reseller. pct = % de descuento sobre lista.
+// Fuente: columna de la hoja Resellers localizada por encabezado ("descuento"/"dto");
+// si no existe el encabezado, usa el índice fijo SCHEMA.RESELLERS.DESCUENTO.
+// Celda vacía, reseller no encontrado o valor inválido → 40% (comportamiento histórico).
+// factor = (100 - pct) / 100  (0.60 para 40%, 1.0 para 0%).
+function _resellerDescuentoInfo(nombreReseller) {
+  var DEFAULT_PCT = 40;
+  var pct = DEFAULT_PCT;
+  try {
+    var nombre = String(nombreReseller || '').trim().toLowerCase();
+    if (nombre) {
+      var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+      if (datos && datos.length >= 2) {
+        var colDesc = -1;
+        var header = datos[0];
+        for (var j = 0; j < header.length; j++) {
+          var h = _normText(header[j]);
+          if (h.indexOf('descuento') !== -1 || h.indexOf('dto') !== -1) { colDesc = j; break; }
+        }
+        if (colDesc === -1) colDesc = SCHEMA.RESELLERS.DESCUENTO;
+        for (var i = 1; i < datos.length; i++) {
+          if (String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() !== nombre) continue;
+          var raw = datos[i][colDesc];
+          var s = String(raw === null || raw === undefined ? '' : raw).trim().replace('%', '').replace(',', '.');
+          if (s !== '') {
+            var n = Number(s);
+            if (!isNaN(n)) pct = n;
+          }
+          break;
+        }
+      }
+    }
+  } catch(e) { Logger.log('_resellerDescuentoInfo: ' + e); }
+  if (isNaN(pct)) pct = DEFAULT_PCT;
+  if (pct < 0)   pct = 0;
+  if (pct > 100) pct = 100;
+  return { pct: pct, factor: (100 - pct) / 100 };
+}
+
+// ── Descuento resuelto (reseller normal vs. super-RTV) ────────────────────
+// Si pctOverride es un número válido (0-100) → descuento GLOBAL manual del super-RTV
+// (0 = PVP / precio de lista). Si no viene, cae al descuento propio del reseller.
+function _descInfoResolve(reseller, pctOverride) {
+  if (pctOverride !== undefined && pctOverride !== null && String(pctOverride).trim() !== '') {
+    var p = Number(pctOverride);
+    if (!isNaN(p)) {
+      if (p < 0)   p = 0;
+      if (p > 100) p = 100;
+      return { pct: p, factor: (100 - p) / 100 };
+    }
+  }
+  return _resellerDescuentoInfo(reseller);
 }
 
 // ── Verificación en batch para importación Excel ──────────────
@@ -268,6 +456,7 @@ function revisarItemsConStock(items) {
       var sku = String(dDb[i][D.CODIGO] || '').trim().toUpperCase();
       if (sku) dbSet[sku] = true;
     }
+    items = _explotarKits(items); // C → A + B antes de chequear stock, para que la revisión muestre los componentes reales
     return _splitItemsConStock(items, stockMap, dbSet);
   } catch(e) {
     Logger.log('revisarItemsConStock: ' + e);
@@ -348,7 +537,16 @@ function confirmarPedidoPortal(params) {
   try {
     lock.waitLock(30000);
 
-    var reseller  = String(params.reseller      || '').trim();
+    // ── Modo super-RTV: carga a nombre de cualquier cliente con descuento GLOBAL manual ──
+    // Autorización server-side: NO se confía en el cliente; se re-verifica el email de sesión.
+    var modoSuper = (params && params.modoSuper === true);
+    if (modoSuper) {
+      var _superEmail = '';
+      try { _superEmail = Session.getActiveUser().getEmail(); } catch(eSU) {}
+      if (!_esRTVSuper(_superEmail)) return { ok: false, error: 'No autorizado para carga super-RTV.' };
+    }
+
+    var reseller  = String((modoSuper ? params.cliente : params.reseller) || '').trim();
     var items     = params.items                || [];
     var obs       = String(params.observaciones || '').trim();
     var formaPago = String(params.formaPago     || '').trim();
@@ -382,8 +580,12 @@ function confirmarPedidoPortal(params) {
       }
     } catch(eSub) { Logger.log('confirmarPedidoPortal sustitucion: ' + eSub); }
 
-    // ── A. Precio enforcement desde Lista_Repuestos ───────────────
-    var priceMap = _buildPriceMap();
+    // ── A0b. Explosión de kits (ej: C → A + B, misma cantidad) ────
+    items = _explotarKits(items);
+
+    // ── A. Precio enforcement desde Lista_Repuestos (dto del reseller o global del super) ─
+    var descInfo = modoSuper ? _descInfoResolve(null, params.descuentoPct) : _resellerDescuentoInfo(reseller);
+    var priceMap = _buildPriceMap(descInfo.factor);
     var total = 0;
     for (var pi = 0; pi < items.length; pi++) {
       var itPi   = items[pi];
@@ -394,19 +596,34 @@ function confirmarPedidoPortal(params) {
       if ((itPi.precio || 0) > 0) total += itPi.precio * (Number(itPi.cantidad) || 1);
     }
 
-    // ── B. Metadatos del reseller ─────────────────────────────────
+    // ── B. Metadatos del reseller / cliente ───────────────────────
+    // Super-RTV: el cliente puede ser externo (no está en Resellers) → usar el email tipeado (si lo hay).
     var emailReseller = '';
-    try {
-      var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-      var rLow = reseller.toLowerCase();
-      for (var ri = 1; ri < dRes.length; ri++) {
-        if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
-          emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
-          break;
+    if (modoSuper) {
+      emailReseller = String(params.emailCliente || '').trim();
+    } else {
+      try {
+        var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+        var rLow = reseller.toLowerCase();
+        for (var ri = 1; ri < dRes.length; ri++) {
+          if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
+            emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
+            break;
+          }
         }
-      }
-    } catch(eR) { Logger.log('confirmarPedidoPortal email: ' + eR); }
+      } catch(eR) { Logger.log('confirmarPedidoPortal email: ' + eR); }
+    }
     var resellerMeta = _lookupResellerMeta(reseller);
+
+    // Super-RTV: dirección de envío tipeada (el cliente externo no tiene perfil de reseller).
+    // Se refleja en el PDF (bloque del cliente) y en observaciones (planilla + mail a logística).
+    if (modoSuper && envio !== 'Retiro') {
+      var _dirEnv = String(params.direccionEnvio || '').trim();
+      if (_dirEnv) {
+        resellerMeta.direccion = _dirEnv;
+        obs = (obs ? obs + '\n' : '') + 'Dirección de envío: ' + _dirEnv;
+      }
+    }
 
     var numero = _siguienteNumeroPedido();
 
@@ -414,6 +631,9 @@ function confirmarPedidoPortal(params) {
     var NOTAS_SS_ID = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
     var notasHoja = null;
     try {
+      // IMPORTANTE: usar getSheetByName (NO getActiveSheet). getActiveSheet devuelve
+      // la última pestaña que alguien dejó seleccionada en el archivo → si no era
+      // "Pedidos_resellers", el pedido se escribía en la pestaña equivocada.
       notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
     } catch(eNS) { Logger.log('confirmarPedidoPortal openNotasSS: ' + eNS); }
 
@@ -467,7 +687,7 @@ function confirmarPedidoPortal(params) {
           it.descripcion || '',              // D: Descripción
           cant,                              // E: Cantidad solicitada
           0,                                 // F: 0 inicial
-          '=E' + newRow + '-F' + newRow,     // G: Fórmula pendiente
+          '=E' + newRow + '-F' + newRow + '-Z' + newRow,  // G: Fórmula pendiente (SOL - DESP - CANCEL)
           prec,                              // H: Precio con descuento (reseller)
           stkH,                              // I: Stock Carmen al momento de carga
           estadoNota,                        // J: Estado
@@ -483,7 +703,7 @@ function confirmarPedidoPortal(params) {
     if (sinCatalogo.length) invalidateSheetValues(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
 
     // ── D. PDF ────────────────────────────────────────────────────
-    var pdfUrl = _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio);
+    var pdfUrl = _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio, descInfo);
 
     // ── E. Registrar en PEDIDOS_REPUESTOS (estado='Recibido') ─────
     var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
@@ -508,7 +728,7 @@ function confirmarPedidoPortal(params) {
     }
 
     // ── F. Email a logística ──────────────────────────────────────
-    var threadId = _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago);
+    var threadId = _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago, descInfo);
 
     // ── G. Guardar Thread_ID (string crudo) en columna R ─────────
     // WOS_GmailFlow.js lo lee con COL.THREAD_ID para reply en hilo.
@@ -610,37 +830,90 @@ function generarPedidoRepuestosPortal(params) {
 function _mapEstadoWosSimple(estadoWos) {
   var e = String(estadoWos || '').trim();
   if (e === 'Cancelado') return 'cancelado';
-  if (e === 'Entregado_Cerrado' || e === 'Listo_Retiro' || e === 'Entregado_Confirmado') return 'enviado';
+  if (e === 'Entregado_Confirmado') return 'recibido';   // ya confirmado por el reseller
+  if (e === 'Entregado_Cerrado' || e === 'Listo_Retiro') return 'enviado';
   return 'en_proceso';
 }
 
 // ── Confirmar recepción de repuestos desde el portal ─────────
 function RS_confirmarRecepcion(numero, reseller) {
+  // Lock + guarda de idempotencia: 30 clicks seguidos NO cierran 30 veces ni mandan 30 mails.
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(20000); }
+  catch(eL) { return { ok: false, error: 'Otra confirmación en curso. Reintentá en unos segundos.' }; }
   try {
     var ss    = SpreadsheetApp.openById('1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw');
     var hoja  = ss.getSheetByName('Pedidos_resellers');
     if (!hoja) return { ok: false, error: 'Hoja no encontrada' };
     var datos = hoja.getDataRange().getValues();
+
+    // 1. Escanear el pedido: ¿ya está confirmado? ¿hay algo para cerrar? ¿thread para responder?
+    var existePedido = false, yaConfirmado = false, threadId = '';
+    for (var g = 1; g < datos.length; g++) {
+      if (String(datos[g][0] || '').trim() !== numero) continue;
+      existePedido = true;
+      var eg = String(datos[g][9] || '').trim();
+      if (eg === 'Entregado_Confirmado') yaConfirmado = true;
+      if (!threadId && datos[g][17]) threadId = String(datos[g][17]).trim(); // col R (18) = Thread_ID
+    }
+    if (!existePedido) return { ok: false, error: 'Pedido no encontrado' };
+    // Ya estaba confirmado → no re-cierra ni reenvía mail (idempotente)
+    if (yaConfirmado) return { ok: true, actualizados: 0, yaConfirmado: true };
+
+    // 2. Cerrar las líneas entregadas
     var actualizados = 0;
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][0] || '').trim() !== numero) continue;
       var est = String(datos[i][9] || '').trim();
       if (est === 'Entregado_Cerrado' || est === 'Listo_Retiro') {
-        hoja.getRange(i + 1, 10).setValue('Entregado_Confirmado');
+        var rEst = hoja.getRange(i + 1, 10);
+        rEst.clearDataValidations();
+        rEst.setValue('Entregado_Confirmado');
         hoja.getRange(i + 1, 19).setValue(new Date()); // FECHA_ESTADO col 19 (S)
         actualizados++;
       }
     }
-    if (actualizados > 0) SpreadsheetApp.flush();
-    // Log en WOS_Log
+    // Nada entregado para cerrar → no hay confirmación válida, no se manda mail
+    if (actualizados === 0) return { ok: true, actualizados: 0 };
+    SpreadsheetApp.flush();
+
+    // 3. Mail de cierre — UNA sola vez (protegido por lock + guarda de arriba)
+    try { _rsEnviarCierreRecepcion(numero, reseller, threadId); }
+    catch(eM) { Logger.log('RS_confirmarRecepcion mail: ' + eM); }
+
+    // 4. Log
     try {
       var logHoja = ss.getSheetByName('WOS_Log');
       if (logHoja) logHoja.appendRow([new Date(), numero, reseller, 'Recepción confirmada por reseller', reseller, '']);
     } catch(eLog) {}
+
     return { ok: true, actualizados: actualizados };
   } catch(e) {
     return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eF) {}
   }
+}
+
+// Mail "pedido cerrado" al reseller. Responde en el hilo del pedido si existe; si no, mail directo.
+function _rsEnviarCierreRecepcion(numero, reseller, threadId) {
+  var cuerpo =
+    "<p style='font-size:13px;color:#555;line-height:1.6;margin:0'>" +
+      "Registramos la confirmación de recepción de tu pedido <strong style='color:#00a3e0'>" + numero + "</strong>. " +
+      "El pedido queda cerrado. Gracias por trabajar con BIDCOMAGRO." +
+    "</p>";
+  var htmlBody = _construirEmailHTML('Recepción confirmada — Pedido ' + numero, reseller, cuerpo,
+                                     'Pedido ' + numero + ' · ' + reseller + '.');
+  var plain = 'Hola ' + reseller + ',\n\nRegistramos la confirmación de recepción del pedido ' + numero +
+              '. El pedido queda cerrado. Gracias por trabajar con BIDCOMAGRO.';
+  var opts = { htmlBody: htmlBody, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR };
+
+  if (threadId) {
+    try { GmailApp.getThreadById(threadId).replyAll(plain, opts); return; }
+    catch(eT) { Logger.log('_rsEnviarCierreRecepcion thread ' + threadId + ': ' + eT); }
+  }
+  var email = _emailReseller(reseller);
+  if (email) GmailApp.sendEmail(email, 'Recepción confirmada — Pedido ' + numero, plain, opts);
 }
 
 // ── Historial de pedidos por reseller ────────────────────────
@@ -697,10 +970,11 @@ function obtenerHistorialPedidosPortal(reseller) {
           var num = String(wosData[j][0] || '').trim();
           var est = String(wosData[j][9] || '').trim();
           if (!num) continue;
-          if (!wosEstados[num]) wosEstados[num] = { total: 0, enviado: 0, cancelado: 0, tracking: '', notaEntrega: '', neUrl: '', fechaDespacho: '' };
+          if (!wosEstados[num]) wosEstados[num] = { total: 0, enviado: 0, recibido: 0, cancelado: 0, tracking: '', notaEntrega: '', neUrl: '', fechaDespacho: '' };
           wosEstados[num].total++;
           var mapped = _mapEstadoWosSimple(est);
           if (mapped === 'enviado')   wosEstados[num].enviado++;
+          if (mapped === 'recibido')  wosEstados[num].recibido++;
           if (mapped === 'cancelado') wosEstados[num].cancelado++;
           // Recoger datos de despacho (primera fila no vacía gana)
           if (!wosEstados[num].tracking     && wosData[j][16]) wosEstados[num].tracking     = String(wosData[j][16]).trim();
@@ -726,13 +1000,15 @@ function obtenerHistorialPedidosPortal(reseller) {
             continue;
           }
           console.log('[HIST] ID "' + out[k].id + '" → total=' + ws.total + ' enviado=' + ws.enviado + ' cancelado=' + ws.cancelado);
-          out[k]._debug = 'total=' + ws.total + ' enviado=' + ws.enviado + ' cancelado=' + ws.cancelado;
+          out[k]._debug = 'total=' + ws.total + ' enviado=' + ws.enviado + ' recibido=' + ws.recibido + ' cancelado=' + ws.cancelado;
           var noCancel = ws.total - ws.cancelado;
+          var entregadas = ws.enviado + ws.recibido; // líneas entregadas (confirmadas o no)
           if (ws.cancelado === ws.total) {
             out[k].estadoSimple = 'cancelado';
-          } else if (ws.enviado === noCancel) {
-            out[k].estadoSimple = 'enviado';
-          } else if (ws.enviado > 0) {
+          } else if (entregadas === noCancel) {
+            // Pedido COMPLETO (todo entregado): si ya lo confirmaron → recibido; si no → enviado (muestra botón)
+            out[k].estadoSimple = (ws.recibido > 0) ? 'recibido' : 'enviado';
+          } else if (entregadas > 0) {
             out[k].estadoSimple = 'enviado_parcial';
           } else {
             out[k].estadoSimple = 'en_proceso';
@@ -754,12 +1030,115 @@ function obtenerHistorialPedidosPortal(reseller) {
   }
 }
 
+// ── Tiempo promedio de envío (recibido → despachado) ──────────
+// Promedio en días hábiles (Lun–Vie) desde que se recibe el pedido del reseller
+// hasta que se despacha. Solo cuenta pedidos de este reseller efectivamente
+// enviados, cruzando PEDIDOS_REPUESTOS (fecha de recepción) con WOS
+// (Pedidos_resellers, col 14 = fecha de despacho) — el mismo join que el historial.
+function obtenerTiempoPromedioEnvioPortal(reseller) {
+  try {
+    var rLow = String(reseller || '').trim().toLowerCase();
+    if (!rLow) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
+    var P     = SCHEMA.PEDIDOS_REPUESTOS;
+    var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+
+    // id → fecha de recepción (Date)
+    var recibido = {}, hayAlguno = false;
+    for (var i = 1; i < datos.length; i++) {
+      var f = datos[i];
+      if (String(f[P.RESELLER] || '').trim().toLowerCase() !== rLow) continue;
+      var id = String(f[P.ID] || '').trim();
+      var fe = f[P.FECHA];
+      if (id && fe instanceof Date) { recibido[id] = fe; hayAlguno = true; }
+    }
+    if (!hayAlguno) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
+
+    // id → { enviado, fechaDespacho } desde WOS (Pedidos_resellers)
+    var desp = {};
+    try {
+      var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+      var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
+      if (wosHoja) {
+        var wosData = wosHoja.getDataRange().getValues();
+        for (var j = 1; j < wosData.length; j++) {
+          var num = String(wosData[j][0] || '').trim();
+          if (!num || !recibido[num]) continue;
+          if (!desp[num]) desp[num] = { enviado: 0, esBackorder: false, primerDespacho: null, boLineas: 0, boResueltas: 0, boUltimoDespacho: null };
+          if (_mapEstadoWosSimple(String(wosData[j][9] || '').trim()) === 'enviado') desp[num].enviado++;
+
+          var fd   = wosData[j][14]; // col O — fecha de despacho de ESTA línea
+          var fdOk = (fd instanceof Date);
+          // Despacho general (para pedidos con stock, que salen juntos): el más temprano
+          if (fdOk && (!desp[num].primerDespacho || fd < desp[num].primerDespacho)) desp[num].primerDespacho = fd;
+
+          // ¿Esta línea estaba en backorder al cargar? (stock Carmen col I < cantidad pedida col E)
+          var req     = Number(wosData[j][4]) || 0;
+          var snap    = wosData[j][8];
+          var snapNum = (snap === '' || snap === null || isNaN(Number(snap))) ? null : Number(snap);
+          if (snapNum === null || snapNum < req) {
+            desp[num].esBackorder = true;
+            desp[num].boLineas++;
+            if (fdOk) { // la línea en backorder ya se despachó
+              desp[num].boResueltas++;
+              // espera real: cuándo salió el ÚLTIMO ítem que estaba en backorder
+              if (!desp[num].boUltimoDespacho || fd > desp[num].boUltimoDespacho) desp[num].boUltimoDespacho = fd;
+            }
+          }
+        }
+      }
+    } catch(eWos) { Logger.log('obtenerTiempoPromedioEnvioPortal WOS: ' + eWos); }
+
+    // Dos promedios separados:
+    //  · Con stock  → recibido → primer (único) despacho.
+    //  · Backorder  → recibido → despacho del ÚLTIMO ítem que estaba en backorder.
+    //    Solo cuenta si TODAS las líneas en backorder ya se despacharon (si no, la espera no terminó).
+    var conStock = { suma: 0, n: 0 }, backorder = { suma: 0, n: 0 };
+    for (var pid in desp) {
+      var d = desp[pid];
+      if (!recibido[pid]) continue;
+      if (d.esBackorder) {
+        if (d.boLineas > 0 && d.boResueltas === d.boLineas && d.boUltimoDespacho) {
+          backorder.suma += _diasHabilesEntre(recibido[pid], d.boUltimoDespacho); backorder.n++;
+        }
+      } else if (d.enviado > 0 && d.primerDespacho) {
+        conStock.suma += _diasHabilesEntre(recibido[pid], d.primerDespacho); conStock.n++;
+      }
+    }
+    return {
+      ok: true,
+      conStock:  { muestras: conStock.n,  promedio: conStock.n  ? Math.round((conStock.suma  / conStock.n)  * 10) / 10 : null },
+      backorder: { muestras: backorder.n, promedio: backorder.n ? Math.round((backorder.suma / backorder.n) * 10) / 10 : null }
+    };
+  } catch(e) {
+    Logger.log('obtenerTiempoPromedioEnvioPortal: ' + e);
+    return { ok: false, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
+  }
+}
+
+// Días hábiles (Lun–Vie) transcurridos entre dos fechas.
+// Excluye el día inicial e incluye el final; mismo día o fecha invertida = 0.
+function _diasHabilesEntre(desde, hasta) {
+  var a = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate());
+  var b = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+  if (b <= a) return 0;
+  var count = 0, cur = new Date(a);
+  while (cur < b) {
+    cur.setDate(cur.getDate() + 1);
+    var dow = cur.getDay(); // 0=Domingo, 6=Sábado
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
 // ── Índice compacto para búsqueda local en el browser ────────
 // Formato: [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs]
 // statusCode: D=disponible, B=backorder, R=consultar_Backorder
 // indices 8-10: strings pre-normalizados para búsqueda sin llamar _normText en cada keystroke
-function obtenerIndiceRepuestosPortal() {
+function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
   try {
+    var _descInfo = _descInfoResolve(reseller, pctOverride);
+    var _factor   = _descInfo.factor;
+
     var stockMap = {};
     var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
     var S = SCHEMA.STOCK_INVENTARIO;
@@ -767,7 +1146,7 @@ function obtenerIndiceRepuestosPortal() {
       var cod = String(dStock[s][S.CODIGO] || '').trim().toUpperCase();
       if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
     }
-    var priceMap = _buildPriceMap();
+    var priceMap = _buildPriceMap(_factor);
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
     var items = [];
@@ -790,7 +1169,32 @@ function obtenerIndiceRepuestosPortal() {
         _normText(sku), _normText(desc), _normText(descEs)
       ]);
     }
-    return { ok: true, items: items };
+
+    // Agregar ítems de hoja ACCESORIOS
+    try {
+      var accSheet = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
+      if (accSheet) {
+        var accRows = accSheet.getDataRange().getValues();
+        for (var ai = 1; ai < accRows.length; ai++) {
+          var aSku  = String(accRows[ai][0] || '').trim();
+          var aDesc = String(accRows[ai][1] || '').trim();
+          if (!aSku && !aDesc) continue;
+          var aSkuUp = aSku.toUpperCase();
+          var aMod   = String(accRows[ai][2] || '').trim();
+          var aPvp   = Math.round((Number(accRows[ai][3]) || 0) * _factor * 100) / 100;
+          var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
+          items.push([
+            aSku, aDesc, aMod, aE,
+            aPvp,
+            stockMap[aSkuUp] !== undefined ? stockMap[aSkuUp] : -1,
+            '', '',
+            _normText(aSku), _normText(aDesc), ''
+          ]);
+        }
+      }
+    } catch(eAcc) { Logger.log('obtenerIndiceRepuestosPortal ACCESORIOS: ' + eAcc); }
+
+    return { ok: true, items: items, descuentoPct: _descInfo.pct };
   } catch(ex) {
     Logger.log('obtenerIndiceRepuestosPortal: ' + ex);
     return { ok: false, items: [] };
@@ -1005,11 +1409,15 @@ function registrarDemandaPerdidaPortal(sku, cantidad, resellerName, accion) {
 }
 
 // ── Genera PDF del pedido via SpreadsheetApp → DriveApp.getAs ─────
-function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio) {
+function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, formaPago, envio, descInfo) {
   var tempSs = null;
   try {
     var meta     = resellerMeta || { nombre: String(reseller || ''), direccion: '', telefono: '' };
     var fechaStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+    // Descuento aplicado (para revertir a PVP de lista y rotular). Default 40% / 0.60.
+    var _dPct    = (descInfo && typeof descInfo.pct    === 'number') ? descInfo.pct    : 40;
+    var _dFactor = (descInfo && typeof descInfo.factor === 'number' && descInfo.factor > 0) ? descInfo.factor : 0.60;
+    var _dLabel  = _dPct > 0 ? ('precio reseller \xb7 ' + _dPct + '% dto.') : 'precio reseller \xb7 sin descuento';
 
     // Stock en tiempo real de Carmen
     var _pdfStockMap = {};
@@ -1117,7 +1525,7 @@ function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, fo
       } else {
         estadoLabel = 'Backorder';
       }
-      var pvp    = p > 0 ? Math.round(p / 0.60 * 100) / 100 : 0;
+      var pvp    = (p > 0 && _dFactor > 0) ? Math.round(p / _dFactor * 100) / 100 : p;
       var rowVals = [
         it.sku         || '—',
         it.descripcion || '—',
@@ -1140,10 +1548,10 @@ function _generarPdfPedido(numero, reseller, items, obs, total, resellerMeta, fo
     // 4. FILA TOTAL
     // ──────────────────────────────────────────────────────────────
     if (total > 0) {
-      sheet.getRange(ri, 1, 1, 6).merge().setValue('TOTAL ESTIMADO (precio reseller · 40% dto. · no incluye impuestos)')
-        .setFontSize(10).setFontWeight('bold').setFontColor('#5e6778')
+      sheet.getRange(ri, 1, 1, 5).merge().setValue('TOTAL ESTIMADO (' + _dLabel + ' \xb7 no incluye impuestos)')
+        .setFontSize(9).setFontWeight('bold').setFontColor('#5e6778')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
-      sheet.getRange(ri, 7).setValue(_fmtUsd(total))
+      sheet.getRange(ri, 6, 1, 2).merge().setValue(_fmtUsd(total))
         .setFontSize(11).setFontWeight('bold').setFontColor('#00a3e0')
         .setBackground('#e8f5fc').setHorizontalAlignment('right').setVerticalAlignment('middle');
       sheet.setRowHeight(ri, 24);
@@ -1244,7 +1652,9 @@ function _buscarThreadIdEnLogs(numero) {
 }
 
 // ── Email interno con GmailThread — responde en hilo si ya existe ─
-function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago) {
+function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago, descInfo) {
+  var _dPct    = (descInfo && typeof descInfo.pct === 'number') ? descInfo.pct : 40;
+  var _dTotLbl = _dPct > 0 ? ('precio reseller c/' + _dPct + '% dto.') : 'precio reseller (sin descuento)';
   // Declarados fuera del try para que el log final siempre pueda escribirlos
   var asunto      = '[PEDIDO] ' + numero + ' — ' + reseller + ' — ' + items.length + ' ítem(s)';
   var estadoLog   = 'PENDING';
@@ -1345,7 +1755,7 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
 
     var totalBloque = (total && total > 0)
       ? "<div style='text-align:right;margin-top:10px'>" +
-          "<span style='font-size:13px;color:#444'>Total estimado (precio reseller c/40% dto.): </span>" +
+          "<span style='font-size:13px;color:#444'>Total estimado (" + _dTotLbl + "): </span>" +
           "<strong style='font-size:15px;color:#00a3e0'>" + _fmtUsd(total) + "</strong>" +
           "<div style='font-size:10px;color:#999;margin-top:3px'>Precios expresados no incluyen impuestos</div>" +
         "</div>"

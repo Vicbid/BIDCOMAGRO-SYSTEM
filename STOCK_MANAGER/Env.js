@@ -1,5 +1,14 @@
+<<<<<<< HEAD
 // @version 1.0
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
+=======
+var MASTER_SHEET_ID        = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
+var WOS_NOTAS_SS_ID        = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw'; // WOS — contiene Pedidos_resellers y Pedidos_OTs
+var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
+var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab resumen WMS (fórmulas SUMIFS, solo lectura)
+var CARMEN_ENTREGADOS_TAB  = 'Entregados';  // log de salidas en Carmen
+var CARMEN_RECIBIDOS_TAB   = 'Recibidos';   // log de entradas en Carmen
+>>>>>>> dev
 
 var SCHEMA = {
   SHEETS: {
@@ -22,8 +31,11 @@ var SCHEMA = {
     USUARIOS_CONFIG: 'USUARIOS_CONFIG',
     STOCK_UBICACIONES: 'STOCK_UBICACIONES',
     TABLA_POSICIONES:  'TABLA_POSICIONES',
+    LAYOUT_ALMACEN:    'LAYOUT_ALMACEN',
     HISTORIAL_COMPRAS: 'HISTORIAL_COMPRAS',
-    CATALOGO_DJI:      'CATALOGO_DJI'
+    CATALOGO_DJI:      'CATALOGO_DJI',
+    SO_ETIQUETAS:      'SO_ETIQUETAS',
+    EQUIPOS_DEPOSITO:  'EQUIPOS_DEPOSITO'
   },
   OT: {
     FECHA_INGRESO: 0,
@@ -121,7 +133,8 @@ var SCHEMA = {
     FECHA_DEPOSITO:       10,
     OPERADOR:             11,
     OBSERVACIONES:        12,
-    ULTIMA_ACTUALIZACION: 13
+    ULTIMA_ACTUALIZACION: 13,
+    ETA:                  14
   },
   HISTORIAL_COMPRAS: {
     FECHA:           0,
@@ -153,8 +166,34 @@ var SCHEMA = {
     BIN_ID:       1,
     CANTIDAD:     2,
     TIPO_ALMACEN: 3
+  },
+  LAYOUT_ALMACEN: {
+    ESTANTE:       0,
+    ORDEN_ESTANTE: 1,
+    PANO:          2,
+    ORDEN_PANO:    3,
+    NUM_ALTURAS:   4
+  },
+  // Inventario de EQUIPOS COMPLETOS en depósito (por N° de serie). Distinto del stock de repuestos.
+  EQUIPOS_DEPOSITO: {
+    SN:            0,   // A: N° de serie (identificador)
+    MODELO:        1,   // B
+    CONDICION:     2,   // C: Nuevo / Usado
+    DESTINO:       3,   // D: Venta / Harvesting / HV / Donante de partes
+    ESTADO:        4,   // E: Completo / Incompleto
+    UBICACION:     5,   // F
+    FECHA_INGRESO: 6,   // G
+    ORIGEN:        7,   // H: compra / CAS / cliente / RMA…
+    VALOR:         8,   // I: valor para conciliaciones
+    FALTANTES:     9,   // J: nota de qué le falta (texto; Fase 2 lo estructura)
+    OBSERVACIONES: 10,  // K
+    SITUACION:     11,  // L: En depósito / Vendido / Baja
+    FECHA_ACT:     12,  // M: última actualización
+    OPERADOR:      13   // N
   }
 };
+
+
 
 var _DB = null;
 var CACHE_TTL = 60;

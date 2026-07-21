@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<!-- @version 2.18 -->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --blue:   #00a3e0; --blue-d: #0088bb;
+  --blue-a: rgba(0,163,224,.1); --blue-b: rgba(0,163,224,.05);
+  --bg:     #f0f2f5; --panel:  #ffffff; --surf:  #f7f8fa;
+  --raise:  #eef0f3; --hov:    #e8eaed; --brd:   #e0e3e8; --brd2:  #c8cdd6;
+  --tx:     #1a1f2e; --tx-m:   #5e6778; --tx-d:  #9ba5b4;
+  --green:  #1a9e4a; --yellow: #d4890a; --red:   #d63031; --amber:#ffab00;
+  --f: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  --r:4px; --rm:8px; --rl:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surf)}
+::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--blue)}
+
+/* ── HEADER ── */
+.site-header{background:var(--panel);border-bottom:1px solid var(--brd);padding:12px 22px;position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.header-brand{display:flex;align-items:center;gap:10px}
+.dji-mark{width:34px;height:34px;background:var(--blue);border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dji-mark span{color:#fff;font-size:10px;font-weight:700;letter-spacing:.05em}
+.header-name{font-size:13px;font-weight:600;color:var(--tx);line-height:1.2}
+.header-sub{font-size:10px;color:var(--tx-m)}
+.header-badge{font-size:9px;font-weight:700;letter-spacing:.1em;padding:4px 10px;border-radius:var(--r);background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.2);text-transform:uppercase}
+
+/* ── LAYOUT ── */
+.wrap{max-width:880px;margin:0 auto;padding:22px 16px 60px}
+
+/* ── HERO / RESUMEN ── */
+.hero{display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--brd);border-left:4px solid var(--amber);border-radius:var(--rl);padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.hero-ico{width:46px;height:46px;border-radius:var(--rm);background:rgba(255,171,0,.12);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.hero-txt{flex:1;min-width:0}
+.hero-count{font-size:24px;font-weight:800;color:var(--tx);line-height:1.1}
+.hero-count small{font-size:13px;font-weight:600;color:var(--tx-m)}
+.hero-sub{font-size:12px;color:var(--tx-m);margin-top:2px}
+.hero.ok{border-left-color:var(--green)}
+.hero.ok .hero-ico{background:rgba(26,158,74,.12);color:var(--green)}
+
+/* ── VIEW TABS (Pendientes / Cargados) ── */
+.viewtabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:4px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.vtab{flex:1;padding:9px 12px;background:transparent;border:none;color:var(--tx-m);font-size:12.5px;font-weight:600;border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;align-items:center;justify-content:center;gap:8px}
+.vtab:hover{background:var(--surf);color:var(--tx)}
+.vtab.active{background:var(--blue);color:#fff}
+.vcount{font-size:11px;font-weight:800;background:rgba(0,0,0,.12);padding:1px 8px;border-radius:10px;min-width:22px}
+.vtab.active .vcount{background:rgba(255,255,255,.25)}
+
+/* ── TOAST ── */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--tx);color:#fff;padding:11px 18px;border-radius:var(--rm);font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:900;display:flex;align-items:center;gap:9px;max-width:90%}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#127a38}
+.toast.err{background:#b3282b}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search-box{flex:1;min-width:180px;position:relative}
+.search-box i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:13px}
+.search-box input{width:100%;background:var(--panel);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);padding:9px 12px 9px 34px;font-family:var(--f);font-size:13px;outline:none;transition:border-color .13s,box-shadow .13s}
+.search-box input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
+.btn-out{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;background:var(--panel);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;transition:all .13s}
+.btn-out:hover{border-color:var(--blue);color:var(--blue);background:var(--panel)}
+.btn-out.spin i{animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ts-lbl{font-size:11px;color:var(--tx-d);margin-left:auto}
+
+/* ── FILTROS RÁPIDOS ── */
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters-lbl{color:var(--tx-d);font-size:13px}
+.fchip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--panel);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;transition:all .13s}
+.fchip:hover{border-color:var(--brd2);color:var(--tx)}
+.fchip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.fchip.clear{border-style:dashed;color:var(--tx-d)}
+.fchip.clear:hover{border-color:var(--red);color:var(--red)}
+.fsel{background:var(--panel);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:20px;padding:6px 12px;font-family:var(--f);cursor:pointer;outline:none;transition:border-color .13s;max-width:220px}
+.fsel:focus{border-color:var(--blue)}
+
+/* listado resellers sin mail */
+.sm-item{border:1px solid var(--brd);border-radius:var(--rm);padding:10px 13px;margin-bottom:8px;background:var(--surf)}
+.sm-item .sm-r{font-size:13px;font-weight:700;color:var(--tx)}
+.sm-item .sm-v{font-size:11.5px;color:var(--tx-m);margin-top:3px}
+
+/* ── COMANDA CARD ── */
+.cmd{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden}
+.cmd.open{box-shadow:0 2px 12px rgba(0,163,224,.1);border-color:var(--brd2)}
+.cmd-head{padding:11px 15px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;transition:background .12s}
+.cmd-head:hover{background:var(--surf)}
+.cmd.open .cmd-head{border-bottom:1px solid var(--brd);background:var(--surf)}
+.cmd-sum{flex:1;min-width:0}
+.cmd-sum-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.cmd-id{font-size:14px;font-weight:700;color:var(--blue);font-family:ui-monospace,Menlo,Consolas,monospace}
+.cmd-op{font-size:10px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:2px 7px}
+.cmd-sub{font-size:11.5px;color:var(--tx-m);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmd-sub b{color:var(--tx);font-weight:600}
+.cmd-sub .usd{color:var(--green);font-weight:700}
+.cmd-sub .cmd-time{color:var(--tx-d);font-weight:500}
+.b-cargar{font-size:10px;font-weight:800;letter-spacing:.08em;padding:4px 10px;border-radius:var(--r);background:rgba(255,171,0,.12);color:#b57500;border:1px solid rgba(255,171,0,.4);text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;flex-shrink:0}
+/* contador de antigüedad (SLA) */
+.aging{flex:0 0 auto;font-size:12px;font-weight:800;padding:4px 10px;border-radius:var(--r);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid;font-variant-numeric:tabular-nums}
+.aging.verde{color:var(--green);background:rgba(26,158,74,.1);border-color:rgba(26,158,74,.28)}
+.aging.amarillo{color:var(--yellow);background:rgba(212,137,10,.1);border-color:rgba(212,137,10,.32)}
+.aging.rojo{color:var(--red);background:rgba(214,48,49,.1);border-color:rgba(214,48,49,.32)}
+.aging.rojo i{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.aging.none{color:var(--tx-d);background:var(--surf);border-color:var(--brd);font-weight:600}
+.chev{color:var(--tx-d);font-size:14px;transition:transform .18s;flex-shrink:0}
+.cmd.open .chev{transform:rotate(180deg);color:var(--blue)}
+.cmd-body{padding:15px 17px;display:none}
+
+/* input N° comanda en el header (marcar como cargado) */
+.cmd-mark{display:flex;align-items:center;gap:0;flex-shrink:0}
+.cmd-comanda{width:120px;border:1px solid var(--brd2);border-right:none;border-radius:var(--rm) 0 0 var(--rm);padding:6px 9px;font-size:12px;font-family:var(--f);color:var(--tx);background:#fff;outline:none;transition:border-color .13s}
+.cmd-comanda:focus{border-color:var(--green)}
+.cmd-comanda::placeholder{color:var(--tx-d)}
+.cmd-comanda.ready-glow{border-color:var(--green);animation:glowpulse 1.5s ease}
+@keyframes glowpulse{0%{box-shadow:0 0 0 0 rgba(26,158,74,.45)}70%{box-shadow:0 0 0 5px rgba(26,158,74,0)}100%{box-shadow:0 0 0 0 rgba(26,158,74,0)}}
+.cmd-ok{border:none;background:var(--green);color:#fff;border-radius:0 var(--rm) var(--rm) 0;padding:7px 11px;font-size:13px;cursor:pointer;transition:background .13s}
+.cmd-ok:hover{background:#158640}
+.cmd-ok:disabled{opacity:.5;cursor:default}
+
+/* badge de comanda cargada */
+.b-cargado{flex-shrink:0;font-size:12px;font-weight:800;padding:4px 10px;border-radius:var(--r);background:rgba(26,158,74,.1);color:var(--green);border:1px solid rgba(26,158,74,.28);display:inline-flex;align-items:center;gap:6px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.b-desp{flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r);background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.25)}
+.b-falta{flex-shrink:0;font-size:10px;font-weight:800;padding:3px 9px;border-radius:var(--r);background:rgba(214,48,49,.1);color:var(--red);border:1px solid rgba(214,48,49,.3);display:inline-flex;align-items:center;gap:5px}
+.cmd.is-cargado{opacity:.96}
+
+/* control de carga por ítem (faltantes) */
+.cargar-box.ctrl .cc-item{gap:10px}
+.cc-ped{flex:0 0 auto;font-size:11px;color:var(--tx-m);white-space:nowrap}
+.cc-in{flex:0 0 62px;width:62px;text-align:center;border:1px solid var(--brd2);border-radius:var(--r);padding:5px 6px;font-size:12px;font-weight:700;font-family:var(--f);color:var(--tx);background:#fff;outline:none;transition:border-color .13s}
+.cc-in:focus{border-color:var(--blue)}
+.cc-falta{flex:0 0 74px;text-align:right;font-size:11px;font-weight:700;color:var(--green)}
+.cc-falta.on{color:var(--red)}
+/* stepper +/- alrededor de la cantidad */
+.cc-step{flex:0 0 auto;display:inline-flex;align-items:center}
+.cc-step .cc-in{flex:0 0 46px;width:46px;border-radius:0;border-left:none;border-right:none}
+.cc-step-b{width:24px;height:28px;border:1px solid var(--brd2);background:var(--surf);color:var(--tx-m);cursor:pointer;font-size:15px;font-weight:700;font-family:var(--f);line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:background .12s,color .12s,border-color .12s}
+.cc-step-b:first-child{border-radius:var(--r) 0 0 var(--r)}
+.cc-step-b:last-child{border-radius:0 var(--r) var(--r) 0}
+.cc-step-b:hover{background:var(--blue-a);color:var(--blue-d);border-color:var(--blue)}
+/* botón excluir (poné 0) */
+.cc-excl{flex:0 0 auto;width:26px;height:26px;border:1px solid var(--brd);background:transparent;color:var(--tx-d);border-radius:var(--r);cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;transition:all .12s}
+.cc-excl:hover{border-color:var(--red);color:var(--red)}
+.cc-item.excl{opacity:.6}
+.cc-item.excl .cc-desc,.cc-item.excl .cc-sku{text-decoration:line-through}
+.cc-item.excl .cc-excl{background:rgba(214,69,69,.1);border-color:var(--red);color:var(--red)}
+.falta-aviso{background:rgba(214,48,49,.06);border:1px solid rgba(214,48,49,.28);border-left:3px solid var(--red);border-radius:0 var(--rm) var(--rm) 0;padding:10px 13px;font-size:12px;color:#a02;margin-bottom:13px}
+.falta-aviso i{margin-right:6px}
+.btn-markbody{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:11px;margin-bottom:13px;background:var(--green);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;transition:background .13s;box-shadow:0 2px 8px rgba(26,158,74,.22)}
+.btn-markbody:hover{background:#158640}
+.btn-markbody:disabled{background:var(--brd2);color:var(--tx-d);cursor:not-allowed;box-shadow:none}
+
+/* notas del operador (aprobador / reseller) */
+.notas-box{display:flex;flex-direction:column;gap:10px;margin-bottom:13px}
+.nota-item label{display:block;font-size:11px;font-weight:700;color:var(--tx-m);margin-bottom:5px}
+.nota-item label i{margin-right:5px;color:var(--blue)}
+.nota-item textarea,.nota-edit textarea{width:100%;border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px;font-size:12.5px;font-family:var(--f);color:var(--tx);background:var(--surf);outline:none;resize:vertical;transition:border-color .13s}
+.nota-item textarea:focus,.nota-edit textarea:focus{border-color:var(--blue);background:#fff}
+.nota-edit{display:flex;gap:8px;align-items:flex-start}
+.nota-edit textarea{flex:1}
+.nota-save{flex:0 0 auto;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:background .13s}
+.nota-save:hover{background:var(--blue-d)}
+.nota-save:disabled{opacity:.5}
+.nota-ro{font-size:12px;color:var(--tx);background:#fff6e6;border:1px solid #f3dca6;border-radius:var(--rm);padding:8px 12px}
+.nota-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#b57500;margin-bottom:3px}
+
+/* detalle de comanda cargada (dentro del body) */
+.carg-detail{background:rgba(26,158,74,.05);border:1px solid rgba(26,158,74,.2);border-radius:var(--rm);padding:11px 14px;margin-bottom:13px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.carg-detail .cd-num{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;color:var(--green);font-size:15px}
+.carg-detail .cd-meta{font-size:11px;color:var(--tx-m)}
+.carg-detail .cd-actions{margin-left:auto;display:flex;gap:8px}
+.btn-undo{background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);border-radius:var(--rm);padding:6px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .13s}
+.btn-undo:hover{border-color:var(--red);color:var(--red)}
+.cd-pdf{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(214,48,49,.3);color:#c0392b;border-radius:var(--rm);padding:6px 11px;font-size:11px;font-weight:700;text-decoration:none;transition:all .13s}
+.cd-pdf:hover{background:rgba(214,48,49,.06);border-color:var(--red)}
+
+/* bloque de despacho (comanda despachada) */
+.desp-box{border:1px solid rgba(0,163,224,.3);background:var(--blue-b);border-radius:var(--rm);padding:12px 14px;margin-bottom:13px}
+.desp-row{display:flex;align-items:center;gap:12px;font-size:12.5px;padding:4px 0}
+.desp-lbl{flex:0 0 110px;color:var(--tx-m);font-weight:600}
+.desp-badge{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 9px;border-radius:var(--r);background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.3)}
+.cd-guia{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--blue);text-decoration:none}
+.cd-guia:hover{text-decoration:underline}
+.desp-actions{display:flex;align-items:center;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,163,224,.15)}
+.btn-mail{display:inline-flex;align-items:center;gap:7px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:background .13s;box-shadow:0 2px 8px rgba(0,163,224,.22)}
+.btn-mail:hover{background:var(--blue-d)}
+.btn-mail.sent{background:var(--surf);color:var(--blue);border:1px solid rgba(0,163,224,.4);box-shadow:none}
+.btn-mail:disabled{background:var(--surf);color:var(--tx-d);border:1px solid var(--brd);box-shadow:none;cursor:not-allowed}
+.mail-ok{font-size:11px;font-weight:700;color:var(--green)}
+.desp-wait{background:rgba(212,137,10,.07);border:1px solid rgba(212,137,10,.28);border-left:3px solid var(--yellow);border-radius:0 var(--rm) var(--rm) 0;padding:10px 13px;font-size:12px;font-weight:600;color:#8a5a00;margin-bottom:13px;display:flex;align-items:center;gap:8px}
+.cmd.open .cmd-body{display:block}
+
+/* ficha */
+.ficha{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:2px 14px;margin-bottom:13px}
+.ficha-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.ficha-row:last-child{border-bottom:none}
+.ficha-lbl{color:var(--tx-m);flex-shrink:0}
+.ficha-val{color:var(--tx);font-weight:600;text-align:right;word-break:break-word}
+
+/* lineas SKU */
+.lineas{border:1px solid var(--brd);border-radius:var(--rm);overflow:hidden;margin-bottom:13px}
+.linea{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--brd);font-size:12px}
+.linea:last-child{border-bottom:none}
+.linea:nth-child(odd){background:var(--surf)}
+.linea-sku{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--blue);flex:0 0 120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linea-cant{flex:0 0 46px;text-align:center;font-weight:700;color:var(--tx);background:var(--blue-a);border-radius:var(--r);padding:2px 0;font-size:11px}
+.linea-desc{flex:1;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linea-split{flex:0 0 auto;font-size:9.5px;font-weight:700;color:var(--yellow);background:rgba(212,137,10,.1);border:1px solid rgba(212,137,10,.25);border-radius:var(--r);padding:2px 6px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.linea-tot{flex:0 0 auto;color:var(--tx-m);font-size:11px;text-align:right;white-space:nowrap}
+
+/* rótulo de sección */
+.sec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-d);margin:2px 0 7px}
+
+/* detalle de facturación colapsable */
+.pedido-det{margin-bottom:13px}
+.pedido-det>summary{cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-d);padding:4px 0}
+.pedido-det>summary::-webkit-details-marker{display:none}
+.pedido-det>summary::before{content:'\f105';font-family:'Font Awesome 6 Free';font-weight:900;transition:transform .15s;font-size:12px}
+.pedido-det[open]>summary::before{transform:rotate(90deg)}
+.pedido-det>summary:hover{color:var(--tx-m)}
+
+/* panel "qué cargar en Masterchief" */
+.cargar-box{border:1px solid rgba(0,163,224,.35);border-radius:var(--rm);background:var(--blue-b);margin-bottom:14px;overflow:hidden}
+.cargar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;background:var(--blue-a);border-bottom:1px solid rgba(0,163,224,.25);font-size:12px;font-weight:700;color:var(--blue-d)}
+.cargar-head i{margin-right:6px}
+.cc-list{padding:5px 0}
+.cc-item{display:flex;align-items:center;gap:10px;padding:6px 13px;font-size:12px}
+.cc-item + .cc-item{border-top:1px solid rgba(0,163,224,.12)}
+.cc-cant{flex:0 0 auto;min-width:34px;text-align:center;font-weight:800;color:var(--blue-d);background:#fff;border:1px solid rgba(0,163,224,.3);border-radius:var(--r);padding:1px 6px;font-size:11px}
+.cc-sku{flex:0 0 130px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-desc{flex:1;color:var(--tx-m);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-flag{flex:0 0 auto;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:1px 6px}
+
+/* totales */
+.tot-row{display:flex;justify-content:flex-end;gap:18px;padding:4px 2px 2px;font-size:13px}
+.tot-row b{color:var(--tx)}
+.tot-usd{color:var(--green);font-weight:800}
+.tot-ars{color:var(--tx-m);font-weight:700}
+
+/* badges estado */
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:var(--r);border:1px solid var(--brd);background:var(--surf);color:var(--tx-m);display:inline-flex;align-items:center;gap:5px}
+.pill.ok{background:rgba(26,158,74,.09);color:var(--green);border-color:rgba(26,158,74,.25)}
+.pill.warn{background:rgba(212,137,10,.09);color:var(--yellow);border-color:rgba(212,137,10,.25)}
+
+/* aviso masterchief */
+.aviso{background:rgba(255,171,0,.07);border:1px solid rgba(255,171,0,.35);border-left:3px solid var(--amber);border-radius:0 var(--rm) var(--rm) 0;padding:11px 14px;font-size:12.5px;font-weight:600;color:#8a5a00;display:flex;align-items:center;gap:9px}
+.aviso i{font-size:15px}
+
+/* comentarios */
+.coment{margin-top:11px;font-size:12px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:9px 12px;line-height:1.55}
+.coment b{color:var(--tx);font-weight:700}
+
+/* envíos */
+.env-block{border:1px solid var(--brd);border-radius:var(--rm);padding:11px 13px;margin-bottom:12px;background:var(--surf)}
+.env-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.env-n{font-size:12px;font-weight:800;color:var(--blue);background:var(--blue-a);border:1px solid rgba(0,163,224,.25);border-radius:var(--r);padding:2px 9px}
+.env-com{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--tx);font-size:13px}
+.env-fecha{font-size:11px;color:var(--tx-d)}
+.env-wait{font-size:11px;font-weight:700;color:var(--yellow)}
+.env-items{background:#fff;border:1px solid var(--brd);border-radius:var(--rm)}
+.env-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.env-form{display:flex;flex-direction:column;gap:10px;padding:11px 13px;border-top:1px solid rgba(0,163,224,.18)}
+.env-form .cmd-mark{width:100%}
+.env-form .cmd-comanda{width:100%;border-radius:var(--rm);border:1px solid var(--brd2)}
+.env-form .btn-crear{margin-bottom:0}
+
+/* estados globales */
+.state{text-align:center;padding:60px 20px;color:var(--tx-d)}
+.state i{font-size:38px;margin-bottom:14px;display:block}
+.state.empty i{color:var(--green)}
+.state .st-title{font-size:15px;font-weight:700;color:var(--tx-m);margin-bottom:4px}
+.state .st-sub{font-size:12px;color:var(--tx-d)}
+.err-box{background:rgba(214,48,49,.06);border:1px solid rgba(214,48,49,.3);color:var(--red);border-radius:var(--rm);padding:14px 16px;font-size:13px;font-weight:600}
+.spinner{width:30px;height:30px;border:3px solid var(--brd);border-top-color:var(--blue);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 14px}
+
+/* botones con spinner inline (anti doble-click) */
+.btn-mail.loading,.btn-markbody.loading,.btn-out.loading{pointer-events:none;opacity:.75}
+.btn-mail.loading i,.btn-markbody.loading i,.btn-out.loading i{animation:sp .8s linear infinite}
+.btn-prev{background:var(--panel);border:1px solid rgba(0,163,224,.4);color:var(--blue);border-radius:var(--rm);padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .13s;display:inline-flex;align-items:center;gap:7px}
+.btn-prev:hover{background:var(--blue-a)}
+
+/* nota BigQuery (la guía tarda) */
+.bq-note{font-size:11px;color:var(--tx-d);margin-top:6px;display:flex;align-items:center;gap:6px}
+.bq-note i{color:var(--yellow)}
+
+/* banner de error de mail (cola de reintentos) */
+.mail-err{background:rgba(214,48,49,.07);border:1px solid rgba(214,48,49,.32);border-left:3px solid var(--red);border-radius:0 var(--rm) var(--rm) 0;padding:9px 12px;margin-top:8px;font-size:12px;color:#a02;display:flex;align-items:center;gap:8px;line-height:1.4}
+.mail-err i{font-size:14px;flex-shrink:0}
+
+/* envío listo para enviar (guía OK, mail sin mandar) */
+.env-block.ready{border-color:rgba(26,158,74,.45);background:rgba(26,158,74,.04)}
+.b-ready{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r);background:rgba(26,158,74,.12);color:var(--green);border:1px solid rgba(26,158,74,.35)}
+.env-oper{font-size:10.5px;color:var(--tx-d);display:inline-flex;align-items:center;gap:5px}
+.env-oper i{color:var(--tx-d)}
+.btn-resend{background:var(--panel);border:1px solid var(--brd);color:var(--tx-m);border-radius:var(--rm);padding:8px 13px;font-size:12px;font-weight:600;cursor:pointer;transition:all .13s;display:inline-flex;align-items:center;gap:6px}
+.btn-resend:hover{border-color:var(--yellow);color:var(--yellow)}
+.btn-resend.loading{pointer-events:none;opacity:.75}
+.btn-resend.loading i{animation:sp .8s linear infinite}
+/* nota de chequeo de PDF en el formulario de armar envío */
+.dup-note{font-size:11px;margin-top:4px;display:none;align-items:center;gap:6px;color:#a86500;font-weight:600}
+.dup-note.show{display:flex}
+.crear-hint{font-size:11px;color:var(--tx-d);margin:0 0 7px;display:none}
+.pdf-note{font-size:11px;margin-top:2px;display:none;align-items:center;gap:6px}
+.pdf-note.show{display:flex;color:var(--tx-d)}
+.pdf-note.warn{display:flex;color:#a86500}
+.pdf-note.ok{display:flex;color:var(--green)}
+
+/* item pendiente marcado ENTREGADO en la hoja (sync inverso) */
+.cc-entr{flex:0 0 auto;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--green);background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.3);border-radius:var(--r);padding:2px 7px;display:inline-flex;align-items:center;gap:4px}
+.cc-item.is-entr{background:rgba(26,158,74,.04)}
+.pill.entr{background:rgba(26,158,74,.09);color:var(--green);border-color:rgba(26,158,74,.28)}
+
+/* modal vista previa */
+.pv-overlay{position:fixed;inset:0;background:rgba(10,15,25,.55);backdrop-filter:blur(2px);z-index:1000;display:none;align-items:center;justify-content:center;padding:22px}
+.pv-overlay.show{display:flex}
+.pv-modal{background:var(--panel);border-radius:var(--rl);width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.35);overflow:hidden}
+.pv-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--brd)}
+.pv-title{font-size:14px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:9px}
+.pv-title i{color:var(--blue)}
+.pv-x{background:transparent;border:none;color:var(--tx-d);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:var(--r);transition:all .13s}
+.pv-x:hover{background:var(--surf);color:var(--red)}
+.pv-meta{padding:11px 18px;font-size:12px;color:var(--tx-m);background:var(--surf);border-bottom:1px solid var(--brd);line-height:1.7}
+.pv-meta b{color:var(--tx)}
+.pv-meta .pv-warn{color:var(--red);font-weight:700}
+.pv-body{flex:1;overflow:auto;background:#f4f6f8;padding:0}
+.pv-body iframe{width:100%;height:52vh;border:none;background:#fff;display:block}
+.pv-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px;border-top:1px solid var(--brd)}
+.pv-foot .btn-mail:disabled{background:var(--surf);color:var(--tx-d);border:1px solid var(--brd);box-shadow:none;cursor:not-allowed}
+
+/* reporte de tiempos */
+.rep-sub{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin:2px 0 9px}
+.rep-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.rep-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 10px;text-align:center}
+.rep-card .rc-n{font-size:22px;font-weight:800;color:var(--blue);line-height:1.1}
+.rep-card .rc-l{font-size:10.5px;color:var(--tx-m);margin-top:3px}
+.rep-card.big .rc-n{color:var(--green)}
+.rep-note{font-size:11.5px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:9px 12px;line-height:1.5}
+.rep-note b{color:var(--tx)}
+.rep-warn{color:#a86500}
+@media(max-width:560px){.rep-cards{grid-template-columns:repeat(2,1fr)}}
+
+/* ── barra fija (sticky) ── */
+.stickyhead{position:sticky;top:56px;z-index:150;background:var(--bg);padding-top:4px}
+
+/* ── menú Herramientas ── */
+.tools-wrap{position:relative}
+.tools-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;min-width:210px;z-index:310;display:none;flex-direction:column;gap:2px}
+.tools-menu.show{display:flex}
+.tools-menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:none;color:var(--tx);font-size:12.5px;font-weight:600;padding:9px 11px;border-radius:var(--r);cursor:pointer;font-family:var(--f)}
+.tools-menu button:hover{background:var(--surf)}
+.tools-menu button i{color:var(--tx-m);width:16px;text-align:center}
+.tools-sep{height:1px;background:var(--brd);margin:4px 0}
+
+/* ── barra de progreso por venta ── */
+.prog{flex:0 0 96px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+.prog-bar{width:96px;height:6px;border-radius:3px;background:var(--raise);overflow:hidden}
+.prog-fill{height:100%;background:var(--green);border-radius:3px;transition:width .3s}
+.prog-fill.zero{background:var(--brd2)}
+.prog-fill.part{background:var(--yellow)}
+.prog-lbl{font-size:9.5px;font-weight:700;color:var(--tx-m);font-variant-numeric:tabular-nums}
+
+/* ── highlight de envío recién listo ── */
+@keyframes flashReady{0%{background:rgba(26,158,74,.22)}100%{background:rgba(26,158,74,.04)}}
+.env-block.just-ready{animation:flashReady 2.2s ease-out}
+
+/* ── modal de confirmación ── */
+.cf-modal{max-width:440px}
+.cf-body{padding:18px;font-size:13.5px;color:var(--tx);line-height:1.55;white-space:pre-wrap}
+#cf-ico{color:var(--yellow)}
+.cf-overlay-danger #cf-ico{color:var(--red)}
+.cf-modal .btn-mail.danger{background:var(--red)}
+.cf-modal .btn-mail.danger:hover{background:#b3282b}
+
+/* ── modo oscuro ── */
+body.dark{
+  --blue-a:rgba(0,163,224,.18); --blue-b:rgba(0,163,224,.08);
+  --bg:#12151c; --panel:#1b1f28; --surf:#232833; --raise:#2b313d; --hov:#323844;
+  --brd:#2e343f; --brd2:#404857; --tx:#e6e9ee; --tx-m:#9aa4b2; --tx-d:#6b7482;
+}
+body.dark .cmd,body.dark .hero,body.dark .site-header{box-shadow:0 1px 4px rgba(0,0,0,.4)}
+body.dark .pv-body{background:#0e1117}
+body.dark .env-com,body.dark .cd-num{color:var(--tx)}
+
+/* ── responsive / mobile ── */
+@media(max-width:640px){
+  .site-header{padding:10px 14px}
+  .header-sub{display:none}
+  .wrap{padding:14px 10px 50px}
+  .stickyhead{top:50px}
+  .viewtabs{overflow-x:auto}
+  .vtab{flex:0 0 auto;padding:9px 10px;font-size:12px}
+  .vtab i{display:none}
+  .toolbar .btn-out{padding:9px 11px}
+  .prog{flex-basis:70px}.prog-bar{width:70px}
+  .pv-overlay{padding:0}
+  .pv-modal{max-width:100%;max-height:100vh;height:100vh;border-radius:0}
+  .pv-body iframe{height:auto;flex:1}
+  .desp-lbl{flex-basis:90px}
+  .linea-sku,.cc-sku{flex-basis:96px}
+}
+
+/* ── qué cargar: tocá el SKU para copiarlo y marcarlo como cargado en Masterchief ── */
+.cc-sku.cc-copy{cursor:pointer;overflow:visible;border-radius:var(--r);padding:1px 6px;margin:-1px 0;transition:background .12s,opacity .12s;user-select:none;display:inline-flex;align-items:center;gap:6px}
+.cc-sku.cc-copy:hover{background:var(--blue-a);color:var(--blue-d)}
+.cc-sku.cc-copy.done{text-decoration:line-through;color:var(--tx-d);opacity:.7}
+.cc-done-mark{color:var(--green);font-size:11px;opacity:0;transition:opacity .12s}
+.cc-sku.cc-copy.done .cc-done-mark{opacity:1}
+.cc-copy-hint{color:var(--tx-d);font-size:10px;opacity:0;transition:opacity .12s}
+.cc-sku.cc-copy:hover .cc-copy-hint{opacity:.7}
+.cc-sku.cc-copy.done .cc-copy-hint{display:none}
+.carg-count{font-size:11px;font-weight:600;color:var(--green)}
+.carg-reset{background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline;padding:0 2px;font-family:var(--f)}
+.carg-reset:hover{color:var(--red)}
+
+/* ── copiar al portapapeles ── */
+.copy-ic{background:transparent;border:none;color:var(--tx-d);cursor:pointer;padding:2px 5px;border-radius:var(--r);font-size:11px;transition:all .12s;line-height:1;vertical-align:middle}
+.copy-ic:hover{background:var(--surf);color:var(--blue)}
+.copy-ic.ok{color:var(--green)}
+
+/* ── botón ayuda + modal ayuda ── */
+.help-btn{background:transparent;border:1px solid var(--brd);color:var(--tx-m);width:30px;height:30px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .13s}
+.help-btn:hover{border-color:var(--blue);color:var(--blue)}
+.ayuda-sec{margin-bottom:18px}
+.ayuda-sec h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin:0 0 8px}
+.ayuda-row{display:flex;gap:10px;align-items:baseline;font-size:12.5px;color:var(--tx);padding:5px 0;line-height:1.5}
+.ayuda-row .k{flex:0 0 128px}
+kbd{background:var(--surf);border:1px solid var(--brd2);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;font-weight:700;color:var(--tx)}
+.ayuda-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:var(--r);white-space:nowrap}
+.header-right{display:flex;align-items:center;gap:10px}
+
+/* ── botón enviar todos los listos ── */
+#btn-send-ready{background:var(--green);color:#fff;border-color:var(--green)}
+#btn-send-ready:hover{background:#158640}
+#btn-send-ready.loading{pointer-events:none;opacity:.8}
+#btn-send-ready.loading i{animation:sp .8s linear infinite}
+
+/* ── ventana de carga inicial (splash a pantalla completa) ── */
+.load-overlay{position:fixed;inset:0;z-index:1200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;transition:opacity .35s ease}
+.load-overlay.hide{opacity:0;pointer-events:none}
+.load-overlay .lo-mark{width:54px;height:54px;background:var(--blue);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(0,163,224,.32);margin-bottom:4px}
+.load-overlay .lo-mark span{color:#fff;font-size:15px;font-weight:700;letter-spacing:.05em}
+.load-overlay .lo-spin{width:32px;height:32px;border:3px solid var(--brd);border-top-color:var(--blue);border-radius:50%;animation:sp .8s linear infinite}
+.load-overlay .lo-txt{font-size:13.5px;font-weight:700;color:var(--tx)}
+.load-overlay .lo-sub{font-size:11.5px;color:var(--tx-d)}
+</style>
+</head>
+<body>
+
+<!-- ventana de carga inicial: cubre el arranque mientras se leen ventas/envíos/guías.
+     Se oculta al terminar la 1ª carga (éxito o error) y no reaparece en los auto-refresh. -->
+<div id="load-overlay" class="load-overlay">
+  <div class="lo-mark"><span>DJI</span></div>
+  <div class="lo-spin"></div>
+  <div class="lo-txt">Cargando comandas…</div>
+  <div class="lo-sub">Leyendo ventas, envíos y guías de despacho</div>
+</div>
+
+<header class="site-header">
+  <div class="header-brand">
+    <div class="dji-mark"><span>DJI</span></div>
+    <div>
+      <div class="header-name">Comandas · Carga Masterchief</div>
+      <div class="header-sub">BIDCOMAGRO · Ventas pendientes de carga</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="help-btn" onclick="openAyuda()" title="Ayuda: leyenda + atajos"><i class="fa-solid fa-question"></i></button>
+    <div class="header-badge">Interno</div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- resumen -->
+  <div id="hero" class="hero" style="display:none">
+    <div class="hero-ico"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="hero-txt">
+      <div class="hero-count" id="hero-count">—</div>
+      <div class="hero-sub" id="hero-sub"></div>
+    </div>
+  </div>
+
+  <!-- barra fija: solapas + toolbar + filtros -->
+  <div class="stickyhead" id="stickyhead">
+
+  <!-- vistas -->
+  <div class="viewtabs" id="viewtabs" style="display:none">
+    <button class="vtab active" id="vtab-pend" onclick="switchView('pend')">
+      <i class="fa-solid fa-truck-ramp-box"></i> Pendientes <span class="vcount" id="cnt-pend">0</span>
+    </button>
+    <button class="vtab" id="vtab-parcial" onclick="switchView('parcial')">
+      <i class="fa-solid fa-triangle-exclamation"></i> Con faltantes <span class="vcount" id="cnt-parcial">0</span>
+    </button>
+    <button class="vtab" id="vtab-completo" onclick="switchView('completo')">
+      <i class="fa-solid fa-circle-check"></i> Completadas <span class="vcount" id="cnt-completo">0</span>
+    </button>
+    <button class="vtab" id="vtab-envios" onclick="switchView('envios')">
+      <i class="fa-solid fa-paper-plane"></i> Envíos <span class="vcount" id="cnt-envios">0</span>
+    </button>
+  </div>
+
+  <!-- toolbar -->
+  <div class="toolbar" id="toolbar" style="display:none">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input id="q" type="text" placeholder="Buscar…  (tecla /)" oninput="render()">
+    </div>
+    <button class="btn-out" id="btn-toggle-all" onclick="toggleTodo()"><i class="fa-solid fa-angles-down"></i> Expandir todo</button>
+    <button class="btn-out" id="btn-send-ready" onclick="enviarTodosListos()" style="display:none" title="Enviar el mail de despacho de todos los envíos que ya tienen guía"><i class="fa-solid fa-paper-plane"></i> Enviar listos</button>
+    <button class="btn-out" id="btn-sinmail" onclick="verSinMail()" style="display:none;border-color:rgba(212,137,10,.45);color:var(--yellow)" title="Resellers sin mail cargado (sus avisos quedarían sin destinatario)"><i class="fa-solid fa-user-slash"></i> sin mail</button>
+    <button class="btn-out" id="btn-retry-all" onclick="reintentarFallidos()" style="display:none;border-color:rgba(214,48,49,.4);color:var(--red)" title="Reintentar los mails que fallaron"><i class="fa-solid fa-rotate-right"></i> Reintentar fallidos</button>
+    <div class="tools-wrap">
+      <button class="btn-out" id="btn-tools" onclick="toggleTools(event)"><i class="fa-solid fa-ellipsis"></i> Herramientas</button>
+      <div class="tools-menu" id="tools-menu">
+        <button onclick="closeTools();exportarFaltantes()"><i class="fa-solid fa-file-csv"></i> CSV Faltantes</button>
+        <button onclick="closeTools();exportarEnvios()"><i class="fa-solid fa-file-csv"></i> CSV Envíos</button>
+        <button onclick="closeTools();reporteTiempos()"><i class="fa-solid fa-stopwatch"></i> Reporte de tiempos</button>
+        <div class="tools-sep"></div>
+        <button onclick="closeTools();toggleTema()"><i class="fa-solid fa-moon" id="tema-ico"></i> <span id="tema-lbl">Modo oscuro</span></button>
+      </div>
+    </div>
+    <button class="btn-out" id="btn-refresh" onclick="cargar()" title="Actualizar (tecla r)"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+    <span class="ts-lbl" id="ts"></span>
+  </div>
+
+  <!-- filtros rápidos -->
+  <div class="filters" id="filters" style="display:none">
+    <span class="filters-lbl"><i class="fa-solid fa-filter"></i></span>
+    <button class="fchip" id="fchip-sla" onclick="toggleFiltro('sla',this)"><i class="fa-solid fa-fire"></i> SLA vencido</button>
+    <button class="fchip" id="fchip-listos" onclick="toggleFiltro('listos',this)"><i class="fa-solid fa-paper-plane"></i> Listos para enviar</button>
+    <button class="fchip" id="fchip-error" onclick="toggleFiltro('error',this)"><i class="fa-solid fa-circle-exclamation"></i> Con error de mail</button>
+    <select class="fsel" id="fsel-reseller" onchange="setFiltroReseller(this.value)"><option value="">Todos los resellers</option></select>
+    <button class="fchip clear" id="fchip-clear" onclick="limpiarFiltros()" style="display:none"><i class="fa-solid fa-xmark"></i> Limpiar</button>
+  </div>
+
+  </div><!-- /stickyhead -->
+
+  <!-- contenido -->
+  <div id="content">
+    <div class="state"><div class="spinner"></div><div class="st-sub">Cargando ventas…</div></div>
+  </div>
+
+</div>
+
+<!-- modal vista previa del mail -->
+<div id="pv-overlay" class="pv-overlay" onclick="if(event.target===this)cerrarPreview()">
+  <div class="pv-modal">
+    <div class="pv-head">
+      <div class="pv-title"><i class="fa-solid fa-envelope-open-text"></i> Vista previa del mail al reseller</div>
+      <button class="pv-x" onclick="cerrarPreview()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="pv-meta" id="pv-meta"></div>
+    <div class="pv-body"><iframe id="pv-frame" title="Vista previa"></iframe></div>
+    <div class="pv-foot">
+      <button class="btn-out" onclick="cerrarPreview()"><i class="fa-solid fa-arrow-left"></i> Cerrar</button>
+      <button class="btn-mail" id="pv-send"><i class="fa-solid fa-paper-plane"></i> Enviar ahora</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal reporte de tiempos -->
+<div id="rep-overlay" class="pv-overlay" onclick="if(event.target===this)cerrarReporte()">
+  <div class="pv-modal">
+    <div class="pv-head">
+      <div class="pv-title"><i class="fa-solid fa-stopwatch"></i> Tiempo CARGAR → comanda cargada</div>
+      <button class="pv-x" onclick="cerrarReporte()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="pv-body" id="rep-body" style="padding:18px"></div>
+    <div class="pv-foot">
+      <button class="btn-out" onclick="cerrarReporte()"><i class="fa-solid fa-arrow-left"></i> Cerrar</button>
+      <button class="btn-mail" id="rep-csv"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal resellers sin mail -->
+<div id="sm-overlay" class="pv-overlay" onclick="if(event.target===this)cerrarSinMail()">
+  <div class="pv-modal">
+    <div class="pv-head">
+      <div class="pv-title"><i class="fa-solid fa-user-slash"></i> Resellers sin mail</div>
+      <button class="pv-x" onclick="cerrarSinMail()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="pv-body" id="sm-body" style="padding:18px"></div>
+    <div class="pv-foot">
+      <button class="btn-out" onclick="cerrarSinMail()"><i class="fa-solid fa-arrow-left"></i> Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal de ayuda (leyenda + atajos) -->
+<div id="ay-overlay" class="pv-overlay" onclick="if(event.target===this)cerrarAyuda()">
+  <div class="pv-modal">
+    <div class="pv-head">
+      <div class="pv-title"><i class="fa-solid fa-circle-info"></i> Ayuda</div>
+      <button class="pv-x" onclick="cerrarAyuda()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="pv-body" id="ay-body" style="padding:18px"></div>
+    <div class="pv-foot"><button class="btn-out" onclick="cerrarAyuda()"><i class="fa-solid fa-arrow-left"></i> Cerrar</button></div>
+  </div>
+</div>
+
+<!-- modal de confirmación (reemplaza confirm() nativo) -->
+<div id="cf-overlay" class="pv-overlay" onclick="if(event.target===this)cfResolver(false)">
+  <div class="pv-modal cf-modal">
+    <div class="pv-head"><div class="pv-title"><i class="fa-solid fa-circle-question" id="cf-ico"></i> <span id="cf-title">Confirmar</span></div></div>
+    <div class="cf-body" id="cf-msg"></div>
+    <div class="pv-foot">
+      <button class="btn-out" id="cf-no" onclick="cfResolver(false)">Cancelar</button>
+      <button class="btn-mail" id="cf-yes" onclick="cfResolver(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+var _data = [];       // comandas crudas del server
+var _view = 'pend';   // 'pend' | 'carg'
+var _prevReady = null; // set de envíos "listos" del refresh anterior (para avisar los nuevos)
+var _nuevosReady = {};  // envíos que recién pasaron a "listo" (para el highlight)
+var _cargadosMc = {};   // 'idVenta##sku' -> true: filas marcadas "ya cargadas en Masterchief" (por sesión)
+var _filtros = { sla:false, listos:false, error:false, reseller:'' };
+
+var _cargando = false;
+var _keepScroll = false;   // preservar la posición de scroll en el próximo render (refresh)
+
+// Oculta la ventana de carga inicial una sola vez, al terminar la 1ª carga (éxito o error).
+// No reaparece en los auto-refresh: sólo se oculta, nunca se re-muestra.
+function _ocultarVentanaCarga(){
+  var lo = document.getElementById('load-overlay');
+  if (!lo || lo.classList.contains('hide')) return;
+  lo.classList.add('hide');
+  setTimeout(function(){ if (lo && lo.parentNode) lo.parentNode.removeChild(lo); }, 400);
+}
+
+function cargar(auto) {
+  if (_cargando) return;
+  _cargando = true;
+  var btn = document.getElementById('btn-refresh');
+  if (btn) btn.classList.add('spin');
+  google.script.run
+    .withSuccessHandler(function(res){
+      _cargando = false;
+      if (btn) btn.classList.remove('spin');
+      _ocultarVentanaCarga();
+      if (!res || !res.ok) { if (!auto) mostrarError((res && res.error) || 'No se pudo leer la hoja.'); return; }
+      _data = res.comandas || [];
+      if (res.sla){ AGING.warn = (res.sla.warn||4)*60; AGING.danger = (res.sla.danger||24)*60; }
+      // aviso + highlight de guías nuevas: envíos que recién pasaron a "listo para enviar"
+      var nuevoReady = readyKeys();
+      _nuevosReady = {};
+      if (_prevReady) Object.keys(nuevoReady).forEach(function(k){ if (!_prevReady[k]) _nuevosReady[k] = true; });
+      var cantNuevos = Object.keys(_nuevosReady).length;
+      if (auto && cantNuevos > 0) toast(cantNuevos+' envío'+(cantNuevos===1?'':'s')+' nuevo'+(cantNuevos===1?'':'s')+' listo'+(cantNuevos===1?'':'s')+' para enviar', 'ok', '📦');
+      _prevReady = nuevoReady;
+      document.getElementById('ts').textContent = 'Actualizado ' + (res.ts || '');
+      document.getElementById('toolbar').style.display = 'flex';
+      document.getElementById('viewtabs').style.display = 'flex';
+      document.getElementById('filters').style.display = 'flex';
+      poblarFiltroResellers();
+      pintarHero(res.ventas || 0, res.items || 0, res.parcialCount || 0);
+      _keepScroll = true;   // un refresh no debe hacer saltar la vista
+      render();
+    })
+    .withFailureHandler(function(e){
+      _cargando = false;
+      if (btn) btn.classList.remove('spin');
+      _ocultarVentanaCarga();
+      if (!auto) mostrarError((e && e.message) || 'Error de conexión con el servidor.');
+    })
+    .CP_getComandas();
+}
+// ¿conviene auto-refrescar ahora? No si el operador está escribiendo o hay un modal abierto.
+function _puedeAutoRefresh(){
+  if (_cargando) return false;
+  var ov = document.getElementById('pv-overlay');
+  if (ov && ov.classList.contains('show')) return false;
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return false;
+  return true;
+}
+
+function pintarHero(ventas, items, parcial){
+  parcial = parcial || 0;
+  var hero = document.getElementById('hero');
+  hero.style.display = 'flex';
+  var ico = hero.querySelector('.hero-ico');
+  var cnt = document.getElementById('hero-count'), sub = document.getElementById('hero-sub');
+  // más antigua con trabajo pendiente (pendiente O parcial)
+  var oldest = null;
+  (_data||[]).forEach(function(c){
+    if ((c.estadoEnvio === 'pendiente' || c.estadoEnvio === 'parcial') && c.cargadoTs && (!oldest || c.cargadoTs < oldest)) oldest = c.cargadoTs;
+  });
+  var extraViejo = oldest ? ' · más antigua: hace ' + agingStr(oldest) : '';
+
+  if (ventas === 0 && parcial === 0){
+    hero.classList.add('ok');
+    ico.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+    cnt.innerHTML = 'Todo al día';
+    sub.textContent = 'No hay ventas para cargar ni faltantes por enviar.';
+  } else if (ventas > 0){
+    hero.classList.remove('ok');
+    ico.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    cnt.innerHTML = ventas + ' <small>venta' + (ventas===1?'':'s') + ' para cargar en Masterchief' + (parcial ? ' · ' + parcial + ' con faltantes' : '') + '</small>';
+    sub.textContent = items + ' ítem' + (items===1?'':'s') + ' en total' + extraViejo + '.';
+  } else {
+    // ventas === 0 pero hay parciales con faltantes por enviar
+    hero.classList.remove('ok');
+    ico.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+    cnt.innerHTML = parcial + ' <small>venta' + (parcial===1?'':'s') + ' con faltantes por enviar</small>';
+    sub.textContent = 'No quedan ventas nuevas para cargar' + extraViejo + '.';
+  }
+}
+
+function switchView(v){
+  _view = v;
+  ['pend','parcial','completo','envios'].forEach(function(x){
+    var b = document.getElementById('vtab-'+x); if (b) b.classList.toggle('active', v===x);
+  });
+  render();
+}
+
+function _matchVenta(c, q){
+  if (!q) return true;
+  var comandas = (c.envios||[]).map(function(e){ return e.comanda; }).join(' ');
+  var hay = [c.idVenta, c.reseller, c.razonSocial, c.operacion, comandas].join(' ').toLowerCase();
+  if (hay.indexOf(q) > -1) return true;
+  return (c.lineas||[]).some(function(l){ return (l.sku+' '+l.descripcion).toLowerCase().indexOf(q) > -1; });
+}
+
+function render(){
+  var q = (document.getElementById('q').value || '').trim().toLowerCase();
+  var filtered = _data.filter(function(c){ return _matchVenta(c, q) && _pasaFiltros(c); });
+  var pend     = filtered.filter(function(c){ return c.estadoEnvio === 'pendiente'; });
+  var parcial  = filtered.filter(function(c){ return c.estadoEnvio === 'parcial'; });
+  var completo = filtered.filter(function(c){ return c.estadoEnvio === 'completo'; });
+
+  // envíos aplanados (para la solapa Envíos) — respetando filtros por envío
+  var envios = [];
+  filtered.forEach(function(c){ (c.envios||[]).forEach(function(e){
+    if (_filtros.listos && !esReady(c, e)) return;
+    if (_filtros.error  && !e.mailError)   return;
+    envios.push({ c: c, e: e });
+  }); });
+
+  document.getElementById('cnt-pend').textContent     = pend.length;
+  document.getElementById('cnt-parcial').textContent  = parcial.length;
+  document.getElementById('cnt-completo').textContent = completo.length;
+  document.getElementById('cnt-envios').textContent   = envios.length;
+
+  var cont = document.getElementById('content');
+  var vacio, html;
+  if (_view === 'envios'){
+    // listos para enviar (guía OK, mail sin mandar) primero; luego por fecha desc
+    envios.sort(function(a,b){
+      var ra = esReady(a.c,a.e)?1:0, rb = esReady(b.c,b.e)?1:0;
+      if (ra !== rb) return rb - ra;
+      return (b.e.fechaTs||0) - (a.e.fechaTs||0);
+    });
+    if (!envios.length){
+      html = _estado(q, 'fa-paper-plane', 'Sin envíos', 'Todavía no se creó ningún envío.');
+    } else {
+      html = envios.map(function(x){ return envioCardHTML(x.c, x.e); }).join('');
+    }
+  } else {
+    var list, ic, tt, ss;
+    if (_view === 'pend'){ list = pend.sort(function(a,b){ return (a.cargadoTs||Infinity)-(b.cargadoTs||Infinity); }); ic='fa-circle-check'; tt='Nada pendiente'; ss='No hay ventas sin envíos.'; }
+    else if (_view === 'parcial'){ list = parcial.sort(function(a,b){ return (a.cargadoTs||Infinity)-(b.cargadoTs||Infinity); }); ic='fa-circle-check'; tt='Sin faltantes'; ss='No hay ventas con envíos parciales.'; }
+    else { list = completo.sort(function(a,b){ return _ultTs(b)-_ultTs(a); }); ic='fa-box-open'; tt='Sin completadas'; ss='Cuando una venta se envíe entera va a aparecer acá.'; }
+    if (!list.length){ html = _estado(q, ic, tt, ss); }
+    else { html = list.map(cardHTML).join(''); }
+  }
+  var _sy = _keepScroll ? window.scrollY : null;
+  cont.innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('.cargar-box.ctrl .cc-in'), function(inp){ ccMark(inp); });
+  restaurarAbiertas();
+  restaurarCargados();
+  sincToggleBtn();
+  tickAging();
+  sincRetryBtn();
+  sincReadyBtn();
+  sincSinMailBtn();
+  guardarPrefs();
+  if (_sy != null) window.scrollTo(0, _sy);   // preservar la vista tras un refresh
+  _keepScroll = false;
+}
+// ¿el envío está listo para mandar el mail al reseller? (guía OK, sin mandar, con destinatario)
+function esReady(c, e){ return !!(e.tieneGuia && !e.mailReseller && c.tieneDestino); }
+
+// set { 'idVenta#envio': true } de los envíos listos para enviar (para avisar los nuevos)
+function readyKeys(){
+  var s = {};
+  (_data||[]).forEach(function(c){ (c.envios||[]).forEach(function(e){ if (esReady(c,e)) s[c.idVenta+'#'+e.envio] = true; }); });
+  return s;
+}
+
+// ── FILTROS RÁPIDOS ──
+function _cVencido(c){
+  if (!c.cargadoTs || c.estadoEnvio === 'completo') return false;
+  return (Date.now() - c.cargadoTs)/60000 >= AGING.danger;   // pasó el umbral rojo
+}
+function _cTieneReady(c){ return (c.envios||[]).some(function(e){ return esReady(c,e); }); }
+function _cTieneError(c){ return (c.envios||[]).some(function(e){ return !!e.mailError; }); }
+function _pasaFiltros(c){
+  if (_filtros.reseller && c.reseller !== _filtros.reseller) return false;
+  if (_filtros.sla    && !_cVencido(c))   return false;
+  if (_filtros.listos && !_cTieneReady(c)) return false;
+  if (_filtros.error  && !_cTieneError(c)) return false;
+  return true;
+}
+function toggleFiltro(k, btn){ _filtros[k] = !_filtros[k]; btn.classList.toggle('on', _filtros[k]); actualizarClear(); render(); }
+function setFiltroReseller(v){ _filtros.reseller = v; actualizarClear(); render(); }
+function limpiarFiltros(){
+  _filtros = { sla:false, listos:false, error:false, reseller:'' };
+  ['sla','listos','error'].forEach(function(k){ var b = document.getElementById('fchip-'+k); if (b) b.classList.remove('on'); });
+  var sel = document.getElementById('fsel-reseller'); if (sel) sel.value = '';
+  actualizarClear(); render();
+}
+function actualizarClear(){
+  var any = _filtros.sla || _filtros.listos || _filtros.error || _filtros.reseller;
+  var b = document.getElementById('fchip-clear'); if (b) b.style.display = any ? 'inline-flex' : 'none';
+}
+function poblarFiltroResellers(){
+  var sel = document.getElementById('fsel-reseller'); if (!sel) return;
+  var actual = sel.value || _filtros.reseller, set = {};
+  (_data||[]).forEach(function(c){ if (c.reseller) set[c.reseller] = true; });
+  var nombres = Object.keys(set).sort(function(a,b){ return a.localeCompare(b); });
+  sel.innerHTML = '<option value="">Todos los resellers</option>' + nombres.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join('');
+  if (actual && set[actual]) sel.value = actual;
+}
+
+// ── RESELLERS SIN MAIL (destinatario vacío) ──
+function sinMailList(){
+  var m = {};
+  (_data||[]).forEach(function(c){
+    if (c.tieneDestino) return;
+    var r = c.reseller || '(sin reseller)';
+    if (!m[r]) m[r] = { reseller: r, ventas: [] };
+    m[r].ventas.push(c.idVenta);
+  });
+  return Object.keys(m).map(function(k){ return m[k]; });
+}
+function sincSinMailBtn(){
+  var n = sinMailList().length, btn = document.getElementById('btn-sinmail');
+  if (!btn) return;
+  if (n > 0){ btn.style.display = 'inline-flex'; btn.innerHTML = '<i class="fa-solid fa-user-slash"></i> '+n+' sin mail'; }
+  else btn.style.display = 'none';
+}
+function verSinMail(){
+  var lista = sinMailList(), body = document.getElementById('sm-body');
+  if (!lista.length){ body.innerHTML = '<div class="rep-note">Todos los resellers de las ventas actuales tienen destinatario. 👌</div>'; }
+  else {
+    lista.sort(function(a,b){ return b.ventas.length - a.ventas.length; });
+    body.innerHTML = '<div class="rep-note rep-warn" style="margin-bottom:12px">Estos resellers no tienen mail (ni RTV ni destinatarios fijos): sus avisos quedarían <b>sin destinatario</b>. Cargá el mail en la hoja <b>Resellers</b> (col J) o el RTV en la hoja <b>RTV</b>.</div>'+
+      lista.map(function(x){
+        return '<div class="sm-item"><div class="sm-r">'+esc(x.reseller)+'</div><div class="sm-v">'+x.ventas.length+' venta'+(x.ventas.length===1?'':'s')+': '+esc(x.ventas.join(', '))+'</div></div>';
+      }).join('');
+  }
+  document.getElementById('sm-overlay').classList.add('show');
+}
+function cerrarSinMail(){ document.getElementById('sm-overlay').classList.remove('show'); }
+
+// botón "Reintentar fallidos" en la toolbar — visible sólo si hay envíos con error de mail
+function sincRetryBtn(){
+  var n = 0;
+  (_data||[]).forEach(function(c){ (c.envios||[]).forEach(function(e){ if (e.mailError) n++; }); });
+  var btn = document.getElementById('btn-retry-all');
+  if (!btn) return;
+  if (n > 0){ btn.style.display = 'inline-flex'; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Reintentar '+n+' fallido'+(n===1?'':'s'); }
+  else btn.style.display = 'none';
+}
+// indicador "Listos para enviar" en la toolbar
+// lista de envíos listos para enviar: [{idVenta, envio}]
+function listaListos(){
+  var out = [];
+  (_data||[]).forEach(function(c){ (c.envios||[]).forEach(function(e){ if (esReady(c,e)) out.push({ idVenta: c.idVenta, envio: e.envio }); }); });
+  return out;
+}
+function sincReadyBtn(){
+  var n = listaListos().length;
+  var sb = document.getElementById('btn-send-ready');
+  if (!sb) return;
+  if (n >= 1){ sb.style.display = 'inline-flex'; sb.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar '+n+' listo'+(n===1?'':'s'); }
+  else sb.style.display = 'none';
+}
+
+// envía el mail de TODOS los envíos listos, secuencialmente (respeta rate-limit + auditoría)
+function enviarTodosListos(){
+  var lista = listaListos();
+  if (!lista.length){ toast('No hay envíos listos', '', 'ℹ️'); return; }
+  uiConfirm('Vas a enviar el mail de despacho de '+lista.length+' envío'+(lista.length===1?'':'s')+' listo'+(lista.length===1?'':'s')+'.\n¿Confirmás?', { yes:'Enviar todos' }).then(function(ok){
+    if (!ok) return;
+    var sb = document.getElementById('btn-send-ready');
+    if (sb){ sb.classList.add('loading'); }
+    var okN = 0, failN = 0, i = 0;
+    var paso = function(){
+      if (i >= lista.length){
+        if (sb) sb.classList.remove('loading');
+        toast(okN+' enviado(s)'+(failN?' · '+failN+' con problema':''), failN?'':'ok', failN?'⚠️':'✅');
+        cargar();
+        return;
+      }
+      var it = lista[i++];
+      toast('Enviando '+i+'/'+lista.length+'…', '', '✉️');
+      google.script.run
+        .withSuccessHandler(function(r){ if (r && r.ok) okN++; else failN++; paso(); })
+        .withFailureHandler(function(){ failN++; paso(); })
+        .CP_enviarMailEnvio(it.idVenta, it.envio);
+    };
+    paso();
+  });
+}
+
+// ── AYUDA (leyenda + atajos) ──
+function openAyuda(){
+  document.getElementById('ay-body').innerHTML = ayudaHTML();
+  document.getElementById('ay-overlay').classList.add('show');
+}
+function cerrarAyuda(){ document.getElementById('ay-overlay').classList.remove('show'); }
+function ayudaHTML(){
+  return ''+
+  '<div class="ayuda-sec"><h4>El flujo</h4>'+
+    '<div class="ayuda-row"><span class="k"><b>1 · Cargar</b></span><span>La venta aparece con <b>CARGAR</b>. Armás un <b>envío</b>: elegís cuánto mandás de cada producto + N° de comanda + notas. Se avisa a Sole para aprobar.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><b>2 · Guía</b></span><span>Cuando la comanda tiene <b>guía</b> (llega por BigQuery, ~30 min), el envío queda <b>listo para enviar</b>.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><b>3 · Despachar</b></span><span>Mandás el mail al reseller + RTV. Lo que falta queda para el próximo envío.</span></div>'+
+  '</div>'+
+  '<div class="ayuda-sec"><h4>Armar un envío</h4>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-regular fa-copy" style="color:var(--blue)"></i></span><span><b>Tocá el SKU</b> para copiarlo y marcarlo como <b>cargado en Masterchief</b> (queda tachado + check). Vas fila por fila; el contador muestra <b>N/M cargados</b>. Cuando marcás la última, el cursor salta solo al <b>N° de comanda</b>.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><span class="ayuda-badge" style="background:var(--surf);color:var(--tx-m)">−&nbsp;n&nbsp;+</span></span><span>Cada fila arranca con la cantidad completa. Ajustá con <b>−/+</b> o escribiendo. El <b>"queda N"</b> a la derecha te dice cuánto quedaría pendiente.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-solid fa-ban" style="color:var(--red)"></i></span><span><b>Excluir</b> un ítem de este envío: lo pone en 0 y lo tacha (queda para el próximo). Tocá de nuevo para restaurarlo.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-solid fa-triangle-exclamation" style="color:#a86500"></i></span><span>Si el N° de comanda <b>ya se usó</b> en otro envío, te avisa al tipear. <b>Crear envío</b> se habilita cuando hay comanda válida y al menos un producto con cantidad.</span></div>'+
+  '</div>'+
+  '<div class="ayuda-sec"><h4>Estados y señales</h4>'+
+    '<div class="ayuda-row"><span class="k"><span class="ayuda-badge" style="background:rgba(26,158,74,.12);color:var(--green)">SLA verde</span></span><span>Reciente. <b>Amarillo</b>: pasó el 1er umbral. <b>Rojo</b>: pasó el límite (configurable en _CONFIG).</span></div>'+
+    '<div class="ayuda-row"><span class="k"><span class="ayuda-badge" style="background:rgba(26,158,74,.12);color:var(--green)">Listo</span></span><span>Tiene guía y destinatario: falta apretar <b>Enviar</b>.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><span class="ayuda-badge" style="background:rgba(214,48,49,.1);color:var(--red)">Falta N</span></span><span>Quedan N productos por enviar (venta parcial).</span></div>'+
+    '<div class="ayuda-row"><span class="k"><span class="ayuda-badge" style="background:var(--surf);color:var(--tx-m)">3/5</span></span><span>Progreso de unidades enviadas sobre el total.</span></div>'+
+  '</div>'+
+  '<div class="ayuda-sec"><h4>Atajos de teclado</h4>'+
+    '<div class="ayuda-row"><span class="k"><kbd>/</kbd></span><span>Buscar</span></div>'+
+    '<div class="ayuda-row"><span class="k"><kbd>r</kbd></span><span>Actualizar</span></div>'+
+    '<div class="ayuda-row"><span class="k"><kbd>1</kbd> … <kbd>4</kbd></span><span>Cambiar de solapa</span></div>'+
+    '<div class="ayuda-row"><span class="k"><kbd>Esc</kbd></span><span>Cerrar ventanas / menú</span></div>'+
+  '</div>'+
+  '<div class="ayuda-sec"><h4>Tips</h4>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-regular fa-copy" style="color:var(--blue)"></i></span><span>El ícono de copiar (al lado del ID, la comanda, la guía y en cada SKU del control) copia el dato al portapapeles.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-solid fa-envelope" style="color:var(--blue)"></i></span><span>El mail al reseller muestra lo <b>despachado en ese envío</b> y, si queda algo, un bloque de <b>faltantes</b>. Usá <b>Vista previa</b> para revisarlo antes de enviar.</span></div>'+
+    '<div class="ayuda-row"><span class="k"><i class="fa-solid fa-moon" style="color:var(--blue)"></i></span><span>Modo oscuro y exportaciones están en el menú <b>Herramientas</b>.</span></div>'+
+  '</div>';
+}
+
+function reintentarFallidos(){
+  var btn = document.getElementById('btn-retry-all');
+  uiConfirm('¿Reintentar el envío de todos los mails que fallaron?', { yes:'Reintentar' }).then(function(ok){
+    if (!ok) return;
+    var orig = btn ? btn.innerHTML : '';
+    if (btn){ btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Reintentando…'; }
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){
+          var f = (r.fallidos||[]).length;
+          toast(r.enviados+' enviado(s)'+(f?' · '+f+' siguen fallando':''), f?'':'ok', f?'⚠️':'✅');
+          cargar();
+        } else { toast((r&&r.mensaje)||'No se pudo reintentar', 'err', '✕'); if(btn){ btn.classList.remove('loading'); btn.innerHTML=orig; } }
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); if(btn){ btn.classList.remove('loading'); btn.innerHTML=orig; } })
+      .CP_reintentarFallidos();
+  });
+}
+function _ultTs(c){ var t=0; (c.envios||[]).forEach(function(e){ if((e.fechaTs||0)>t) t=e.fechaTs; }); return t; }
+function _estado(q, ic, tt, ss){
+  return q
+    ? '<div class="state"><i class="fa-solid fa-magnifying-glass"></i><div class="st-title">Sin resultados</div><div class="st-sub">Ninguna coincide con la búsqueda.</div></div>'
+    : '<div class="state empty"><i class="fa-solid '+ic+'"></i><div class="st-title">'+tt+'</div><div class="st-sub">'+ss+'</div></div>';
+}
+
+// ── un ENVÍO (bloque reutilizable dentro de la card de la venta y en la solapa Envíos) ──
+function envioBlockHTML(c, e, idJ){
+  var guiasHtml = (e.guiasLinks||[]).map(function(g){
+    return g.url ? '<a href="'+esc(g.url)+'" target="_blank" class="cd-guia">'+esc(g.guia)+' <i class="fa-solid fa-arrow-up-right-from-square"></i></a>'
+                 : '<span class="cd-guia">'+esc(g.guia)+'</span>';
+  }).join(' · ') || '—';
+  var pdfHtml = (e.pdfs||[]).map(function(p){
+    return '<a href="'+esc(p.url)+'" target="_blank" class="cd-pdf" title="'+esc(p.name)+'"><i class="fa-solid fa-file-pdf"></i> '+esc(p.comanda)+'</a>';
+  }).join('');
+  var items = (e.items||[]).map(function(it){
+    return '<div class="cc-item"><span class="cc-cant">'+esc(it.cantidad)+'×</span>'+
+      '<span class="cc-sku">'+esc(it.sku||'—')+'</span>'+
+      '<span class="cc-desc" title="'+esc(it.descripcion)+'">'+esc(it.descripcion||'')+'</span></div>';
+  }).join('');
+
+  var sinDestino = c.destino && !c.tieneDestino;
+  var mailBtn, prevBtn = '';
+  if (!e.tieneGuia){
+    mailBtn = '<button class="btn-mail" disabled><i class="fa-solid fa-clock"></i> Esperando guía</button>';
+  } else if (sinDestino){
+    mailBtn = '<button class="btn-mail" disabled title="Cargá el mail del reseller (Resellers) o del RTV (hoja RTV)"><i class="fa-solid fa-paper-plane"></i> Sin destinatario</button>';
+  } else if (e.mailReseller){
+    mailBtn = '<button class="btn-mail sent" onclick="enviarMailEnvio(\''+idJ+'\','+e.envio+',true,this)" title="Ya enviado: '+esc(e.mailReseller)+'"><i class="fa-solid fa-paper-plane"></i> Reenviar</button>';
+  } else {
+    mailBtn = '<button class="btn-mail" onclick="enviarMailEnvio(\''+idJ+'\','+e.envio+',false,this)"><i class="fa-solid fa-paper-plane"></i> Enviar al reseller + RTV</button>';
+  }
+  // vista previa disponible siempre que haya guía y destinatario (antes de enviar o para revisar un reenvío)
+  if (e.tieneGuia && !sinDestino){
+    prevBtn = '<button class="btn-prev" onclick="previewMail(\''+idJ+'\','+e.envio+','+(e.mailReseller?'true':'false')+')"><i class="fa-solid fa-eye"></i> Vista previa</button>';
+  }
+  var ready = e.tieneGuia && !e.mailReseller && !sinDestino;   // guía OK, falta el click del mail
+  // reenviar la aprobación a Sole (por si no la vio); solo mientras no se despachó
+  var resendBtn = !e.tieneGuia
+    ? '<button class="btn-resend" onclick="reenviarAprobacion(\''+idJ+'\','+e.envio+',this)" title="Reenviar el mail de aprobación a Sole"><i class="fa-solid fa-user-check"></i> Reenviar a Sole</button>'
+    : '';
+  var borrarBtn = (!e.mailReseller)
+    ? '<button class="btn-undo" onclick="borrarEnvio(\''+idJ+'\','+e.envio+')"><i class="fa-solid fa-trash-can"></i> Borrar envío</button>' : '';
+
+  var nuevo = ready && _nuevosReady[c.idVenta+'#'+e.envio];
+  return '<div class="env-block'+(ready?' ready':'')+(nuevo?' just-ready':'')+'">' +
+    '<div class="env-head">' +
+      '<span class="env-n">Envío '+e.envio+'</span>' +
+      '<span class="env-com">'+esc(e.comanda)+'</span>' + copyChip(e.comanda,'comanda') +
+      '<span class="env-fecha">'+esc(e.fechaStr||'')+'</span>' +
+      (e.operador ? '<span class="env-oper"><i class="fa-solid fa-user"></i> '+esc(e.operador)+'</span>' : '') +
+      (ready ? '<span class="b-ready"><i class="fa-solid fa-paper-plane"></i> Listo para enviar</span>'
+             : (e.tieneGuia ? '<span class="b-desp">Con guía</span>' : '<span class="env-wait"><i class="fa-regular fa-clock"></i> sin guía</span>')) +
+    '</div>' +
+    '<div class="cc-list env-items">'+items+'</div>' +
+    (e.tieneGuia
+      ? '<div class="desp-box" style="margin-top:8px">' +
+          (e.estadoDespacho ? '<div class="desp-row"><span class="desp-lbl">Estado MC</span><span>'+esc(e.estadoDespacho)+'</span></div>' : '') +
+          '<div class="desp-row"><span class="desp-lbl">Transportista</span><span>'+esc(e.transportista||'—')+'</span></div>' +
+          '<div class="desp-row"><span class="desp-lbl">Guía OCA</span><span>'+guiasHtml+((e.guiasLinks&&e.guiasLinks.length)?copyChip(e.guiasLinks.map(function(g){return g.guia;}).join(' '),'guía'):'')+'</span></div>' +
+        '</div>'
+      : '<div class="desp-wait" style="margin-top:8px"><i class="fa-regular fa-clock"></i> Este envío todavía no tiene N° de seguimiento en Comandas Master'+(e.estadoDespacho?' · estado: '+esc(e.estadoDespacho):'')+'.<div class="bq-note"><i class="fa-solid fa-hourglass-half"></i> La guía puede tardar hasta ~30 min en aparecer (sincroniza por BigQuery).</div></div>') +
+    (e.notaAprob ? '<div class="nota-ro" style="margin-top:8px"><span class="nota-lbl">Nota al aprobador</span>'+esc(e.notaAprob)+'</div>' : '') +
+    '<div class="nota-item" style="margin-top:8px" onclick="event.stopPropagation()"><label><i class="fa-solid fa-store"></i> Mensaje para el Reseller'+(e.mailReseller?' <span style="color:var(--tx-d);font-weight:400">(ya enviado)</span>':'')+'</label>' +
+      '<div class="nota-edit"><textarea class="nota-reseller-ed" rows="2" placeholder="Opcional…">'+esc(e.notaReseller||'')+'</textarea>' +
+      '<button class="nota-save" onclick="guardarNotaResellerEnvio(\''+idJ+'\','+e.envio+',this)">Guardar</button></div></div>' +
+    (e.mailError ? '<div class="mail-err"><i class="fa-solid fa-circle-exclamation"></i> <span><b>Falló el envío del mail:</b> '+esc(e.mailError)+' — usá <b>Enviar</b> para reintentar.</span></div>' : '') +
+    '<div class="env-actions">' + (pdfHtml||'') + prevBtn + mailBtn + resendBtn + borrarBtn +
+      (e.mailReseller ? '<span class="mail-ok"><i class="fa-solid fa-check"></i> Mail enviado</span>' : '') +
+    '</div>' +
+  '</div>';
+}
+
+// card de la solapa "Envíos": una venta + un envío puntual
+function envioCardHTML(c, e){
+  var idJ = jsq(c.idVenta);
+  var cliente = c.razonSocial || c.reseller || '—';
+  var right = e.tieneGuia
+    ? (e.mailReseller ? '<span class="b-cargado"><i class="fa-solid fa-circle-check"></i> mail ok</span>' : '<span class="b-desp">Con guía</span>')
+    : '<span class="aging none"><i class="fa-regular fa-clock"></i> sin guía</span>';
+  return '<div class="cmd" data-key="e:'+esc(c.idVenta)+'#'+e.envio+'">' +
+    '<div class="cmd-head" onclick="toggle(this)">' +
+      '<div class="cmd-sum"><div class="cmd-sum-top">' +
+        '<span class="cmd-id">'+esc(c.idVenta)+'</span>' +
+        '<span class="cmd-op">Envío '+e.envio+'</span>' +
+        '<span class="cmd-op">com '+esc(e.comanda)+'</span>' +
+      '</div><div class="cmd-sub"><b>'+esc(cliente)+'</b>'+(c.reseller&&c.razonSocial?' · '+esc(c.reseller):'')+'</div></div>' +
+      right + '<i class="fa-solid fa-chevron-down chev"></i>' +
+    '</div>' +
+    '<div class="cmd-body">' + envioBlockHTML(c, e, idJ) + '</div>' +
+  '</div>';
+}
+
+function cardHTML(c){
+  var idJ = jsq(c.idVenta);
+  var estado = c.estadoEnvio;
+  var lineas = (c.lineas||[]).map(function(l){
+    var split = (l.partes && l.partes > 1)
+      ? '<span class="linea-split" title="SKU dividido en '+l.partes+' líneas de factura; cantidad = suma real"><i class="fa-solid fa-code-merge"></i> facturado en '+l.partes+'</span>' : '';
+    return '<div class="linea"><div class="linea-sku" title="'+esc(l.sku)+'">'+esc(l.sku||'—')+'</div>'+
+      '<div class="linea-cant">'+esc(l.cantidad||'—')+'</div>'+
+      '<div class="linea-desc" title="'+esc(l.descripcion)+'">'+esc(l.descripcion||'—')+'</div>'+split+
+      '<div class="linea-tot">'+esc(l.totalUSDStr)+'</div></div>';
+  }).join('');
+  var pills = '';
+  if (c.rtv)            pills += pill(c.rtv, 'RTV');
+  if (c.aprobComercial) pills += pill(c.aprobComercial, 'Aprob. Comercial');
+  if (c.entregadosFuera) pills += '<span class="pill entr"><i class="fa-solid fa-circle-check"></i> '+c.entregadosFuera+' entregado'+(c.entregadosFuera===1?'':'s')+' fuera del sistema</span>';
+  pills = pills ? '<div class="pills">'+pills+'</div>' : '';
+
+  var nItems = (c.lineas||[]).length;
+  var cliente = c.razonSocial || c.reseller || '—';
+  var sub = '<b>'+esc(cliente)+'</b>'+(c.reseller&&c.razonSocial?' · '+esc(c.reseller):'')+
+            ' · '+nItems+' ítem'+(nItems===1?'':'s')+' · <span class="usd">'+esc(c.totalUSDStr)+'</span>';
+
+  var aging = c.cargadoTs
+    ? '<span class="aging '+agingClass(c.cargadoTs)+'" data-ts="'+c.cargadoTs+'" title="Pendiente desde que se marcó CARGAR"><i class="fa-regular fa-clock"></i> '+agingStr(c.cargadoTs)+'</span>'
+    : '<span class="aging none"><i class="fa-regular fa-clock"></i> s/f</span>';
+
+  var cargadoRow;
+  if (c.cargadoStr){
+    var lbl = c.cargadoExacto ? 'Marcado CARGAR' : 'Detectado CARGAR ≈';
+    var val = (c.cargadoRango ? esc(c.cargadoStr)+' → '+esc(c.cargadoHasta) : esc(c.cargadoStr)) +
+              (c.cargadoTs ? ' <span style="color:var(--tx-d);font-weight:400">('+esc(relTime(c.cargadoTs))+')</span>' : '');
+    cargadoRow = '<div class="ficha-row"><span class="ficha-lbl"><i class="fa-regular fa-clock" style="color:var(--blue);margin-right:5px"></i>'+lbl+'</span><span class="ficha-val">'+val+'</span></div>';
+  } else {
+    cargadoRow = '<div class="ficha-row"><span class="ficha-lbl"><i class="fa-regular fa-clock" style="color:var(--tx-d);margin-right:5px"></i>Marcado CARGAR</span><span class="ficha-val" style="color:var(--tx-d);font-weight:400">sin registro</span></div>';
+  }
+
+  var nEnv = (c.envios||[]).length, nFalta = (c.pending||[]).length;
+  // progreso enviado/total (por cantidad)
+  var totQ = (c.cargar||[]).reduce(function(a,it){ return a + (it.cantNum||0); }, 0);
+  var pendQ = (c.pending||[]).reduce(function(a,it){ return a + (it.cantNum||0); }, 0);
+  var envQ = Math.max(0, Math.round((totQ - pendQ)*100)/100);
+  var pct = totQ > 0 ? Math.round(envQ/totQ*100) : 0;
+  var progCls = pct===0 ? 'zero' : (pct>=100 ? '' : 'part');
+  var progHTML = totQ > 0
+    ? '<div class="prog" title="'+fmtCant(envQ)+' de '+fmtCant(totQ)+' unidades enviadas"><div class="prog-bar"><div class="prog-fill '+progCls+'" style="width:'+pct+'%"></div></div><div class="prog-lbl">'+fmtCant(envQ)+'/'+fmtCant(totQ)+'</div></div>'
+    : '';
+  var headRight;
+  if (estado === 'completo'){
+    headRight = progHTML + '<span class="b-cargado"><i class="fa-solid fa-circle-check"></i> Completa</span><span class="cmd-op">'+nEnv+' envío'+(nEnv===1?'':'s')+'</span>';
+  } else if (estado === 'parcial'){
+    headRight = aging + progHTML + '<span class="b-falta"><i class="fa-solid fa-triangle-exclamation"></i> Falta '+nFalta+'</span><span class="cmd-op">'+nEnv+' envío'+(nEnv===1?'':'s')+'</span>';
+  } else {
+    headRight = aging;
+  }
+
+  // control "armar envío" (pendiente / parcial)
+  var envioControl = '';
+  if (estado !== 'completo'){
+    // ¿qué SKU son componentes de un kit? (para el tag "de kit")
+    var kitBy = {};
+    (c.cargar||[]).forEach(function(it){ kitBy[String(it.sku).toUpperCase()] = !it.noKit; });
+    var pend = c.pending || [];
+    var pedLbl = (estado === 'pendiente') ? 'a enviar' : 'falta';   // nada enviado aún → "a enviar"; parcial → "falta"
+    var ctrlItems = pend.map(function(it){
+      var q = it.cantNum;
+      var entr = !!it.entregado;
+      var val = entr ? 0 : q;   // si ya figura ENTREGADO en la hoja, no lo re-envía por defecto
+      var badge = entr ? '<span class="cc-entr" title="Marcado ENTREGADO en PENDIENTES_ENTREGA'+(it.entregadoFecha?' · '+esc(it.entregadoFecha):'')+'"><i class="fa-solid fa-circle-check"></i> entregado</span>' : '';
+      var deKit = kitBy[String(it.sku).toUpperCase()] ? '<span class="cc-flag" title="Componente de un kit explotado">de kit</span>' : '';
+      return '<div class="cc-item'+(entr?' is-entr':'')+'">'+
+        '<span class="cc-sku cc-copy" data-mck="'+esc(c.idVenta+'##'+(it.sku||''))+'" data-txt="'+esc(it.sku||'')+'" onclick="cargarFila(event,this)" title="Copiar el SKU y marcarlo como cargado en Masterchief">'+esc(it.sku||'—')+' <i class="fa-regular fa-copy cc-copy-hint"></i><i class="fa-solid fa-check cc-done-mark"></i></span>'+
+        '<span class="cc-desc" title="'+esc(it.descripcion)+'">'+esc(it.descripcion||'')+'</span>'+
+        deKit+
+        badge+
+        '<span class="cc-ped">'+pedLbl+' '+esc(it.cantidad)+'</span>'+
+        '<div class="cc-step">'+
+          '<button type="button" class="cc-step-b" tabindex="-1" title="Restar 1" onclick="ccStep(event,this,-1)">−</button>'+
+          '<input class="cc-in" type="number" min="0" max="'+q+'" step="any" value="'+val+'" data-sku="'+esc(it.sku)+'" data-ped="'+q+'" onclick="event.stopPropagation()" oninput="ccMark(this)">'+
+          '<button type="button" class="cc-step-b" tabindex="-1" title="Sumar 1" onclick="ccStep(event,this,1)">+</button>'+
+        '</div>'+
+        '<span class="cc-falta">queda 0</span>'+
+        '<button type="button" class="cc-excl" tabindex="-1" title="No enviar este ítem ahora (poné 0)" onclick="ccToggleExcl(event,this)"><i class="fa-solid fa-ban"></i></button>'+
+        '</div>';
+    }).join('');
+    envioControl =
+      '<div class="cargar-box ctrl" data-id="'+esc(c.idVenta)+'" data-venta="'+esc(c.idVenta)+'" onclick="event.stopPropagation()">'+
+        '<div class="cargar-head"><span><i class="fa-solid fa-clipboard-check"></i> '+(nEnv?'Nuevo envío':'Armar envío')+' <span style="font-weight:400;color:var(--tx-d)">— tocá el SKU para cargarlo en Masterchief y poné cuánto enviás</span> <span class="carg-count"></span></span>'+
+          '<button class="carg-reset" style="display:none" onclick="reiniciarCargados(event,\''+idJ+'\')">reiniciar</button></div>'+
+        '<div class="cc-list">'+ctrlItems+'</div>'+
+        '<div class="env-form">'+
+          '<div class="cmd-mark"><input class="cmd-comanda" type="text" inputmode="numeric" placeholder="N° comanda de este envío" oninput="validarComanda(this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();crearEnvio(\''+idJ+'\',this);}"></div>'+
+          '<div class="dup-note"></div>'+
+          '<div class="bq-note"><i class="fa-solid fa-hourglass-half"></i> La guía puede tardar hasta ~30 min en aparecer luego de cargar la comanda (BigQuery).</div>'+
+          '<div class="pdf-note"></div>'+
+          '<div class="nota-item"><label><i class="fa-solid fa-user-check"></i> Mensaje para el aprobador (Sole)</label><textarea class="nota-aprob" rows="2" placeholder="Opcional — mail de aprobación"></textarea></div>'+
+          '<div class="nota-item"><label><i class="fa-solid fa-store"></i> Mensaje para el Reseller</label><textarea class="nota-reseller" rows="2" placeholder="Opcional — mail final al reseller"></textarea></div>'+
+          '<div class="crear-hint"></div>'+
+          '<button class="btn-markbody btn-crear" disabled onclick="crearEnvio(\''+idJ+'\',this)"><i class="fa-solid fa-paper-plane"></i> Crear envío</button>'+
+        '</div>'+
+      '</div>';
+  }
+
+  // envíos ya hechos
+  var enviosBox = '';
+  if (c.envios && c.envios.length){
+    enviosBox = '<div class="sec-lbl">Envíos realizados ('+c.envios.length+')</div>' +
+      c.envios.map(function(e){ return envioBlockHTML(c, e, idJ); }).join('');
+  }
+
+
+  var claseEstado = estado==='completo' ? ' is-cargado' : '';
+  return '<div class="cmd'+claseEstado+'" data-key="v:'+esc(c.idVenta)+'">'+
+    '<div class="cmd-head" onclick="toggle(this)">'+
+      '<div class="cmd-sum"><div class="cmd-sum-top">'+
+        '<span class="cmd-id">'+esc(c.idVenta)+'</span>'+ copyChip(c.idVenta,'ID de venta')+
+        (c.operacion ? '<span class="cmd-op">'+esc(c.operacion)+'</span>' : '')+
+      '</div><div class="cmd-sub">'+sub+'</div></div>'+
+      headRight+'<i class="fa-solid fa-chevron-down chev"></i>'+
+    '</div>'+
+    '<div class="cmd-body">'+
+      '<div class="ficha">'+row('Reseller', c.reseller)+row('Razón Social', c.razonSocial)+cargadoRow+'</div>'+
+      pills+
+      envioControl+
+      enviosBox+
+      '<details class="pedido-det"><summary>Ver detalle de facturación ('+nItems+' ítem'+(nItems===1?'':'s')+')</summary>'+
+        '<div class="lineas">'+lineas+'</div>'+
+        '<div class="tot-row"><span class="tot-ars">'+esc(c.totalARSStr)+'</span><span class="tot-usd">'+esc(c.totalUSDStr)+'</span></div>'+
+      '</details>'+
+      (c.comentarios ? '<div class="coment"><b>Comentarios:</b> '+esc(c.comentarios)+'</div>' : '')+
+    '</div>'+
+  '</div>';
+}
+
+function row(lbl, val){
+  return '<div class="ficha-row"><span class="ficha-lbl">'+esc(lbl)+'</span><span class="ficha-val">'+esc(val||'—')+'</span></div>';
+}
+function pill(val, lbl){
+  var v = String(val).toLowerCase();
+  var cls = /ok|aprob|si|sí|listo|acred/.test(v) ? 'ok' : (/pend|falta|no|revis/.test(v) ? 'warn' : '');
+  return '<span class="pill '+cls+'">'+esc(lbl)+': '+esc(val)+'</span>';
+}
+function mostrarError(msg){
+  document.getElementById('content').innerHTML = '<div class="err-box"><i class="fa-solid fa-circle-exclamation"></i> '+esc(msg)+'</div>';
+}
+var _open = {};   // data-key -> true (estado abierto, se preserva entre refreshes)
+function toggle(headEl){
+  var card = headEl.parentNode;
+  var abierto = card.classList.toggle('open');
+  var k = card.getAttribute('data-key');
+  if (k){ if (abierto) _open[k] = true; else delete _open[k]; }
+  sincToggleBtn();
+}
+function toggleTodo(){
+  var cards = document.querySelectorAll('.cmd');
+  var algunaCerrada = Array.prototype.some.call(cards, function(c){ return !c.classList.contains('open'); });
+  Array.prototype.forEach.call(cards, function(c){
+    c.classList.toggle('open', algunaCerrada);
+    var k = c.getAttribute('data-key');
+    if (k){ if (algunaCerrada) _open[k] = true; else delete _open[k]; }
+  });
+  sincToggleBtn();
+}
+// re-aplica el estado abierto guardado (tras cada render/refresh)
+function restaurarAbiertas(){
+  Array.prototype.forEach.call(document.querySelectorAll('.cmd[data-key]'), function(c){
+    if (_open[c.getAttribute('data-key')]) c.classList.add('open');
+  });
+}
+function sincToggleBtn(){
+  var btn = document.getElementById('btn-toggle-all'); if (!btn) return;
+  var cards = document.querySelectorAll('.cmd');
+  var todasAbiertas = cards.length > 0 && Array.prototype.every.call(cards, function(c){ return c.classList.contains('open'); });
+  btn.innerHTML = todasAbiertas ? '<i class="fa-solid fa-angles-up"></i> Colapsar todo' : '<i class="fa-solid fa-angles-down"></i> Expandir todo';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+function jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+var _toastT = null;
+function toast(msg, tipo, ico){
+  var el = document.getElementById('toast');
+  el.className = 'toast show' + (tipo ? ' '+tipo : '');
+  el.innerHTML = (ico ? '<span>'+ico+'</span>' : '') + '<span>'+esc(msg)+'</span>';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(function(){ el.className = 'toast'; }, 2600);
+}
+function fmtCant(n){ return (Math.round(n*100)/100).toLocaleString('es-AR',{maximumFractionDigits:2}); }
+
+function comandaValida(v){ v=(v||'').trim(); return /^\d{5,}(\/\d{5,})*$/.test(v); }
+var _pdfT = null;
+function validarComanda(inp){
+  var limpio = inp.value.replace(/[^0-9/]/g,'');
+  if (limpio !== inp.value) inp.value = limpio;
+  var ok = comandaValida(limpio);
+  var card = inp.closest('.cmd');
+  sincCrearBtn(card);
+  var form = inp.closest('.env-form');
+  // aviso EN VIVO si la comanda ya se usó en otro envío (antes de crear)
+  var dup = form ? form.querySelector('.dup-note') : null;
+  if (dup){
+    var usada = ok ? comandaUsada(limpio) : null;
+    if (usada){ dup.className = 'dup-note show'; dup.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Esta comanda ya se usó en la venta '+esc(usada); }
+    else { dup.className = 'dup-note'; dup.innerHTML = ''; }
+  }
+  var note = form ? form.querySelector('.pdf-note') : null;
+  if (note){
+    clearTimeout(_pdfT);
+    if (!ok){ note.className = 'pdf-note'; note.innerHTML = ''; }
+    else { _pdfT = setTimeout(function(){ chequearPdf(limpio, note); }, 600); }
+  }
+}
+// ¿está el PDF de la comanda en Drive? (el PDF sí llega rápido, no depende de BigQuery)
+function chequearPdf(comanda, note){
+  note.className = 'pdf-note show';
+  note.innerHTML = '<i class="fa-solid fa-spinner" style="animation:sp .8s linear infinite"></i> Buscando PDF en Drive…';
+  google.script.run
+    .withSuccessHandler(function(r){
+      if (!r || !r.ok){ note.className = 'pdf-note'; note.innerHTML = ''; return; }
+      if (r.todos){ note.className = 'pdf-note ok'; note.innerHTML = '<i class="fa-solid fa-file-pdf"></i> PDF encontrado en Drive'; }
+      else { note.className = 'pdf-note warn'; note.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> PDF '+esc((r.falta||[]).join(', '))+' todavía no está en Drive — el mail a Sole irá sin adjunto'; }
+    })
+    .withFailureHandler(function(){ note.className = 'pdf-note'; note.innerHTML = ''; })
+    .CP_checkPdf(comanda);
+}
+function _partes(s){ return (s||'').split('/').map(function(x){ return x.trim(); }).filter(Boolean); }
+// ¿la comanda ya está usada en algún envío (de cualquier venta)? → devuelve idVenta o null
+function comandaUsada(val){
+  var mine = _partes(val), dup = null;
+  (_data||[]).forEach(function(c){
+    (c.envios||[]).forEach(function(e){
+      if (dup) return;
+      if (_partes(e.comanda).some(function(x){ return mine.indexOf(x) > -1; })) dup = c.idVenta;
+    });
+  });
+  return dup;
+}
+
+// actualiza en vivo el "queda N" al escribir cuánto se envía
+function ccMark(input){
+  var falta = parseFloat(input.getAttribute('data-ped')) || 0;
+  var env = parseFloat(input.value); if (isNaN(env)) env = 0;
+  if (env < 0) env = 0; if (env > falta){ env = falta; input.value = falta; }
+  var queda = Math.round((falta - env)*100)/100;
+  var item = input.closest('.cc-item');
+  var lbl = item ? item.querySelector('.cc-falta') : null;
+  if (lbl){ lbl.textContent = queda > 0 ? ('queda '+fmtCant(queda)) : 'todo'; lbl.classList.toggle('on', queda > 0); }
+  if (item) item.classList.toggle('excl', env === 0);   // 0 = excluido de este envío
+  sincCrearBtn(input.closest('.cmd'));
+}
+// stepper +/- de la cantidad a enviar
+function ccStep(ev, btn, dir){
+  ev.stopPropagation();
+  var wrap = btn.closest('.cc-step');
+  var inp = wrap ? wrap.querySelector('.cc-in') : null;
+  if (!inp) return;
+  var ped = parseFloat(inp.getAttribute('data-ped')) || 0;
+  var v = (parseFloat(inp.value) || 0) + dir;
+  if (v < 0) v = 0; if (v > ped) v = ped;
+  inp.value = Math.round(v*100)/100;
+  ccMark(inp);
+}
+// excluir/incluir un ítem: 0 ⇄ cantidad completa
+function ccToggleExcl(ev, btn){
+  ev.stopPropagation();
+  var item = btn.closest('.cc-item');
+  var inp = item ? item.querySelector('.cc-in') : null;
+  if (!inp) return;
+  var ped = parseFloat(inp.getAttribute('data-ped')) || 0;
+  inp.value = (parseFloat(inp.value) || 0) === 0 ? ped : 0;   // si está en 0 → restaurar; si no → 0
+  ccMark(inp);
+}
+// habilita "Crear envío" sólo si hay comanda válida Y algo para enviar; muestra el motivo si falta algo
+function sincCrearBtn(card){
+  if (!card) return;
+  var btn = card.querySelector('.btn-crear'); if (!btn) return;
+  var inp = card.querySelector('.cmd-comanda');
+  var hint = card.querySelector('.crear-hint');
+  var comOk = comandaValida((inp && inp.value || '').trim());
+  var qtyOk = leerProductosCard(card).total > 0;
+  var ok = comOk && qtyOk;
+  btn.disabled = !ok;
+  if (hint){
+    var motivo = !qtyOk ? 'Poné cuánto enviás de al menos un producto' : (!comOk ? 'Falta el N° de comanda de este envío' : '');
+    hint.textContent = motivo;
+    hint.style.display = ok ? 'none' : 'block';
+  }
+}
+
+// lee cuánto se envía de cada SKU (los inputs del control)
+function leerProductosCard(card){
+  var prod = {}, total = 0;
+  if (card) card.querySelectorAll('.cargar-box.ctrl .cc-in').forEach(function(inp){
+    var v = parseFloat(inp.value); if (isNaN(v) || v <= 0) return;
+    prod[inp.getAttribute('data-sku')] = v; total += v;
+  });
+  return { prod: prod, total: total };
+}
+
+// crear un envío (comanda + productos a enviar ahora + notas)
+function crearEnvio(idVenta, el, force){
+  var card = el && el.closest ? el.closest('.cmd') : null;
+  var inputEl = card ? card.querySelector('.cmd-comanda') : null;
+  var val = (inputEl && inputEl.value || '').trim();
+  if (!val){ if(inputEl) inputEl.focus(); toast('Ingresá el N° de comanda del envío', 'err', '✕'); return; }
+  if (!comandaValida(val)){ if(inputEl) inputEl.focus(); toast('N° de comanda inválido', 'err', '✕'); return; }
+  var pr = leerProductosCard(card);
+  if (!pr.total){ toast('Poné cuánto enviás de al menos un producto', 'err', '✕'); return; }
+
+  var _go = function(forzar){
+    var notaAprob    = card ? ((card.querySelector('.nota-aprob')||{}).value||'').trim() : '';
+    var notaReseller = card ? ((card.querySelector('.nota-reseller')||{}).value||'').trim() : '';
+    var btn = card ? card.querySelector('.btn-crear') : null;
+    var origBtn = btn ? btn.innerHTML : '';
+    if (btn){ btn.disabled = true; btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Creando envío…'; }
+    if (inputEl) inputEl.disabled = true;
+    var enable = function(){ if(btn){ btn.disabled=false; btn.classList.remove('loading'); btn.innerHTML=origBtn; } if(inputEl) inputEl.disabled=false; };
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){
+          var extra;
+          if (r.mailSole) extra = ' · aviso a Sole'+(r.mailSoleSinPdf?' (sin PDF adjunto)':'');
+          else if (r.mailSoleError) extra = ' · Sole NO avisado: '+r.mailSoleError;
+          else extra = '';
+          toast('Envío '+r.envio+' creado'+(r.completo?' · venta completa':'')+extra, 'ok', '✅'); cargar();
+        } else if (r && r.yaUsada){
+          enable();
+          uiConfirm('⚠️ '+(r.mensaje||'Comanda ya usada')+'\n¿Crear el envío igual?', {danger:true, yes:'Crear igual'}).then(function(ok){ if (ok) _go(true); });
+        } else { toast((r && r.mensaje) || 'No se pudo crear el envío', 'err', '✕'); enable(); }
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); enable(); })
+      .CP_crearEnvio(idVenta, val, pr.prod, notaAprob, notaReseller, !!forzar);
+  };
+
+  if (!force){
+    var dup = comandaUsada(val);
+    if (dup){
+      uiConfirm('⚠️ La comanda '+val+' ya se usó en un envío ('+dup+').\n¿Usarla igual?', {danger:true, yes:'Usar igual'})
+        .then(function(ok){ if (ok) _go(true); else if (inputEl) inputEl.focus(); });
+      return;
+    }
+  }
+  _go(force);
+}
+
+// mail al reseller de un envío
+function enviarMailEnvio(idVenta, envio, yaEnviado, btn){
+  var msg = yaEnviado ? '⚠️ Este mail YA se envió. ¿Reenviarlo igual?' : '¿Enviar el mail de despacho al reseller y RTV?';
+  uiConfirm(msg, { danger: !!yaEnviado, yes: yaEnviado ? 'Reenviar' : 'Enviar' }).then(function(ok){
+    if (!ok) return;
+    var orig = btn ? btn.innerHTML : '';
+    if (btn){ btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Enviando…'; }
+    var restore = function(){ if (btn){ btn.classList.remove('loading'); btn.innerHTML = orig; } };
+    toast('Enviando mail…', '', '✉️');
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){ toast('Mail enviado ('+(r.a||'destinatarios')+') → '+(r.destinatarios||''), 'ok', '✅'); cargar(); }
+        else { toast((r && r.mensaje) || 'No se pudo enviar', 'err', '✕'); restore(); }
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); restore(); })
+      .CP_enviarMailEnvio(idVenta, envio);
+  });
+}
+
+// vista previa del mail al reseller (no envía)
+var _pv = { id:'', envio:0, ya:false };
+function previewMail(idVenta, envio, yaEnviado){
+  _pv = { id:idVenta, envio:envio, ya:!!yaEnviado };
+  var ov = document.getElementById('pv-overlay');
+  var meta = document.getElementById('pv-meta');
+  var frame = document.getElementById('pv-frame');
+  var send = document.getElementById('pv-send');
+  meta.innerHTML = '<i class="fa-solid fa-spinner" style="animation:sp .8s linear infinite"></i> Generando vista previa…';
+  frame.srcdoc = '';
+  send.disabled = true; send.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar ahora';
+  ov.classList.add('show');
+  google.script.run
+    .withSuccessHandler(function(r){
+      if (!r || !r.ok){ meta.innerHTML = '<span class="pv-warn">'+esc((r&&r.mensaje)||'No se pudo generar la vista previa')+'</span>'; return; }
+      frame.srcdoc = r.html || '';
+      var m = '<b>Asunto:</b> '+esc(r.asunto||'—')+'<br><b>Para:</b> '+esc(r.destinatarios||'—')+(r.a?' <span style="color:var(--tx-d)">('+esc(r.a)+')</span>':'');
+      if (r.cc)  m += '<br><b>CC:</b> '+esc(r.cc);
+      if (r.bcc) m += '<br><b>CCO:</b> '+esc(r.bcc);
+      if (r.sinGuia)    m += '<br><span class="pv-warn"><i class="fa-solid fa-triangle-exclamation"></i> Sin guía todavía — no se podrá enviar.</span>';
+      if (r.sinDestino) m += '<br><span class="pv-warn"><i class="fa-solid fa-triangle-exclamation"></i> Sin destinatarios cargados.</span>';
+      meta.innerHTML = m;
+      send.disabled = !!(r.sinGuia || r.sinDestino);
+    })
+    .withFailureHandler(function(e){ meta.innerHTML = '<span class="pv-warn">Error: '+esc((e&&e.message)||'')+'</span>'; })
+    .CP_previewMailEnvio(idVenta, envio);
+  // el botón "Enviar ahora" reutiliza el flujo normal
+  send.onclick = function(){ cerrarPreview(); enviarMailEnvio(_pv.id, _pv.envio, _pv.ya, null); };
+}
+function cerrarPreview(){ document.getElementById('pv-overlay').classList.remove('show'); document.getElementById('pv-frame').srcdoc = ''; }
+
+// ── REPORTE DE TIEMPOS (CARGAR → comanda cargada) ──
+function hLegible(h){
+  if (h == null) return '—';
+  var m = Math.round(h*60);
+  if (m < 60) return m+'m';
+  var hh = Math.floor(m/60), mm = m%60;
+  if (hh < 24) return hh+'h'+(mm?' '+mm+'m':'');
+  var d = Math.floor(hh/24), rh = hh%24;
+  return d+'d'+(rh?' '+rh+'h':'');
+}
+function reporteTiempos(){
+  var ov = document.getElementById('rep-overlay');
+  var body = document.getElementById('rep-body');
+  var csvBtn = document.getElementById('rep-csv');
+  body.innerHTML = '<div style="text-align:center;padding:30px"><div class="spinner"></div><div class="st-sub">Calculando tiempos…</div></div>';
+  csvBtn.disabled = true;
+  ov.classList.add('show');
+  google.script.run
+    .withSuccessHandler(function(r){
+      if (!r || !r.ok){ body.innerHTML = '<div class="err-box">'+esc((r&&r.mensaje)||'No se pudo generar el reporte')+'</div>'; return; }
+      body.innerHTML = renderReporte(r);
+      csvBtn.disabled = !(r.rows && r.rows.length);
+      csvBtn.onclick = function(){ descargarReporteCSV(r); };
+    })
+    .withFailureHandler(function(e){ body.innerHTML = '<div class="err-box">Error: '+esc((e&&e.message)||'')+'</div>'; })
+    .CP_reporteTiempos();
+}
+function cerrarReporte(){ document.getElementById('rep-overlay').classList.remove('show'); }
+function renderReporte(r){
+  function cards(s, titulo, big){
+    if (!s || !s.n) return '<div class="rep-sub">'+titulo+'</div><div class="rep-note">Sin datos todavía.</div>';
+    return '<div class="rep-sub">'+titulo+' ('+s.n+' comanda'+(s.n===1?'':'s')+')</div>'+
+      '<div class="rep-cards">'+
+        '<div class="rep-card'+(big?' big':'')+'"><div class="rc-n">'+hLegible(s.prom)+'</div><div class="rc-l">Promedio</div></div>'+
+        '<div class="rep-card"><div class="rc-n">'+hLegible(s.mediana)+'</div><div class="rc-l">Mediana</div></div>'+
+        '<div class="rep-card"><div class="rc-n">'+hLegible(s.min)+'</div><div class="rc-l">Mínimo</div></div>'+
+        '<div class="rep-card"><div class="rc-n">'+hLegible(s.max)+'</div><div class="rc-l">Máximo</div></div>'+
+      '</div>';
+  }
+  var html = cards(r.resumen.primer, 'CARGAR → primera comanda (tiempo de arranque)', true)+
+             cards(r.resumen.todos, 'CARGAR → comanda (todas)', false)+
+             cards(r.resumen.despacho, 'Comanda → despacho (guía / mail al reseller)', false);
+  var np = (r.pendientes||[]).length;
+  if (np){
+    var mx = r.pendientes[0];
+    html += '<div class="rep-note rep-warn"><b>'+np+'</b> venta'+(np===1?'':'s')+' marcada'+(np===1?'':'s')+' CARGAR sin cargar la comanda todavía · la más vieja lleva <b>'+hLegible(mx.horasAbierto)+'</b> ('+esc(mx.idVenta)+').</div>';
+  }
+  html += '<div class="rep-note" style="margin-top:10px">Se mide desde que se marcó <b>CARGAR</b> hasta que el operador registró la comanda. Los marcados <b>aprox</b> (detección) no son exactos. Descargá el CSV para el detalle por venta.</div>';
+  return html;
+}
+function descargarReporteCSV(r){
+  var rows = [['ID_Venta','Reseller','Razon_Social','Envio','Comanda','CARGAR','Origen','Comanda_cargada','Operador','Horas_carga','Despacho','Horas_despacho','Primer_envio']];
+  (r.rows||[]).forEach(function(x){
+    rows.push([x.idVenta, x.reseller, x.cliente, x.envio, x.comanda, x.cargarStr, x.origen, x.cargadaStr, x.operador,
+               (x.horas==null?'':x.horas), x.despachoStr||'', (x.horasDespacho==null?'':x.horasDespacho), (x.primero?'SI':'NO')]);
+  });
+  descargarCSV(rows, 'reporte_tiempos_');
+  toast('Reporte descargado', 'ok', '✅');
+}
+
+// export CSV de lo pendiente de enviar (1 producto por línea) — se arma en el cliente desde _data
+function exportarFaltantes(){
+  var rows = [['ID_Venta','SKU','Descripcion','Cantidad_pendiente','Reseller','Razon_Social','Estado_envio']];
+  (_data||[]).forEach(function(c){
+    (c.pending||[]).forEach(function(p){
+      rows.push([c.idVenta, p.sku, p.descripcion, p.cantidad, c.reseller||'', c.razonSocial||'', c.estadoEnvio]);
+    });
+  });
+  if (rows.length === 1){ toast('No hay productos pendientes de enviar', '', 'ℹ️'); return; }
+  descargarCSV(rows, 'faltantes_');
+  toast((rows.length-1)+' línea(s) exportadas', 'ok', '✅');
+}
+function csvCell(v){
+  v = String(v==null?'':v);
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;   // anti CSV/Excel formula injection
+  return /[",\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function descargarCSV(rows, prefijo){
+  var csv = rows.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n');
+  var blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8;' });  // BOM para Excel
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = prefijo + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+}
+
+// borrar un envío
+function borrarEnvio(idVenta, envio){
+  uiConfirm('¿Borrar este envío? Los productos vuelven a quedar pendientes de enviar.', { danger:true, yes:'Borrar' }).then(function(ok){
+    if (!ok) return;
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){ toast('Envío borrado', 'ok', '↩'); cargar(); }
+        else toast((r && r.mensaje) || 'No se pudo borrar', 'err', '✕');
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); })
+      .CP_borrarEnvio(idVenta, envio);
+  });
+}
+
+// reenviar el mail de aprobación a Sole
+function reenviarAprobacion(idVenta, envio, btn){
+  uiConfirm('¿Reenviar el mail de aprobación a Sole?', { yes:'Reenviar' }).then(function(ok){
+    if (!ok) return;
+    var orig = btn ? btn.innerHTML : '';
+    if (btn){ btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Reenviando…'; }
+    var restore = function(){ if(btn){ btn.classList.remove('loading'); btn.innerHTML=orig; } };
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){ toast('Aprobación reenviada a Sole'+(r.sinPdf?' (sin PDF: no está en Drive)':''), r.sinPdf?'':'ok', r.sinPdf?'⚠️':'✅'); restore(); }
+        else { toast((r && r.mensaje) || 'No se pudo reenviar', 'err', '✕'); restore(); }
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); restore(); })
+      .CP_reenviarAprobacion(idVenta, envio);
+  });
+}
+
+// export CSV de todos los envíos
+function exportarEnvios(){
+  var rows = [['ID_Venta','Envio','Comanda','Fecha','Operador','Productos','Guia','Transportista','Estado_despacho','Mail_reseller','Error_mail']];
+  (_data||[]).forEach(function(c){
+    (c.envios||[]).forEach(function(e){
+      var prods = (e.items||[]).map(function(it){ return it.sku+':'+it.cantidad; }).join(' ; ');
+      var guias = (e.guiasLinks||[]).map(function(g){ return g.guia; }).join(' / ');
+      rows.push([c.idVenta, e.envio, e.comanda, e.fechaStr||'', e.operador||'', prods, guias,
+                 e.transportista||'', e.estadoDespacho||'', e.mailReseller||'', e.mailError||'']);
+    });
+  });
+  if (rows.length === 1){ toast('No hay envíos para exportar', '', 'ℹ️'); return; }
+  descargarCSV(rows, 'envios_');
+  toast((rows.length-1)+' envío(s) exportados', 'ok', '✅');
+}
+
+// guardar la nota al reseller de un envío
+function guardarNotaResellerEnvio(idVenta, envio, btn){
+  var box = btn.closest('.nota-edit');
+  var val = box ? (box.querySelector('.nota-reseller-ed').value||'').trim() : '';
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(r){
+      if (r && r.ok){ toast('Nota guardada', 'ok', '✅'); btn.disabled=false; }
+      else { toast((r && r.mensaje) || 'No se pudo guardar', 'err', '✕'); btn.disabled=false; }
+    })
+    .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); btn.disabled=false; })
+    .CP_setNotaResellerEnvio(idVenta, envio, val);
+}
+
+// copiar la lista "qué cargar" al portapapeles
+// copia texto al portapapeles (con fallback) y ejecuta cb() cuando termina
+function copiarTxt(txt, cb){
+  var done = function(){ if (cb) cb(); };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ fallbackCopy(txt); done(); });
+  } else { fallbackCopy(txt); done(); }
+}
+// chip de copia (ícono) reutilizable: <button class="copy-ic" data-copy="..." onclick="copiarChip(event,this)">
+function copiarChip(ev, el){
+  ev.stopPropagation();
+  copiarTxt(el.getAttribute('data-copy') || '', function(){
+    var orig = el.innerHTML;
+    el.innerHTML = '<i class="fa-solid fa-check"></i>'; el.classList.add('ok');
+    setTimeout(function(){ el.innerHTML = orig; el.classList.remove('ok'); }, 1100);
+  });
+}
+function copyChip(text, title){
+  return '<button class="copy-ic" data-copy="'+esc(text)+'" onclick="copiarChip(event,this)" title="Copiar '+esc(title||'')+'"><i class="fa-regular fa-copy"></i></button>';
+}
+
+// ── "Qué cargar": copiar fila por fila y marcar como cargada ──
+function cargarFila(ev, el){
+  ev.stopPropagation();
+  var key = el.getAttribute('data-mck');
+  var done = !el.classList.contains('done');
+  el.classList.toggle('done', done);
+  if (done){ _cargadosMc[key] = true; copiarTxt(el.getAttribute('data-txt') || ''); }
+  else delete _cargadosMc[key];
+  var box = el.closest('.cargar-box');
+  actualizarCargCount(box);
+  // terminó de cargar todas las filas → llevar el foco al N° de comanda (próximo paso)
+  if (done && box){
+    var total = box.querySelectorAll('[data-mck]').length;
+    var hechas = box.querySelectorAll('[data-mck].done').length;
+    if (total && hechas === total){
+      var comInp = box.querySelector('.cmd-comanda');
+      if (comInp && !comInp.value){
+        comInp.focus();
+        comInp.classList.add('ready-glow');
+        setTimeout(function(){ comInp.classList.remove('ready-glow'); }, 1600);
+      }
+    }
+  }
+}
+function actualizarCargCount(box){
+  if (!box) return;
+  var total = box.querySelectorAll('[data-mck]').length;
+  var done  = box.querySelectorAll('[data-mck].done').length;
+  var lbl = box.querySelector('.carg-count');
+  if (lbl) lbl.textContent = total ? ('· '+done+'/'+total+' cargados en MC') : '';
+  var reset = box.querySelector('.carg-reset');
+  if (reset) reset.style.display = done > 0 ? '' : 'none';
+}
+// re-aplica el estado "cargado" tras cada render (sobrevive al auto-refresh)
+function restaurarCargados(){
+  Array.prototype.forEach.call(document.querySelectorAll('.cargar-box [data-mck]'), function(el){
+    if (_cargadosMc[el.getAttribute('data-mck')]) el.classList.add('done');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.cargar-box'), function(box){ actualizarCargCount(box); });
+}
+function reiniciarCargados(ev, idVenta){
+  ev.stopPropagation();
+  var pref = idVenta + '##';
+  Object.keys(_cargadosMc).forEach(function(k){ if (k.indexOf(pref) === 0) delete _cargadosMc[k]; });
+  render();
+}
+function fallbackCopy(txt){
+  var ta = document.createElement('textarea');
+  ta.value = txt; ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+}
+
+// ── CONTADOR DE ANTIGÜEDAD (SLA) ──────────────────────────
+// Umbrales en minutos: verde < warn ≤ amarillo < danger ≤ rojo.
+// Ajustá estos dos valores según el SLA real de carga en Masterchief.
+var AGING = { warn: 4*60, danger: 24*60 };  // 4 h / 24 h
+
+function agingClass(ms){
+  var min = (Date.now() - ms) / 60000;
+  if (min >= AGING.danger) return 'rojo';
+  if (min >= AGING.warn)   return 'amarillo';
+  return 'verde';
+}
+// contador compacto: "45m" · "3h 12m" · "2d 4h"
+function agingStr(ms){
+  var m = Math.floor((Date.now() - ms) / 60000);
+  if (m < 1)  return 'recién';
+  if (m < 60) return m + 'm';
+  var h = Math.floor(m/60), mm = m % 60;
+  if (h < 24) return h + 'h' + (mm ? ' ' + mm + 'm' : '');
+  var d = Math.floor(h/24), hh = h % 24;
+  return d + 'd' + (hh ? ' ' + hh + 'h' : '');
+}
+// refresca todos los contadores en vivo (color + texto)
+function tickAging(){
+  var els = document.querySelectorAll('.aging[data-ts]');
+  Array.prototype.forEach.call(els, function(el){
+    var ts = parseInt(el.getAttribute('data-ts'), 10);
+    if (!ts) return;
+    el.className = 'aging ' + agingClass(ts);
+    el.innerHTML = '<i class="fa-regular fa-clock"></i> ' + agingStr(ts);
+  });
+}
+
+// tiempo relativo compacto a partir de epoch ms
+function relTime(ms){
+  if(!ms) return '';
+  var diff = Date.now() - ms;
+  if (diff < 0) diff = 0;
+  var min = Math.floor(diff/60000);
+  if (min < 1)  return 'recién';
+  if (min < 60) return 'hace '+min+' min';
+  var h = Math.floor(min/60);
+  if (h < 24)   return 'hace '+h+' h';
+  var d = Math.floor(h/24);
+  if (d < 30)   return 'hace '+d+' día'+(d===1?'':'s');
+  var mo = Math.floor(d/30);
+  return 'hace '+mo+' mes'+(mo===1?'':'es');
+}
+
+// ── MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo) ──
+var _cfResolve = null;
+function uiConfirm(msg, opts){
+  opts = opts || {};
+  return new Promise(function(resolve){
+    _cfResolve = resolve;
+    document.getElementById('cf-msg').textContent = msg;
+    document.getElementById('cf-title').textContent = opts.title || 'Confirmar';
+    var yes = document.getElementById('cf-yes');
+    yes.textContent = opts.yes || 'Confirmar';
+    yes.className = 'btn-mail' + (opts.danger ? ' danger' : '');
+    document.getElementById('cf-no').textContent = opts.no || 'Cancelar';
+    var ov = document.getElementById('cf-overlay');
+    ov.classList.toggle('cf-overlay-danger', !!opts.danger);
+    ov.classList.add('show');
+    setTimeout(function(){ yes.focus(); }, 30);
+  });
+}
+function cfResolver(val){
+  document.getElementById('cf-overlay').classList.remove('show');
+  var r = _cfResolve; _cfResolve = null;
+  if (r) r(val);
+}
+
+// ── MENÚ HERRAMIENTAS ──
+function toggleTools(ev){ if (ev) ev.stopPropagation(); document.getElementById('tools-menu').classList.toggle('show'); }
+function closeTools(){ document.getElementById('tools-menu').classList.remove('show'); }
+document.addEventListener('click', function(e){
+  var w = document.querySelector('.tools-wrap');
+  if (w && !w.contains(e.target)) closeTools();
+});
+
+// ── MODO OSCURO ──
+function setTema(dark){
+  document.body.classList.toggle('dark', dark);
+  var ico = document.getElementById('tema-ico'), lbl = document.getElementById('tema-lbl');
+  if (ico) ico.className = 'fa-solid ' + (dark ? 'fa-sun' : 'fa-moon');
+  if (lbl) lbl.textContent = dark ? 'Modo claro' : 'Modo oscuro';
+  try { localStorage.setItem('cp_tema', dark ? 'dark' : 'light'); } catch(_){}
+}
+function toggleTema(){ setTema(!document.body.classList.contains('dark')); }
+function initTema(){ try { setTema(localStorage.getItem('cp_tema') === 'dark'); } catch(_){} }
+
+// ── PREFERENCIAS (solapa + filtros) en localStorage ──
+function guardarPrefs(){
+  try { localStorage.setItem('cp_prefs', JSON.stringify({ view: _view, filtros: _filtros })); } catch(_){}
+}
+function cargarPrefs(){
+  try {
+    var p = JSON.parse(localStorage.getItem('cp_prefs') || '{}');
+    if (p.view && ['pend','parcial','completo','envios'].indexOf(p.view) > -1){
+      _view = p.view;
+      ['pend','parcial','completo','envios'].forEach(function(x){ var b = document.getElementById('vtab-'+x); if (b) b.classList.toggle('active', _view === x); });
+    }
+    if (p.filtros){
+      _filtros = { sla:!!p.filtros.sla, listos:!!p.filtros.listos, error:!!p.filtros.error, reseller:p.filtros.reseller || '' };
+      ['sla','listos','error'].forEach(function(k){ var b = document.getElementById('fchip-'+k); if (b) b.classList.toggle('on', _filtros[k]); });
+      actualizarClear();
+    }
+  } catch(_){}
+}
+
+// ── ATAJOS DE TECLADO ──
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){
+    if (document.getElementById('cf-overlay').classList.contains('show')){ cfResolver(false); return; }
+    if (document.getElementById('pv-overlay').classList.contains('show')){ cerrarPreview(); return; }
+    if (document.getElementById('rep-overlay').classList.contains('show')){ cerrarReporte(); return; }
+    if (document.getElementById('sm-overlay').classList.contains('show')){ cerrarSinMail(); return; }
+    if (document.getElementById('ay-overlay').classList.contains('show')){ cerrarAyuda(); return; }
+    if (document.getElementById('tools-menu').classList.contains('show')){ closeTools(); return; }
+    return;
+  }
+  var tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  var modalOpen = ['pv-overlay','rep-overlay','sm-overlay','cf-overlay','ay-overlay'].some(function(id){ var o = document.getElementById(id); return o && o.classList.contains('show'); });
+  if (modalOpen) return;
+  if (e.key === '/'){ e.preventDefault(); var q = document.getElementById('q'); if (q) q.focus(); }
+  else if (e.key === 'r' || e.key === 'R'){ cargar(); }
+  else if (e.key >= '1' && e.key <= '4'){ switchView(['pend','parcial','completo','envios'][(+e.key)-1]); }
+});
+
+// carga automática al abrir
+initTema();
+cargarPrefs();
+cargar();
+
+// contadores en vivo: refresca cada 30 s sin recargar datos del server
+setInterval(tickAging, 30000);
+
+// auto-refresh de datos cada 3 min: trae guías nuevas (BigQuery) sin apretar "Actualizar".
+// Preserva la solapa activa, la búsqueda y las cards abiertas; se saltea si estás escribiendo
+// o si la pestaña está oculta (nadie mira → no gastamos llamadas al server).
+setInterval(function(){ if (!document.hidden && _puedeAutoRefresh()) cargar(true); }, 3*60000);
+// al volver a la pestaña, refrescá al toque (así ves data fresca sin esperar el ciclo).
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden && _puedeAutoRefresh()) cargar(true);
+});
+</script>
+</body>
+</html>

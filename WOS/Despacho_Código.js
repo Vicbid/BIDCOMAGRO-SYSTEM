@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // @version 3.5
+=======
+// @version 3.11
+>>>>>>> dev
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -129,10 +133,6 @@ function _wosLogAccion(accion, numero, reseller, operario, detalle) {
 // ── Setup: actualiza la data validation de columna J ──────────
 // Ejecutar UNA VEZ desde el editor cuando se agregan estados nuevos.
 function WOS_actualizarValidacion() {
-  var hoja = _getHojaPedidos();
-  var ultima = hoja.getLastRow();
-  if (ultima < 2) { Logger.log('WOS_actualizarValidacion: sin filas'); return 'sin filas'; }
-
   var estados = [
     'Pendiente_Revision', 'Confirmado', 'En_Espera_Reseller',
     'Cancelado', 'Preparado', 'Backorder', 'Preparado Parcial',
@@ -143,9 +143,16 @@ function WOS_actualizarValidacion() {
     .setAllowInvalid(false)
     .build();
 
-  hoja.getRange(2, COL.ESTADO + 1, ultima - 1, 1).setDataValidation(regla);
+  var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
+  var totalFilas = 0;
+  for (var h = 0; h < hojas.length; h++) {
+    var ultima = hojas[h].getLastRow();
+    if (ultima < 2) continue;
+    hojas[h].getRange(2, COL.ESTADO + 1, ultima - 1, 1).setDataValidation(regla);
+    totalFilas += ultima - 1;
+  }
   SpreadsheetApp.flush();
-  Logger.log('WOS_actualizarValidacion OK: ' + (ultima - 1) + ' filas · ' + estados.length + ' estados');
+  Logger.log('WOS_actualizarValidacion OK: ' + totalFilas + ' filas · ' + estados.length + ' estados');
   return 'OK — ' + estados.join(', ');
 }
 
@@ -153,7 +160,8 @@ function WOS_actualizarValidacion() {
 // ── Etiqueta de envío: datos del pedido + reseller ────────────
 function WOS_getEtiquetaData(numero) {
   try {
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado' };
     var datos = hoja.getDataRange().getValues();
     var reseller = '', envio = '', obs = '';
     for (var i = 1; i < datos.length; i++) {
@@ -222,11 +230,81 @@ function _enviarEmailEstado(numero, reseller, obs) {
   }
 }
 
-// ── Carga todos los pedidos agrupados por número ──────────────
+// ── Procesa las filas de una hoja de pedidos (Pedidos_resellers o Pedidos_OTs,
+//    mismo layout COL) acumulando en mapaP/orden compartidos ──
+function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
+  for (var i = 1; i < datos.length; i++) {
+    var r   = datos[i];
+    var num = String(r[COL.NUMERO] || '').trim();
+    if (!num) continue;
+
+    if (!mapaP[num]) {
+      var fechaRaw = r[COL.FECHA];
+      var fechaStr = (fechaRaw instanceof Date)
+        ? Utilities.formatDate(fechaRaw, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
+        : String(fechaRaw || '');
+
+      var feRaw   = r[COL.FECHA_ESTADO];
+      // feMs: última acción del WOS (col S). Si nunca fue tocado, cae a fecha del pedido (col K).
+      var feMs    = (feRaw instanceof Date) ? feRaw.getTime()
+                  : (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
+      // fechaMs: siempre la fecha en que el reseller hizo el pedido (col K) — base del SLA.
+      var fechaMs = (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
+
+      var fdRaw = r[COL.FECHA_DESPACHO];
+      mapaP[num] = {
+        numero:          num,
+        reseller:        String(r[COL.RESELLER]         || ''),
+        fecha:           fechaStr,
+        fechaEstadoMs:   feMs,
+        fechaMs:         fechaMs,
+        envio:           String(r[COL.ENVIO]            || ''),
+        pago:            String(r[COL.PAGO]             || ''),
+        obs:             String(r[COL.OBS]              || ''),
+        tracking:        String(r[COL.TRACKING]         || '').trim(),
+        notaEntrega:     String(r[COL.NOTA_ENTREGA]     || '').trim(),
+        neUrl:           String(r[COL.NE_URL]           || '').trim(),
+        transportista:   String(r[COL.TRANSPORTISTA_DESP] || '').trim(),
+        fechaDespacho:   (fdRaw instanceof Date) ? Utilities.formatDate(fdRaw, Session.getScriptTimeZone(), 'dd/MM/yyyy') : '',
+        esOT:            _esNumeroOT(num),
+        pesoPrep:        Number(r[COL.PESO_PREP]) || 0,   // peso del paquete capturado al preparar
+        items:           []
+      };
+      orden.push(num);
+    }
+
+    var cantSol  = Number(r[COL.CANT_SOL])  || 0;
+    var cantDesp = Number(r[COL.CANT_DESP]) || 0;
+    var cantPendRaw = r[COL.CANT_PEND];
+    var cantPend = (cantPendRaw !== '' && cantPendRaw !== null && cantPendRaw !== undefined)
+                   ? Number(cantPendRaw) : (cantSol - cantDesp);
+    if (isNaN(cantPend)) cantPend = cantSol - cantDesp;
+
+    var skuKey = String(r[COL.SKU] || '').trim().toUpperCase();
+    mapaP[num].items.push({
+      row:         i + 1,
+      sku:         String(r[COL.SKU]  || ''),
+      desc:        String(r[COL.DESC] || ''),
+      cantSol:     cantSol,
+      cantDesp:    cantDesp,
+      cantPend:    cantPend,
+      precio:      Number(r[COL.PRECIO]) || 0,
+      stockOri:    (r[COL.STOCK_ORI] !== '' && r[COL.STOCK_ORI] !== null && !isNaN(Number(r[COL.STOCK_ORI])))
+                   ? Number(r[COL.STOCK_ORI]) : -1,
+      stockActual:  (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
+      cantCancel:   Number(r[COL.CANT_CANCEL] || 0),
+      seriales:     String(r[COL.SERIALES] || '').trim(),
+      estado:       String(r[COL.ESTADO] || '')
+    });
+  }
+}
+
+// ── Carga todos los pedidos agrupados por número — fusiona Pedidos_resellers + Pedidos_OTs ──
 function WOS_cargarPedidos() {
   try {
-    var hoja = _getHojaPedidos();
-    if (!hoja) return { ok: false, error: 'Hoja "' + HOJA_PEDIDOS + '" no encontrada.' };
+    var hojaRes = _getHojaPedidos();
+    var hojaOT  = _getHojaPedidosOT();
+    if (!hojaRes) return { ok: false, error: 'Hoja "' + HOJA_PEDIDOS + '" no encontrada.' };
 
     // Stock actual desde CARMEN (A=SKU, C=stock) — cache 5 min para evitar openById extra
     var stockMap = {};
@@ -246,71 +324,13 @@ function WOS_cargarPedidos() {
       }
     } catch(eSC) { Logger.log('WOS_cargarPedidos stockMap: ' + eSC); }
 
-    var datos = hoja.getDataRange().getValues();
     var mapaP = {}, orden = [];
+    _procesarFilasPedidos(hojaRes.getDataRange().getValues(), stockMap, mapaP, orden);
+    if (hojaOT) _procesarFilasPedidos(hojaOT.getDataRange().getValues(), stockMap, mapaP, orden);
 
-    for (var i = 1; i < datos.length; i++) {
-      var r   = datos[i];
-      var num = String(r[COL.NUMERO] || '').trim();
-      if (!num) continue;
-
-      if (!mapaP[num]) {
-        var fechaRaw = r[COL.FECHA];
-        var fechaStr = (fechaRaw instanceof Date)
-          ? Utilities.formatDate(fechaRaw, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm')
-          : String(fechaRaw || '');
-
-        var feRaw   = r[COL.FECHA_ESTADO];
-        // feMs: última acción del WOS (col S). Si nunca fue tocado, cae a fecha del pedido (col K).
-        var feMs    = (feRaw instanceof Date) ? feRaw.getTime()
-                    : (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
-        // fechaMs: siempre la fecha en que el reseller hizo el pedido (col K) — base del SLA.
-        var fechaMs = (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
-
-        var fdRaw = r[COL.FECHA_DESPACHO];
-        mapaP[num] = {
-          numero:          num,
-          reseller:        String(r[COL.RESELLER]         || ''),
-          fecha:           fechaStr,
-          fechaEstadoMs:   feMs,
-          fechaMs:         fechaMs,
-          envio:           String(r[COL.ENVIO]            || ''),
-          pago:            String(r[COL.PAGO]             || ''),
-          obs:             String(r[COL.OBS]              || ''),
-          tracking:        String(r[COL.TRACKING]         || '').trim(),
-          notaEntrega:     String(r[COL.NOTA_ENTREGA]     || '').trim(),
-          neUrl:           String(r[COL.NE_URL]           || '').trim(),
-          transportista:   String(r[COL.TRANSPORTISTA_DESP] || '').trim(),
-          fechaDespacho:   (fdRaw instanceof Date) ? Utilities.formatDate(fdRaw, Session.getScriptTimeZone(), 'dd/MM/yyyy') : '',
-          items:           []
-        };
-        orden.push(num);
-      }
-
-      var cantSol  = Number(r[COL.CANT_SOL])  || 0;
-      var cantDesp = Number(r[COL.CANT_DESP]) || 0;
-      var cantPendRaw = r[COL.CANT_PEND];
-      var cantPend = (cantPendRaw !== '' && cantPendRaw !== null && cantPendRaw !== undefined)
-                     ? Number(cantPendRaw) : (cantSol - cantDesp);
-      if (isNaN(cantPend)) cantPend = cantSol - cantDesp;
-
-      var skuKey = String(r[COL.SKU] || '').trim().toUpperCase();
-      mapaP[num].items.push({
-        row:         i + 1,
-        sku:         String(r[COL.SKU]  || ''),
-        desc:        String(r[COL.DESC] || ''),
-        cantSol:     cantSol,
-        cantDesp:    cantDesp,
-        cantPend:    cantPend,
-        precio:      Number(r[COL.PRECIO]) || 0,
-        stockOri:    (r[COL.STOCK_ORI] !== '' && r[COL.STOCK_ORI] !== null && !isNaN(Number(r[COL.STOCK_ORI])))
-                     ? Number(r[COL.STOCK_ORI]) : -1,
-        stockActual: (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
-        estado:      String(r[COL.ESTADO] || '')
-      });
-    }
-
-    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER, EST.CANCELADO];
+    // Cancelado NO entra en la prioridad: un pedido con ítems entregados + alguno cancelado
+    // es un pedido ENTREGADO (parcialmente cancelado), no un pedido cancelado.
+    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER];
 
     var result = [];
     for (var k = 0; k < orden.length; k++) {
@@ -319,8 +339,17 @@ function WOS_cargarPedidos() {
       var estSet = {};
       for (var m = 0; m < ped.items.length; m++) estSet[ped.items[m].estado] = true;
       ped.estado = ped.items.length ? ped.items[ped.items.length - 1].estado : '';
+      var _prioMatch = false;
       for (var ep = 0; ep < EST_PRIORIDAD.length; ep++) {
-        if (estSet[EST_PRIORIDAD[ep]]) { ped.estado = EST_PRIORIDAD[ep]; break; }
+        if (estSet[EST_PRIORIDAD[ep]]) { ped.estado = EST_PRIORIDAD[ep]; _prioMatch = true; break; }
+      }
+      // Sin ítems accionables pendientes → pedido cerrado: prioriza lo ENTREGADO sobre lo cancelado.
+      // Cancelado solo queda como estado del pedido si TODOS los ítems están cancelados.
+      if (!_prioMatch) {
+        if      (estSet[EST.ENTREGADO])      ped.estado = EST.ENTREGADO;      // Entregado_Cerrado
+        else if (estSet[EST.LISTO_RETIRO])   ped.estado = EST.LISTO_RETIRO;
+        else if (estSet[EST.ENTREGADO_CONF]) ped.estado = EST.ENTREGADO_CONF; // Entregado_Confirmado
+        else if (estSet[EST.CANCELADO])      ped.estado = EST.CANCELADO;
       }
       ped.esMixto   = Object.keys(estSet).length > 1;
       ped.estadoSet = estSet;
@@ -350,12 +379,14 @@ function WOS_cargarPedidos() {
 }
 
 // ── Cancela un pedido con motivo, lo guarda en OBS y envía email
-function WOS_cancelarPedido(numero, motivo, operario) {
+function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     motivo   = String(motivo   || '').trim();
     operario = String(operario || '').trim();
     if (motivo) {
-      var hoja  = _getHojaPedidos();
+      var hoja  = _getHojaPorNumero(numero);
+      if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
       var datos = hoja.getDataRange().getValues();
       for (var i = 1; i < datos.length; i++) {
         if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
@@ -370,12 +401,14 @@ function WOS_cancelarPedido(numero, motivo, operario) {
     Logger.log('WOS_cancelarPedido: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 // ── Cambia el estado + graba timestamp + envía email si aplica
 function WOS_cambiarEstado(numero, nuevoEstado, operario) {
   try {
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
     var datos = hoja.getDataRange().getValues();
     var ahora = new Date();
     operario  = String(operario || '');
@@ -430,11 +463,235 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
   }
 }
 
+// ── MAESTRO DE ARTÍCULOS (auto-construido) ────────────────────
+// Registra qué SKU se prepara "por bolsa" (1 código SO por bolsa de N unidades) para
+// que la próxima preparación de ese SKU venga pre-marcada. Se llena solo con el uso.
+
+// Devuelve la hoja MAESTRO_ARTICULOS, creándola con encabezado si no existe.
+function _wosGetHojaMaestro() {
+  var ss = SpreadsheetApp.openById(NOTAS_SS_ID);
+  var hoja = ss.getSheetByName(HOJA_MAESTRO);
+  if (!hoja) {
+    hoja = ss.insertSheet(HOJA_MAESTRO);
+    hoja.appendRow(['SKU', 'Descripci\xf3n', 'Por bolsa', 'Bulto x defecto', '\xdaltima actualizaci\xf3n', 'Operador']);
+    hoja.getRange(1, 1, 1, 6).setFontWeight('bold');
+    hoja.setFrozenRows(1);
+  }
+  return hoja;
+}
+
+function _invalidarMaestroCache() {
+  try { CacheService.getScriptCache().remove('wos_maestro_v1'); } catch(e) {}
+}
+
+// Mapa { SKU(mayúsculas) → { porBolsa:bool, bulto:N } } para pre-marcar el modal de preparación.
+function WOS_maestroArticulos() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('wos_maestro_v1');
+    if (cached) { try { return { ok: true, map: JSON.parse(cached) }; } catch(e) {} }
+    var hoja = _wosGetHojaMaestro();
+    var data = hoja.getDataRange().getValues();
+    var map = {};
+    for (var i = 1; i < data.length; i++) {
+      var sku = String(data[i][COL_MAESTRO.SKU] || '').trim();
+      if (!sku) continue;
+      var pb = data[i][COL_MAESTRO.POR_BOLSA];
+      var s  = String(pb).trim().toUpperCase();
+      var porBolsa = (pb === true || s === 'TRUE' || s === 'SI' || s === 'S\xcd' || s === '1');
+      map[sku.toUpperCase()] = { porBolsa: porBolsa, bulto: parseInt(data[i][COL_MAESTRO.BULTO], 10) || 0 };
+    }
+    try { cache.put('wos_maestro_v1', JSON.stringify(map), 300); } catch(e) {}
+    return { ok: true, map: map };
+  } catch(e) {
+    Logger.log('WOS_maestroArticulos: ' + e);
+    return { ok: false, error: e.toString(), map: {} };
+  }
+}
+
+// Upsert por SKU. list: [{ sku, desc, porBolsa, bulto }]. Refleja siempre la última elección
+// del operario (marcar o desmarcar por bolsa). Nunca rompe la preparación (todo en try/catch).
+function _wosUpsertMaestro(list, operario) {
+  try {
+    if (!list || !list.length) return;
+    var hoja = _wosGetHojaMaestro();
+    var data = hoja.getDataRange().getValues();
+    var idx = {};
+    for (var i = 1; i < data.length; i++) {
+      var s = String(data[i][COL_MAESTRO.SKU] || '').trim().toUpperCase();
+      if (s) idx[s] = i;
+    }
+    var now = new Date();
+    for (var j = 0; j < list.length; j++) {
+      var it  = list[j];
+      var sku = String(it.sku || '').trim();
+      if (!sku) continue;
+      var su = sku.toUpperCase();
+      var fila;
+      if (idx[su] !== undefined) {
+        fila = idx[su] + 1;
+      } else {
+        hoja.appendRow([sku, it.desc || '', '', '', '', '']);
+        fila = hoja.getLastRow();
+        idx[su] = fila - 1;
+      }
+      hoja.getRange(fila, COL_MAESTRO.SKU       + 1).setValue(sku);
+      if (it.desc) hoja.getRange(fila, COL_MAESTRO.DESC + 1).setValue(it.desc);
+      hoja.getRange(fila, COL_MAESTRO.POR_BOLSA + 1).setValue(it.porBolsa ? true : false);
+      var bulto = parseInt(it.bulto, 10) || 0;
+      if (bulto > 0) hoja.getRange(fila, COL_MAESTRO.BULTO + 1).setValue(bulto);
+      hoja.getRange(fila, COL_MAESTRO.FECHA + 1).setValue(now);
+      if (operario) hoja.getRange(fila, COL_MAESTRO.OPERADOR + 1).setValue(operario);
+    }
+    _invalidarMaestroCache();
+  } catch(e) {
+    Logger.log('_wosUpsertMaestro: ' + e);
+  }
+}
+
+// ── Círculo cerrado con Stock Manager: resolver una bolsa por su código SO ─────
+// SM registra en SO_ETIQUETAS (planilla MASTER) los códigos de bolsa con su cantidad de
+// unidades (col CANTIDAD). Al escanear "SO-...-000041" en la preparación por bolsa, WOS
+// trae esa cantidad para autocompletarla. Devuelve { ok, cantidad, sku } (cantidad 0 = no es bolsa).
+function WOS_resolverBolsa(codigo) {
+  try {
+    codigo = String(codigo || '').trim().toUpperCase();
+    if (!codigo) return { ok: true, cantidad: 0 };
+    var map = _wosMapaBolsas();
+    var hit = map[codigo];
+    if (hit && hit.cantidad > 1) return { ok: true, cantidad: hit.cantidad, sku: hit.sku };
+    return { ok: true, cantidad: 0 };
+  } catch(e) {
+    Logger.log('WOS_resolverBolsa: ' + e);
+    return { ok: false, cantidad: 0, error: e.toString() };
+  }
+}
+
+// Mapa { SO(mayúsculas) → {cantidad, sku} } SOLO de las bolsas (CANTIDAD>1) de SO_ETIQUETAS.
+// Se cachea 2 min (el mapa es chico: excluye los SO de 1 unidad).
+function _wosMapaBolsas() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('wos_bolsas_v1');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+  var map = {};
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('SO_ETIQUETAS');
+    if (hoja) {
+      var data = hoja.getDataRange().getValues();
+      // Layout SM SO_ETIQUETAS: SO(0), SKU(1), DESC(2), FECHA(3), OPERADOR(4), CANTIDAD(5)
+      for (var i = 1; i < data.length; i++) {
+        var cant = parseInt(data[i][5], 10) || 0;
+        if (cant > 1) {
+          var so = String(data[i][0] || '').trim().toUpperCase();
+          if (so) map[so] = { cantidad: cant, sku: String(data[i][1] || '').trim() };
+        }
+      }
+    }
+  } catch(e) { Logger.log('_wosMapaBolsas: ' + e); }
+  try { var s = JSON.stringify(map); if (s.length < 90000) cache.put('wos_bolsas_v1', s, 120); } catch(e) {}
+  return map;
+}
+
+// Marca el pedido como Preparado registrando el N° de serie / SO de CADA unidad o bolsa (OBLIGATORIO).
+// Esto crea el manifiesto para poder auditar despachos (picker dice 10, reseller dice 4).
+// Para consumibles (tornillos/gaskets) un mismo código representa toda una bolsa: en la lista de
+// seriales queda como "SO-123 x50" y qtyPrep (unidades reales) lo manda el front (suma de bolsas).
+// seriales: [{ row, qtyPrep, seriales:"SN1, SN2" | "SO-1 x50, SO-2 x20", ubicaciones, sku, desc, porBolsa, bulto }]
+function WOS_prepararConSeriales(numero, seriales, operario, peso) {
+  try {
+    numero = String(numero || '').trim();
+    var hoja = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
+    var datos = hoja.getDataRange().getValues();
+    var ahora = new Date();
+    operario  = String(operario || '');
+    var pesoNum = Number(peso) || 0;   // peso exacto del paquete (kg), capturado al preparar
+
+    // getRange NO auto-expande columnas: asegurar que existan las cols AA/AB (UBIC_PREP/PESO_PREP)
+    // antes de escribirlas. Insertar al final (después de Z) no desplaza A–Z ni afecta CANT_PEND (=E-F-Z).
+    var _maxCol = hoja.getMaxColumns();
+    if (_maxCol < COL.PESO_PREP + 1) hoja.insertColumnsAfter(_maxCol, (COL.PESO_PREP + 1) - _maxCol);
+
+    // fila (1-indexada) → seriales / ubicaciones (bins) / cantidad preparada
+    var serMap  = {};
+    var ubicMap = {};
+    var qtyMap  = {};   // fila → unidades preparadas (para estado Preparado vs Preparado Parcial)
+    var maestroUpd = [];   // {sku, desc, porBolsa, bulto} para aprender qué SKU va por bolsa
+    if (Object.prototype.toString.call(seriales) === '[object Array]') {
+      for (var s = 0; s < seriales.length; s++) {
+        var rw = parseInt(seriales[s].row, 10);
+        if (rw > 0) {
+          serMap[rw]  = String(seriales[s].seriales || '').trim();
+          var bins = seriales[s].ubicaciones;
+          ubicMap[rw] = (Object.prototype.toString.call(bins) === '[object Array]') ? bins : [];
+          var qp = parseInt(seriales[s].qtyPrep, 10);
+          if (!(qp > 0)) qp = serMap[rw] ? serMap[rw].split(',').length : 0;   // fallback: nº de SN
+          qtyMap[rw] = qp;
+          if (seriales[s].sku && seriales[s].porBolsa !== undefined) {
+            maestroUpd.push({
+              sku:      String(seriales[s].sku).trim(),
+              desc:     String(seriales[s].desc || '').trim(),
+              porBolsa: !!seriales[s].porBolsa,
+              bulto:    parseInt(seriales[s].bulto, 10) || 0
+            });
+          }
+        }
+      }
+    }
+
+    var reseller = '', tocadas = 0;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+      var fila = i + 1;
+      // Solo tocar las filas enviadas en el payload; las demás (ej. sin stock en un backorder
+      // parcial) quedan como están (Backorder). En el caso normal el payload trae todos los pendientes.
+      if (qtyMap[fila] === undefined || qtyMap[fila] <= 0) continue;
+      var estActual = String(datos[i][COL.ESTADO] || '');
+      // No tocar filas ya cerradas (entregadas / canceladas)
+      if (estActual === EST.ENTREGADO || estActual === EST.CANCELADO || estActual === EST.ENTREGADO_CONF) continue;
+      // Estado según cantidad preparada vs pendiente de esa fila.
+      // cantPend = solicitado - despachado - cancelado (igual que la col G del sheet y el front).
+      var _cantSol    = Number(datos[i][COL.CANT_SOL])    || 0;
+      var _cantDesp   = Number(datos[i][COL.CANT_DESP])   || 0;
+      var _cantCancel = Number(datos[i][COL.CANT_CANCEL]) || 0;
+      var _cantPend   = _cantSol - _cantDesp - _cantCancel;
+      var _estNuevo = (qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL;
+      hoja.getRange(fila, COL.ESTADO       + 1).setValue(_estNuevo);
+      hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
+      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
+      if (serMap[fila] !== undefined && serMap[fila] !== '') {
+        hoja.getRange(fila, COL.SERIALES + 1).setValue(serMap[fila]);
+      }
+      // Bins elegidos al preparar → col AA (JSON). El descuento del WMS se aplica al despachar.
+      if (ubicMap[fila] !== undefined) {
+        var _binsFila = ubicMap[fila] || [];
+        hoja.getRange(fila, COL.UBIC_PREP + 1).setValue(_binsFila.length ? JSON.stringify(_binsFila) : '');
+      }
+      // Peso exacto del paquete → col AB. Se pide al preparar para que no se olvide al despachar.
+      hoja.getRange(fila, COL.PESO_PREP + 1).setValue(pesoNum > 0 ? pesoNum : '');
+      if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
+      tocadas++;
+    }
+    if (!tocadas) return { ok: false, error: 'No se encontraron filas activas del pedido ' + numero + '.' };
+
+    // Aprender qué SKU se prepara por bolsa (no rompe la preparación si falla).
+    _wosUpsertMaestro(maestroUpd, operario);
+
+    SpreadsheetApp.flush();
+    _wosLogAccion('Preparado · N\xba de serie registrados', numero, reseller, operario, '');
+    return { ok: true, filas: tocadas };
+  } catch(e) {
+    Logger.log('WOS_prepararConSeriales: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
 // Reactiva solo los ítems en Backorder → Preparado, sin tocar los Entregado_Cerrado
 // del primer despacho. Reemplaza el uso de WOS_cambiarEstado para la acción "reactivar".
 function WOS_reactivarBackorder(numero, operario) {
   try {
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
     var datos = hoja.getDataRange().getValues();
     _wosSetEstadoFiltrado(hoja, datos, numero, EST.BACKORDER, EST.PREPARADO);
     SpreadsheetApp.flush();
@@ -463,33 +720,35 @@ function WOS_despacharPedido(numero) {
 // Devuelve lista de { numero, reseller, cantPend } ordenada por fecha ASC (FIFO)
 function WOS_buscarBackorderPorSKU(sku) {
   try {
-    var hoja   = _getHojaPedidos();
-    var datos  = hoja.getDataRange().getValues();
     var skuUp  = String(sku || '').trim().toUpperCase();
     if (!skuUp) return { ok: false, error: 'SKU vacío.' };
 
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
     var mapa = {}; // numero → { reseller, cantPend, fechaMs }
-    for (var i = 1; i < datos.length; i++) {
-      var num    = String(datos[i][COL.NUMERO]   || '').trim();
-      var estado = String(datos[i][COL.ESTADO]   || '').trim();
-      var rowSku = String(datos[i][COL.SKU]      || '').trim().toUpperCase();
-      if (!num || estado !== EST.BACKORDER || rowSku !== skuUp) continue;
+    for (var h = 0; h < hojas.length; h++) {
+      var datos = hojas[h].getDataRange().getValues();
+      for (var i = 1; i < datos.length; i++) {
+        var num    = String(datos[i][COL.NUMERO]   || '').trim();
+        var estado = String(datos[i][COL.ESTADO]   || '').trim();
+        var rowSku = String(datos[i][COL.SKU]      || '').trim().toUpperCase();
+        if (!num || estado !== EST.BACKORDER || rowSku !== skuUp) continue;
 
-      var cantSol  = Number(datos[i][COL.CANT_SOL])  || 0;
-      var cantDesp = Number(datos[i][COL.CANT_DESP]) || 0;
-      var cantPend = Math.max(0, cantSol - cantDesp);
-      if (cantPend <= 0) continue;
+        var cantSol  = Number(datos[i][COL.CANT_SOL])  || 0;
+        var cantDesp = Number(datos[i][COL.CANT_DESP]) || 0;
+        var cantPend = Math.max(0, cantSol - cantDesp);
+        if (cantPend <= 0) continue;
 
-      if (!mapa[num]) {
-        var fRaw = datos[i][COL.FECHA];
-        mapa[num] = {
-          numero:   num,
-          reseller: String(datos[i][COL.RESELLER] || ''),
-          cantPend: 0,
-          fechaMs:  (fRaw instanceof Date) ? fRaw.getTime() : 0
-        };
+        if (!mapa[num]) {
+          var fRaw = datos[i][COL.FECHA];
+          mapa[num] = {
+            numero:   num,
+            reseller: String(datos[i][COL.RESELLER] || ''),
+            cantPend: 0,
+            fechaMs:  (fRaw instanceof Date) ? fRaw.getTime() : 0
+          };
+        }
+        mapa[num].cantPend += cantPend;
       }
-      mapa[num].cantPend += cantPend;
     }
 
     var lista = [];
@@ -509,8 +768,6 @@ function WOS_buscarBackorderPorSKU(sku) {
 // Notifica a cada reseller en su hilo original
 function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
   try {
-    var hoja   = _getHojaPedidos();
-    var datos  = hoja.getDataRange().getValues();
     var skuUp  = String(sku          || '').trim().toUpperCase();
     var cant   = Number(cantRecibida || 0);
     if (!skuUp)       return { ok: false, error: 'SKU vacío.' };
@@ -518,7 +775,10 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
 
     var reactivados = [];
     for (var n = 0; n < numeros.length; n++) {
-      var numero   = String(numeros[n] || '').trim();
+      var numero = String(numeros[n] || '').trim();
+      var hoja   = _getHojaPorNumero(numero);
+      if (!hoja) continue;
+      var datos  = hoja.getDataRange().getValues();
       var reseller = '', threadId = '';
       for (var i = 1; i < datos.length; i++) {
         if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
@@ -623,6 +883,32 @@ function WOS_getEnCaminoMap() {
   }
 }
 
+// Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.
+// Devuelve { ok, map: { SKU: [{ubicacion, cantidad}] } } con locs ordenadas desc por cantidad.
+function WOS_cargarUbicacionesPedido(skus) {
+  try {
+    var hojaUbic = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return { ok: true, map: {} };
+    var d   = hojaUbic.getDataRange().getValues();
+    var set = {};
+    for (var s = 0; s < skus.length; s++) set[String(skus[s]).trim().toUpperCase()] = true;
+    var map = {};
+    for (var i = 1; i < d.length; i++) {
+      var sku  = String(d[i][0] || '').trim().toUpperCase();
+      var ubic = String(d[i][1] || '').trim();
+      var cant = parseFloat(d[i][2]) || 0;
+      if (!sku || !ubic || !set[sku]) continue;
+      if (!map[sku]) map[sku] = [];
+      map[sku].push({ ubicacion: ubic, cantidad: cant });
+    }
+    // ASC por cantidad: primero los bins con menos stock para vaciarlos antes
+    for (var k in map) map[k].sort(function(a, b) { return a.cantidad - b.cantidad; });
+    return { ok: true, map: map };
+  } catch(e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
 // Lista principal desde CARMEN (hoja STOCK: A=SKU, B=nombre, C=stock).
 // Metadatos adicionales (min, ubicacion, modelos) desde STOCK_REPUESTOS en MASTER.
 // q: filtro de búsqueda (SKU o descripción), vacío = todos.
@@ -635,6 +921,23 @@ function WOS_cargarStock(q) {
 
     // Abrir MASTER una sola vez para repMap + enCamino
     var master = SpreadsheetApp.openById(MASTER_SS_ID);
+
+    // Ubicaciones WMS desde Carmen UBICACIONES tab: SKU → [{ubicacion, cantidad}]
+    var ubicMap = {};
+    try {
+      var hojaUbic = carmenSS.getSheetByName(CARMEN_UBICACIONES_TAB);
+      if (hojaUbic) {
+        var dUbic = hojaUbic.getDataRange().getValues();
+        for (var u = 1; u < dUbic.length; u++) {
+          var uSku  = String(dUbic[u][0] || '').trim().toUpperCase();
+          var uUbic = String(dUbic[u][1] || '').trim();
+          var uCant = parseFloat(dUbic[u][2]) || 0;
+          if (!uSku || !uUbic) continue;
+          if (!ubicMap[uSku]) ubicMap[uSku] = [];
+          ubicMap[uSku].push({ ubicacion: uUbic, cantidad: uCant });
+        }
+      }
+    } catch(eUbic) { Logger.log('WOS_cargarStock ubicMap: ' + eUbic); }
 
     // Metadatos extra desde STOCK_REPUESTOS: min(D), categoria(E), ubicacion(F), modelos(G)
     var repMap = {};
@@ -721,7 +1024,13 @@ function WOS_cargarStock(q) {
         clase:       planif.clase,
         estado:      estado,
         categoria:   meta.categoria,
-        ubicacion:   meta.ubicacion,
+        ubicacion:   (function() {
+          var arr = ubicMap[codKey];
+          if (arr && arr.length) {
+            return arr.map(function(u) { return u.ubicacion + ' (' + u.cantidad + 'u.)'; }).join(' · ');
+          }
+          return meta.ubicacion; // fallback: ítem aún sin mapear en WMS
+        })(),
         modelos:     String(datos[i][4] || '').trim(),
         enCamino:    ecTotal,
         enCaminoOcs: ecOcs
@@ -745,7 +1054,7 @@ function WOS_cargarStock(q) {
 // ── Despacho en batch (múltiples pedidos, mismos bultos/tracking) ─
 // batchItems: [{numero, despachos:[{row,cantDesp}]}]
 // El costo se divide en partes iguales entre los pedidos del batch.
-function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, operario) {
+function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, operario, reqToken) {
   try {
     if (!batchItems || !batchItems.length) return { ok: false, error: 'Sin pedidos en el batch.' };
     operario = String(operario || '');
@@ -756,7 +1065,9 @@ function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, opera
     for (var i = 0; i < batchItems.length; i++) {
       var item = batchItems[i];
       try {
-        var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario);
+        // token de idempotencia por pedido (deriva del token del batch) → un reintento no duplica
+        var itemToken = reqToken ? (reqToken + '::' + item.numero) : '';
+        var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario, itemToken);
         resultados.push({ numero: item.numero, ok: res.ok, error: res.error || '' });
       } catch(eI) {
         resultados.push({ numero: item.numero, ok: false, error: eI.toString() });
@@ -783,13 +1094,14 @@ function WOS_getResumenEnvios(reseller, mesAnio) {
     var mes    = parseInt(partes[1]) || 0;
     if (!anio || !mes) return { ok: false, error: 'Formato de mes inválido (YYYY-MM).' };
 
-    var hoja  = _getHojaPedidos();
-    var datos = hoja.getDataRange().getValues();
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
     var tz    = Session.getScriptTimeZone();
 
     var notasVistas = {};
     var envios      = [];
 
+    for (var h = 0; h < hojas.length; h++) {
+    var datos = hojas[h].getDataRange().getValues();
     for (var i = 1; i < datos.length; i++) {
       var r      = datos[i];
       var rRes   = String(r[COL.RESELLER]     || '').trim();
@@ -815,6 +1127,7 @@ function WOS_getResumenEnvios(reseller, mesAnio) {
         pesoEnvio:    Number(r[COL.PESO_ENVIO])      || 0
       });
     }
+    } // fin loop hojas
 
     var totalCosto = 0;
     var totalPeso  = 0;
@@ -840,7 +1153,8 @@ function WOS_getResumenEnvios(reseller, mesAnio) {
 }
 
 // ── Envía el resumen de envíos por email al reseller ──────────
-function WOS_enviarResumenEnvios(reseller, mesAnio) {
+function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
+ return _wosLockIdempot(reqToken, function() {
   try {
     var res = WOS_getResumenEnvios(reseller, mesAnio);
     if (!res.ok) return res;
@@ -915,12 +1229,14 @@ function WOS_enviarResumenEnvios(reseller, mesAnio) {
     Logger.log('WOS_enviarResumenEnvios ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+ });
 }
 
 // Revierte un pedido despachado por error de vuelta a "Preparado"
 function WOS_revertirAPreparado(numero, operario) {
   try {
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
     var datos = hoja.getDataRange().getValues();
     var ahora = new Date();
     var reseller = '';
@@ -990,7 +1306,8 @@ function WOS_getHistorial(numero) {
 // Actualiza el campo de observaciones de todas las filas del pedido
 function WOS_actualizarObs(numero, obs) {
   try {
-    var hoja  = _getHojaPedidos();
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
     var datos = hoja.getDataRange().getValues();
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
@@ -1007,17 +1324,19 @@ function WOS_actualizarObs(numero, obs) {
 // Polling liviano — compara timestamps de FECHA_ESTADO contra ultimoMs del cliente
 function WOS_checkCambios(ultimoMs) {
   try {
-    var hoja = _getHojaPedidos();
-    if (!hoja) return { ok: false };
-    var datos = hoja.getDataRange().getValues();
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
+    if (!hojas.length) return { ok: false };
     var nuevos = 0;
-    for (var i = 1; i < datos.length; i++) {
-      if (!String(datos[i][COL.NUMERO] || '').trim()) continue;
-      var feRaw    = datos[i][COL.FECHA_ESTADO];
-      var fechaRaw = datos[i][COL.FECHA];
-      var ms = (feRaw    instanceof Date) ? feRaw.getTime()
-             : (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
-      if (ms > ultimoMs) nuevos++;
+    for (var h = 0; h < hojas.length; h++) {
+      var datos = hojas[h].getDataRange().getValues();
+      for (var i = 1; i < datos.length; i++) {
+        if (!String(datos[i][COL.NUMERO] || '').trim()) continue;
+        var feRaw    = datos[i][COL.FECHA_ESTADO];
+        var fechaRaw = datos[i][COL.FECHA];
+        var ms = (feRaw    instanceof Date) ? feRaw.getTime()
+               : (fechaRaw instanceof Date) ? fechaRaw.getTime() : 0;
+        if (ms > ultimoMs) nuevos++;
+      }
     }
     return { ok: true, cambiado: nuevos > 0, nuevos: nuevos };
   } catch(e) {
@@ -1043,10 +1362,11 @@ function WOS_reporteBackorder() {
     }
     if (!destinatarios.length) { Logger.log('WOS_reporteBackorder: sin destinatarios logística internacional'); return; }
 
-    // 2. Ítems en backorder del WOS, agrupados por SKU
-    var hojaWOS = _getHojaPedidos();
-    var wosData = hojaWOS.getDataRange().getValues();
+    // 2. Ítems en backorder del WOS, agrupados por SKU — fusiona ambas hojas
+    var wosHojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
     var backMap = {};
+    for (var wh = 0; wh < wosHojas.length; wh++) {
+    var wosData = wosHojas[wh].getDataRange().getValues();
     for (var i = 1; i < wosData.length; i++) {
       if (String(wosData[i][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
       var sku  = String(wosData[i][COL.SKU]      || '').trim().toUpperCase();
@@ -1060,6 +1380,7 @@ function WOS_reporteBackorder() {
       backMap[sku].nec += nec;
       backMap[sku].pedidos.push(numero + ' · ' + reseller + ' (' + nec + 'u)');
     }
+    } // fin loop wosHojas
 
     // 3. Unidades en camino por SKU — misma lógica que WOS_getEnCaminoMap (excluye Borrador y En depósito)
     var casActivos = {};
@@ -1098,11 +1419,43 @@ function WOS_reporteBackorder() {
     sinCubrir.sort(function(a, b) { return b.gap - a.gap; });
     cubiertos.sort(function(a, b) { return b.nec - a.nec; });
 
-    if (!sinCubrir.length && !cubiertos.length) {
-      Logger.log('WOS_reporteBackorder: sin ítems en backorder, no se envía mail');
+    // 5. Demanda perdida — ítems con CANT_CANCEL > 0 en los últimos 90 días, agrupados por SKU
+    //    Fallback: filas con estado Cancelado sin CANT_CANCEL (pedidos anteriores al campo)
+    var perdidoMap = {};
+    var hace90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    for (var p = 1; p < wosData.length; p++) {
+      var pSku = String(wosData[p][COL.SKU] || '').trim().toUpperCase();
+      if (!pSku) continue;
+      var pFecha = wosData[p][COL.FECHA_ESTADO] instanceof Date ? wosData[p][COL.FECHA_ESTADO]
+                 : (wosData[p][COL.FECHA] instanceof Date ? wosData[p][COL.FECHA] : null);
+      if (!pFecha || pFecha < hace90) continue;
+      var pCantCancel = Number(wosData[p][COL.CANT_CANCEL] || 0);
+      var pEst        = String(wosData[p][COL.ESTADO] || '').trim();
+      // Fuente primaria: CANT_CANCEL. Fallback: fila Cancelada sin CANT_CANCEL (datos viejos)
+      var pCant = pCantCancel > 0 ? pCantCancel
+                : (pEst === EST.CANCELADO ? Number(wosData[p][COL.CANT_SOL] || 0) : 0);
+      if (pCant <= 0) continue;
+      var pDesc     = String(wosData[p][COL.DESC]     || '').trim();
+      var pReseller = String(wosData[p][COL.RESELLER] || '').trim();
+      if (!perdidoMap[pSku]) perdidoMap[pSku] = { desc: pDesc, total: 0, resellers: {} };
+      perdidoMap[pSku].total += pCant;
+      perdidoMap[pSku].resellers[pReseller] = (perdidoMap[pSku].resellers[pReseller] || 0) + pCant;
+    }
+    var perdidos = [];
+    for (var psk in perdidoMap) {
+      var pm = perdidoMap[psk];
+      var rList = [];
+      for (var rn in pm.resellers) rList.push(rn + ' (' + pm.resellers[rn] + 'u)');
+      perdidos.push({ sku: psk, desc: pm.desc, total: pm.total, resellers: rList });
+    }
+    perdidos.sort(function(a, b) { return b.total - a.total; });
+
+    if (!sinCubrir.length && !cubiertos.length && !perdidos.length) {
+      Logger.log('WOS_reporteBackorder: sin ítems en backorder ni demanda perdida, no se envía mail');
       return;
     }
 
+<<<<<<< HEAD
     // 4b. Lookup modelos (CARMEN) para XLS
     var modelosMap = {};
     try {
@@ -1140,11 +1493,20 @@ function WOS_reporteBackorder() {
     }
 
     console.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO'));
+=======
+    // 6. Enviar email
+    var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
+    var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr);
+    var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
+    GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
+    Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
+>>>>>>> dev
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }
 }
 
+<<<<<<< HEAD
 // Genera el XLS como HTML tabla (no usa Drive ni SpreadsheetApp.create — sin timeouts)
 // Columnas FOB vacías: se completan a mano por logística
 function _wosBackorderGenerarXLS(items, modelosMap) {
@@ -1205,6 +1567,9 @@ function _xlsEsc(s) {
 }
 
 function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
+=======
+function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
+>>>>>>> dev
   var rowsRojo = '';
   for (var i = 0; i < sinCubrir.length; i++) {
     var it = sinCubrir[i];
@@ -1255,6 +1620,30 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
       tableHdr('#f0fdf4') + '<tbody>' + rowsVerde + '</tbody></table></div>'
     : '';
 
+  var rowsPerd = '';
+  for (var k = 0; k < perdidos.length; k++) {
+    var pd = perdidos[k];
+    rowsPerd +=
+      '<tr style="border-bottom:1px solid #e5e7eb">' +
+      '<td style="padding:7px 12px;font-family:monospace;font-size:11px;font-weight:700;color:#1a56db;white-space:nowrap">' + pd.sku + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#111">' + pd.desc + '</td>' +
+      '<td style="padding:7px 12px;text-align:center;font-weight:700;color:#374151">' + pd.total + '</td>' +
+      '<td style="padding:7px 12px;font-size:11px;color:#555;line-height:1.6">' + pd.resellers.join('<br>') + '</td>' +
+      '</tr>';
+  }
+  var secPerdida = perdidos.length
+    ? '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">' +
+      '<h3 style="font-size:12px;font-weight:800;color:#78350f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px">📦 Demanda perdida — últimos 90 días</h3>' +
+      '<p style="font-size:11px;color:#92400e;margin:0 0 10px">Ítems cancelados por resellers que podrías stockear a futuro. Ordenados por volumen total.</p>' +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="background:#fffbeb;border-bottom:2px solid #fde68a">' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">SKU</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">Descripción</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:center">Unidades canceladas</th>' +
+      '<th style="' + thStyle + 'color:#92400e;text-align:left">Resellers</th>' +
+      '</tr></thead><tbody>' + rowsPerd + '</tbody></table></div>'
+    : '';
+
   var banner = sinCubrir.length
     ? '<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:24px">' +
       '<strong style="color:#b91c1c;font-size:14px">⚠ ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' en backorder sin cobertura DJI</strong>' +
@@ -1269,7 +1658,7 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
     '<div><div style="color:#fff;font-size:15px;font-weight:700">Reporte de Backorder</div>' +
     '<div style="color:#93c5fd;font-size:12px">' + fechaStr + '</div></div>' +
     '</div>' +
-    '<div style="padding:24px 28px">' + banner + secRojo + secVerde + '</div>' +
+    '<div style="padding:24px 28px">' + banner + secRojo + secVerde + secPerdida + '</div>' +
     '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 28px;font-size:11px;color:#94a3b8;text-align:center">' +
     'WOS · BidcomAgro · Reporte automático — Lunes, Miércoles y Viernes a las 10 hs' +
     '</div></div></body></html>';
@@ -1321,4 +1710,50 @@ function WOS_instalarTriggerBackorder() {
   ScriptApp.newTrigger('WOS_reporteBackorder').timeBased().onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(10).create();
   ScriptApp.newTrigger('WOS_reporteBackorder').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(10).create();
   Logger.log('Triggers instalados: Lunes, Miércoles y Viernes a las 10 hs');
+}
+
+// ─────────────────────────────────────────────────────────────
+// MIGRACIÓN ONE-TIME: recrea Pedidos_OTs con el schema de 26 cols
+// idéntico a Pedidos_resellers. Ejecutar UNA VEZ desde el editor.
+// Borra todas las filas existentes (la hoja era de prueba/vacía).
+// ─────────────────────────────────────────────────────────────
+function WOS_migrarPedidosOTs() {
+  var ss   = SpreadsheetApp.openById(NOTAS_SS_ID);
+  var hoja = ss.getSheetByName(HOJA_PEDIDOS_OT);
+  if (!hoja) {
+    Logger.log('WOS_migrarPedidosOTs: hoja "' + HOJA_PEDIDOS_OT + '" no encontrada — creando...');
+    hoja = ss.insertSheet(HOJA_PEDIDOS_OT);
+  }
+
+  // Borrar todo el contenido previo
+  hoja.clearContents();
+  hoja.clearFormats();
+
+  // Encabezado idéntico al de Pedidos_resellers (26 columnas)
+  var headers = [
+    'NUMERO','RESELLER','SKU','DESC','CANT_SOL','CANT_DESP','CANT_PEND',
+    'PRECIO','STOCK_ORI','ESTADO','FECHA','ENVIO','PAGO','OBS',
+    'FECHA_DESPACHO','NOTA_ENTREGA','TRACKING','THREAD_ID','FECHA_ESTADO',
+    'TRANSPORTISTA_DESP','COSTO_ENVIO','PESO_ENVIO','NE_URL','OPERARIO',
+    'SERIALES','CANT_CANCEL'
+  ];
+  hoja.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  // Freeze + formato encabezado
+  hoja.setFrozenRows(1);
+  hoja.getRange(1, 1, 1, headers.length)
+    .setBackground('#1a73e8')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold');
+
+  // Ancho de columnas útiles
+  hoja.setColumnWidth(1,  110); // NUMERO
+  hoja.setColumnWidth(2,  140); // RESELLER
+  hoja.setColumnWidth(3,  130); // SKU
+  hoja.setColumnWidth(4,  200); // DESC
+  hoja.setColumnWidth(10, 140); // ESTADO
+
+  SpreadsheetApp.flush();
+  Logger.log('WOS_migrarPedidosOTs: OK — hoja "' + HOJA_PEDIDOS_OT + '" lista con 26 cols.');
+  return 'OK';
 }

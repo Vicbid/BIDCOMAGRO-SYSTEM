@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.8 -->
+<!-- @version 1.50 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -105,7 +105,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .step-line.done{background:var(--blue)}
 
 /* ── INFO BOXES ─────────────────────────── */
-.inst-box{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--blue);border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:14px}
+.inst-box{background:var(--surf);border:1px solid var(--brd);border-left:3px solid var(--blue);border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:10px}
+.accion-box{background:rgba(255,171,0,.07);border:1px solid rgba(255,171,0,.35);border-left:3px solid #ffab00;border-radius:0 var(--rm) var(--rm) 0;padding:13px 15px;font-size:13px;color:var(--tx);white-space:pre-line;line-height:1.7;margin-bottom:14px}
+.accion-box-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ffab00;margin-bottom:6px}
 .est-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,163,224,.07);border:1px solid rgba(0,163,224,.2);border-radius:var(--rm);padding:6px 12px;font-size:12px;color:var(--blue);font-weight:600;margin-bottom:12px}
 
 /* ── FICHA ──────────────────────────────── */
@@ -340,6 +342,28 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .btn-help:hover{background:rgba(0,163,224,.18);border-color:rgba(0,163,224,.4)}
 .help-glosario dt{font-size:12px;font-weight:700;color:var(--tx);margin-top:10px}
 .help-glosario dd{font-size:12px;color:var(--tx-m);margin-left:12px;margin-bottom:2px}
+/* ── GUÍA CARGAR GARANTÍA ─────────────────── */
+.guia-flows{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.guia-flow-card{flex:1;min-width:170px;text-align:left;padding:11px 13px;background:var(--surf);border:1.5px solid var(--brd);border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;gap:10px;align-items:center}
+.guia-flow-card:hover{border-color:var(--green);background:rgba(26,158,74,.05)}
+.guia-flow-card.active{border-color:var(--green);background:rgba(26,158,74,.08);box-shadow:0 0 0 2px rgba(26,158,74,.12)}
+.guia-flow-card i{font-size:17px;color:var(--green);flex-shrink:0}
+.guia-flow-card .gf-name{font-size:12px;font-weight:700;color:var(--tx);line-height:1.25}
+.guia-flow-card .gf-desc{font-size:10.5px;color:var(--tx-m);margin-top:1px;line-height:1.25}
+.guia-step{display:flex;gap:12px;padding:0 0 4px 0;position:relative}
+.guia-step:not(:last-child){padding-bottom:14px}
+.guia-step:not(:last-child)::before{content:'';position:absolute;left:13px;top:30px;bottom:-2px;width:2px;background:var(--brd)}
+.guia-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:1}
+.guia-step.done .guia-num{background:var(--green)}
+.guia-body{flex:1;min-width:0;padding-top:2px}
+.guia-body .gs-title{font-size:13px;font-weight:700;color:var(--tx);line-height:1.35}
+.guia-body .gs-title .gs-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.guia-body .gs-text{font-size:12px;color:var(--tx-m);line-height:1.55;margin-top:3px}
+.guia-drive{margin-top:9px;border:1px solid var(--brd);border-radius:var(--rm);overflow:hidden}
+.guia-drive-head{display:flex;align-items:center;gap:7px;background:rgba(212,137,10,.08);padding:7px 11px;font-size:11px;font-weight:700;color:var(--tx);border-bottom:1px solid var(--brd)}
+.guia-drive ul{list-style:none;margin:0;padding:6px 11px}
+.guia-drive li{font-size:12px;color:var(--tx);padding:4px 0;display:flex;align-items:center;gap:8px}
+.guia-drive li i{width:16px;text-align:center;color:var(--green)}
 /* ── BOTÓN FLOTANTE PDF ─────────────────── */
 .btn-float-pdf{position:fixed;bottom:24px;left:24px;z-index:500;display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fff;border:1px solid var(--brd2);border-radius:40px;box-shadow:0 4px 20px rgba(0,0,0,.12);font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;transition:all .15s;text-decoration:none}
 .btn-float-pdf:hover{border-color:var(--blue);color:var(--blue);box-shadow:0 6px 24px rgba(0,163,224,.2)}
@@ -390,6 +414,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 @keyframes camp-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.65}}
 .tab-btn.camp-viva i{animation:camp-pulse 1.6s ease-in-out infinite;color:var(--blue)}
 .tab-btn.camp-viva.active i{color:#fff!important;animation:none}
+/* Catálogo: mismo movimiento que campaña para invitar a usarlo */
+.gest-mode-btn.cat-nuevo i{animation:camp-pulse 1.6s ease-in-out infinite;color:var(--blue)}
+.gest-mode-btn.cat-nuevo.active i{animation:none;color:inherit}
+.cat-nuevo-badge{font-size:8px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;background:var(--blue);color:#fff;border-radius:8px;padding:1px 5px;line-height:1.5;margin-left:1px}
+.gest-mode-btn.cat-nuevo.active .cat-nuevo-badge{background:var(--tx-d)}
 .tab-btn.camp-viva{box-shadow:0 0 0 2px var(--blue-a);border-color:rgba(0,163,224,.25)}
 .tab-btn.camp-viva.active{box-shadow:none;border-color:transparent}
 </style>
@@ -426,9 +455,14 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div class="pin-sub">Ingresá Usuario y PIN de acceso</div>
         <div style="margin-bottom:14px;text-align:left">
           <label class="flbl">Empresa / Reseller</label>
-          <select id="ov-reseller" class="form-select">
-            <option value="">— Cargando... —</option>
-          </select>
+          <div id="ov-combo" style="position:relative">
+            <input id="ov-reseller-search" class="form-select" type="text" autocomplete="off"
+                   placeholder="Escribí para buscar tu empresa…"
+                   oninput="ovFiltrar()" onfocus="ovFiltrar()" onkeydown="ovKey(event)"
+                   onblur="setTimeout(ovCerrarLista,150)">
+            <input type="hidden" id="ov-reseller">
+            <div id="ov-reseller-list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid var(--brd2,#d0d5dd);border-radius:var(--rm,8px);margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.14);text-align:left"></div>
+          </div>
         </div>
         <label class="flbl">PIN de acceso</label>
         <div class="pin-inputs">
@@ -448,9 +482,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:8px">
           <button onclick="abrirRegistro()" style="width:100%;background:transparent;border:1px solid var(--brd2);color:var(--tx-m);border-radius:var(--rm);padding:9px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .13s" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--brd2)';this.style.color='var(--tx-m)'">
             <i class="fa fa-user-plus" style="margin-right:6px"></i>¿Sos nuevo? Solicitá tu acceso
-          </button>
-          <button onclick="cancelarPin()" style="width:100%;background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;padding:4px 0">
-            Continuar sin ingresar →
           </button>
         </div>
       </div>
@@ -500,6 +531,27 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <label class="flbl">CUIT</label>
             <input type="text" id="reg-cuit" class="form-control" placeholder="20-12345678-9">
           </div>
+
+          <div id="reg-titulo-direccion" style="display:none;font-size:10px;font-weight:700;color:var(--tx-d);letter-spacing:.06em;text-transform:uppercase;margin:16px 0 10px;padding-top:4px;border-top:1px solid var(--brd)">Dirección fiscal</div>
+          <div id="reg-campo-direccion" style="display:none;margin-bottom:12px">
+            <label class="flbl">Calle y número <span style="color:var(--red)">*</span></label>
+            <input type="text" id="reg-direccion" class="form-control" placeholder="Av. Corrientes 1234">
+          </div>
+          <div id="reg-row-cp-loc" style="display:none;gap:8px;margin-bottom:12px">
+            <div style="flex:0 0 90px">
+              <label class="flbl">C.P.</label>
+              <input type="text" id="reg-cp" class="form-control" placeholder="1043">
+            </div>
+            <div style="flex:1">
+              <label class="flbl">Localidad</label>
+              <input type="text" id="reg-localidad" class="form-control" placeholder="Buenos Aires">
+            </div>
+          </div>
+          <div id="reg-campo-provincia" style="display:none;margin-bottom:12px">
+            <label class="flbl">Provincia</label>
+            <input type="text" id="reg-provincia" class="form-control" placeholder="Buenos Aires">
+          </div>
+
           <div style="margin-bottom:16px">
             <label class="flbl">Mensaje (opcional)</label>
             <textarea id="reg-notas" class="form-control" rows="2" placeholder="Algo que quieras aclararnos..." style="resize:none"></textarea>
@@ -686,6 +738,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <button id="btn-refresh-portal" onclick="actualizarPortal()" style="display:none;background:transparent;border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='var(--blue-a)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sync-alt"></i> Actualizar</button>
+    <button id="btn-header-logout" onclick="cerrarSesion()" style="display:none;background:transparent;border:1px solid rgba(214,48,49,.35);color:var(--red);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='rgba(214,48,49,.08)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sign-out-alt"></i> Salir</button>
     <span id="header-reseller-badge" style="display:none;font-size:10px;font-weight:600;color:var(--blue);background:var(--blue-a);border:1px solid rgba(0,163,224,.2);border-radius:var(--r);padding:3px 9px"></span>
     <span id="header-rtv-badge" style="display:none;font-size:10px;font-weight:600;color:#7c3aed;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:var(--r);padding:3px 9px"><i class="fa fa-user-tie" style="margin-right:4px"></i><span id="header-rtv-nombre"></span></span>
     <button id="btn-header-perfil" onclick="abrirPerfil()" style="display:none;background:transparent;border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='var(--blue-a)'" onmouseout="this.style.background='transparent'"><i class="fa fa-user-circle"></i> Mi perfil</button>
@@ -709,7 +762,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </button>
   </div>
 
-  <!-- TABS: Nueva Solicitud | Mis Órdenes | Recursos | Gestión DJI -->
+  <!-- TABS: Nueva Reparacion | Mis Órdenes | Recursos | Gestión DJI -->
   <div class="tab-bar mt-3">
     <button class="tab-btn" id="tb-nueva" onclick="showTab('nueva','tb-nueva')">
       <i class="fa fa-plus-circle"></i> Nueva Reparación
@@ -720,9 +773,16 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button class="tab-btn active" id="tb-rec" onclick="showTab('rec','tb-rec')">
       <i class="fa fa-book"></i> Recursos
     </button>
+    <button class="tab-btn" id="tb-nov" onclick="_abrirNovedades()">
+      <i class="fa fa-bullhorn"></i> Novedades
+      <span class="tab-badge" id="badge-nov" style="background:var(--red);color:#fff">0</span>
+    </button>
     <button class="tab-btn" id="tb-ped" onclick="pedirPinPedidos()">
       <i class="fa fa-shopping-cart"></i> Carrito de Repuestos
       <span class="tab-badge" id="badge-ped">0</span>
+    </button>
+    <button class="tab-btn" id="tb-cot" onclick="pedirPinCotizador()">
+      <i class="fa fa-file-invoice-dollar"></i> Cotizador
     </button>
     <button class="tab-btn" id="tb-camp" onclick="pedirPinCampana()" style="display:none">
       <i class="fa fa-seedling"></i> Campaña
@@ -736,15 +796,16 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </button>
   </div>
 
-  <!-- ══ TAB: NUEVA SOLICITUD ═══════════════ -->
+  <!-- ══ TAB: Nueva Reparación ═══════════════ -->
   <div class="tab-panel" id="tab-nueva">
 
     <div class="help-bar">
-      <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Solicitud de Servicio</span>
+      <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Reparacion de Servicio</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button class="btn-out blue" onclick="abrirModalLote()" style="font-size:11px;font-weight:600;padding:5px 12px">
           📥 Carga Masiva de Reparaciones (Excel)
         </button>
+        <button class="btn-help" onclick="abrirGuiaGarantia()" style="background:rgba(26,158,74,.1);border-color:rgba(26,158,74,.28);color:var(--green)"><i class="fa fa-route"></i> ¿Cómo cargo una garantía?</button>
         <button class="btn-help" onclick="abrirAyuda('nueva')"><i class="fa fa-question-circle"></i> Cómo funciona</button>
       </div>
     </div>
@@ -998,7 +1059,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <i class="fa fa-file-excel"></i> <span id="success-cotiz-txt">Generando hoja de repuestos…</span>
         </a>
       </div>
-      <button class="btn-out blue" onclick="resetForm()"><i class="fa fa-plus"></i> Nueva solicitud</button>
+      <button class="btn-out blue" onclick="resetForm()"><i class="fa fa-plus"></i> Nueva Reparacion</button>
     </div>
 
   </div>
@@ -1058,6 +1119,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <div class="stepper" id="stepper"></div>
           <div id="est-wrap" style="display:none"><span class="est-badge"><i class="fa fa-calendar-check"></i> Entrega estimada: <strong id="r-est-fecha"></strong></span></div>
           <div class="inst-box" id="r-inst"></div>
+          <div class="accion-box" id="r-accion" style="display:none">
+            <div class="accion-box-lbl"><i class="fa fa-hand-point-right" style="margin-right:5px"></i>Acción requerida</div>
+            <span id="r-accion-txt"></span>
+          </div>
           <div class="ficha">
             <div class="ficha-row"><span class="ficha-lbl">Estado</span><span class="ficha-val"><span class="b-est" id="r-estado"></span></span></div>
             <div class="ficha-row"><span class="ficha-lbl">Equipo</span><span class="ficha-val" id="r-equipo2"></span></div>
@@ -1362,6 +1427,19 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   </div><!-- /tab-rec -->
 
 
+  <!-- ══ TAB: NOVEDADES ══════════════════════ -->
+  <div class="tab-panel" id="tab-nov">
+    <div class="help-bar">
+      <span class="help-bar-title"><i class="fa fa-bullhorn" style="color:var(--blue)"></i> Novedades</span>
+      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_cargarNovedades(true)">
+        <i class="fa fa-arrows-rotate"></i> Actualizar
+      </button>
+    </div>
+    <div id="nov-wrap" style="padding:8px 2px">
+      <div style="text-align:center;padding:24px;color:var(--tx-d);font-size:12px"><i class="fa fa-spinner fa-spin"></i> Cargando novedades…</div>
+    </div>
+  </div>
+
   <!-- ══ TAB: PEDIDOS DE REPUESTOS ═══════════ -->
   <div class="tab-panel" id="tab-ped">
 
@@ -1385,6 +1463,32 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <!-- Contenido principal (autenticado) -->
     <div id="ped-main" style="display:none">
 
+      <!-- Carga super-RTV: cliente + descuento global (solo super) -->
+      <div id="ped-super-card" class="dji-card" style="display:none;border-color:rgba(124,58,237,.45)">
+        <div class="dji-card-head" style="background:rgba(124,58,237,.08);color:#7c3aed">
+          <span><i class="fa fa-user-shield"></i> Carga a nombre de un cliente</span>
+          <button onclick="_superVolverRTV()" style="margin-left:auto;background:transparent;border:none;color:#7c3aed;font-size:11px;font-weight:700;cursor:pointer"><i class="fa fa-arrow-left"></i> Volver a RTV</button>
+        </div>
+        <div class="dji-card-body" style="padding:12px 16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:2;min-width:180px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Cliente / Reseller</label>
+              <input type="text" id="ped-super-cliente" class="form-control" list="ped-super-reslist" placeholder="Nombre del cliente o reseller" style="font-size:13px" oninput="_superOnDatos()">
+              <datalist id="ped-super-reslist"></datalist>
+            </div>
+            <div style="flex:2;min-width:160px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Email (opcional)</label>
+              <input type="email" id="ped-super-email" class="form-control" placeholder="para enviarle copia" style="font-size:13px" oninput="_superOnDatos()">
+            </div>
+            <div style="width:120px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Descuento %</label>
+              <input type="number" id="ped-super-dto" class="form-control" value="0" min="0" max="100" step="1" style="font-size:13px;text-align:center" onchange="_superOnDatos()">
+            </div>
+          </div>
+          <div style="font-size:11px;color:#7c3aed;margin-top:8px"><i class="fa fa-circle-info"></i> <strong>0% = precio de lista (PVP)</strong>. El descuento es global para todo el pedido.</div>
+        </div>
+      </div>
+
       <!-- Selector de sucursal (solo visible en modo grupo) -->
       <div id="ped-sucursal-card" class="dji-card" style="display:none;border-color:rgba(0,163,224,.35)">
         <div class="dji-card-head" style="background:var(--blue-a)"><i class="fa fa-building" style="color:var(--blue)"></i> ¿Para qué sucursal es este pedido?</div>
@@ -1402,6 +1506,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <div style="display:flex;gap:8px;margin-bottom:16px">
             <button class="gest-mode-btn active" id="ped-mode-manual" onclick="_pedSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
+            </button>
+            <button class="gest-mode-btn cat-nuevo" id="ped-mode-catalogo" onclick="_pedSetMode('catalogo')">
+              <i class="fa fa-sitemap"></i> Catálogo <span class="cat-nuevo-badge">Nuevo</span>
             </button>
             <button class="gest-mode-btn" id="ped-mode-excel" onclick="_pedSetMode('excel')">
               <i class="fa fa-file-excel"></i> Cargar Excel
@@ -1425,6 +1532,39 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               <button onclick="_pedAgregarDesconocido()" style="background:rgba(214,48,49,.1);border:1px solid rgba(214,48,49,.3);color:var(--red);border-radius:var(--r);padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">
                 <i class="fa fa-plus"></i> Agregar como pedido especial
               </button>
+            </div>
+          </div>
+
+          <!-- MODO CATÁLOGO (despieces DJI) -->
+          <div id="ped-panel-catalogo" style="display:none">
+            <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
+              <i class="fa fa-circle-info" style="color:var(--blue)"></i> Elegí un conjunto del equipo, mirá el despiece y agregá los repuestos que necesites al carrito.
+              <br><span style="font-size:10px;color:var(--tx-d)">Las piezas sin precio en tu lista se agregan como <strong>“a consultar”</strong>: BIDCOMAGRO te confirma disponibilidad y precio al procesar el pedido.</span>
+            </div>
+            <div id="cat-conjuntos"></div>
+          </div>
+
+          <!-- MODAL detalle del conjunto (despiece + lista) -->
+          <div id="cat-modal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);padding:2.5vh 2vw">
+            <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);width:min(1500px,96vw);max-width:100%;height:95vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--brd);flex-shrink:0">
+                <div id="cat-modal-title" style="font-size:15px;font-weight:700;color:var(--tx)"></div>
+                <button onclick="_catCerrarDetalle()" title="Cerrar (Esc)" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-times"></i></button>
+              </div>
+              <div id="cat-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
+            </div>
+          </div>
+
+          <!-- LIGHTBOX ZOOM del despiece -->
+          <div id="cat-zoom" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.92);touch-action:none;user-select:none;overflow:hidden">
+            <img id="cat-zoom-img" src="" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;max-width:none;cursor:grab;will-change:transform">
+            <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1"><i class="fa fa-times"></i></button>
+            <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 10px">
+              <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-minus"></i></button>
+              <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
+              <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-plus"></i></button>
+              <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer"><i class="fa fa-compress"></i> 1:1</button>
+              <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Rueda para zoom · arrastrá para mover</span>
             </div>
           </div>
 
@@ -1478,6 +1618,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
                 <option value="Retiro">Retiro en Carmen de Areco 📍</option>
               </select>
             </div>
+          </div>
+          <!-- Dirección de envío (solo modo super, cuando Entrega = Envío) -->
+          <div id="ped-super-dir-wrap" style="display:none;margin-bottom:12px">
+            <label class="flbl">Dirección de envío <span style="color:var(--red);font-weight:700">*</span></label>
+            <textarea id="ped-super-dir" class="form-control" placeholder="Calle y número, localidad, provincia, CP y referencias" style="min-height:52px;resize:vertical"></textarea>
           </div>
           <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
           <textarea id="ped-obs" class="form-control" placeholder="Notas adicionales para el pedido..." style="min-height:58px;resize:vertical"></textarea>
@@ -1564,6 +1709,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
       </div>
 
+      <!-- Tiempo promedio de envío — línea sutil -->
+      <div id="ped-tiempo-card" style="display:none;align-items:center;gap:5px;margin:0 4px 6px;font-size:11px;color:var(--tx-d)">
+        <i class="fa fa-truck-fast" style="opacity:.55;font-size:10px"></i>
+        <span id="ped-tiempo-val"></span>
+      </div>
+
       <!-- Historial -->
       <div class="dji-card" style="margin-top:6px">
         <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center">
@@ -1580,6 +1731,132 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </div><!-- /ped-main -->
 
   </div><!-- /tab-ped -->
+
+  <!-- ══ TAB: COTIZADOR ══════════════════════════ -->
+  <div class="tab-panel" id="tab-cot">
+
+    <div class="help-bar">
+      <span class="help-bar-title"><i class="fa fa-file-invoice-dollar" style="color:#3a9e3a"></i> Cotizador de Presupuestos</span>
+    </div>
+
+    <!-- Guard: sin autenticar -->
+    <div id="cot-guard">
+      <div class="dji-card" style="text-align:center;padding:36px 20px">
+        <i class="fa fa-lock" style="font-size:36px;color:var(--tx-d);display:block;margin-bottom:14px"></i>
+        <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px">Identificate para cotizar</div>
+        <div style="font-size:12px;color:var(--tx-m);margin-bottom:20px">Ingresá con tu PIN para armar presupuestos al cliente final.</div>
+        <button class="btn-main" style="width:auto;margin:0 auto;padding:10px 24px" onclick="pedirPinCotizador()">
+          <i class="fa fa-unlock-alt"></i> Ingresar con PIN
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido principal (autenticado) -->
+    <div id="cot-main" style="display:none">
+
+      <div style="font-size:11px;color:var(--tx-m);margin-bottom:14px;padding:8px 12px;background:rgba(58,158,58,.06);border:1px solid rgba(58,158,58,.2);border-radius:var(--r);line-height:1.7">
+        <i class="fa fa-circle-info" style="color:#3a9e3a"></i> Armá un presupuesto para tu <strong>cliente final</strong>. Cada ítem arranca con <strong>25% de descuento</strong> sobre el PVP de lista, editable por ítem. Al generar se crea un PDF y se envía por email.
+      </div>
+
+      <!-- Datos del cliente -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-user"></i> Datos del cliente</div>
+        <div class="dji-card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label class="flbl">Cliente <span style="color:var(--red);font-weight:700">*</span></label>
+              <input type="text" id="cot-cliente" class="form-control" placeholder="Nombre / razón social del cliente" style="font-size:13px">
+            </div>
+            <div>
+              <label class="flbl">Email del cliente <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+              <input type="email" id="cot-cliente-email" class="form-control" placeholder="correo@cliente.com" style="font-size:13px">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agregar ítems -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-plus-circle"></i> Agregar Repuestos</div>
+        <div class="dji-card-body">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="cot-q" class="form-control" placeholder="Código o nombre del repuesto..."
+                   oninput="_cotBuscar()" onkeydown="if(event.key==='Enter')_cotBuscar(true)" style="flex:1">
+            <input type="number" id="cot-qty" class="form-control" value="1" min="1" style="width:80px;text-align:center" title="Cantidad">
+          </div>
+          <div id="cot-results" class="rep-result" style="display:none;max-height:200px"></div>
+          <div id="cot-no-result" style="display:none;background:rgba(214,48,49,.05);border:1px dashed rgba(214,48,49,.3);border-radius:var(--rm);padding:10px 14px;font-size:12px;color:var(--tx-m);align-items:center;gap:10px;flex-wrap:wrap">
+            <span><i class="fa fa-circle-exclamation" style="color:var(--red)"></i> No se encontró ese repuesto en el catálogo.</span>
+            <button onclick="_cotAgregarDesconocido()" style="background:rgba(214,48,49,.1);border:1px solid rgba(214,48,49,.3);color:var(--red);border-radius:var(--r);padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">
+              <i class="fa fa-plus"></i> Agregar ítem manual
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mano de obra -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-screwdriver-wrench"></i> Mano de obra <span style="font-size:11px;font-weight:400;color:var(--tx-d)">(opcional · una sola · precio editable)</span></div>
+        <div class="dji-card-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="cot-mo-sel" class="form-select" style="flex:1;min-width:180px;font-size:13px" onchange="_cotAgregarMO()">
+              <option value="">— Cargando… —</option>
+            </select>
+          </div>
+          <div style="margin-top:8px"><button onclick="_cotAgregarMOManual()" style="background:transparent;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline">+ Agregar mano de obra manual</button></div>
+        </div>
+      </div>
+
+      <!-- Carrito -->
+      <div class="dji-card" id="cot-cart-card" style="display:none">
+        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+          <span><i class="fa fa-file-invoice-dollar" style="color:#3a9e3a"></i> Presupuesto — <span id="cot-cart-count">0</span> ítem(s)</span>
+          <button class="btn-help" style="background:rgba(214,48,49,.08);border-color:rgba(214,48,49,.2);color:var(--red)" onclick="_cotVaciar()">
+            <i class="fa fa-trash"></i> Vaciar
+          </button>
+        </div>
+        <div class="dji-card-body" style="padding:0">
+          <div id="cot-cart-ui"></div>
+          <div id="cot-mo-ui"></div>
+        </div>
+        <div style="padding:14px 17px;border-top:1px solid var(--brd)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:13px;color:var(--tx-m);font-weight:600">Total (sin impuestos)</span>
+            <span id="cot-total" style="font-size:18px;font-weight:800;color:#3a9e3a">$0,00 USD</span>
+          </div>
+          <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+          <textarea id="cot-obs" class="form-control" placeholder="Notas para el presupuesto..." style="min-height:52px;resize:vertical"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+            <button class="btn-main" id="btn-generar-cot" style="width:auto;padding:10px 26px;background:#3a9e3a" onclick="_cotGenerar()">
+              <i class="fa fa-file-export"></i> Generar presupuesto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div id="cot-success" class="dji-card" style="display:none;text-align:center;padding:26px 20px">
+        <i class="fa fa-circle-check" style="font-size:38px;color:#1a9e4a;display:block;margin-bottom:12px"></i>
+        <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:6px">Presupuesto generado</div>
+        <div id="cot-success-num" style="font-family:monospace;font-size:12px;color:var(--tx-d);margin-bottom:16px"></div>
+        <a id="cot-success-pdf" href="#" target="_blank" class="btn-main" style="width:auto;margin:0 auto 10px;padding:9px 22px;display:inline-flex;text-decoration:none;background:#3a9e3a"><i class="fa fa-file-pdf"></i> Ver PDF</a>
+        <div><button onclick="_cotNuevo()" style="background:transparent;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Hacer otro presupuesto</button></div>
+      </div>
+
+      <!-- Historial -->
+      <div class="dji-card">
+        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center">
+          <span><i class="fa fa-clock-rotate-left"></i> Mis presupuestos</span>
+          <button class="btn-help" onclick="_cotCargarHistorial()"><i class="fa fa-rotate"></i> Actualizar</button>
+        </div>
+        <div class="dji-card-body" id="cot-historial">
+          <div style="font-size:12px;color:var(--tx-d)">Tocá "Actualizar" para ver tus presupuestos anteriores.</div>
+        </div>
+      </div>
+
+    </div><!-- /cot-main -->
+
+  </div><!-- /tab-cot -->
 
   <!-- ══ TAB: CAMPAÑA ══════════════════════════ -->
   <div class="tab-panel" id="tab-camp">
@@ -1738,6 +2015,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <input id="perfil-localidad" class="form-control" type="text" placeholder="Ej: Colón">
           </div>
         </div>
+        <div style="margin-bottom:14px">
+          <label class="flbl">Provincia</label>
+          <input id="perfil-provincia" class="form-control" type="text" placeholder="Ej: Buenos Aires">
+        </div>
 
         <div style="border-top:1px solid var(--brd);margin:18px 0"></div>
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-m);margin-bottom:12px;display:flex;align-items:center;gap:6px">
@@ -1766,16 +2047,37 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   <!-- ══ TAB: VISTA RTV ════════════════════════ -->
   <div class="tab-panel" id="tab-rtv">
     <div class="help-bar">
-      <span class="help-bar-title"><i class="fa fa-user-tie" style="color:#7c3aed"></i> Pedidos de mis Resellers</span>
-      <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_rtvCargar()">
-        <i class="fa fa-arrows-rotate"></i> Actualizar
+      <span class="help-bar-title"><i class="fa fa-user-tie" style="color:#7c3aed"></i> Mis Resellers</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="rtv-btn-cargar" class="btn-out" style="display:none;padding:4px 10px;font-size:11px;border-color:#7c3aed;color:#7c3aed" onclick="_superAbrirCarga()">
+          <i class="fa fa-cart-plus"></i> Cargar pedido
+        </button>
+        <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_rtvActualizar()">
+          <i class="fa fa-arrows-rotate"></i> Actualizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Subtabs: Pedidos / Órdenes -->
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button id="rtv-tab-ped" onclick="_rtvSwitchTab('pedidos')" style="flex:1;padding:8px 12px;background:#7c3aed;color:#fff;border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .13s">
+        <i class="fa fa-shopping-cart"></i> Pedidos <span id="rtv-cnt-ped" style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 7px;font-size:10px">0</span>
+      </button>
+      <button id="rtv-tab-ord" onclick="_rtvSwitchTab('ordenes')" style="flex:1;padding:8px 12px;background:transparent;color:var(--tx-m);border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .13s">
+        <i class="fa fa-screwdriver-wrench"></i> Órdenes <span id="rtv-cnt-ord" style="background:var(--brd);color:var(--tx-m);border-radius:3px;padding:1px 7px;font-size:10px">0</span>
       </button>
     </div>
 
     <div class="dji-card" style="margin-bottom:12px;padding:12px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="rtv-filtro-rtv" style="display:none;align-items:center;gap:10px">
+          <label style="font-size:12px;color:#7c3aed;white-space:nowrap;font-weight:700"><i class="fa fa-user-shield" style="margin-right:4px"></i>RTV:</label>
+          <select id="rtv-sel-rtv" onchange="_rtvOnFiltroRTV()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
+            <option value="">Todos los RTV</option>
+          </select>
+        </div>
         <label style="font-size:12px;color:var(--tx-m);white-space:nowrap;font-weight:600">Reseller:</label>
-        <select id="rtv-sel-reseller" onchange="_rtvFiltrar()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
+        <select id="rtv-sel-reseller" onchange="_rtvOnFiltro()" class="form-select form-select-sm" style="max-width:280px;font-size:12px">
           <option value="">Todos</option>
         </select>
         <span id="rtv-count" style="font-size:11px;color:var(--tx-d)"></span>
@@ -1786,6 +2088,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div style="text-align:center;padding:32px;color:var(--tx-d)">
         <i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:12px;opacity:.4"></i>
         Cargando pedidos...
+      </div>
+    </div>
+    <div id="rtv-ordenes-wrap" style="display:none">
+      <div style="text-align:center;padding:32px;color:var(--tx-d)">
+        <i class="fa fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:12px;opacity:.4"></i>
+        Cargando órdenes...
       </div>
     </div>
   </div><!-- /tab-rtv -->
@@ -1902,8 +2210,102 @@ function showTab(id, btnId) {
   if (btn) btn.classList.add('active');
 }
 
+// ══════════════════════════════════════════
+//  NOVEDADES (CMS por hoja NOVEDADES)
+// ══════════════════════════════════════════
+var _novedadesData = [];
+
+function _abrirNovedades() {
+  showTab('nov', 'tb-nov');
+  if (_novedadesData.length) { _renderNovedades(); _novMarcarVistas(); }
+  else _cargarNovedades(false, true); // carga y luego marca como vistas
+}
+
+function _cargarNovedades(forzar, marcarVistas) {
+  var wrap = document.getElementById('nov-wrap');
+  if (forzar && wrap) wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--tx-d);font-size:12px"><i class="fa fa-spinner fa-spin"></i> Cargando novedades…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _novedadesData = (r && r.ok && r.novedades) ? r.novedades : [];
+      _renderNovedades();
+      if (marcarVistas) _novMarcarVistas(); else _novActualizarBadge();
+    })
+    .withFailureHandler(function() {
+      var w = document.getElementById('nov-wrap');
+      if (w) w.innerHTML = '<div style="text-align:center;padding:24px;color:var(--tx-d);font-size:12px">No se pudieron cargar las novedades.</div>';
+    })
+    .obtenerNovedadesPortal();
+}
+
+function _novIcono(cat) {
+  var c = (cat || '').toLowerCase();
+  if (c.indexOf('capacit') >= 0)                              return 'fa-graduation-cap';
+  if (c.indexOf('cotiza') >= 0 || c.indexOf('presupuesto') >= 0 || c.indexOf('herramienta') >= 0) return 'fa-file-invoice-dollar';
+  if (c.indexOf('producto') >= 0)                             return 'fa-box';
+  if (c.indexOf('promo') >= 0 || c.indexOf('oferta') >= 0)    return 'fa-tag';
+  if (c.indexOf('aviso') >= 0 || c.indexOf('import') >= 0)    return 'fa-triangle-exclamation';
+  return 'fa-bullhorn';
+}
+
+function _renderNovedades() {
+  var wrap = document.getElementById('nov-wrap');
+  if (!wrap) return;
+  if (!_novedadesData.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:36px 20px;color:var(--tx-d);font-size:13px">' +
+      '<i class="fa fa-bullhorn" style="font-size:28px;display:block;margin-bottom:10px;opacity:.3"></i>No hay novedades por ahora.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < _novedadesData.length; i++) {
+    var n = _novedadesData[i];
+    html +=
+      '<div class="dji-card" style="margin-bottom:10px">' +
+        '<div class="dji-card-body" style="padding:16px 18px">' +
+          '<div style="display:flex;align-items:flex-start;gap:14px">' +
+            '<div style="width:42px;height:42px;border-radius:11px;background:var(--blue-a);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+              '<i class="fa ' + _novIcono(n.categoria) + '" style="color:var(--blue);font-size:18px"></i>' +
+            '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
+                (n.categoria ? '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);background:var(--blue-a);padding:2px 8px;border-radius:20px">' + _escHtml(n.categoria) + '</span>' : '') +
+                (n.fecha ? '<span style="font-size:11px;color:var(--tx-d)">' + _escHtml(n.fecha) + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:15px;font-weight:700;color:var(--tx);line-height:1.3">' + _escHtml(n.titulo) + '</div>' +
+              (n.descripcion ? '<div style="font-size:13px;color:var(--tx-m);line-height:1.55;margin-top:5px;white-space:pre-line">' + _escHtml(n.descripcion) + '</div>' : '') +
+              (n.url ? '<a href="' + _escHtml(n.url) + '" target="_blank" class="btn-out blue" style="display:inline-flex;align-items:center;gap:7px;margin-top:12px;text-decoration:none;font-size:12px;padding:7px 14px"><i class="fa fa-arrow-up-right-from-square"></i> ' + _escHtml(n.urlTexto) + '</a>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  wrap.innerHTML = html;
+}
+
+function _novMaxTs() {
+  var m = 0;
+  for (var i = 0; i < _novedadesData.length; i++) if (_novedadesData[i].ts > m) m = _novedadesData[i].ts;
+  return m;
+}
+
+function _novActualizarBadge() {
+  var badge = document.getElementById('badge-nov');
+  if (!badge) return;
+  var lastSeen = 0;
+  try { lastSeen = parseInt(localStorage.getItem('nov_lastseen')) || 0; } catch(e) {}
+  var nuevas = 0;
+  for (var i = 0; i < _novedadesData.length; i++) if (_novedadesData[i].ts > lastSeen) nuevas++;
+  if (nuevas > 0) { badge.textContent = nuevas; badge.style.display = 'inline-block'; }
+  else badge.style.display = 'none';
+}
+
+function _novMarcarVistas() {
+  try { localStorage.setItem('nov_lastseen', String(_novMaxTs())); } catch(e) {}
+  var badge = document.getElementById('badge-nov');
+  if (badge) badge.style.display = 'none';
+}
+
 function _esTerminal(estado) {
-  return estado === 'Finalizado' || estado === 'Entregado' || estado === 'CANCELADO';
+  return estado === 'Finalizado' || estado === 'Entregado' || estado === 'CANCELADO' || estado === 'Rechazado DJI' || estado === 'Sin respuesta · Cerrado';
 }
 
 function switchDashTab(t) {
@@ -1922,7 +2324,8 @@ function switchDashTab(t) {
 //  INIT
 // ══════════════════════════════════════════
 window.onload = function() {
-  pinModal  = new bootstrap.Modal(document.getElementById('modal-pin'));
+  // Login obligatorio: el modal no se cierra por click afuera ni Esc (solo con login válido)
+  pinModal  = new bootstrap.Modal(document.getElementById('modal-pin'), { backdrop: 'static', keyboard: false });
   helpModal = new bootstrap.Modal(document.getElementById('modal-help'));
   loteModal = new bootstrap.Modal(document.getElementById('modal-lote'));
 
@@ -1931,14 +2334,25 @@ window.onload = function() {
   });
   document.getElementById('ped-cart-envio').addEventListener('change', function() {
     _actualizarPedDirStrip();
+    _superToggleEnvio();
   });
 
-  // Red de seguridad: si el modal de login se cierra por cualquier vía, quitar el overlay
+  // Login obligatorio: el overlay solo se quita con usuario válido (reseller o RTV).
+  // Si el modal se cierra por cualquier otra vía sin sesión, se vuelve a abrir.
   document.getElementById('modal-pin').addEventListener('hidden.bs.modal', function() {
-    var ov = document.getElementById('login-overlay');
-    if (ov) { ov.remove(); }
-    if (!resellerActual && !_rtvEmail) showTab('rec', 'tb-rec');
+    if (resellerActual || _rtvEmail) {
+      var ov = document.getElementById('login-overlay');
+      if (ov) { ov.remove(); }
+    } else {
+      pinModal.show();
+    }
   });
+
+  // ¿Vienen de "Cerrar sesión"? Forzar el modal de PIN (ignora sesión guardada y auto-login por Google)
+  var _forceLogin = false;
+  try {
+    if (sessionStorage.getItem('portal_logout') === '1') { _forceLogin = true; sessionStorage.removeItem('portal_logout'); }
+  } catch(e) {}
 
   // Restaurar sesión PIN desde sessionStorage (persiste mientras la pestaña esté abierta)
   var _sesionGuardada = null;
@@ -1947,7 +2361,9 @@ window.onload = function() {
     if (_rawSesion) _sesionGuardada = JSON.parse(_rawSesion);
   } catch(e) {}
 
-  if (_sesionGuardada && _sesionGuardada.nombre) {
+  if (_forceLogin) {
+    pinModal.show();
+  } else if (_sesionGuardada && _sesionGuardada.nombre) {
     resellerActual = _sesionGuardada.nombre;
     grupoActual    = _sesionGuardada.esGrupo
       ? { nombre: _sesionGuardada.nombre, resellers: _sesionGuardada.resellers || [] }
@@ -1956,6 +2372,7 @@ window.onload = function() {
     _badge.textContent   = _sesionGuardada.esGrupo ? ('★ ' + _sesionGuardada.nombre) : _sesionGuardada.nombre;
     _badge.style.display = 'inline';
     document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+    document.getElementById('btn-header-logout').style.display = 'inline-flex';
     _bloquearSelectorReseller();
     _mostrarBotonesLogueado();
     _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
@@ -1970,6 +2387,7 @@ window.onload = function() {
           badge.textContent = res.nombre;
           badge.style.display = 'inline';
           document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+          document.getElementById('btn-header-logout').style.display = 'inline-flex';
           _bloquearSelectorReseller();
           _mostrarBotonesLogueado();
           _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
@@ -1992,29 +2410,30 @@ window.onload = function() {
       .obtenerDatosReseller();
   }
 
-  // Cargar resellers para el selector de nueva solicitud, el login y el registro
+  // Cargar resellers para el selector de Nueva Reparacion, el login y el registro
   google.script.run
     .withSuccessHandler(function(lista) {
       _resellerLista = lista || [];
-      // Selector principal (formulario Nueva Solicitud)
+      // Selector principal (formulario Nueva Reparacion)
       var sel = document.getElementById('sel-reseller');
       lista.forEach(function(r) {
         var opt = document.createElement('option');
         opt.value = r; opt.textContent = r;
         sel.appendChild(opt);
       });
-      // Selector del modal de login
-      var ovSel = document.getElementById('ov-reseller');
-      if (ovSel) {
-        ovSel.innerHTML = '<option value="">— Seleccioná tu empresa —</option>';
-        lista.forEach(function(r) {
-          var o = document.createElement('option'); o.value = r; o.textContent = r; ovSel.appendChild(o);
-        });
-      }
+      // Combobox buscable del modal de login
+      _ovLista = lista.slice();
+      var ovHidden = document.getElementById('ov-reseller');
+      var ovSearch = document.getElementById('ov-reseller-search');
+      if (ovHidden) ovHidden.value = '';
+      if (ovSearch) ovSearch.value = '';
       restoreDraft();
       _bloquearSelectorReseller();
     })
     .obtenerResellers();
+
+  // Cargar novedades (para el contador de la pestaña + primer render)
+  _cargarNovedades();
 
   // Cargar equipos
   google.script.run
@@ -2093,6 +2512,106 @@ function _cerrarAviso() {
   if (typeof done === 'function') done();
 }
 
+// ══════════════════════════════════════════
+//  COMBOBOX BUSCABLE DEL LOGIN (Empresa / Reseller)
+// ══════════════════════════════════════════
+var _ovLista     = [];  // todos los nombres (grupos ★ + resellers)
+var _ovFiltrados = [];  // subconjunto visible tras filtrar
+var _ovActivo    = -1;  // índice resaltado para teclado
+
+function ovNorm(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[áàäâã]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i')
+    .replace(/[óòöôõ]/g,'o').replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
+}
+
+function ovCerrarLista() {
+  var box = document.getElementById('ov-reseller-list');
+  if (box) box.style.display = 'none';
+  _ovActivo = -1;
+}
+
+function ovFiltrar() {
+  var raw = document.getElementById('ov-reseller-search').value.trim();
+  var q   = ovNorm(raw);
+  _ovFiltrados = [];
+  for (var i = 0; i < _ovLista.length; i++) {
+    if (!q || ovNorm(_ovLista[i]).indexOf(q) !== -1) _ovFiltrados.push(_ovLista[i]);
+  }
+  // Si lo tipeado coincide exactamente con un nombre, fijar el valor aunque no clickeen
+  var exacto = '';
+  for (var j = 0; j < _ovLista.length; j++) {
+    if (ovNorm(_ovLista[j]) === q && q) { exacto = _ovLista[j]; break; }
+  }
+  document.getElementById('ov-reseller').value = exacto;
+  _ovActivo = _ovFiltrados.length ? 0 : -1;
+  ovRender();
+}
+
+function ovRender() {
+  var box = document.getElementById('ov-reseller-list');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!_ovFiltrados.length) {
+    var vacio = document.createElement('div');
+    vacio.textContent = 'Sin resultados';
+    vacio.style.cssText = 'padding:10px 12px;color:var(--tx-d,#98a2b3);font-size:12px';
+    box.appendChild(vacio);
+    box.style.display = 'block';
+    return;
+  }
+  _ovFiltrados.forEach(function(nombre, idx) {
+    var it = document.createElement('div');
+    it.textContent = nombre;
+    it.style.cssText = 'padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--brd,#eef0f3);' +
+                       (idx === _ovActivo ? 'background:var(--blue-l,#eaf4ff)' : '');
+    it.onmouseenter = function(){ _ovActivo = idx; ovResaltar(); };
+    it.onmousedown  = function(e){ e.preventDefault(); ovSeleccionar(nombre); };
+    box.appendChild(it);
+  });
+  box.style.display = 'block';
+}
+
+function ovResaltar() {
+  var box = document.getElementById('ov-reseller-list');
+  if (!box) return;
+  var items = box.children;
+  for (var i = 0; i < items.length; i++) {
+    items[i].style.background = (i === _ovActivo) ? 'var(--blue-l,#eaf4ff)' : '';
+  }
+  if (_ovActivo >= 0 && items[_ovActivo]) items[_ovActivo].scrollIntoView({ block: 'nearest' });
+}
+
+function ovSeleccionar(nombre) {
+  document.getElementById('ov-reseller').value = nombre;
+  document.getElementById('ov-reseller-search').value = nombre;
+  ovCerrarLista();
+  var p1 = document.getElementById('pin1');
+  if (p1) p1.focus();
+}
+
+function ovKey(e) {
+  var box = document.getElementById('ov-reseller-list');
+  var abierta = box && box.style.display !== 'none';
+  if (e.key === 'ArrowDown') {
+    if (!abierta) { ovFiltrar(); return; }
+    e.preventDefault();
+    if (_ovActivo < _ovFiltrados.length - 1) _ovActivo++;
+    ovResaltar();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (_ovActivo > 0) _ovActivo--;
+    ovResaltar();
+  } else if (e.key === 'Enter') {
+    if (abierta && _ovActivo >= 0 && _ovFiltrados[_ovActivo]) {
+      e.preventDefault();
+      ovSeleccionar(_ovFiltrados[_ovActivo]);
+    }
+  } else if (e.key === 'Escape') {
+    ovCerrarLista();
+  }
+}
+
 function login() {
   var nombre = (document.getElementById('ov-reseller').value || '').trim();
   var pin    = '';
@@ -2134,10 +2653,11 @@ function login() {
         badge.textContent = res.esGrupo ? ('★ ' + res.nombre) : res.nombre;
         badge.style.display = 'inline';
         document.getElementById('btn-refresh-portal').style.display = 'inline-flex';
+        document.getElementById('btn-header-logout').style.display = 'inline-flex';
         _mostrarBotonesLogueado();
         // En modo grupo algunas tabs no aplican (perfil/cc son por reseller individual)
-        var goTab = _pendingTab || 'dash';
-        var goBtn = _pendingTab ? 'tb-' + _pendingTab : 'tb-dash';
+        var goTab = _pendingTab || 'rec';
+        var goBtn = _pendingTab ? 'tb-' + _pendingTab : 'tb-rec';
         if (res.esGrupo && (goTab === 'perfil' || goTab === 'cc')) goTab = 'dash';
         _pendingTab = '';
         showTab(goTab, goBtn);
@@ -2145,12 +2665,16 @@ function login() {
         else if (!res.esGrupo && goTab === 'cc') { cargarCC(null); }
         else { cargarDashboard(); }
         if (goTab === 'ped')  _pedMostrarMain();
+        if (goTab === 'cot')  _cotMostrarMain();
         if (goTab === 'camp') _campAbrir();
         _campCheckVisible();
         // Liberar el overlay de login
         _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
       } else {
-        document.getElementById('pin-error').textContent = 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
+        var msgErr = (res && res.motivo === 'inactivo')
+          ? 'Esta cuenta está desactivada. Contactá a soporte.'
+          : 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
+        document.getElementById('pin-error').textContent = msgErr;
         document.querySelectorAll('.pin-input').forEach(function(p){ p.value=''; p.classList.add('error'); });
         document.getElementById('pin1').focus();
       }
@@ -2163,10 +2687,6 @@ function login() {
       document.getElementById('pin-error').textContent = msg;
     })
     .validarAccesoInicial(nombre, pin);
-}
-
-function cancelarPin() {
-  pinModal.hide(); // el evento hidden.bs.modal quita el overlay y muestra Nueva Solicitud
 }
 
 function recordarClave() {
@@ -2204,16 +2724,21 @@ function recordarClave() {
 }
 
 function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión? Vas a tener que ingresar tu PIN nuevamente para volver a entrar.')) return;
   resellerActual = '';
   grupoActual    = null;
-  try { sessionStorage.removeItem('portal_session'); } catch(e) {}
-  document.getElementById('header-reseller-badge').style.display = 'none';
-  document.getElementById('btn-refresh-portal').style.display = 'none';
-  document.getElementById('dash-header-card').style.display = 'none';
-  document.getElementById('dash-kpis').style.display = 'none';
-  document.getElementById('dash-grid').style.display = 'none';
-  document.getElementById('dash-empty').style.display = 'none';
-  showTab('rec', 'tb-rec');
+  try {
+    sessionStorage.removeItem('portal_session');
+    sessionStorage.setItem('portal_logout', '1'); // fuerza el modal de PIN tras recargar
+  } catch(e) {}
+  // Recarga limpia navegando la ventana TOP al web app. NO usar location.reload():
+  // dentro del iframe sandbox de Apps Script recarga el frame interno y deja la página
+  // en blanco (el contenido real se sirve vía el wrapper de Google, no es recargable).
+  // Navegar el top hace un doGet fresco → muestra el login. Fallback a reload si no hay URL.
+  try {
+    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
+  } catch(e) {}
+  location.reload();
 }
 
 // ══════════════════════════════════════════
@@ -2396,9 +2921,14 @@ function validarSN() {
   if (!equNombre || !snVal) { inp.classList.remove('sn-invalid'); hint.classList.remove('show'); btn.disabled=false; return; }
   var eq = null;
   for (var i=0; i<listaEquipos.length; i++) { if(listaEquipos[i].nombre===equNombre){eq=listaEquipos[i];break;} }
-  if (eq && eq.prefijo && !snVal.startsWith(eq.prefijo)) {
+  // eq.prefijo puede traer 1 o VARIOS prefijos separados por coma (DJI cambió de lote y ahora
+  // los S/N pueden empezar de 2 maneras). Es válido si arranca con CUALQUIERA de ellos.
+  var prefs = (eq && eq.prefijo ? String(eq.prefijo).split(',') : [])
+                .map(function(p){ return p.trim().toUpperCase(); }).filter(Boolean);
+  if (prefs.length && !prefs.some(function(p){ return snVal.startsWith(p); })) {
     inp.classList.add('sn-invalid');
-    hint.textContent = 'El S/N para este modelo debe comenzar con "' + eq.prefijo + '"';
+    hint.textContent = 'El S/N para este modelo debe comenzar con ' +
+                       prefs.map(function(p){ return '"' + p + '"'; }).join(' o ');
     hint.classList.add('show'); btn.disabled = true;
   } else {
     inp.classList.remove('sn-invalid'); hint.classList.remove('show'); btn.disabled = false;
@@ -2622,7 +3152,15 @@ function mostrarResultado(r) {
   document.getElementById('r-equipo').textContent   = r.equipo;
   document.getElementById('r-equipo2').textContent  = r.equipo;
   document.getElementById('r-estado').textContent   = r.estado;
-  document.getElementById('r-inst').textContent     = r.trabajo;
+  document.getElementById('r-inst').textContent = r.quePasa || r.trabajo || '';
+  var accionEl  = document.getElementById('r-accion');
+  var accionTxt = document.getElementById('r-accion-txt');
+  if (r.accion) {
+    accionTxt.textContent = r.accion;
+    accionEl.style.display = 'block';
+  } else {
+    accionEl.style.display = 'none';
+  }
 
   var garEl = document.getElementById('r-gar');
   garEl.innerHTML = r.garantia
@@ -2666,28 +3204,38 @@ function mostrarResultado(r) {
   } else { estWrap.style.display = 'none'; }
 
   var paso  = r.pasoActual || 1;
-  // Detectar flujo batería Reseller Propio
-  var esBatRP = (r.flujo && r.flujo.toLowerCase().indexOf('propio') !== -1 && r.esBateria);
+  var esBat = r.esBateria === true;
   var pasos;
-  if (esBatRP) {
-    pasos = [{n:1,label:'Abierto'},{n:2,label:'Aprobado DJI'},{n:3,label:'Finalizado'}];
+  if (esBat) {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Caso DJI'},{n:3,label:'Aprobado DJI'},{n:4,label:'Finalizado'}];
+  } else if (r.flujo === 'Reseller Propio') {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'En reparación'},{n:3,label:'Aprobado DJI'},{n:4,label:'Finalizado'}];
+  } else if (r.flujo && r.flujo.indexOf('Reseller') !== -1) {
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Reparación'},{n:3,label:'Documentación'},{n:4,label:'Finalizado'}];
   } else {
-    pasos = [{n:1,label:'Ingreso'},{n:2,label:'Aprobación'},{n:3,label:'En proceso'},{n:4,label:'Finalizado'}];
+    pasos = [{n:1,label:'Registro'},{n:2,label:'Aprobación'},{n:3,label:'En taller'},{n:4,label:'Finalizado'}];
   }
   var html  = '';
-  pasos.forEach(function(p, i) {
-    var cls = p.n < paso ? 'done' : (p.n === paso ? 'active' : '');
-    html += '<div class="step-node '+cls+'">';
-    html += '<div class="step-circle">' + (p.n<paso?'<i class="fa fa-check" style="font-size:11px"></i>':p.n) + '</div>';
-    html += '<div class="step-label">'+p.label+'</div></div>';
-    if (i<pasos.length-1) html += '<div class="step-line '+(p.n<paso?'done':'')+'"></div>';
-  });
+  if (paso === 5) {
+    html = '<div style="display:flex;align-items:center;gap:10px;padding:2px 0">' +
+      '<div style="width:34px;height:34px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0"><i class="fa fa-times"></i></div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--red)">Orden cancelada</div>' +
+      '</div>';
+  } else {
+    pasos.forEach(function(p, i) {
+      var cls = p.n < paso ? 'done' : (p.n === paso ? 'active' : '');
+      html += '<div class="step-node '+cls+'">';
+      html += '<div class="step-circle">' + (p.n<paso?'<i class="fa fa-check" style="font-size:11px"></i>':p.n) + '</div>';
+      html += '<div class="step-label">'+p.label+'</div></div>';
+      if (i<pasos.length-1) html += '<div class="step-line '+(p.n<paso?'done':'')+'"></div>';
+    });
+  }
   document.getElementById('stepper').innerHTML = html;
 
   document.getElementById('btn-recibido').style.display = (r.estado === 'Repuestos enviados') ? 'inline-flex' : 'none';
   document.getElementById('btn-nota').style.display = (r.flujo === 'Taller' && paso >= 2) ? 'inline-flex' : 'none';
   document.getElementById('btn-etiqueta').style.display  = (r.flujo==='Taller' && paso===2) ? 'inline-flex' : 'none';
-  document.getElementById('btn-repuestos').style.display = (r.flujo && r.flujo.indexOf('Reseller')!==-1 && paso<4) ? 'inline-flex' : 'none';
+  document.getElementById('btn-repuestos').style.display = (!esBat && r.flujo && r.flujo.indexOf('Reseller')!==-1 && paso<4) ? 'inline-flex' : 'none';
 
   // ── Bloque de garantía ──
   var garBlock  = document.getElementById('r-gar-block');
@@ -3473,7 +4021,7 @@ function confirmarRecepcion() {
 // ══════════════════════════════════════════
 var _ayudaContenidos = {
   nueva: {
-    titulo: 'Procedimiento — Nueva Solicitud',
+    titulo: 'Procedimiento — Nueva Reparacion',
     body: '<ol style="font-size:13px;color:var(--tx);line-height:2;padding-left:18px">' +
       '<li>Seleccioná el <strong>Reseller</strong> y el tipo de garantía (<strong>IW</strong> = en garantía / <strong>OOW</strong> = fuera de garantía).</li>' +
       '<li>Elegí el <strong>tipo de gestión</strong>:<ul style="margin:4px 0 4px 16px;line-height:1.9">' +
@@ -3607,6 +4155,100 @@ function abrirAyuda(seccion) {
   helpModal.show();
 }
 
+// ══════════════════════════════════════════
+//  GUÍA — CÓMO CARGAR UNA GARANTÍA (flujos)
+// ══════════════════════════════════════════
+// Estructura extensible: agregá nuevos flujos como claves de este objeto.
+var _guiaGarantiaFlujos = {
+  taller: {
+    nombre: 'Reparé en mi taller',
+    desc: 'Con repuestos de mi stock',
+    icon: 'fa-box-open',
+    intro: 'Usá este flujo cuando reparaste el equipo en tu propio taller con repuestos de tu stock. La reparación ya está terminada.',
+    pasos: [
+      { t: 'Reparás el equipo', tag: null,
+        x: 'Reparás el equipo en tu taller usando los repuestos de tu propio stock. Este flujo es para cuando la reparación <strong>ya está terminada</strong>.' },
+      { t: 'Armá la carpeta en Google Drive', tag: null,
+        x: 'Creá una carpeta en Google Drive y subí toda la documentación de la reparación:',
+        drive: [
+          { i: 'fa-file-invoice', t: 'Factura de Venta (Cliente)' },
+          { i: 'fa-camera', t: 'Fotos de recepción del equipo' },
+          { i: 'fa-wrench', t: 'Piezas dañadas (incluyendo N° de Serie)' },
+          { i: 'fa-gear', t: 'Piezas nuevas (incluyendo N° de Serie)' },
+          { i: 'fa-video', t: 'Video del equipo reparado y funcionando' },
+          { i: 'fa-list-check', t: 'Lista de repuestos cambiados' }
+        ] },
+      { t: 'Ingresá al portal', tag: null,
+        x: 'Entrá al Portal Aftersales con tu <strong>usuario y clave</strong>.' },
+      { t: 'Nueva Reparación → "Reparación en mi taller"', tag: 'Tipo de gestión', tagc: 'green',
+        x: 'En la pestaña <strong>Nueva Reparación</strong>, elegí el tipo de gestión <strong>"Reparación en mi taller"</strong>.' },
+      { t: 'Completá los datos del equipo', tag: null,
+        x: 'Seleccioná el <strong>Reseller</strong> y la <strong>garantía</strong> (IW / OOW), cargá el <strong>Modelo</strong> y el <strong>N° de Serie</strong>, y describí la falla.' },
+      { t: 'Estado de la reparación → "Ya reparé"', tag: 'Estado', tagc: 'green',
+        x: 'En "Estado de la reparación" elegí <strong>"Ya reparé"</strong>. Esto indica que la reparación está completa y los repuestos se registran como reposición de tu stock.' },
+      { t: 'Agregá la lista de repuestos cambiados', tag: null,
+        x: 'Buscá cada <strong>SKU</strong> que usaste en la reparación y agregalo, o cargá el Excel. Debe coincidir con la lista de repuestos cambiados de tu carpeta de Drive.' },
+      { t: 'Pegá el link de la carpeta de Drive', tag: null,
+        x: 'En la sección <strong>Carpeta Drive</strong>, pegá el link de la carpeta que armaste en el paso 2.' },
+      { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
+        x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Recibís el N° de OT y el caso queda enviado al Hub.' }
+    ]
+  }
+};
+
+function abrirGuiaGarantia(flujo) {
+  var claves = Object.keys(_guiaGarantiaFlujos);
+  if (!claves.length) return;
+  var actual = (flujo && _guiaGarantiaFlujos[flujo]) ? flujo : claves[0];
+  var cfg = _guiaGarantiaFlujos[actual];
+
+  // Selector de flujos (si hay más de uno)
+  var html = '';
+  if (claves.length > 1) {
+    html += '<div class="guia-flows">';
+    for (var c = 0; c < claves.length; c++) {
+      var k = claves[c], f = _guiaGarantiaFlujos[k];
+      html += '<div class="guia-flow-card' + (k === actual ? ' active' : '') + '" onclick="abrirGuiaGarantia(\'' + k + '\')">' +
+        '<i class="fa ' + f.icon + '"></i>' +
+        '<div><div class="gf-name">' + f.nombre + '</div><div class="gf-desc">' + f.desc + '</div></div>' +
+      '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (cfg.intro) {
+    html += '<p style="font-size:12.5px;color:var(--tx-m);line-height:1.6;margin-bottom:16px">' +
+      '<i class="fa ' + cfg.icon + ' me-1" style="color:var(--green)"></i>' + cfg.intro + '</p>';
+  }
+
+  // Pasos
+  for (var p = 0; p < cfg.pasos.length; p++) {
+    var paso = cfg.pasos[p];
+    var tag = '';
+    if (paso.tag) {
+      var tc = paso.tagc === 'green' ? 'background:rgba(26,158,74,.14);color:var(--green)' : 'background:var(--blue-a);color:var(--blue)';
+      tag = '<span class="gs-tag" style="' + tc + '">' + paso.tag + '</span>';
+    }
+    var drive = '';
+    if (paso.drive) {
+      drive = '<div class="guia-drive"><div class="guia-drive-head"><i class="fa fa-folder-open" style="color:var(--yellow)"></i> Contenido de la carpeta</div><ul>';
+      for (var d = 0; d < paso.drive.length; d++) {
+        drive += '<li><i class="fa ' + paso.drive[d].i + '"></i>' + paso.drive[d].t + '</li>';
+      }
+      drive += '</ul></div>';
+    }
+    html += '<div class="guia-step">' +
+      '<div class="guia-num">' + (p + 1) + '</div>' +
+      '<div class="guia-body"><div class="gs-title">' + paso.t + tag + '</div>' +
+      '<div class="gs-text">' + paso.x + '</div>' + drive + '</div>' +
+    '</div>';
+  }
+
+  document.getElementById('help-modal-title').textContent = 'Cómo cargar una garantía';
+  document.getElementById('help-modal-body').innerHTML    = html;
+  helpModal.show();
+}
+
 // ── Descarga de plantilla Excel estándar ──────────────────────
 function descargarPlantilla() {
   if (typeof XLSX === 'undefined') return toast('Librería Excel aún no cargada. Intentá en unos segundos.', 'err');
@@ -3627,7 +4269,7 @@ function descargarPlantilla() {
 //  GESTIÓN REPUESTOS DJI — HÍBRIDO
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
-//  REPUESTOS INLINE — Aftersales propio (Nueva Solicitud)
+//  REPUESTOS INLINE — Aftersales propio (Nueva Reparacion)
 // ══════════════════════════════════════════
 var _repNueva = [];
 var _repNuevaTimer;
@@ -3882,6 +4524,17 @@ var _pedMode          = 'manual';
 var _pedBusTimer      = null;
 var _pedBusSeq        = 0;      // anti-race: descarta respuestas de búsquedas viejas
 var _pedIndice        = null;   // null=cargando · array=listo (búsqueda local instantánea)
+var _pedKits          = {};     // { KITSKU: [{sku, cantidadPorKit}] } — explota C → A + B en el carrito
+var _pedDtoPct        = 40;     // % de descuento del reseller actual (lo trae obtenerIndiceRepuestosPortal; default 40)
+// factor = precio que paga / precio de lista (0.60 para 40% dto). Revierte a PVP y decide si mostrar el descuento.
+function _pedFactor()        { return (100 - _pedDtoPct) / 100; }
+function _pedTieneDto()      { return _pedDtoPct > 0; }
+function _pedPvpDesde(precio){ var f = _pedFactor(); return (precio > 0 && f > 0) ? Math.round(precio / f * 100) / 100 : precio; }
+
+// ── Modo super-RTV: carga a nombre de cualquier cliente con descuento GLOBAL manual ──
+var _superPedido = null;   // { cliente, email, dtoPct } mientras el super carga un pedido; null = off
+function _pedCtxReseller() { return _superPedido ? _superPedido.cliente : resellerActual; } // nombre para hoja/carrito
+function _pedDtoOverride()  { return _superPedido ? _superPedido.dtoPct : undefined; }        // descuento a pasar al backend
 var _pedDemandaTimer  = null;   // timer para loguear búsquedas sin resultado
 var _pedEstMap        = { D:'disponible', B:'backorder', R:'consultar_Backorder' };
 var _pedHistorialItems= {};     // id → itemsJson, para "Repetir pedido"
@@ -3900,14 +4553,346 @@ function pedirPinPedidos() {
   pedirPin();
 }
 
+// ══════════════════════════════════════════
+//  COTIZADOR DE PRESUPUESTOS (cliente final)
+//  Reutiliza el índice de repuestos (_pedIndice/_pedBuscarLocal).
+//  Precio base = PVP de lista = precio del índice / factor del reseller (_pedPvpDesde). Descuento por ítem (25% inicial).
+// ══════════════════════════════════════════
+var _cotCart      = [];
+var _cotMO        = [];   // líneas de mano de obra
+var _cotMOCatalogo = [];  // catálogo de mano de obra recomendada
+var _cotBusTimer  = null;
+
+function pedirPinCotizador() {
+  if (resellerActual) {
+    showTab('cot', 'tb-cot');
+    _cotMostrarMain();
+    return;
+  }
+  _pendingTab = 'cot';
+  pedirPin();
+}
+
+function _cotMostrarMain() {
+  document.getElementById('cot-guard').style.display = 'none';
+  document.getElementById('cot-main').style.display  = 'block';
+  if (typeof _pedIndice === 'undefined' || _pedIndice === null) { try { _pedCargarIndice(); } catch(e) {} }
+  if (!_cotMOCatalogo.length) _cotCargarManoObra();
+  _cotRenderCart();
+}
+
+function _cotCargarManoObra() {
+  var sel = document.getElementById('cot-mo-sel');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _cotMOCatalogo = (r && r.ok && r.items) ? r.items : [];
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— Elegí una tarea… —</option>';
+      for (var i = 0; i < _cotMOCatalogo.length; i++) {
+        var o = document.createElement('option');
+        o.value = i;
+        o.textContent = _cotMOCatalogo[i].descripcion + (_cotMOCatalogo[i].precio > 0 ? ' — USD ' + _cotMOCatalogo[i].precio : '');
+        sel.appendChild(o);
+      }
+    })
+    .withFailureHandler(function() {
+      if (sel) sel.innerHTML = '<option value="">— No disponible —</option>';
+    })
+    .obtenerManoObraCotizador();
+}
+
+function _cotAgregarMO() {
+  var sel = document.getElementById('cot-mo-sel');
+  var idx = parseInt(sel.value);
+  // Se dispara al elegir en el dropdown (sin botón): volver a la opción vacía no hace nada.
+  if (isNaN(idx) || !_cotMOCatalogo[idx]) return;
+  var mo  = _cotMOCatalogo[idx];
+  var reemplazo = _cotMO.length > 0;
+  // Una sola mano de obra por presupuesto, sin cantidad: agregar reemplaza la anterior.
+  _cotMO = [{ codigo: mo.codigo || '', descripcion: mo.descripcion, precio: Number(mo.precio) || 0, cantidad: 1 }];
+  _cotAfterChange();
+  sel.value = '';
+  toast(reemplazo ? 'Mano de obra actualizada' : 'Mano de obra agregada', 'ok');
+}
+
+function _cotAgregarMOManual() {
+  var d = prompt('Descripción de la mano de obra:');
+  if (!d || !d.trim()) return;
+  var p = prompt('Precio recomendado (USD):', '0');
+  var precio = parseFloat(String(p || '').replace(',', '.')) || 0;
+  // Una sola mano de obra por presupuesto: reemplaza la anterior.
+  _cotMO = [{ codigo: '', descripcion: d.trim(), precio: precio, cantidad: 1 }];
+  _cotAfterChange();
+}
+
+function _cotMOQuitar(i)      { _cotMO.splice(i, 1); _cotRenderCart(); }
+function _cotMOSetPrecio(i, v) { var p = parseFloat(String(v).replace(',', '.')); if (isNaN(p) || p < 0) p = 0; _cotMO[i].precio = p; _cotRenderCart(); }
+
+// El índice trae el precio con el dto del reseller; revertir al PVP de lista usa el mismo factor.
+function _cotBaseDesde40(precio40) {
+  return _pedPvpDesde(precio40);
+}
+
+function _cotBuscar(immediate) {
+  clearTimeout(_cotBusTimer);
+  var q = (document.getElementById('cot-q').value || '').trim();
+  var resDiv = document.getElementById('cot-results');
+  var noRes  = document.getElementById('cot-no-result');
+  if (q.length < 2) { resDiv.style.display = 'none'; noRes.style.display = 'none'; return; }
+
+  if (typeof _pedIndice !== 'undefined' && _pedIndice !== null) {
+    _cotRenderResultados(_pedBuscarLocal(q));
+    return;
+  }
+  resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin" style="color:#3a9e3a"></i> Preparando búsqueda…</div>';
+  resDiv.style.display = 'block';
+  _cotBusTimer = setTimeout(function() {
+    google.script.run.withSuccessHandler(function(r) {
+      _cotRenderResultados((r && r.ok && r.items) ? r.items : []);
+    }).buscarRepuestoConStockPortal(q, resellerActual);
+  }, immediate ? 0 : 250);
+}
+
+function _cotRenderResultados(items) {
+  var resDiv = document.getElementById('cot-results');
+  var noRes  = document.getElementById('cot-no-result');
+  if (!items || !items.length) {
+    resDiv.style.display = 'none';
+    var q = (document.getElementById('cot-q').value || '').trim();
+    noRes.style.display = q.length >= 2 ? 'flex' : 'none';
+    return;
+  }
+  noRes.style.display = 'none';
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var it   = items[i];
+    var base = _cotBaseDesde40(it.precio || 0);
+    var skuE = _escHtml(it.sku), descE = _escHtml(it.descripcion), modE = _escHtml(it.modelos || '');
+    html +=
+      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '">' +
+        '<div>' +
+          '<div class="rep-code">' + skuE + '</div>' +
+          '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+          (base > 0 ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a;white-space:nowrap">PVP ' + _fmtPedUsd(base) + '</div>' : '') +
+          '<span class="rep-add-btn"><i class="fa fa-plus"></i></span>' +
+        '</div>' +
+      '</div>';
+  }
+  resDiv.innerHTML = html;
+  resDiv.style.display = 'block';
+  resDiv.onclick = function(e) {
+    var row = e.target.closest('[data-cot-sku]');
+    if (!row) return;
+    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '');
+  };
+}
+
+function _cotAgregarItem(sku, desc, precioLista, modelos) {
+  var qtyInp = document.getElementById('cot-qty');
+  var qty = parseInt(qtyInp.value) || 1; if (qty < 1) qty = 1;
+  for (var i = 0; i < _cotCart.length; i++) {
+    if (sku && _cotCart[i].sku === sku) { _cotCart[i].cantidad += qty; _cotAfterChange(); return; }
+  }
+  _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25 });
+  _cotAfterChange();
+  document.getElementById('cot-q').value = '';
+  qtyInp.value = 1;
+  document.getElementById('cot-results').style.display = 'none';
+}
+
+function _cotAgregarDesconocido() {
+  var q = (document.getElementById('cot-q').value || '').trim();
+  if (!q) return;
+  var qty = parseInt(document.getElementById('cot-qty').value) || 1; if (qty < 1) qty = 1;
+  _cotCart.push({ sku: '', descripcion: q, modelos: '', cantidad: qty, precioLista: 0, descuento: 25 });
+  _cotAfterChange();
+  document.getElementById('cot-q').value = '';
+  document.getElementById('cot-no-result').style.display = 'none';
+}
+
+function _cotAfterChange() {
+  document.getElementById('cot-success').style.display = 'none';
+  _cotRenderCart();
+}
+
+function _cotQuitar(idx) { _cotCart.splice(idx, 1); _cotRenderCart(); }
+function _cotVaciar() { if ((_cotCart.length || _cotMO.length) && !confirm('¿Vaciar el presupuesto?')) return; _cotCart = []; _cotMO = []; _cotRenderCart(); }
+
+function _cotSetQty(idx, val) {
+  var n = parseInt(val) || 1; if (n < 1) n = 1;
+  _cotCart[idx].cantidad = n; _cotRenderCart();
+}
+function _cotAddQty(idx, delta) {
+  _cotCart[idx].cantidad = Math.max(1, (_cotCart[idx].cantidad || 1) + delta); _cotRenderCart();
+}
+function _cotSetDesc(idx, val) {
+  var d = parseFloat(val); if (isNaN(d)) d = 0; if (d < 0) d = 0; if (d > 99) d = 99; // máx 99% por pieza
+  _cotCart[idx].descuento = d; _cotRenderCart();
+}
+
+function _cotRenderCart() {
+  var card = document.getElementById('cot-cart-card');
+  var ui   = document.getElementById('cot-cart-ui');
+  var moUi = document.getElementById('cot-mo-ui');
+  if (!_cotCart.length && !_cotMO.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  var html = '', total = 0;
+  for (var i = 0; i < _cotCart.length; i++) {
+    var it = _cotCart[i];
+    var precioFinal = Math.round((it.precioLista || 0) * (1 - (it.descuento || 0) / 100) * 100) / 100;
+    var sub = Math.round(precioFinal * it.cantidad * 100) / 100;
+    total += sub;
+    html +=
+      '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px">' +
+          '<div style="min-width:0">' +
+            (it.sku ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
+            '<div style="font-size:12px;color:var(--tx)">' + _escHtml(it.descripcion || '—') + '</div>' +
+          '</div>' +
+          '<button onclick="_cotQuitar(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">' +
+          '<div style="display:flex;align-items:center;gap:4px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">Cant.</span>' +
+            '<button onclick="_cotAddQty(' + i + ',-1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">−</button>' +
+            '<input type="number" min="1" value="' + it.cantidad + '" onchange="_cotSetQty(' + i + ',this.value)" style="width:44px;text-align:center;border:1px solid var(--brd);border-radius:5px;padding:3px;font-size:12px">' +
+            '<button onclick="_cotAddQty(' + i + ',1)" style="width:24px;height:24px;border:1px solid var(--brd);background:var(--surf);border-radius:5px;cursor:pointer">+</button>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:4px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">Desc.%</span>' +
+            '<input type="number" min="0" max="99" value="' + it.descuento + '" onchange="_cotSetDesc(' + i + ',this.value)" style="width:52px;text-align:center;border:1px solid #3a9e3a;border-radius:5px;padding:3px;font-size:12px;color:#3a9e3a;font-weight:700">' +
+          '</div>' +
+          '<div style="margin-left:auto;text-align:right;line-height:1.3">' +
+            (it.precioLista > 0 ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through">PVP ' + _fmtPedUsd(it.precioLista) + '</div>' : '') +
+            '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + (precioFinal > 0 ? _fmtPedUsd(precioFinal) : '—') + ' <span style="font-size:10px;color:var(--tx-d)">× ' + it.cantidad + '</span></div>' +
+            '<div style="font-size:12px;font-weight:800;color:#3a9e3a">' + (sub > 0 ? _fmtPedUsd(sub) : '—') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  ui.innerHTML = html;
+
+  // Mano de obra
+  var moHtml = '';
+  if (_cotMO.length) {
+    moHtml += '<div style="padding:8px 16px;background:rgba(58,158,58,.06);font-size:10px;font-weight:700;color:#3a9e3a;text-transform:uppercase;letter-spacing:.06em"><i class="fa fa-screwdriver-wrench"></i> Mano de obra</div>';
+    for (var j = 0; j < _cotMO.length; j++) {
+      var mo   = _cotMO[j];
+      var msub = Math.round((mo.precio || 0) * 100) / 100; // mano de obra sin cantidad
+      total += msub;
+      moHtml +=
+        '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
+          '<div style="display:flex;justify-content:space-between;gap:10px">' +
+            '<div style="min-width:0"><div style="font-size:12px;color:var(--tx)">' + _escHtml(mo.descripcion || '—') + '</div></div>' +
+            '<button onclick="_cotMOQuitar(' + j + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">' +
+            '<div style="display:flex;align-items:center;gap:4px">' +
+              '<span style="font-size:10px;color:var(--tx-d)">Precio USD</span>' +
+              '<input type="number" min="0" step="0.01" value="' + mo.precio + '" onchange="_cotMOSetPrecio(' + j + ',this.value)" style="width:90px;text-align:right;border:1px solid #3a9e3a;border-radius:5px;padding:3px 6px;font-size:12px;color:#3a9e3a;font-weight:700">' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }
+  }
+  moUi.innerHTML = moHtml;
+
+  document.getElementById('cot-cart-count').textContent = _cotCart.length + _cotMO.length;
+  document.getElementById('cot-total').textContent = _fmtPedUsd(Math.round(total * 100) / 100);
+}
+
+function _cotGenerar() {
+  if (!_cotCart.length && !_cotMO.length) { toast('El presupuesto está vacío', 'err'); return; }
+  var cliente = (document.getElementById('cot-cliente').value || '').trim();
+  if (!cliente) { toast('Ingresá el nombre del cliente', 'err'); document.getElementById('cot-cliente').focus(); return; }
+  var btn = document.getElementById('btn-generar-cot');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Generando…';
+  var params = {
+    reseller:      resellerActual,
+    cliente:       cliente,
+    clienteEmail:  (document.getElementById('cot-cliente-email').value || '').trim(),
+    observaciones: (document.getElementById('cot-obs').value || '').trim(),
+    items:         _cotCart.slice(),
+    manoObra:      _cotMO.slice()
+  };
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-file-export"></i> Generar presupuesto';
+      if (r && r.ok) {
+        _cotCart = [];
+        _cotMO   = [];
+        _cotRenderCart();
+        document.getElementById('cot-obs').value = '';
+        document.getElementById('cot-success-num').textContent = r.numero || '';
+        var a = document.getElementById('cot-success-pdf');
+        if (r.pdfUrl) { a.href = r.pdfUrl; a.style.display = 'inline-flex'; } else { a.style.display = 'none'; }
+        document.getElementById('cot-success').style.display = 'block';
+        toast('Presupuesto ' + (r.numero || '') + ' generado', 'ok');
+        _cotCargarHistorial();
+      } else {
+        toast((r && r.error) || 'No se pudo generar', 'err');
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-file-export"></i> Generar presupuesto';
+      toast('Error: ' + (e && (e.message || e)), 'err');
+    })
+    .RS_confirmarCotizacion(params);
+}
+
+function _cotNuevo() {
+  document.getElementById('cot-success').style.display = 'none';
+  document.getElementById('cot-cliente').value = '';
+  document.getElementById('cot-cliente-email').value = '';
+  document.getElementById('cot-cliente').focus();
+}
+
+function _cotCargarHistorial() {
+  var cont = document.getElementById('cot-historial');
+  cont.innerHTML = '<div style="font-size:12px;color:var(--tx-d)"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok || !r.historial || !r.historial.length) {
+        cont.innerHTML = '<div style="font-size:12px;color:var(--tx-d)">Todavía no generaste presupuestos.</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < r.historial.length; i++) {
+        var h = r.historial[i];
+        html +=
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">' +
+            '<div style="min-width:0">' +
+              '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _escHtml(h.id) + ' · ' + _escHtml(h.cliente || '—') + '</div>' +
+              '<div style="font-size:10px;color:var(--tx-d)">' + _escHtml(h.fecha) + ' · ' + h.cantItems + ' ítem(s) · ' + _fmtPedUsd(h.totalUsd) + '</div>' +
+            '</div>' +
+            (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="flex-shrink:0;font-size:11px;color:#3a9e3a;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
+          '</div>';
+      }
+      cont.innerHTML = html;
+    })
+    .withFailureHandler(function() {
+      cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Error al cargar.</div>';
+    })
+    .obtenerHistorialCotizaciones(resellerActual);
+}
+
 function _pedMostrarMain() {
   document.getElementById('ped-guard').style.display = 'none';
   document.getElementById('ped-main').style.display  = 'block';
 
-  // Modo grupo: mostrar selector de sucursal y poblar opciones
+  var esSuper = !!_superPedido;
+  var superCard = document.getElementById('ped-super-card');
+  if (superCard) superCard.style.display = esSuper ? 'block' : 'none';
+
+  // Modo grupo: mostrar selector de sucursal y poblar opciones (no aplica en modo super)
   var sucCard = document.getElementById('ped-sucursal-card');
   var sucSel  = document.getElementById('ped-suc-sel');
-  if (grupoActual && sucCard && sucSel) {
+  if (!esSuper && grupoActual && sucCard && sucSel) {
     sucCard.style.display = 'block';
     sucSel.innerHTML = '<option value="">— Seleccioná la sucursal —</option>';
     for (var rs = 0; rs < grupoActual.resellers.length; rs++) {
@@ -3920,14 +4905,100 @@ function _pedMostrarMain() {
     sucCard.style.display = 'none';
   }
 
-  _cargarHistorialPedidos();
+  // El super carga en contexto propio: sin historial/borradores de reseller.
+  if (!esSuper) {
+    _cargarHistorialPedidos();
+    _pedCargarBorradores();
+    _pedRestaurarCarrito();
+  }
   _pedCargarIndice();
-  _pedRestaurarCarrito();
-  _pedCargarBorradores();
   setTimeout(function() {
-    var inp = document.getElementById('ped-q');
+    var inp = document.getElementById(esSuper ? 'ped-super-cliente' : 'ped-q');
     if (inp) inp.focus();
   }, 80);
+}
+
+// ── Modo super-RTV: abrir carga a nombre de cliente ────────────
+function _superAbrirCarga() {
+  _superPedido = { cliente: '', email: '', dtoPct: 0 };
+  _pedDtoPct   = 0;                 // catálogo a PVP hasta que el super defina el descuento
+  _pedCart     = [];               // carrito limpio para el nuevo cliente
+  _pedRevision = null;
+  var badge = document.getElementById('badge-ped'); if (badge) badge.style.display = 'none';
+  // resetear pantallas del flujo de pedido
+  var succ = document.getElementById('ped-success');   if (succ) succ.style.display = 'none';
+  var rev  = document.getElementById('ped-review');    if (rev)  rev.style.display  = 'none';
+  var cart = document.getElementById('ped-cart-card'); if (cart) cart.style.display = 'none';
+  showTab('ped', 'tb-ped');
+  _pedMostrarMain();
+  // Poblar sugerencias de resellers en el datalist
+  var dl = document.getElementById('ped-super-reslist');
+  if (dl) {
+    dl.innerHTML = '';
+    var fuente = (_resellerLista && _resellerLista.length) ? _resellerLista : _rtvResellers;
+    for (var i = 0; i < (fuente || []).length; i++) {
+      var o = document.createElement('option'); o.value = fuente[i]; dl.appendChild(o);
+    }
+  }
+  var cli = document.getElementById('ped-super-cliente'); if (cli) cli.value = '';
+  var em  = document.getElementById('ped-super-email');   if (em)  em.value  = '';
+  var dt  = document.getElementById('ped-super-dto');     if (dt)  dt.value  = '0';
+  var dir = document.getElementById('ped-super-dir');     if (dir) dir.value = '';
+  // Estos pedidos ya vienen pagos: forma de pago por defecto "Pagado" (editable si hiciera falta)
+  var pagoSel = document.getElementById('ped-cart-pago');
+  if (pagoSel) {
+    if (!pagoSel.querySelector('option[value="Pagado"]')) {
+      var op = document.createElement('option'); op.value = 'Pagado'; op.textContent = 'Pagado ✅'; pagoSel.appendChild(op);
+    }
+    pagoSel.value = 'Pagado';
+  }
+  _superToggleEnvio();
+  _pedRenderCarrito();
+}
+
+// Muestra la dirección de envío solo en modo super y cuando Entrega = Envío (en Retiro se oculta).
+function _superToggleEnvio() {
+  var wrap = document.getElementById('ped-super-dir-wrap');
+  if (!wrap) return;
+  var envio = (document.getElementById('ped-cart-envio').value || '').trim();
+  wrap.style.display = (_superPedido && envio !== 'Retiro') ? 'block' : 'none';
+}
+
+// Al cambiar cliente/email/descuento: guardar en estado y re-precio de catálogo + carrito.
+function _superOnDatos() {
+  if (!_superPedido) return;
+  var oldPct = _pedDtoPct;
+  _superPedido.cliente = (document.getElementById('ped-super-cliente').value || '').trim();
+  _superPedido.email   = (document.getElementById('ped-super-email').value   || '').trim();
+  var d = parseInt(document.getElementById('ped-super-dto').value, 10);
+  if (isNaN(d) || d < 0) d = 0;
+  if (d > 100) d = 100;
+  _superPedido.dtoPct = d;
+  if (d !== oldPct) {
+    _superReprecioCarrito(oldPct, d);   // mantener el carrito coherente con el nuevo descuento
+    _pedDtoPct = d;
+    _pedRenderCarrito();
+    _pedCargarIndice();                 // recarga catálogo con los precios del nuevo descuento
+    var q = (document.getElementById('ped-q').value || '').trim();
+    if (q.length >= 2) _pedBuscar(true);
+  }
+}
+
+// Re-precia los ítems ya en el carrito cuando cambia el descuento global (método de ratio).
+// Los ítems fueron agregados con el factor viejo; se convierten al factor nuevo (misma base PVP).
+function _superReprecioCarrito(oldPct, newPct) {
+  var fO = (100 - oldPct) / 100, fN = (100 - newPct) / 100;
+  if (fO <= 0) return;   // 100% viejo: no se puede recuperar el PVP; se deja como está
+  for (var i = 0; i < _pedCart.length; i++) {
+    if (_pedCart[i].precio > 0) _pedCart[i].precio = Math.round(_pedCart[i].precio / fO * fN * 100) / 100;
+  }
+}
+
+// Salir del modo super y volver a la vista RTV.
+function _superVolverRTV() {
+  _superPedido = null;
+  var superCard = document.getElementById('ped-super-card'); if (superCard) superCard.style.display = 'none';
+  showTab('rtv', 'tb-rtv');
 }
 
 function _pedOnSucursalChange() {
@@ -4073,10 +5144,300 @@ function _pedLimpiarStorageCarrito() {
 function _pedSetMode(mode) {
   _pedMode = mode;
   document.getElementById('ped-mode-manual').classList.toggle('active', mode === 'manual');
+  document.getElementById('ped-mode-catalogo').classList.toggle('active', mode === 'catalogo');
   document.getElementById('ped-mode-excel').classList.toggle('active',  mode === 'excel');
   document.getElementById('ped-panel-manual').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('ped-panel-catalogo').style.display = mode === 'catalogo' ? 'block' : 'none';
   document.getElementById('ped-panel-excel').style.display  = mode === 'excel'  ? 'block' : 'none';
+  if (mode === 'catalogo' && !_catData) _catCargar();
 }
+
+// ── CATÁLOGO EXPLOTADAS (despieces DJI) ───────────────────────
+var _catData        = null;   // { modelos:[{modelo, modeloNombre, conjuntos}] }
+var _catModeloActual = null;  // el modelo elegido
+var _catConjActual  = null;
+
+function _catEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function _catCargar() {
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando catálogo…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">No se pudo cargar el catálogo.</div>'; return; }
+      // Compat: si viniera el formato viejo (un modelo), lo envolvemos
+      if (!r.modelos && r.conjuntos) r = { modelos: [{ modelo: r.modelo, modeloNombre: r.modeloNombre, conjuntos: r.conjuntos }] };
+      _catData = r;
+      _catRenderModelos();
+    })
+    .withFailureHandler(function(e) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: ' + ((e && e.message) || e) + '</div>'; })
+    .obtenerCatalogoExplotadas();
+}
+
+// Selector de modelo. Si hay uno solo, salta directo a los conjuntos.
+function _catRenderModelos() {
+  _catCerrarDetalle();
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.style.display = 'block';
+  var modelos = (_catData && _catData.modelos) || [];
+  if (!modelos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin modelos en el catálogo.</div>'; return; }
+  if (modelos.length === 1) { _catModeloActual = modelos[0]; _catRenderConjuntos(); return; }
+
+  _catModeloActual = null;
+  var h = '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:10px">Elegí el modelo del equipo</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">';
+  for (var i = 0; i < modelos.length; i++) {
+    var m = modelos[i];
+    var totC = m.conjuntos.length;
+    h += '<button onclick="_catElegirModelo(\'' + _catEsc(m.modelo) + '\')" style="text-align:left;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 14px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'var(--brd)\'">' +
+      '<div style="font-size:14px;font-weight:800;color:var(--tx)"><i class="fa fa-helicopter" style="color:var(--blue);margin-right:6px"></i>' + _catEsc(m.modeloNombre) + '</div>' +
+      '<div style="font-size:10px;color:var(--tx-d);margin-top:4px">' + totC + ' conjunto' + (totC === 1 ? '' : 's') + ' de despiece</div>' +
+    '</button>';
+  }
+  h += '</div>';
+  wrap.innerHTML = h;
+}
+
+function _catElegirModelo(modelo) {
+  var modelos = (_catData && _catData.modelos) || [];
+  for (var i = 0; i < modelos.length; i++) if (modelos[i].modelo === modelo) { _catModeloActual = modelos[i]; break; }
+  _catRenderConjuntos();
+}
+
+function _catRenderConjuntos() {
+  _catCerrarDetalle();
+  var wrap = document.getElementById('cat-conjuntos');
+  wrap.style.display = 'block';
+  if (!_catModeloActual || !_catModeloActual.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
+  var variosModelos = ((_catData && _catData.modelos) || []).length > 1;
+  var h = '';
+  if (variosModelos) h += '<button onclick="_catRenderModelos()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;padding:0 0 8px;font-weight:700"><i class="fa fa-arrow-left"></i> Cambiar modelo</button>';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--tx-m);margin-bottom:8px">' + _catEsc(_catModeloActual.modeloNombre) + ' — elegí un conjunto</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+  for (var i = 0; i < _catModeloActual.conjuntos.length; i++) {
+    var c = _catModeloActual.conjuntos[i];
+    h += '<button onclick="_catAbrir(\'' + c.id + '\')" style="text-align:left;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px;cursor:pointer" onmouseover="this.style.borderColor=\'var(--blue)\'" onmouseout="this.style.borderColor=\'var(--brd)\'">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _catEsc(c.nombre) + '</div>' +
+      '<div style="font-size:10px;color:var(--tx-d);margin-top:2px">' + c.totalItems + ' repuesto' + (c.totalItems === 1 ? '' : 's') + '</div>' +
+    '</button>';
+  }
+  h += '</div>';
+  wrap.innerHTML = h;
+}
+
+function _catAbrir(id) {
+  if (!_catModeloActual) return;
+  var c = null;
+  for (var i = 0; i < _catModeloActual.conjuntos.length; i++) if (_catModeloActual.conjuntos[i].id === id) { c = _catModeloActual.conjuntos[i]; break; }
+  if (!c) return;
+  _catConjActual = c;
+
+  var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
+  var img = c.imagenUrl
+    ? '<div style="position:relative" onmousemove="_catLens(event,this)" onmouseleave="_catLensHide(this)">' +
+        '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);cursor:crosshair;background:#fff" onerror="_catImgError(this)">' +
+        '<div class="cat-lens" style="position:absolute;width:190px;height:190px;border-radius:50%;border:3px solid rgba(255,255,255,.95);box-shadow:0 3px 16px rgba(0,0,0,.4);background-repeat:no-repeat;pointer-events:none;display:none;z-index:5"></div>' +
+        '<button onclick="_catZoomAbrir(this.parentNode.querySelector(\'img\').src)" title="Ver a pantalla completa" aria-label="Pantalla completa" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:13px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:6"><i class="fa fa-expand"></i></button>' +
+      '</div>' +
+      '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
+    : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
+
+  // Mapa SKU → registro de la lista de precios del reseller (mismo índice que "Buscar SKU")
+  var precioMap = {};
+  if (_pedIndice) {
+    for (var pi = 0; pi < _pedIndice.length; pi++) {
+      var pk = (_pedIndice[pi][0] || '').toUpperCase();
+      if (pk) precioMap[pk] = _pedIndice[pi];
+    }
+  }
+
+  var rows = '';
+  for (var j = 0; j < c.items.length; j++) {
+    var it = c.items[j];
+    var tieneSku = !!(it.sku && it.sku.length);
+    var reg      = tieneSku ? precioMap[it.sku.toUpperCase()] : null;
+    var precio   = reg ? (Number(reg[4]) || 0) : 0;
+    var precioHtml = !tieneSku
+      ? '<span style="color:var(--tx-d)">—</span>'
+      : (precio > 0
+          ? '<span style="font-weight:700;color:var(--tx)">' + _fmtPedUsd(precio) + '</span>'
+          : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
+    var accion = tieneSku
+      ? '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">' +
+          '<input type="number" min="1" value="1" class="cat-qty" style="width:52px;text-align:center;padding:3px;border:1px solid var(--brd);border-radius:var(--r);font-size:12px">' +
+          '<button onclick="_catAgregar(this,\'' + _catEsc(it.sku) + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:var(--r);padding:4px 9px;font-size:11px;cursor:pointer;font-weight:700"><i class="fa fa-plus"></i></button>' +
+        '</div>'
+      : '<span style="font-size:10px;color:var(--tx-d)">ver otro conjunto</span>';
+    rows += '<tr style="border-bottom:1px solid var(--brd)' + (tieneSku ? '' : ';opacity:.55') + '">' +
+      '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
+      '<td style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _catEsc(it.sku || '—') + '</td>' +
+      '<td style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(it.nombre) + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px">' + precioHtml + '</td>' +
+      '<td style="padding:5px 8px">' + accion + '</td>' +
+    '</tr>';
+  }
+
+  var thSt = 'position:sticky;top:0;background:var(--surf);padding:7px 8px;font-size:10px;z-index:1;';
+  document.getElementById('cat-modal-title').textContent = c.nombre + ' — ' + _catModeloActual.modeloNombre;
+  document.getElementById('cat-modal-body').innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
+      // Columna izquierda: imagen (queda fija mientras la lista scrollea)
+      '<div style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
+      // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
+      '<div style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+        '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+          '<th style="' + thSt + 'text-align:center">N°</th>' +
+          '<th style="' + thSt + 'text-align:left">SKU</th>' +
+          '<th style="' + thSt + 'text-align:left">Repuesto</th>' +
+          '<th style="' + thSt + 'text-align:right">Precio</th>' +
+          '<th style="' + thSt + 'text-align:right">Agregar</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('cat-modal').style.display = 'block';
+}
+
+function _catCerrarDetalle() {
+  var m = document.getElementById('cat-modal');
+  if (m) m.style.display = 'none';
+}
+
+function _catAgregar(btn, sku) {
+  sku = String(sku || '').trim();
+  if (!sku) return;
+  var qty = 1;
+  try { var inp = btn.parentNode.querySelector('.cat-qty'); if (inp) qty = parseInt(inp.value) || 1; } catch(e) {}
+  var qEl = document.getElementById('ped-qty'); if (qEl) qEl.value = qty; // el carrito lee la cantidad de #ped-qty
+
+  // Buscar el SKU en el índice (mismo que "Buscar SKU") → precio/estado/kits/sustitución reales
+  var found = null;
+  if (_pedIndice) {
+    var up = sku.toUpperCase();
+    for (var i = 0; i < _pedIndice.length; i++) {
+      if ((_pedIndice[i][0] || '').toUpperCase() === up) { found = _pedIndice[i]; break; }
+    }
+  }
+  if (found) {
+    _pedAgregarItem(found[0], found[1], _pedEstMap[found[3]] || 'consultar_Backorder', found[4] || 0, found[2] || '',
+                    (found[5] !== undefined && found[5] >= 0) ? found[5] : undefined, found[7] || '');
+  } else {
+    // No está en la lista de precios → "a consultar" pero agregable
+    var nombre = sku;
+    if (_catConjActual) { for (var j = 0; j < _catConjActual.items.length; j++) { if (_catConjActual.items[j].sku === sku) { nombre = _catConjActual.items[j].nombre || sku; break; } } }
+    _pedAgregarItem(sku, nombre, 'consultar_Backorder', 0, '', undefined, '');
+  }
+}
+
+// Fallback de imagen: lh3 → thumbnail de Drive → mensaje de error
+function _catImgError(img) {
+  var thumb = img.getAttribute('data-thumb') || '';
+  if (thumb && img.src.indexOf('drive.google.com/thumbnail') === -1) {
+    img.src = thumb; // segundo intento con el otro formato incrustable
+    return;
+  }
+  // La imagen está dentro de un contenedor relativo; el mensaje de error es el hermano de ese contenedor
+  var cont = img.parentNode;
+  cont.style.display = 'none';
+  if (cont.nextElementSibling) cont.nextElementSibling.style.display = 'block';
+}
+
+// ── LUPA que sigue al cursor sobre la imagen (magnifier lens) ──
+var _CAT_LENS_ZOOM = 2.6;   // factor de aumento
+function _catLensHide(wrap) {
+  var l = wrap.querySelector('.cat-lens');
+  if (l) l.style.display = 'none';
+}
+function _catLens(e, wrap) {
+  var l   = wrap.querySelector('.cat-lens');
+  var img = wrap.querySelector('img');
+  if (!l || !img || !img.src || !img.naturalWidth) return;
+  var r  = img.getBoundingClientRect();
+  var x  = e.clientX - r.left, y = e.clientY - r.top;
+  // Rect real de la imagen dentro del box (object-fit:contain → puede haber bandas)
+  var scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+  var dispW = img.naturalWidth * scale, dispH = img.naturalHeight * scale;
+  var offX  = (r.width - dispW) / 2,    offY  = (r.height - dispH) / 2;
+  var ix = x - offX, iy = y - offY;         // cursor relativo a la imagen visible
+  if (ix < 0 || iy < 0 || ix > dispW || iy > dispH) { l.style.display = 'none'; return; }
+
+  var lens = l.offsetWidth || 190;
+  var z    = _CAT_LENS_ZOOM;
+  // Centrar el lente en el cursor, sin salirse del box de la imagen
+  var lx = Math.max(0, Math.min(r.width  - lens, x - lens / 2));
+  var ly = Math.max(0, Math.min(r.height - lens, y - lens / 2));
+  l.style.display         = 'block';
+  l.style.left            = lx + 'px';
+  l.style.top             = ly + 'px';
+  l.style.backgroundImage = 'url("' + img.src + '")';
+  l.style.backgroundSize  = (dispW * z) + 'px ' + (dispH * z) + 'px';
+  // Fórmula general: el punto (ix,iy) aparece bajo el cursor dentro del lente
+  l.style.backgroundPosition = ((x - lx) - ix * z) + 'px ' + ((y - ly) - iy * z) + 'px';
+}
+
+// ── ZOOM del despiece (lightbox con rueda + arrastre) ─────────
+var _czScale = 1, _czX = 0, _czY = 0, _czDrag = false, _czSX = 0, _czSY = 0;
+
+function _catZoomAbrir(src) {
+  if (!src) return;
+  var ov = document.getElementById('cat-zoom');
+  document.getElementById('cat-zoom-img').src = src;
+  _czReset();
+  ov.style.display = 'block';
+}
+function _catZoomCerrar() { document.getElementById('cat-zoom').style.display = 'none'; }
+function _czReset() { _czScale = 1; _czX = 0; _czY = 0; _czApply(); }
+function _catZoomReset() { _czReset(); }
+function _czApply() {
+  var im = document.getElementById('cat-zoom-img');
+  im.style.transform = 'translate(-50%,-50%) translate(' + _czX + 'px,' + _czY + 'px) scale(' + _czScale + ')';
+  im.style.cursor = _czScale > 1 ? 'grab' : 'zoom-in';
+  var lvl = document.getElementById('cat-zoom-lvl');
+  if (lvl) lvl.textContent = Math.round(_czScale * 100) + '%';
+}
+function _czSetScale(ns) {
+  ns = Math.max(1, Math.min(7, ns));
+  if (ns === 1) { _czX = 0; _czY = 0; }
+  _czScale = ns;
+  _czApply();
+}
+function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
+
+(function _czInit() {
+  function ready(fn) { if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+  ready(function () {
+    var ov = document.getElementById('cat-zoom');
+    var im = document.getElementById('cat-zoom-img');
+    if (!ov || !im) return;
+    // rueda = zoom
+    ov.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      _czSetScale(_czScale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+    }, { passive: false });
+    // arrastrar = mover (solo con zoom)
+    im.addEventListener('mousedown', function (e) {
+      if (_czScale <= 1) return;
+      e.preventDefault(); _czDrag = true; _czSX = e.clientX - _czX; _czSY = e.clientY - _czY; im.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!_czDrag) return;
+      _czX = e.clientX - _czSX; _czY = e.clientY - _czSY; _czApply();
+    });
+    window.addEventListener('mouseup', function () { if (_czDrag) { _czDrag = false; _czApply(); } });
+    // doble clic = alternar zoom
+    im.addEventListener('dblclick', function (e) { e.preventDefault(); _czSetScale(_czScale > 1 ? 1 : 2.4); });
+    // clic en el fondo del zoom = cerrar zoom
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) _catZoomCerrar(); });
+    // clic en el fondo del modal de detalle = cerrar detalle
+    var modal = document.getElementById('cat-modal');
+    if (modal) modal.addEventListener('mousedown', function (e) { if (e.target === modal) _catCerrarDetalle(); });
+    // Esc: primero cierra el zoom; si no hay zoom, cierra el modal
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (ov.style.display === 'block') { _catZoomCerrar(); }
+      else if (modal && modal.style.display === 'block') { _catCerrarDetalle(); }
+    });
+  });
+})();
 
 function _pedBuscar(immediate) {
   clearTimeout(_pedBusTimer);
@@ -4108,7 +5469,7 @@ function _pedBuscar(immediate) {
         if (seq !== _pedBusSeq) return;
         _pedRenderResultados(r);
       })
-      .buscarRepuestoConStockPortal(q);
+      .buscarRepuestoConStockPortal(q, _pedCtxReseller(), _pedDtoOverride());
   }, delay);
 }
 
@@ -4119,6 +5480,7 @@ function _pedCargarIndice() {
   google.script.run
     .withSuccessHandler(function(r) {
       _pedIndice = (r && r.ok && r.items) ? r.items : [];
+      if (r && typeof r.descuentoPct === 'number') _pedDtoPct = r.descuentoPct;
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
@@ -4127,7 +5489,12 @@ function _pedCargarIndice() {
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
-    .obtenerIndiceRepuestosPortal();
+    .obtenerIndiceRepuestosPortal(_pedCtxReseller(), _pedDtoOverride());
+  // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
+  google.script.run
+    .withSuccessHandler(function(r) { _pedKits = (r && r.ok && r.kits) ? r.kits : {}; })
+    .withFailureHandler(function() { _pedKits = {}; })
+    .obtenerKitsPortal();
 }
 
 function _pedBuscarLocal(q) {
@@ -4176,7 +5543,7 @@ function _pedRenderResultados(r) {
     var descE = _escHtml(it.descripcion);
     var modE  = _escHtml(it.modelos || '');
     // data-attributes evitan problemas con comillas/caracteres especiales en onclick
-    var pvpDisp    = it.precio > 0 ? Math.round(it.precio / 0.60 * 100) / 100 : 0;
+    var pvpDisp    = _pedPvpDesde(it.precio);
     var stkActual  = (it.stockActual !== null && it.stockActual !== undefined) ? it.stockActual : -1;
     var remplzE    = _escHtml(it.reemplazadoPor || '');
     html +=
@@ -4186,12 +5553,13 @@ function _pedRenderResultados(r) {
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
           (it.descripcionEs && it.descripcionEs !== it.descripcion ? '<div style="font-size:10px;color:var(--tx-d);margin-top:1px">' + _escHtml(it.descripcionEs) + '</div>' : '') +
           (remplzE ? '<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px"><i class="fa fa-arrow-right"></i> Reemplazado por ' + remplzE + '</div>' : '') +
+          (_pedKits[it.sku.toUpperCase()] ? '<div style="font-size:10px;color:#5c5fc0;font-weight:600;margin-top:2px"><i class="fa fa-boxes-stacked"></i> Se pedirá como ' + _escHtml(_pedKits[it.sku.toUpperCase()].map(function(c){return c.sku;}).join(' + ')) + '</div>' : '') +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
-          (pvpDisp > 0 ?
+          (it.precio > 0 ?
             '<div style="text-align:right;line-height:1.2">' +
-              '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(pvpDisp) + '</div>' +
-              '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">-40% ' + _fmtPedUsd(it.precio) + '</div>' +
+              (_pedTieneDto() ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(pvpDisp) + '</div>' : '') +
+              '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">' + (_pedTieneDto() ? '-' + _pedDtoPct + '% ' : '') + _fmtPedUsd(it.precio) + '</div>' +
             '</div>'
           : '') +
           '<span class="rep-add-btn"><i class="fa fa-plus"></i></span>' +
@@ -4276,6 +5644,48 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
         break;
       }
     }
+  }
+
+  // Explosión de kit: si el SKU es un kit (C = A + B), agregar los componentes en vez del kit,
+  // en la misma proporción — así el reseller ve en el carrito lo que efectivamente va a pedir.
+  var kitComps = _pedKits[String(sku).toUpperCase()];
+  if (kitComps && kitComps.length) {
+    var agregados = [];
+    for (var kc = 0; kc < kitComps.length; kc++) {
+      var compSku = String(kitComps[kc].sku || '').trim();
+      if (!compSku) continue;
+      var compQty = qty * (kitComps[kc].cantidadPorKit || 1);
+      // Datos del componente desde el índice (desc, precio, stock, estado)
+      var cDesc = compSku, cEst = 'consultar_Backorder', cPrec = 0, cMod = '', cStk = null, cRem = '';
+      if (_pedIndice) {
+        var cUp = compSku.toUpperCase();
+        for (var ci = 0; ci < _pedIndice.length; ci++) {
+          if ((_pedIndice[ci][0] || '').toUpperCase() === cUp) {
+            var cix = _pedIndice[ci];
+            cDesc = cix[1] || compSku;
+            cEst  = _pedEstMap[cix[3]] || 'consultar_Backorder';
+            cPrec = cix[4] || 0;
+            cMod  = cix[2] || '';
+            cStk  = (cix[5] !== undefined && cix[5] >= 0) ? cix[5] : null;
+            cRem  = cix[7] || '';
+            break;
+          }
+        }
+      }
+      var mergedC = false;
+      for (var mi = 0; mi < _pedCart.length; mi++) {
+        if (_pedCart[mi].sku === compSku) { _pedCart[mi].cantidad += compQty; mergedC = true; break; }
+      }
+      if (!mergedC) {
+        _pedCart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem });
+      }
+      agregados.push(compSku);
+    }
+    _pedRenderCarrito();
+    _pedLimpiarBusqueda();
+    toast(sku + ' → ' + agregados.join(' + ') + ' (kit)', 'inf');
+    document.getElementById('ped-q').focus();
+    return;
   }
 
   for (var i = 0; i < _pedCart.length; i++) {
@@ -4379,7 +5789,7 @@ function _pedRenderCarrito() {
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;line-height:1.2">' +
           (p > 0 ?
-            '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(Math.round(p/0.60*100)/100) + '</div>' +
+            (_pedTieneDto() ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(_pedPvpDesde(p)) + '</div>' : '') +
             '<div style="font-size:11px;font-weight:700;color:var(--green);white-space:nowrap">' + _fmtPedUsd(p) + '</div>'
           : '—') +
         '</div>' +
@@ -4397,12 +5807,14 @@ function _pedRenderCarrito() {
   if (total > 0) {
     html +=
       '<div style="padding:10px 13px;background:var(--surf);display:flex;flex-direction:column;align-items:flex-end;gap:3px">' +
+        (_pedTieneDto() ?
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<span style="font-size:10px;color:var(--tx-d)">PVP estimado:</span>' +
+            '<span style="font-size:12px;color:var(--tx-d);text-decoration:line-through;font-weight:600">' + _fmtPedUsd(_pedPvpDesde(total)) + '</span>' +
+          '</div>'
+        : '') +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="font-size:10px;color:var(--tx-d)">PVP estimado:</span>' +
-          '<span style="font-size:12px;color:var(--tx-d);text-decoration:line-through;font-weight:600">' + _fmtPedUsd(Math.round(total/0.60*100)/100) + '</span>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="font-size:11px;color:var(--tx-m)">Tu precio <span style="font-size:10px;font-weight:700;color:var(--green)">(-40%)</span>:</span>' +
+          '<span style="font-size:11px;color:var(--tx-m)">Tu precio ' + (_pedTieneDto() ? '<span style="font-size:10px;font-weight:700;color:var(--green)">(-' + _pedDtoPct + '%)</span> ' : '') + ':</span>' +
           '<span style="font-size:16px;font-weight:800;color:var(--blue)">' + _fmtPedUsd(total) + '</span>' +
         '</div>' +
         '<div style="font-size:9px;color:var(--tx-d);margin-top:2px">Precios expresados no incluyen impuestos</div>' +
@@ -4488,24 +5900,41 @@ function _pedCargarExcel(file) {
 
 function _pedGenerarPedido() {
   if (!_pedCart.length) { toast('El carrito está vacío', 'err'); return; }
-  if (!resellerActual)  { toast('No estás identificado', 'err'); return; }
+  if (_superPedido && !_superPedido.cliente) { toast('Indicá el cliente antes de confirmar', 'err'); document.getElementById('ped-super-cliente').focus(); return; }
+  if (!_pedCtxReseller()) { toast('No estás identificado', 'err'); return; }
   var _envioVal = (document.getElementById('ped-cart-envio').value || '').trim();
-  if (_envioVal !== 'Retiro' && _perfilCache && !_perfilCache.direccion) {
+  // La validación de dirección aplica al perfil del reseller; en modo super no hay perfil.
+  if (!_superPedido && _envioVal !== 'Retiro' && _perfilCache && !_perfilCache.direccion) {
     abrirPerfil();
     setTimeout(function(){ toast('Completá tu dirección de entrega antes de generar un pedido', 'err'); }, 300);
     return;
   }
   var pagoVal = (document.getElementById('ped-cart-pago').value || '').trim();
+  if (_superPedido && !pagoVal) pagoVal = 'Pagado';   // pedidos del super ya vienen pagos
   if (!pagoVal) { toast('Seleccioná una forma de pago antes de confirmar el pedido', 'err'); return; }
+
+  // Modo super: si es Envío, la dirección es obligatoria (el cliente externo no tiene perfil)
+  var _dirSuper = '';
+  if (_superPedido && _envioVal !== 'Retiro') {
+    _dirSuper = (document.getElementById('ped-super-dir').value || '').trim();
+    if (!_dirSuper) { toast('Ingresá la dirección de envío (o elegí Retiro)', 'err'); document.getElementById('ped-super-dir').focus(); return; }
+  }
 
   _pedUltimosItems = _pedCart.slice();
   var params = {
-    reseller:      resellerActual,
+    reseller:      _pedCtxReseller(),
     items:         _pedCart.slice(),
     observaciones: (document.getElementById('ped-obs').value || '').trim(),
     formaPago:     pagoVal,
     envio:         (document.getElementById('ped-cart-envio').value || '').trim()
   };
+  if (_superPedido) {
+    params.modoSuper     = true;
+    params.cliente       = _superPedido.cliente;
+    params.emailCliente  = _superPedido.email;
+    params.descuentoPct  = _superPedido.dtoPct;
+    params.direccionEnvio = _dirSuper;
+  }
 
   _pedMostrarCargando();
   google.script.run
@@ -4587,9 +6016,9 @@ function _pedRenderRevision() {
       var entry = g.items[j];
       var it2   = entry.it;
       var exc2  = entry.exc;
-      var pvp2   = it2.precio > 0 ? Math.round(it2.precio / 0.60 * 100) / 100 : 0;
+      var pvp2   = _pedPvpDesde(it2.precio);
       var sub    = it2.precio > 0 ? _fmtPedUsd(it2.precio * it2.cantidad) : '—';
-      var subPvp = pvp2 > 0 ? _fmtPedUsd(pvp2 * it2.cantidad) : '';
+      var subPvp = (_pedTieneDto() && pvp2 > 0) ? _fmtPedUsd(pvp2 * it2.cantidad) : '';
       html +=
         '<div style="display:flex;align-items:center;padding:9px 14px;gap:8px;font-size:12px;border-bottom:1px solid var(--brd);' + (exc2 ? 'opacity:.38;text-decoration:line-through' : '') + '">' +
           '<div style="flex:0 0 130px;font-family:monospace;font-size:11px;font-weight:700;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _escHtml(it2.sku || '—') + '</div>' +
@@ -4629,13 +6058,29 @@ function _pedCancelarRevision() {
 }
 
 // ── Estado RTV ────────────────────────────────────────────────
-var _rtvEmail     = '';
-var _rtvResellers = [];
-var _rtvTodos     = [];   // todos los pedidos cargados (cache para filtro local)
+var _rtvEmail        = '';
+var _rtvResellers    = [];
+var _rtvTodos        = [];   // todos los pedidos cargados (cache para filtro local)
+var _rtvOrdenesTodos = [];   // todas las órdenes cargadas (cache para filtro local)
+var _rtvSubTab       = 'pedidos';
+var _rtvResellerRtv  = {};     // { nombreReseller → emailRTV } — para el filtro por RTV del super
+var _rtvSelRtv       = '';     // RTV elegido en el selector ('' = todos, '__none__' = sin RTV)
+var _rtvEntryLoading = false;  // overlay de carga activo durante el ingreso del RTV
+var _rtvLoadingSteps = [
+  { pct: 22, msg: 'Verificando tu acceso RTV...',            icon: 'fa-user-shield' },
+  { pct: 55, msg: 'Cargando pedidos de tus resellers...',   icon: 'fa-box-open' },
+  { pct: 82, msg: 'Calculando cumplimiento por pedido...',  icon: 'fa-chart-line' }
+];
+// Oculta el overlay de ingreso una vez que terminó la carga de pedidos (la subvista visible).
+function _rtvOcultarEntryLoading() {
+  if (_rtvEntryLoading) { _rtvEntryLoading = false; _pedOcultarCargando(); }
+}
 
 function _iniciarSesionRTV(res) {
-  _rtvEmail     = res.email || '';
-  _rtvResellers = res.resellers || [];
+  _rtvEmail       = res.email || '';
+  _rtvResellers   = res.resellers || [];
+  _rtvResellerRtv = res.resellerRtv || {};
+  _rtvSelRtv      = '';
 
   // Badge en header
   document.getElementById('header-rtv-nombre').textContent = _rtvEmail;
@@ -4646,19 +6091,183 @@ function _iniciarSesionRTV(res) {
   var tbRtv = document.getElementById('tb-rtv');
   if (tbRtv) tbRtv.style.display = '';
 
-  // Poblar filtro de resellers
-  var sel = document.getElementById('rtv-sel-reseller');
-  if (sel) {
-    sel.innerHTML = '<option value="">Todos (' + _rtvResellers.length + ')</option>';
-    for (var i = 0; i < _rtvResellers.length; i++) {
-      var o = document.createElement('option');
-      o.value = _rtvResellers[i]; o.textContent = _rtvResellers[i];
-      sel.appendChild(o);
-    }
-  }
+  // El RTV solo opera su vista: ocultar las pestañas del reseller (requieren PIN / contexto de reseller)
+  ['tb-nueva','tb-dash','tb-ped','tb-cot','tb-camp','tb-msg'].forEach(function(id){
+    var b = document.getElementById(id); if (b) b.style.display = 'none';
+  });
 
+  // Selector de RTV + botón "Cargar pedido": solo para el super (ve varios RTV); el RTV normal ve solo lo suyo
+  var grpRtv = document.getElementById('rtv-filtro-rtv');
+  if (grpRtv) grpRtv.style.display = res.esSuper ? 'flex' : 'none';
+  var btnCargar = document.getElementById('rtv-btn-cargar');
+  if (btnCargar) btnCargar.style.display = res.esSuper ? 'inline-flex' : 'none';
+  if (res.esSuper) _rtvPoblarSelRtv();
+
+  _rtvPoblarSelReseller('');   // reseller sub-selector (todos)
+
+  _rtvSubTab = 'pedidos';
   showTab('rtv', 'tb-rtv');
+  _rtvEntryLoading = true;
+  _pedMostrarCargando(_rtvLoadingSteps);   // ventana de carga durante el ingreso
+  _rtvActualizar();
+}
+
+// Refresca ambas vistas del RTV (pedidos + órdenes)
+function _rtvActualizar() {
   _rtvCargar();
+  _rtvCargarOrdenes();
+}
+
+// Alterna entre las subvistas "Pedidos" y "Órdenes"
+function _rtvSwitchTab(t) {
+  _rtvSubTab = t;
+  var bP = document.getElementById('rtv-tab-ped');
+  var bO = document.getElementById('rtv-tab-ord');
+  var pedOn = (t === 'pedidos');
+  if (bP) { bP.style.background = pedOn ? '#7c3aed' : 'transparent'; bP.style.color = pedOn ? '#fff' : 'var(--tx-m)'; }
+  if (bO) { bO.style.background = pedOn ? 'transparent' : '#7c3aed'; bO.style.color = pedOn ? 'var(--tx-m)' : '#fff'; }
+  document.getElementById('rtv-pedidos-wrap').style.display = pedOn ? 'block' : 'none';
+  document.getElementById('rtv-ordenes-wrap').style.display = pedOn ? 'none' : 'block';
+  _rtvOnFiltro();
+}
+
+// El filtro de reseller aplica a la subvista activa
+function _rtvOnFiltro() {
+  if (_rtvSubTab === 'pedidos') _rtvFiltrar();
+  else _rtvFiltrarOrdenes();
+}
+
+// Puebla el selector de RTV (solo super) con los RTV distintos y su conteo de resellers.
+function _rtvPoblarSelRtv() {
+  var sel = document.getElementById('rtv-sel-rtv');
+  if (!sel) return;
+  var counts = {}, sinRtv = 0;
+  for (var nombre in _rtvResellerRtv) {
+    var e = _rtvResellerRtv[nombre] || '';
+    if (!e) { sinRtv++; continue; }
+    counts[e] = (counts[e] || 0) + 1;
+  }
+  var emails = Object.keys(counts).sort();
+  var html = '<option value="">Todos los RTV (' + _rtvResellers.length + ')</option>';
+  for (var i = 0; i < emails.length; i++) {
+    html += '<option value="' + _escHtml(emails[i]) + '">' + _escHtml(emails[i]) + ' (' + counts[emails[i]] + ')</option>';
+  }
+  if (sinRtv) html += '<option value="__none__">Sin RTV asignado (' + sinRtv + ')</option>';
+  sel.innerHTML = html;
+}
+
+// Puebla el selector de reseller, opcionalmente acotado al RTV elegido.
+function _rtvPoblarSelReseller(rtvFiltro) {
+  var sel = document.getElementById('rtv-sel-reseller');
+  if (!sel) return;
+  var lista = [];
+  for (var i = 0; i < _rtvResellers.length; i++) {
+    var nombre = _rtvResellers[i];
+    if (rtvFiltro && !_rtvResellerCoincide(nombre, rtvFiltro)) continue;
+    lista.push(nombre);
+  }
+  lista.sort();
+  var html = '<option value="">Todos (' + lista.length + ')</option>';
+  for (var j = 0; j < lista.length; j++) {
+    html += '<option value="' + _escHtml(lista[j]) + '">' + _escHtml(lista[j]) + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+// ¿El reseller pertenece al RTV filtrado? ('' = cualquiera; '__none__' = sin RTV asignado)
+function _rtvResellerCoincide(nombre, rtvFiltro) {
+  if (!rtvFiltro) return true;
+  var e = _rtvResellerRtv[nombre] || '';
+  return (rtvFiltro === '__none__') ? (e === '') : (e === rtvFiltro);
+}
+
+// Al cambiar el RTV: acota el sub-selector de resellers a ese RTV y re-filtra.
+function _rtvOnFiltroRTV() {
+  var sel = document.getElementById('rtv-sel-rtv');
+  _rtvSelRtv = sel ? (sel.value || '') : '';
+  _rtvPoblarSelReseller(_rtvSelRtv);
+  _rtvOnFiltro();
+}
+
+// Aplica ambos filtros (RTV + reseller) a una lista de pedidos/órdenes.
+function _rtvAplicarFiltros(arr) {
+  var selR = document.getElementById('rtv-sel-reseller');
+  var fReseller = selR ? (selR.value || '') : '';
+  return (arr || []).filter(function(x) {
+    if (fReseller && x.reseller !== fReseller) return false;
+    if (_rtvSelRtv && !_rtvResellerCoincide(x.reseller, _rtvSelRtv)) return false;
+    return true;
+  });
+}
+
+function _rtvCargarOrdenes() {
+  var wrap = document.getElementById('rtv-ordenes-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--tx-d)"><i class="fa fa-spinner fa-spin" style="font-size:20px;display:block;margin-bottom:10px;opacity:.4"></i>Cargando órdenes...</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _rtvOrdenesTodos = (r && r.ok && r.ordenes) ? r.ordenes : [];
+      var cnt = document.getElementById('rtv-cnt-ord');
+      if (cnt) cnt.textContent = _rtvOrdenesTodos.length;
+      if (_rtvSubTab === 'ordenes') _rtvFiltrarOrdenes();
+    })
+    .withFailureHandler(function() {
+      wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">Error al cargar órdenes.</div>';
+    })
+    .obtenerOrdenesRTV();
+}
+
+function _rtvFiltrarOrdenes() {
+  var lista = _rtvAplicarFiltros(_rtvOrdenesTodos);
+  var countEl = document.getElementById('rtv-count');
+  if (countEl) countEl.textContent = lista.length + ' orden(es)';
+  _rtvRenderOrdenes(lista);
+}
+
+function _rtvEstadoColorOrden(estado) {
+  var e = String(estado || '');
+  if (e === 'Finalizado' || e === 'Entregado')      return { bg: 'rgba(26,158,74,.1)',  color: '#14713a' };
+  if (e === 'CANCELADO'  || e === 'Rechazado DJI')  return { bg: 'rgba(214,48,49,.08)', color: '#b02020' };
+  return { bg: 'rgba(0,163,224,.08)', color: '#006fa0' };
+}
+
+function _rtvRenderOrdenes(ordenes) {
+  var wrap = document.getElementById('rtv-ordenes-wrap');
+  if (!wrap) return;
+  if (!ordenes.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:36px 20px;color:var(--tx-d);font-size:13px">' +
+      '<i class="fa fa-screwdriver-wrench" style="font-size:26px;display:block;margin-bottom:10px;opacity:.3"></i>No hay órdenes para mostrar.</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < ordenes.length; i++) {
+    var o  = ordenes[i];
+    var ec = _rtvEstadoColorOrden(o.estado);
+    html +=
+      '<div class="dji-card" style="margin-bottom:8px">' +
+        '<div class="dji-card-body" style="padding:12px 15px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">' +
+            '<div style="min-width:0;flex:1">' +
+              '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+                '<span style="font-weight:700;color:var(--tx);font-size:14px">' + _escHtml(o.ot) + '</span>' +
+                (o.prioridad ? '<span style="font-size:9px;font-weight:700;color:#fff;background:var(--red);padding:1px 6px;border-radius:20px">URGENTE</span>' : '') +
+                (o.garantia ? '<span style="font-size:9px;font-weight:700;color:var(--tx-m);background:var(--raise);padding:1px 6px;border-radius:20px">' + _escHtml(o.garantia) + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--tx-m);margin-top:3px">' + _escHtml(o.equipo) + (o.sn ? ' · SN ' + _escHtml(o.sn) : '') + '</div>' +
+              '<div style="font-size:11px;color:var(--tx-d);margin-top:2px">' +
+                '<i class="fa fa-user-tie" style="opacity:.6"></i> ' + _escHtml(o.reseller) +
+                (o.cliente ? ' &nbsp;·&nbsp; Cliente: ' + _escHtml(o.cliente) : '') +
+              '</div>' +
+            '</div>' +
+            '<div style="text-align:right;flex-shrink:0">' +
+              '<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:' + ec.bg + ';color:' + ec.color + '">' + _escHtml(o.estado || '—') + '</span>' +
+              '<div style="font-size:10px;color:var(--tx-d);margin-top:4px">' + (o.cerrada ? ('Cerrada ' + _escHtml(o.fechaCierre)) : (_escHtml(o.fechaIngreso) + ' · ' + o.dias + 'd')) + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+  wrap.innerHTML = html;
 }
 
 function _rtvCargar() {
@@ -4669,20 +6278,20 @@ function _rtvCargar() {
   google.script.run
     .withSuccessHandler(function(r) {
       _rtvTodos = (r && r.ok && r.pedidos) ? r.pedidos : [];
-      _rtvFiltrar();
+      var cnt = document.getElementById('rtv-cnt-ped');
+      if (cnt) cnt.textContent = _rtvTodos.length;
+      if (_rtvSubTab === 'pedidos') _rtvFiltrar();
+      _rtvOcultarEntryLoading();
     })
     .withFailureHandler(function() {
       wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">Error al cargar pedidos.</div>';
+      _rtvOcultarEntryLoading();
     })
     .obtenerPedidosRTV();
 }
 
 function _rtvFiltrar() {
-  var sel    = document.getElementById('rtv-sel-reseller');
-  var filtro = sel ? (sel.value || '') : '';
-  var lista  = filtro
-    ? _rtvTodos.filter(function(p) { return p.reseller === filtro; })
-    : _rtvTodos;
+  var lista = _rtvAplicarFiltros(_rtvTodos);
   var countEl = document.getElementById('rtv-count');
   if (countEl) countEl.textContent = lista.length + ' pedido(s)';
   _rtvRenderPedidos(lista);
@@ -4702,7 +6311,7 @@ function _rtvRenderPedidos(pedidos) {
     'Entregado':   { bg:'rgba(26,158,74,.12)',  color:'#1a9e4a' },
     'Cancelado':   { bg:'rgba(214,48,49,.1)',   color:'#d63031' }
   };
-  var html = '<div class="dji-card" style="padding:0;overflow:hidden">';
+  var html = _rtvResumenHTML(pedidos) + '<div class="dji-card" style="padding:0;overflow:hidden">';
   for (var i = 0; i < pedidos.length; i++) {
     var p   = pedidos[i];
     var est = estadoColor[p.estado] || { bg:'var(--raise)', color:'var(--tx-m)' };
@@ -4714,6 +6323,7 @@ function _rtvRenderPedidos(pedidos) {
           '<span style="font-size:11px;font-weight:700;color:var(--tx);flex:1;min-width:120px">' + _escHtml(p.reseller) + '</span>' +
           '<span style="font-size:11px;color:var(--tx-d);white-space:nowrap">' + _escHtml(p.fecha) + '</span>' +
           '<span style="font-size:11px;color:var(--tx-m);white-space:nowrap">' + p.cantItems + ' ítem(s)</span>' +
+          _rtvCumplBar(p.cumplimiento) +
           '<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:' + est.bg + ';color:' + est.color + ';white-space:nowrap">' + _escHtml(p.estado) + '</span>' +
           (p.total > 0 ? '<span style="font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap">' + _fmtPedUsd(p.total) + '</span>' : '') +
           (p.pdfUrl ? '<a href="' + _escHtml(p.pdfUrl) + '" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--red);font-weight:600;text-decoration:none;white-space:nowrap"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
@@ -4726,6 +6336,68 @@ function _rtvRenderPedidos(pedidos) {
   }
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+// Resumen general (arriba de la lista): cumplimiento ponderado por unidades + conteo de estados.
+// Recalcula sobre la lista visible → respeta el filtro por reseller.
+function _rtvResumenHTML(pedidos) {
+  var totEnt = 0, totBase = 0, comp = 0, parc = 0, pend = 0, canc = 0, sinD = 0;
+  for (var i = 0; i < pedidos.length; i++) {
+    var c = pedidos[i].cumplimiento;
+    if (!c || !c.tieneDatos) { sinD++; continue; }
+    if (c.anulado)           { canc++; continue; }  // cancelado: fuera del % y de "pendientes"
+    if (c.entregado <= 0)    { pend++; continue; }  // pendiente (sin entregas aún): no definido → fuera del %
+    // parcial o completo: es lo único que cuenta para el % general
+    totEnt  += c.entregado;
+    totBase += (c.solicitado - c.cancelado);
+    if (c.porcentaje >= 100) comp++;
+    else                     parc++;
+  }
+  var pct = totBase > 0 ? Math.round(totEnt / totBase * 100) : 0;
+  var col = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
+  var pendU = totBase - totEnt; if (pendU < 0) pendU = 0;
+  return '<div class="dji-card" style="padding:14px 16px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:190px">' +
+          '<div style="font-size:11px;color:var(--tx-d);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Cumplimiento general</div>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="flex:1;height:11px;background:var(--brd);border-radius:6px;overflow:hidden;min-width:120px"><div style="width:' + pct + '%;height:100%;background:' + col + '"></div></div>' +
+            '<span style="font-size:20px;font-weight:800;color:' + col + '">' + pct + '%</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--tx-m);margin-top:5px"><strong style="color:#1a9e4a">' + totEnt + '</strong> entregadas · <strong style="color:' + (pendU > 0 ? '#d63031' : 'var(--tx-m)') + '">' + pendU + '</strong> pendientes <span style="color:var(--tx-d)">(de ' + totBase + ' u.)</span></div>' +
+          (pend > 0 ? '<div style="font-size:10px;color:var(--tx-d);margin-top:3px"><i class="fa fa-circle-info" style="margin-right:3px"></i>El % excluye ' + pend + ' pedido(s) aún sin entregas (no definidos)</div>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          _rtvChip(comp, 'completos', '#1a9e4a') +
+          _rtvChip(parc, 'parciales', '#e67e22') +
+          _rtvChip(pend, 'pendientes', '#d63031') +
+          (canc ? _rtvChip(canc, 'cancelados', 'var(--tx-d)') : '') +
+          (sinD ? _rtvChip(sinD, 'sin datos', 'var(--tx-d)') : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+function _rtvChip(num, label, color) {
+  return '<div style="text-align:center;padding:6px 12px;background:var(--raise);border-radius:8px;min-width:66px">' +
+      '<div style="font-size:17px;font-weight:800;color:' + color + '">' + num + '</div>' +
+      '<div style="font-size:9px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">' + label + '</div>' +
+    '</div>';
+}
+
+// Barra compacta de cumplimiento (entregado/solicitado) para el encabezado del pedido.
+function _rtvCumplBar(c) {
+  if (!c || !c.tieneDatos) return '<span style="font-size:10px;color:var(--tx-d);white-space:nowrap">sin datos de entrega</span>';
+  if (c.anulado) return '<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:rgba(214,48,49,.1);color:#d63031;white-space:nowrap"><i class="fa fa-ban" style="margin-right:3px"></i>Cancelado</span>';
+  var pct  = c.porcentaje;
+  var col  = pct >= 100 ? '#1a9e4a' : (pct > 0 ? '#e67e22' : '#d63031');
+  var base = c.solicitado - c.cancelado;
+  var tip  = 'Entregado ' + c.entregado + ' de ' + base + ' u.' + (c.cancelado ? ' · ' + c.cancelado + ' cancel.' : '');
+  return '<div title="' + tip + '" style="display:flex;align-items:center;gap:7px;flex:0 0 auto;min-width:120px">' +
+      '<div style="width:70px;height:7px;background:var(--brd);border-radius:4px;overflow:hidden">' +
+        '<div style="width:' + pct + '%;height:100%;background:' + col + '"></div>' +
+      '</div>' +
+      '<span style="font-size:11px;font-weight:800;color:' + col + ';white-space:nowrap">' + pct + '%</span>' +
+    '</div>';
 }
 
 function _rtvToggleDetalle(row) {
@@ -4742,27 +6414,81 @@ function _rtvDetalleHTML(p) {
   if (p.obs) {
     html += '<div style="font-size:11px;color:var(--tx-m);margin:10px 0 8px;padding:8px 12px;background:var(--raise);border-radius:var(--r)"><i class="fa fa-comment" style="margin-right:5px;color:var(--tx-d)"></i>' + _escHtml(p.obs) + '</div>';
   }
-  if (p.items && p.items.length) {
-    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">' +
+
+  var c = p.cumplimiento;
+  if (c && c.tieneDatos && c.items && c.items.length) {
+    // ── Resumen de cumplimiento del pedido ──
+    var base = c.solicitado - c.cancelado;
+    if (c.anulado) {
+      html += '<div style="margin:10px 0;padding:9px 13px;background:rgba(214,48,49,.08);border-left:4px solid #d63031;border-radius:var(--r);font-size:12px;color:#d63031;font-weight:700">' +
+        '<i class="fa fa-ban" style="margin-right:6px"></i>Pedido cancelado — ' + c.cancelado + ' u. canceladas, 0 entregadas' +
+      '</div>';
+    } else {
+      var col = c.porcentaje >= 100 ? '#1a9e4a' : (c.porcentaje > 0 ? '#e67e22' : '#d63031');
+      html += '<div style="margin:10px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+          '<div style="flex:1;min-width:140px;height:9px;background:var(--brd);border-radius:5px;overflow:hidden">' +
+            '<div style="width:' + c.porcentaje + '%;height:100%;background:' + col + '"></div>' +
+          '</div>' +
+          '<span style="font-size:12px;font-weight:800;color:' + col + ';white-space:nowrap">' + c.porcentaje + '% cumplido</span>' +
+        '</div>';
+      html += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin:2px 0 10px;color:var(--tx-m)">' +
+          '<span><strong style="color:#1a9e4a">' + c.entregado + '</strong> entregado</span>' +
+          '<span><strong style="color:' + (c.pendiente > 0 ? '#d63031' : 'var(--tx-m)') + '">' + c.pendiente + '</strong> pendiente</span>' +
+          (c.cancelado ? '<span><strong style="color:var(--tx-d)">' + c.cancelado + '</strong> cancelado</span>' : '') +
+          '<span style="color:var(--tx-d)">de ' + base + ' u. a entregar</span>' +
+        '</div>';
+    }
+    // ── Detalle por ítem: pedido / entregado / pendiente ──
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px">' +
+      '<thead><tr style="background:var(--panel)">' +
+        '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">SKU</th>' +
+        '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">Descripción</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Pedido</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Entregado</th>' +
+        '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Pendiente</th>' +
+      '</tr></thead><tbody>';
+    for (var k = 0; k < c.items.length; k++) {
+      var it   = c.items[k];
+      var alt  = k % 2 === 0 ? '#fff' : 'var(--panel)';
+      var iBase = it.solicitado - it.cancelado;
+      var anuladoItem = it.cancelado > 0 && iBase <= 0;   // ítem totalmente cancelado
+      var completo = it.pendiente <= 0 && iBase > 0;
+      html +=
+        '<tr style="background:' + alt + '">' +
+          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
+          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(it.descripcion || '') +
+            (it.cancelado ? ' <span style="font-size:9px;color:var(--tx-d)">(' + it.cancelado + ' cancel.)</span>' : '') + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700">' + (anuladoItem ? '—' : iBase) + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a9e4a">' + it.entregado + '</td>' +
+          '<td style="padding:6px 8px;text-align:center;font-weight:700;color:' + (it.pendiente > 0 ? '#d63031' : 'var(--tx-d)') + '">' +
+            (anuladoItem ? '<span style="color:#d63031;font-size:10px">Cancelado</span>' : (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente)) + '</td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+  } else if (p.items && p.items.length) {
+    // Fallback: pedido aún sin filas en Pedidos_resellers → mostrar snapshot (cantidad pedida)
+    html += '<div style="font-size:10px;color:var(--tx-d);margin:8px 0 4px"><i class="fa fa-hourglass-half"></i> Aún sin datos de entrega — se muestra lo pedido.</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:2px">' +
       '<thead><tr style="background:var(--panel)">' +
         '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">SKU</th>' +
         '<th style="padding:6px 10px;text-align:left;color:var(--tx-d);font-weight:600">Descripción</th>' +
         '<th style="padding:6px 10px;text-align:center;color:var(--tx-d);font-weight:600">Cant.</th>' +
         '<th style="padding:6px 10px;text-align:right;color:var(--tx-d);font-weight:600">Precio</th>' +
       '</tr></thead><tbody>';
-    for (var k = 0; k < p.items.length; k++) {
-      var it  = p.items[k];
-      var alt = k % 2 === 0 ? '#fff' : 'var(--panel)';
+    for (var m = 0; m < p.items.length; m++) {
+      var itm = p.items[m];
+      var altm = m % 2 === 0 ? '#fff' : 'var(--panel)';
       html +=
-        '<tr style="background:' + alt + '">' +
-          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
-          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(it.descripcion || '') + '</td>' +
-          '<td style="padding:6px 10px;text-align:center;font-weight:700">' + (it.cantidad || 1) + '</td>' +
-          '<td style="padding:6px 10px;text-align:right;color:var(--tx-m)">' + (it.precio > 0 ? _fmtPedUsd(it.precio) : '—') + '</td>' +
+        '<tr style="background:' + altm + '">' +
+          '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(itm.sku || '—') + '</td>' +
+          '<td style="padding:6px 10px;color:var(--tx)">' + _escHtml(itm.descripcion || '') + '</td>' +
+          '<td style="padding:6px 10px;text-align:center;font-weight:700">' + (itm.cantidad || 1) + '</td>' +
+          '<td style="padding:6px 10px;text-align:right;color:var(--tx-m)">' + (itm.precio > 0 ? _fmtPedUsd(itm.precio) : '—') + '</td>' +
         '</tr>';
     }
     html += '</tbody></table>';
   }
+
   if (p.formaPago || p.envio) {
     html += '<div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:var(--tx-m)">' +
       (p.formaPago ? '<span><strong>Pago:</strong> ' + _escHtml(p.formaPago) + '</span>' : '') +
@@ -4781,9 +6507,10 @@ var _pedLoadingSteps = [
   { pct: 90, msg: 'Casi listo...',                    icon: 'fa-circle-notch' }
 ];
 
-function _pedMostrarCargando() {
+function _pedMostrarCargando(steps) {
   var ov = document.getElementById('ped-loading-overlay');
   if (!ov) return;
+  var pasos = (steps && steps.length) ? steps : _pedLoadingSteps;
   document.getElementById('ped-loading-bar').style.width = '0%';
   document.getElementById('ped-loading-bar').style.transition = 'none';
   ov.style.display = 'flex';
@@ -4798,10 +6525,10 @@ function _pedMostrarCargando() {
     if (msg) { msg.style.opacity = '0'; setTimeout(function(){ msg.textContent = s.msg; msg.style.opacity = '1'; }, 160); }
     if (icon) icon.className = 'fa ' + s.icon;
   }
-  _applyStep(_pedLoadingSteps[0]); idx = 1;
+  _applyStep(pasos[0]); idx = 1;
   _pedLoadingTimer = setInterval(function() {
-    if (idx >= _pedLoadingSteps.length) { clearInterval(_pedLoadingTimer); return; }
-    _applyStep(_pedLoadingSteps[idx]); idx++;
+    if (idx >= pasos.length) { clearInterval(_pedLoadingTimer); return; }
+    _applyStep(pasos[idx]); idx++;
   }, 2200);
 }
 
@@ -4829,8 +6556,9 @@ function _pedConfirmarRevision() {
   if (!formaPago) { toast('Seleccioná una forma de pago antes de confirmar', 'err'); return; }
 
   // En modo grupo, verificar que se haya seleccionado una sucursal
-  var resellerPedido = resellerActual;
-  if (grupoActual) {
+  var resellerPedido = _pedCtxReseller();
+  if (_superPedido && !_superPedido.cliente) { toast('Indicá el cliente antes de confirmar', 'err'); return; }
+  if (!_superPedido && grupoActual) {
     var sucSel = document.getElementById('ped-suc-sel');
     resellerPedido = sucSel ? (sucSel.value || '').trim() : '';
     if (!resellerPedido) { toast('Seleccioná la sucursal para la que hacés el pedido', 'err'); return; }
@@ -4844,6 +6572,12 @@ function _pedConfirmarRevision() {
     formaPago:     formaPago,
     envio:         (document.getElementById('ped-review-envio').value || '').trim()
   };
+  if (_superPedido) {
+    params.modoSuper    = true;
+    params.cliente      = _superPedido.cliente;
+    params.emailCliente = _superPedido.email;
+    params.descuentoPct = _superPedido.dtoPct;
+  }
   _pedMostrarCargando();
   google.script.run
     .withSuccessHandler(function(r) {
@@ -4969,6 +6703,35 @@ function _cargarHistorialPedidos() {
       wrap.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tx-d)">Error al cargar historial.</div>';
     })
     .obtenerHistorialPedidosPortal(resellerActual);
+  _cargarTiempoEnvio();
+}
+
+// ── Tiempo promedio de envío (recibido → despachado, días hábiles) ──
+function _cargarTiempoEnvio() {
+  if (!resellerActual) return;
+  google.script.run
+    .withSuccessHandler(_renderTiempoEnvio)
+    .withFailureHandler(function() {
+      var c = document.getElementById('ped-tiempo-card');
+      if (c) c.style.display = 'none';
+    })
+    .obtenerTiempoPromedioEnvioPortal(resellerActual);
+}
+
+function _renderTiempoEnvio(r) {
+  var card = document.getElementById('ped-tiempo-card');
+  var val  = document.getElementById('ped-tiempo-val');
+  if (!card || !val) return;
+  if (!r || !r.ok) { card.style.display = 'none'; return; }
+  var cs = r.conStock || { muestras: 0, promedio: null };
+  if (!cs.muestras || cs.promedio === null) { card.style.display = 'none'; return; }
+  val.innerHTML = 'Tiempo de despacho promedio <span style="color:var(--tx-m);font-weight:600">' + _tiempoTxt(cs.promedio) + '</span>';
+  card.style.display = 'flex';
+}
+
+function _tiempoTxt(p) {
+  var u = (p === 1) ? 'día' : 'días';
+  return String(p).replace('.', ',') + ' ' + u + ' háb.';
 }
 
 var _HIST_BADGE = {
@@ -5105,7 +6868,7 @@ function _renderHistorialLista(lista) {
 
     // Fila de despacho: tracking + NE (solo si fue enviado y hay datos)
     var despRow = '';
-    if ((est === 'enviado' || est === 'enviado_parcial') && (h.notaEntrega || h.tracking)) {
+    if ((est === 'enviado' || est === 'enviado_parcial' || est === 'recibido') && (h.notaEntrega || h.tracking)) {
       despRow = '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px;padding:8px 10px;background:rgba(26,158,74,.06);border:1px solid rgba(26,158,74,.2);border-radius:6px">';
       if (h.notaEntrega) {
         var neLink = h.neUrl
@@ -5135,7 +6898,7 @@ function _renderHistorialLista(lista) {
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
             (h.pdfUrl ? '<a href="' + _escHtml(h.pdfUrl) + '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(214,48,49,.08);border:1px solid rgba(214,48,49,.2);color:var(--red);border-radius:4px;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
-            ((est === 'enviado' || est === 'enviado_parcial')
+            (est === 'enviado'
               ? '<button id="btn-recibir-' + idSafe + '" onclick="_confirmarRecepcion(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(26,158,74,.1);border:1px solid rgba(26,158,74,.3);color:#14713a;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-circle-check"></i> Confirmar recepción</button>'
               : '') +
             '<button onclick="_pedRepetirPedido(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-a);border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-rotate-right"></i> Repetir</button>' +
@@ -5156,11 +6919,23 @@ var _resellerLista   = [];   // se llena en window.onload junto con el resto de 
 var _regEmpresaActual = '';  // empresa seleccionada en paso 1
 
 function abrirRegistro() {
-  // Cerrar modal de login si está abierto
-  if (typeof bootstrap !== 'undefined') {
-    var loginM = bootstrap.Modal.getInstance(document.getElementById('modal-pin'));
-    if (loginM) loginM.hide();
+  // Si el modal de login está abierto, esperar a que CIERRE del todo antes de mostrar
+  // el registro. Mostrarlo sincrónicamente deja activo el focus-trap del login (hide()
+  // es asíncrono) que roba el foco y no deja escribir en los campos. Ver hidden.bs.modal.
+  var loginEl = document.getElementById('modal-pin');
+  var loginM  = (typeof bootstrap !== 'undefined' && loginEl) ? bootstrap.Modal.getInstance(loginEl) : null;
+  if (loginM && loginEl.classList.contains('show')) {
+    loginEl.addEventListener('hidden.bs.modal', function _onLoginHidden() {
+      loginEl.removeEventListener('hidden.bs.modal', _onLoginHidden);
+      _mostrarRegistro();
+    });
+    loginM.hide();
+  } else {
+    _mostrarRegistro();
   }
+}
+
+function _mostrarRegistro() {
   // Poblar dropdown con la lista ya cargada
   var sel = document.getElementById('reg-empresa-sel');
   sel.innerHTML = '<option value="">— Seleccioná tu empresa —</option>';
@@ -5211,13 +6986,23 @@ function _regAvanzar() {
       // Mostrar paso 2 con solo los campos que faltan
       _regEmpresaActual = r.empresa;
       document.getElementById('reg-empresa-titulo').textContent = r.empresa;
-      document.getElementById('reg-campo-email').style.display = r.campos.email    ? 'block' : 'none';
-      document.getElementById('reg-campo-tel').style.display   = r.campos.telefono ? 'block' : 'none';
-      document.getElementById('reg-campo-cuit').style.display  = r.campos.cuit     ? 'block' : 'none';
-      document.getElementById('reg-email').value    = '';
-      document.getElementById('reg-telefono').value = '';
-      document.getElementById('reg-cuit').value     = '';
-      document.getElementById('reg-notas').value    = '';
+      document.getElementById('reg-campo-email').style.display    = r.campos.email     ? 'block' : 'none';
+      document.getElementById('reg-campo-tel').style.display      = r.campos.telefono  ? 'block' : 'none';
+      document.getElementById('reg-campo-cuit').style.display     = r.campos.cuit      ? 'block' : 'none';
+      document.getElementById('reg-campo-direccion').style.display= r.campos.direccion ? 'block' : 'none';
+      document.getElementById('reg-campo-provincia').style.display= r.campos.provincia ? 'block' : 'none';
+      var cpOLoc = r.campos.cp || r.campos.localidad;
+      document.getElementById('reg-row-cp-loc').style.display     = cpOLoc            ? 'flex'  : 'none';
+      var anyDir = r.campos.direccion || r.campos.cp || r.campos.localidad || r.campos.provincia;
+      document.getElementById('reg-titulo-direccion').style.display = anyDir           ? 'block' : 'none';
+      document.getElementById('reg-email').value     = '';
+      document.getElementById('reg-telefono').value  = '';
+      document.getElementById('reg-cuit').value      = '';
+      document.getElementById('reg-direccion').value = '';
+      document.getElementById('reg-cp').value        = '';
+      document.getElementById('reg-localidad').value = '';
+      document.getElementById('reg-provincia').value = '';
+      document.getElementById('reg-notas').value     = '';
       document.getElementById('reg-error').style.display = 'none';
       document.getElementById('reg-paso1').style.display = 'none';
       document.getElementById('reg-paso2').style.display = 'block';
@@ -5244,12 +7029,22 @@ function enviarRegistro() {
     err.textContent = 'Ingresá un email válido.'; err.style.display = 'block'; return;
   }
 
+  var dirVisible = document.getElementById('reg-campo-direccion').style.display !== 'none';
+  var dirVal     = dirVisible ? document.getElementById('reg-direccion').value.trim() : '';
+  if (dirVisible && !dirVal) {
+    err.textContent = 'Ingresá la dirección fiscal.'; err.style.display = 'block'; return;
+  }
+
   var params = {
-    empresa:  _regEmpresaActual,
-    email:    email,
-    telefono: document.getElementById('reg-campo-tel').style.display  !== 'none' ? document.getElementById('reg-telefono').value.trim() : '',
-    cuit:     document.getElementById('reg-campo-cuit').style.display !== 'none' ? document.getElementById('reg-cuit').value.trim()     : '',
-    notas:    document.getElementById('reg-notas').value.trim()
+    empresa:   _regEmpresaActual,
+    email:     email,
+    telefono:  document.getElementById('reg-campo-tel').style.display   !== 'none' ? document.getElementById('reg-telefono').value.trim() : '',
+    cuit:      document.getElementById('reg-campo-cuit').style.display  !== 'none' ? document.getElementById('reg-cuit').value.trim()     : '',
+    direccion: dirVal,
+    cp:        document.getElementById('reg-row-cp-loc').style.display  !== 'none' ? document.getElementById('reg-cp').value.trim()        : '',
+    localidad: document.getElementById('reg-row-cp-loc').style.display  !== 'none' ? document.getElementById('reg-localidad').value.trim() : '',
+    provincia: document.getElementById('reg-campo-provincia').style.display !== 'none' ? document.getElementById('reg-provincia').value.trim() : '',
+    notas:     document.getElementById('reg-notas').value.trim()
   };
 
   err.style.display = 'none';
@@ -5679,11 +7474,12 @@ function _cargarPerfil() {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-save" style="margin-right:6px"></i>Guardar cambios';
       if (r && r.ok) {
-        document.getElementById('perfil-dir').value      = r.direccion || '';
-        document.getElementById('perfil-cp').value       = r.cp        || '';
+        document.getElementById('perfil-dir').value       = r.direccion || '';
+        document.getElementById('perfil-cp').value        = r.cp        || '';
         document.getElementById('perfil-localidad').value = r.localidad || '';
-        document.getElementById('perfil-tel').value      = r.telefono  || '';
-        document.getElementById('perfil-email').value    = r.email     || '';
+        document.getElementById('perfil-provincia').value = r.provincia || '';
+        document.getElementById('perfil-tel').value       = r.telefono  || '';
+        document.getElementById('perfil-email').value     = r.email     || '';
         if (!r.direccion) document.getElementById('perfil-dir').focus();
       }
     })
@@ -5699,6 +7495,7 @@ function guardarPerfil() {
   var dir      = (document.getElementById('perfil-dir').value       || '').trim();
   var cp       = (document.getElementById('perfil-cp').value        || '').trim();
   var localidad= (document.getElementById('perfil-localidad').value || '').trim();
+  var provincia= (document.getElementById('perfil-provincia').value || '').trim();
   var tel      = (document.getElementById('perfil-tel').value       || '').trim();
   var email    = (document.getElementById('perfil-email').value     || '').trim();
   var msgEl    = document.getElementById('perfil-msg');
@@ -5730,10 +7527,10 @@ function guardarPerfil() {
         msgEl.style.border     = '1px solid #a3d9b5';
         msgEl.innerHTML        = '<i class="fa fa-check" style="margin-right:6px"></i>Datos actualizados correctamente.';
         document.getElementById('banner-sin-dir').style.display = 'none';
-        _perfilCache = { ok: true, direccion: dir, cp: cp, localidad: localidad, telefono: tel, email: email };
-        var strip = document.getElementById('rep-dir-strip');
-        var btn   = document.getElementById('btn-enviar-rep');
-        if (strip) _renderRepDirStrip(strip, btn, _perfilCache);
+        _perfilCache = { ok: true, direccion: dir, cp: cp, localidad: localidad, provincia: provincia, telefono: tel, email: email };
+        var strip  = document.getElementById('rep-dir-strip');
+        var btnRep = document.getElementById('btn-enviar-rep');
+        if (strip) _renderRepDirStrip(strip, btnRep, _perfilCache);
       } else {
         msgEl.style.background = '#fff0f0';
         msgEl.style.color      = 'var(--red)';
@@ -5750,7 +7547,7 @@ function guardarPerfil() {
       msgEl.style.border     = '1px solid #f5c6c6';
       msgEl.innerHTML        = '<i class="fa fa-exclamation-circle" style="margin-right:6px"></i>Error al guardar.';
     })
-    .RS_actualizarPerfil(resellerActual, tel, email, dir, cp, localidad);
+    .RS_actualizarPerfil(resellerActual, tel, email, dir, cp, localidad, provincia);
 }
 
 var _perfilCache = null;

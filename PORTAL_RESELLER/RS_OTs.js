@@ -1,6 +1,7 @@
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
+// @version 1.8
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -74,6 +75,19 @@ function enviarCasoAlHub(data) {
 
     hoja.appendRow(fila);
     SpreadsheetApp.flush();
+
+    // Origen del repuesto → col AA (27) del HUB: precarga el badge "quién pone la pieza".
+    //   aftEstado 'repuesto' = el reseller reparó con su stock (pide reposición) → "Stock reseller"
+    //   cualquier otro       = necesita que le adelantemos el repuesto            → "Adelantado"
+    if (data.aftEstado) {
+      try {
+        var origenVal = (data.aftEstado === 'repuesto') ? 'Stock reseller' : 'Adelantado';
+        var nuevaFila = hoja.getLastRow();
+        if (hoja.getMaxColumns() < 27) hoja.insertColumnsAfter(hoja.getMaxColumns(), 27 - hoja.getMaxColumns());
+        hoja.getRange(nuevaFila, 27).setValue(origenVal);
+      } catch(eOrig) { Logger.log('enviarCasoAlHub origen: ' + eOrig); }
+    }
+
     lock.releaseLock();
 
     var cotizUrl = '';
@@ -161,20 +175,123 @@ function consultarEstado(ot, sn) {
       if (circRaw === "RESELLER" || circRaw === "SI") flujo = "Reseller";
       else if (circRaw === "RESELLER PROPIO") flujo = "Reseller Propio";
 
-      var inf  = String(f[SCHEMA.OT.TRABAJO] || "");
-      var paso = 1, inst = "";
+      var notaTec = String(f[SCHEMA.OT.TRABAJO] || "");
+      var paso = 1, quePasa = "", accion = null;
 
-      if      (est.indexOf("PENDIENTE") !== -1) { paso = 1; inst = "🔧 SOLICITUD EN REVISIÓN.\nNuestros técnicos están auditando los datos para validar la cobertura."; }
-      else if (est.indexOf("APROBADO") !== -1 || est.indexOf("ABIERTO") !== -1) {
-        paso = 2;
-        if      (flujo === "Taller")   inst = "✅ INGRESO AUTORIZADO. Enviar equipo a Carmen de Areco.\n📍 EUCAWOODS — SIPCA, Carmen de Areco, BS.AS. (CP 6725)\n🗺️ https://maps.app.goo.gl/agnbG2Y2Krn8NS146\n⏰ Lun a Vie 08:00-12:00 / 13:00-17:00\n👤 Mariano Castronuevo (+54 9 2325 65-6826)";
-        else if (flujo === "Reseller") inst = "✅ APROBADO. Repuestos en preparación en almacén.";
-        else                           inst = "✅ REGISTRO OK. Proceda con la gestión técnica local.";
+      var DIR_CARMEN = "📍 EUCAWOODS — SIPCA, Carmen de Areco, BS.AS. (CP 6725)\n⏰ Lun a Vie 08:00-12:00 / 13:00-17:00\n👤 Mariano Castronuevo (+54 9 2325 65-6826)";
+
+      // Normalizar nombres viejos para backward compat con filas existentes en el sheet
+      var EST_ALIAS = {
+        "REPARADO Y APROBADO EN EL AFTERSALES": "APROBADO DJI · REPUESTOS EN PREPARACIÓN",
+        "PARTES DAÑADAS SCRAPEADAS":            "EN CIERRE",
+        "RECEPCION PIEZAS DAÑADAS":             "PIEZAS DAÑADAS RECIBIDAS"
+      };
+      var estKey = EST_ALIAS[est] || est;
+
+      // Detectar batería para usar el flujo unificado independientemente del circuito
+      var esBateriaOT = (function() {
+        try {
+          var equipoNom = String(f[SCHEMA.OT.EQUIPO] || "").trim().toLowerCase();
+          var hEq = getSheet(SCHEMA.SHEETS.EQUIPOS);
+          if (!hEq) return false;
+          var dEq = getSheetValues(hEq);
+          for (var eb = 1; eb < dEq.length; eb++) {
+            if (String(dEq[eb][0] || "").trim().toLowerCase() === equipoNom)
+              return String(dEq[eb][1] || "").trim().toLowerCase() === "bateria";
+          }
+          return false;
+        } catch(e) { return false; }
+      })();
+
+      if (estKey === "CANCELADO" || est.indexOf("CANCELADO") !== -1) {
+        paso = 5; quePasa = "La orden fue anulada.";
+      } else if (estKey === "FINALIZADO" || estKey === "ENTREGADO") {
+        paso = 4; quePasa = "El caso está cerrado. ¡Gracias!";
+      } else if (esBateriaOT) {
+        if (estKey === "ABIERTO") {
+          paso = 1; quePasa = "Registramos tu caso. Bidcom está preparando el expediente ante DJI.";
+        } else if (estKey === "CASO ENVIADO") {
+          paso = 2; quePasa = "Cargamos el caso en el portal DJI. Estamos esperando su respuesta.";
+        } else if (estKey === "APROBADO POR DJI") {
+          paso = 3; quePasa = "DJI aprobó el reemplazo de batería. Estamos coordinando el proceso para enviarte la batería de reposición.";
+        } else if (estKey === "SCRAP ENVIADO (EVIDENCIAS)") {
+          paso = 3; quePasa = "Enviamos el scrap a DJI como evidencia. Tu batería de reemplazo está siendo preparada por nuestro equipo de logística.";
+        } else if (estKey === "BATERIA ENVIADA A RESELLER") {
+          paso = 4; quePasa = "Tu batería de reemplazo fue despachada. Vas a recibirla en breve.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso de batería. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
+        } else {
+          paso = 2; quePasa = "El caso está siendo gestionado ante DJI. Te avisamos ante cualquier novedad.";
+        }
+      } else if (flujo === "Taller") {
+        if (estKey === "ABIERTO" || estKey === "EN REVISION") {
+          paso = 1; quePasa = "Tu solicitud fue registrada. Estamos revisando los datos del equipo para autorizar el ingreso.";
+        } else if (estKey === "PRESUPUESTO ENVIADO") {
+          paso = 2; quePasa = "Te enviamos un presupuesto para tu aprobación.";
+          accion = "Revisá y aprobá el presupuesto desde este portal.";
+        } else if (estKey === "PRESUPUESTO RECHAZADO") {
+          paso = 5; quePasa = "El presupuesto fue rechazado. Contactanos si querés avanzar con una reparación fuera de garantía.";
+        } else if (estKey === "PRESUPUESTO ACEPTADO") {
+          paso = 2; quePasa = "Aceptaste el presupuesto. Coordiná el envío del equipo a nuestro taller.";
+          accion = "Enviá el equipo a Carmen de Areco.\n" + DIR_CARMEN;
+        } else if (estKey === "ESPERA DE REPUESTOS") {
+          paso = 3; quePasa = "El equipo está en nuestro taller, esperando repuestos para completar la reparación.";
+        } else if (estKey === "EN REPARACION") {
+          paso = 3; quePasa = "El equipo está siendo reparado en nuestro taller.";
+        } else {
+          paso = 3; quePasa = "El caso está en proceso.";
+        }
+      } else if (flujo === "Reseller") {
+        if (estKey === "ABIERTO") {
+          paso = 1; quePasa = "Tu solicitud fue registrada. Estamos revisando el caso para autorizarte la reparación.";
+        } else if (estKey === "EN REPARACION") {
+          paso = 2; quePasa = "Tu caso fue aprobado. Ya podés ejecutar la reparación.";
+          accion = "Realizá la reparación y envianos el informe técnico una vez finalizada.";
+        } else if (estKey === "PEDIDO DE REPUESTOS") {
+          paso = 2; quePasa = "Solicitaste repuestos. Los estamos preparando en almacén para enviártelos.";
+        } else if (estKey === "REPUESTOS ENVIADOS") {
+          paso = 3; quePasa = "Te despachamos los repuestos. En breve los vas a recibir.";
+          accion = "Cuando los recibas, confirmá la recepción y realizá la reparación.";
+        } else if (estKey === "INFORME DE REPARACION") {
+          paso = 3; quePasa = "Recibimos tu informe de reparación. Lo estamos presentando ante DJI para su aprobación.";
+          accion = "Envianos las piezas dañadas a Carmen de Areco.\n" + DIR_CARMEN;
+        } else if (estKey === "PIEZAS DAÑADAS RECIBIDAS") {
+          paso = 3; quePasa = "Recibimos las piezas dañadas. Estamos gestionando la aprobación ante DJI.";
+        } else if (estKey === "APROBACION DJI") {
+          paso = 4; quePasa = "Presentamos el caso ante DJI. Estamos esperando su resolución.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
+        } else {
+          paso = 3; quePasa = "El caso está en proceso.";
+        }
+      } else if (flujo === "Reseller Propio") {
+        if (estKey === "ABIERTO") {
+          paso = 1; quePasa = "Tu caso fue registrado y aprobado. Podés proceder con la reparación.";
+          accion = "Realizá la reparación, cargá el caso en el portal DJI (AfterSales) y solicitá los repuestos de reposición desde aquí cuando tengas la aprobación.";
+        } else if (estKey === "PEDIDO DE REPUESTO PARA REPARAR") {
+          paso = 2; quePasa = "Solicitaste un adelanto de repuesto. Lo estamos preparando y te lo enviamos en breve.";
+        } else if (estKey === "EN REPARACION") {
+          paso = 2; quePasa = "Estás ejecutando la reparación. Una vez finalizada, cargá el caso en el portal DJI AfterSales y avisanos por la mensajería de la orden cuando tengas la aprobación.";
+        } else if (estKey === "APROBADO DJI · REPUESTOS EN PREPARACIÓN") {
+          paso = 3; quePasa = "Verificamos la aprobación de DJI. Tus repuestos de reposición están siendo preparados en almacén.";
+        } else if (estKey === "EN CIERRE") {
+          paso = 3; quePasa = "El caso está siendo procesado por nuestro equipo para el cierre final.";
+        } else if (estKey === "RECHAZADO DJI") {
+          paso = 5; quePasa = "DJI rechazó el caso. Los repuestos enviados quedan facturados a tu cuenta. Contactanos si tenés alguna consulta.";
+        } else if (estKey === "SIN RESPUESTA · CERRADO") {
+          paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
+        } else {
+          paso = 3; quePasa = "El caso está en proceso.";
+        }
+      } else {
+        paso = 3; quePasa = "El caso está en proceso. Te avisamos ante cualquier novedad.";
       }
-      else if (est.indexOf("FINALIZADO") !== -1) { paso = 4; inst = "📦 CASO CERRADO. La reparación fue completada."; }
-      else                                        { paso = 3; inst = "🔧 EN PROCESO TÉCNICO. El equipo está siendo atendido."; }
 
-      if (inf) inst += "\n\n📝 NOTA TÉCNICA:\n" + inf;
+      var inst = quePasa + (accion ? "\n\n" + accion : "") + (notaTec ? "\n\n📝 NOTA TÉCNICA:\n" + notaTec : "");
 
       var fechaAct     = f[SCHEMA.OT.FECHA_ACTIVACION];
       var equipo       = String(f[SCHEMA.OT.EQUIPO] || "").trim();
@@ -209,22 +326,16 @@ function consultarEstado(ot, sn) {
         garantia:      String(f[SCHEMA.OT.GARANTIA] || ""),
         cas:           String(f[SCHEMA.OT.CAS] || ""),
         trabajo:       inst,
+        quePasa:       quePasa,
+        accion:        accion,
+        notaTec:       notaTec,
         pasoActual:    paso,
         flujo:         flujo,
         tecnico:       String(f[9] || ""),
         fechaEstimada: calcularFechaEstimada(flujo, String(f[3] || "OOW"), f[0]),
         infoGarantia:  infoGarantia,
         mensajes:      mensajesRaw,
-        esBateria:     (function() {
-          var hEq = getSheet(SCHEMA.SHEETS.EQUIPOS);
-          if (!hEq) return false;
-          var dEq = getSheetValues(hEq);
-          for (var eb = 1; eb < dEq.length; eb++) {
-            if (String(dEq[eb][0] || "").trim().toLowerCase() === equipo.toLowerCase())
-              return String(dEq[eb][1] || "").trim().toLowerCase() === "bateria";
-          }
-          return false;
-        })()
+        esBateria:     esBateriaOT
       };
     }
     return { encontrado: false };
@@ -356,7 +467,8 @@ function obtenerGarantias(nombreReseller) {
       var f = ref.datos[i];
       if (!f[SCHEMA.OT.OT]) continue;
       if (String(f[SCHEMA.OT.RESELLER] || "").trim().toLowerCase() !== rB) continue;
-      if (String(f[SCHEMA.OT.ESTADO] || "") === "Finalizado") continue;
+      var estG = String(f[SCHEMA.OT.ESTADO] || "");
+      if (estG === "Finalizado" || estG === "CANCELADO" || estG === "Entregado") continue;
 
       var fechaAct = f[SCHEMA.OT.FECHA_ACTIVACION];
       if (!(fechaAct instanceof Date)) continue;
@@ -433,16 +545,16 @@ function agregarComentario(ot, comentario, autor) {
             _filaDetalle("Orden", "<strong>" + ot + "</strong>") +
             _filaDetalle("Estado actual", String(ref.datos[i][4] || "—")) +
           "</div>",
-          "El reseller dejó un comentario en col L. Revisá el HUB PRO."
+          "El reseller dejó un comentario Revisá el HUB PRO."
         );
         var supThreadId = _obtenerThreadId(ot, PORTAL_CONFIG.EMAIL_SUPERVISOR);
         if (supThreadId) {
           try {
             var hilo = GmailApp.getThreadById(supThreadId);
             if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyHtml(htmlComent, { name: PORTAL_CONFIG.NOMBRE_REMITENTE, to: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+            hilo.replyAll('', { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
           } catch(eRep) {
-            Logger.log('agregarComentario replyHtml: ' + eRep + ' — fallback');
+            Logger.log('agregarComentario replyAll: ' + eRep + ' — fallback');
             GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
           }
         } else {
@@ -512,10 +624,10 @@ function aprobarPresupuestoPortal(ot, decision, observaciones) {
           try {
             var hilo = GmailApp.getThreadById(supThreadId);
             if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyHtml(html, { name: PORTAL_CONFIG.NOMBRE_REMITENTE, to: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+            hilo.replyAll('', { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
             _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", supThreadId);
           } catch(eRep) {
-            Logger.log('aprobarPresupuestoPortal replyHtml: ' + eRep + ' — fallback');
+            Logger.log('aprobarPresupuestoPortal replyAll: ' + eRep + ' — fallback');
             GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
             _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
           }

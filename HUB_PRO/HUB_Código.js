@@ -1,8 +1,8 @@
 // ============================================================
-// @version 1.1
-//  DJI HUB PRO v14 — Codigo.gs - ¿FUNCIONAL?
+//  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
+// @version 2.21
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -36,52 +36,151 @@ function _tokenAprobacion(ot, action) {
 }
 
 var WOS_SS_ID    = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-var WOS_HOJA_PED = 'Pedidos_resellers';
+var WOS_HOJA_PED = 'Pedidos_OTs';
 
 function HUB_generarPedidoRepuestos(data) {
   try {
     var hoja  = SpreadsheetApp.openById(WOS_SS_ID).getSheetByName(WOS_HOJA_PED);
+    if (!hoja) return { ok: false, error: 'Hoja Pedidos_OTs no encontrada en el WOS.' };
     var todos = hoja.getDataRange().getValues();
-    var numero = 'REP-OT-' + String(data.ot || '').trim();
+    var numero = 'OT-' + String(data.ot || '').trim();
 
+    // Recopilar SKUs ya pedidos y threadId existente para este NUMERO
+    var existingSKUs = {}, existingThreadId = '';
     for (var ci = 1; ci < todos.length; ci++) {
-      if (String(todos[ci][0] || '').trim() === numero) {
-        return { ok: false, error: 'Ya existe el pedido ' + numero + ' en el WOS.' };
-      }
+      if (String(todos[ci][0] || '').trim() !== numero) continue;
+      var eSku = String(todos[ci][2] || '').trim().toUpperCase();
+      if (eSku) existingSKUs[eSku] = true;
+      if (!existingThreadId) existingThreadId = String(todos[ci][17] || '').trim();
     }
 
     var items = data.items || [];
     if (!items.length) return { ok: false, error: 'No hay ítems para pedir.' };
 
-    var aprobado = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ PENDIENTE APROBACIÓN DJI';
-    var obs = 'HUB | OT: ' + data.ot + ' | ' + aprobado + (data.cas ? ' | CAS: ' + data.cas : '') + (data.garantia ? ' | ' + data.garantia : '');
-    var fecha = new Date();
+    // Solo agregar SKUs que no estén ya en el pedido
+    var itemsNuevos = [];
+    for (var fi = 0; fi < items.length; fi++) {
+      var fSku = String(items[fi].cod || '').trim().toUpperCase();
+      if (!existingSKUs[fSku]) itemsNuevos.push(items[fi]);
+    }
+    if (!itemsNuevos.length) return { ok: false, error: 'Todos los ítems ya están en el pedido ' + numero + '.' };
+    items = itemsNuevos;
 
+    var reseller  = String(data.reseller  || '').trim();
+    var idVenGar  = String(data.cas || '').trim();
+    var envio     = String(data.envio     || 'Retiro').trim();
+    var circuito  = String(data.circuito  || 'Taller').trim();
+    var esTaller  = !circuito || circuito === 'Taller' || circuito.toLowerCase() === 'taller';
+    var tecnico   = String(data.tecnico   || '').trim();
+    var aprobado  = data.aprobadoDJI ? 'DJI ✓ Aprobado' : '⚠ SIN APROBACIÓN DJI';
+    var obs = aprobado +
+      (data.garantia ? ' | ' + data.garantia : '') +
+      (idVenGar ? ' | CAS: ' + idVenGar : '') +
+      (esTaller ? ' | Taller · entrega técnico' + (tecnico ? ' ' + tecnico : '') : '');
+    var fecha    = new Date();
+    var operario = Session.getActiveUser().getEmail();
+
+    // Abrir MASTER una sola vez para precios y email del reseller
+    var masterSS = null;
+    try { masterSS = SpreadsheetApp.openById(MASTER_SHEET_ID); } catch(eMSS) { Logger.log('MASTER open: ' + eMSS); }
+
+    // Mapa de precios desde Lista_Repuestos (precio reseller = lista × 0.60)
+    var priceMap = {};
+    if (masterSS) try {
+      var listaData = masterSS.getSheetByName('Lista_Repuestos').getDataRange().getValues();
+      for (var li = 1; li < listaData.length; li++) {
+        var lSku = String(listaData[li][0] || '').trim().toUpperCase();
+        var lPre = Number(listaData[li][4]) || 0;
+        if (lSku && lPre > 0) priceMap[lSku] = Math.round(lPre * 0.60 * 100) / 100;
+      }
+    } catch(ePM) { Logger.log('HUB_generarPedidoRepuestos priceMap: ' + ePM); }
+
+    // Buscar email del reseller en MASTER
+    var emailReseller = '';
+    if (masterSS) try {
+      var rsData = masterSS.getSheetByName(SCHEMA.SHEETS.RESELLERS).getDataRange().getValues();
+      var rNom = reseller.toLowerCase();
+      for (var ri = 1; ri < rsData.length; ri++) {
+        if (String(rsData[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rNom) {
+          emailReseller = String(rsData[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
+          break;
+        }
+      }
+    } catch(eRS) { Logger.log('HUB_generarPedidoRepuestos emailReseller: ' + eRS); }
+
+    // Notificar al reseller — continúa en el hilo de la OT si ya existía, nuevo si es el primer pedido
+    var threadId = existingThreadId;
+    try {
+      var ot     = String(data.ot || numero).trim();
+      var asunto = '[' + numero + '] Repuestos — ' + reseller;
+      var itemsText = '';
+      for (var ii = 0; ii < items.length; ii++) {
+        var itI = items[ii];
+        itemsText += '• ' + String(itI.cod || '').trim() + ' · ' + String(itI.desc || '').trim() + ' (x' + (Number(itI.qty) || 1) + ')\n';
+      }
+      var bodyHtml = existingThreadId
+        ? '<p>Ítems adicionales agregados a <strong>' + numero + '</strong>:</p>' +
+          '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>'
+        : '<p><strong>' + numero + '</strong> — Solicitud de repuestos de reparación</p>' +
+          '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
+          '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>';
+      var toAddr = emailReseller || CONFIG.EMAIL_SUPERVISOR;
+      threadId = _enviarConHilo(ot, toAddr, asunto, bodyHtml) || threadId;
+      if (threadId && !existingThreadId) registrarEmailLog(ot, toAddr, 'Repuestos', asunto, 'OK', threadId);
+    } catch(eGm) { Logger.log('HUB_generarPedidoRepuestos Gmail: ' + eGm); }
+
+    // Escribir filas con el schema de 26 cols (igual a Pedidos_resellers / COL)
+    var primeraFila = hoja.getLastRow() + 1;
     for (var j = 0; j < items.length; j++) {
-      var it = items[j];
+      var it  = items[j];
       if (!it.cod || !it.desc) continue;
-      var fila = new Array(24).fill('');
-      fila[0]  = numero;
-      fila[1]  = String(data.reseller || '');
-      fila[2]  = String(it.cod  || '').trim().toUpperCase();
-      fila[3]  = String(it.desc || '').trim();
-      fila[4]  = Number(it.qty) || 1;
-      fila[5]  = 0;
-      fila[7]  = 0;
-      fila[9]  = 'Pedido';
-      fila[10] = fecha;
-      fila[11] = 'Retiro en Planta';
-      fila[12] = 'Cargo HUB';
-      fila[13] = obs;
+      var qty    = Number(it.qty) || 1;
+      var skuUp  = String(it.cod || '').trim().toUpperCase();
+      var precio = priceMap[skuUp] || Number(it.precio || it.price || 0);
+      // 26 posiciones: índice 0=A … 25=Z
+      var fila = ['','','','','','','','','','','','','','','','','','','','','','','','','',''];
+      fila[0]  = numero;                                   // A NUMERO
+      fila[1]  = reseller;                                 // B RESELLER
+      fila[2]  = String(it.cod  || '').trim().toUpperCase(); // C SKU
+      fila[3]  = String(it.desc || '').trim();             // D DESC
+      fila[4]  = qty;                                      // E CANT_SOL
+      fila[5]  = 0;                                        // F CANT_DESP
+      // G(6) CANT_PEND: se pone fórmula después (appendRow no soporta fórmulas)
+      fila[7]  = precio;                                   // H PRECIO
+      fila[8]  = '';                                       // I STOCK_ORI (desconocido al crear)
+      fila[9]  = 'Confirmado';                             // J ESTADO
+      fila[10] = fecha;                                    // K FECHA
+      fila[11] = envio;                                     // L ENVIO (Envío / Retiro)
+      fila[12] = '';                                       // M PAGO
+      fila[13] = obs;                                      // N OBS
+      fila[17] = threadId;                                 // R THREAD_ID
+      fila[23] = operario;                                 // X OPERARIO
+      fila[25] = 0;                                        // Z CANT_CANCEL
       hoja.appendRow(fila);
     }
+
+    // Escribir fórmula CANT_PEND (=E-F-Z) en col G para cada fila recién agregada
+    var ultimaFila = hoja.getLastRow();
+    for (var f = primeraFila; f <= ultimaFila; f++) {
+      hoja.getRange(f, 7).setFormula('=E' + f + '-F' + f + '-Z' + f);
+    }
+
+    // Backfill threadId en filas preexistentes que no lo tenían
+    if (threadId && !existingThreadId) {
+      for (var bi = 1; bi < todos.length; bi++) {
+        if (String(todos[bi][0] || '').trim() === numero && !String(todos[bi][17] || '').trim()) {
+          hoja.getRange(bi + 1, 18).setValue(threadId);
+        }
+      }
+    }
+
     SpreadsheetApp.flush();
 
-    registrarLog(data.ot, '', Session.getActiveUser().getEmail(),
+    registrarLog(data.ot, '', operario,
       'PEDIDO REP', data.estado || '', data.estado || '',
-      'Generado ' + numero + ' — ' + items.length + ' ítem(s)' + (data.aprobadoDJI ? '' : ' [SIN APROBACIÓN DJI]'));
+      'Generado ' + numero + ' — ' + items.length + ' ítem(s) nuevo(s)' + (threadId ? ' [hilo Gmail OK]' : ' [SIN hilo Gmail]'));
 
-    return { ok: true, numero: numero };
+    return { ok: true, numero: numero, threadId: threadId };
   } catch(e) {
     Logger.log('HUB_generarPedidoRepuestos ERROR: ' + e);
     return { ok: false, error: e.toString() };
@@ -99,6 +198,7 @@ function getSheet(nombre) { return SS().getSheetByName(nombre); }
 
 var CONFIG = {
   EMAIL_SUPERVISOR:   "soporteagrasdji@bidcom.com.ar",
+  EMAIL_FACTURACION:  "Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar",  // Administración — solicitud de factura al finalizar OOW (igual que WOS)
   NOMBRE_REMITENTE:   "BIDCOMAGRO · Soporte Técnico DJI Agriculture",
   COL_EMAIL_RESELLER: 9,   // Columna J en hoja Resellers (A=0…J=9)
   PORTAL_URL:         "https://script.google.com/macros/s/TU_DEPLOYMENT_ID_PORTAL/exec",
@@ -112,10 +212,15 @@ var CONFIG = {
   ESTADOS_NOTIFICAR_RESELLER: [
     "Abierto","Presupuesto rechazado",
     "Presupuesto aceptado","Espera de repuestos",
-    "Repuestos enviados","En reparacion","Finalizado"
+    "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado",
+    "Caso Enviado","Aprobado por DJI","Bateria enviada a reseller"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
-  ESTADOS_NOTIFICAR_SUPERVISOR: ["Finalizado"],
+  // Vacío: al finalizar ya se avisa al reseller ("Actualización de su Orden de Servicio").
+  // El aviso "Alerta —" al supervisor en cada finalización era redundante (el supervisor es
+  // quien finaliza) → se quitó "Finalizado". El supervisor sigue recibiendo URGENTE/Backorder,
+  // y la solicitud de facturación (OOW) se manda igual desde el bloque 4.
+  ESTADOS_NOTIFICAR_SUPERVISOR: [],
   SUPERVISOR_RECIBE_URGENTES:   true,
   SUPERVISOR_RECIBE_BACKORDER:  true
 };
@@ -123,11 +228,21 @@ var CONFIG = {
 
 
 // ── ENTRY POINT ─────────────────────────────────────────────
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.page === 'guia') {
+    return HtmlService.createHtmlOutputFromFile('GUIA_FLUJOS')
+      .setTitle('HUB PRO — Guía de Flujos')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('DJI HUB PRO')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getGuiaUrl() {
+  return ScriptApp.getService().getUrl() + '?page=guia';
 }
 
 
@@ -135,26 +250,56 @@ function doGet() {
 //  CARGA UNIFICADA — una sola llamada desde el frontend
 //  Devuelve: ordenes + repuestos + tecnicos + resellers
 // ============================================================
-function cargarTodo() {
+// Estados "cerrados"/terminales (una OT ya terminada). Debe coincidir con el front.
+var _ESTADOS_CERRADOS = { 'Finalizado':1, 'Entregado':1, 'CANCELADO':1, 'Rechazado DJI':1, 'Sin respuesta · Cerrado':1 };
+function _esCerrada(estado) { return _ESTADOS_CERRADOS[String(estado||'').trim()] === 1; }
+
+// Origen del repuesto (quién lo pone): col AA si tiene valor; si no, se deriva del texto
+// que el Portal deja al inicio del informe técnico (col M) en casos viejos.
+//   "Stock reseller" = el reseller reparó/repara con su stock (pide reposición)
+//   "Adelantado"     = nosotros adelantamos el repuesto
+function _origenRepuestoDe(f) {
+  var v = String(f[SCHEMA.OT.ORIGEN_REPUESTO] || "").trim();
+  if (v) return v;
+  var informe = String(f[SCHEMA.OT.TRABAJO] || "").toUpperCase();
+  if (informe.indexOf("YA REPARADO") !== -1) return "Stock reseller";
+  if (informe.indexOf("PENDIENTE") !== -1 && informe.indexOf("NECESITA REPUESTOS") !== -1) return "Adelantado";
+  return "";
+}
+
+// Refresco liviano: solo la lista de órdenes (viva), sin el catálogo estático.
+// incluirCerradas=false (default) → solo OTs activas + cerradasCount (para no mandar
+// cientos de OTs cerradas en cada refresh). incluirCerradas=true → todas (vista Finalizados).
+function cargarOrdenes(incluirCerradas) { return cargarTodo(true, incluirCerradas); }
+
+function cargarTodo(soloOrdenes, incluirCerradas) {
   try {
     var hoy     = new Date();
     var hojaOT  = getSheet(SCHEMA.SHEETS.OT);
-    var datosOT = getSheetValues(hojaOT);
+    // force=true: la lista SIEMPRE lee la hoja OT en vivo. Si se leyera del cache,
+    // tras cambiar un estado se veía el valor viejo (CacheService.remove tiene
+    // propagación diferida entre ejecuciones y el refresh inmediato ganaba la carrera → obligaba a F5).
+    var datosOT = getSheetValues(hojaOT, true);
 
-    // Mapa de equipos tipo Bateria desde hoja EQUIPOS
-    var mapaBaterias = {};
+    // Mapa de equipos tipo Bateria + meses de garantía desde hoja EQUIPOS
+    var mapaBaterias = {}, mesesMap = {};
     var hojaEqBat = getSheet(SCHEMA.SHEETS.EQUIPOS);
     if (hojaEqBat) {
       var dEqBat = getSheetValues(hojaEqBat);
       for (var eb = 1; eb < dEqBat.length; eb++) {
+        var nomEq = String(dEqBat[eb][0]||"").trim();
+        if (!nomEq) continue;
+        var nomLow = nomEq.toLowerCase();
         if (String(dEqBat[eb][1]||"").trim().toLowerCase() === "bateria") {
-          mapaBaterias[String(dEqBat[eb][0]||"").trim().toLowerCase()] = true;
+          mapaBaterias[nomLow] = true;
         }
+        var mes = parseInt(dEqBat[eb][SCHEMA.EQUIPOS.MESES], 10);
+        if (!isNaN(mes) && mes > 0) mesesMap[nomLow] = mes;
       }
     }
     Logger.log("Baterías mapeadas: " + Object.keys(mapaBaterias).length);
 
-    var ordenes = [], tecSet = {};
+    var ordenes = [], tecSet = {}, cerradasCount = 0;
     for (var i = 1; i < datosOT.length; i++) {
       var f = datosOT[i];
       if (!f[2] || String(f[2]).trim() === "") continue;
@@ -181,6 +326,9 @@ function cargarTodo() {
       var tec = String(f[9] || "").trim();
       if (tec && tec !== "Gestión Reseller") tecSet[tec] = 1;
 
+      // B (performance): no mandar las OTs cerradas salvo que se pidan explícitamente
+      if (_esCerrada(f[4])) { cerradasCount++; if (!incluirCerradas) continue; }
+
       var mensajesRaw  = String(f[11]||"").trim();
       var lastMsg      = mensajesRaw.lastIndexOf("💬");
       var lastLeido    = mensajesRaw.lastIndexOf("[LEIDO]");
@@ -199,14 +347,28 @@ function cargarTodo() {
         tecnico:    (f[9] && f[9] !== 'undefined') ? String(f[9]) : "",
         trabajo:   String(f[12]||""),
         factura:   (f[13] instanceof Date) ? Utilities.formatDate(f[13], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(f[13] || ""),
+        vencimientoGar: (function() {
+          var eqKey = String(f[SCHEMA.OT.EQUIPO]||'').trim().toLowerCase();
+          var mes   = mesesMap[eqKey] || 0;
+          if (mes > 0 && f[13] instanceof Date) {
+            var vd = new Date(f[13].getTime());
+            vd.setMonth(vd.getMonth() + mes);
+            return Utilities.formatDate(vd, Session.getScriptTimeZone(), "dd/MM/yyyy");
+          }
+          return '';
+        })(),
         cas:       String(f[14]||""),
+        fwrc:      String(f[SCHEMA.OT.FWRC]||"").trim(),
         repuestos: f[16] ? String(f[16]).replace(/\r/g, "").trim() : "Sin consumo de repuestos",
         manoObraGuardada: f[22] ? String(f[22]).trim() : "",
         notasInternas:   f[23] ? String(f[23]).trim() : "",
-        mensajes:  String(f[11]||"").trim(),
+        mensajes:   String(f[11]||"").trim(),
         msgNoLeido: msgNoLeido,
+        fechaIngreso: (f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) ? f[SCHEMA.OT.FECHA_INGRESO].getTime() : null,
         prioridad: String(f[17]).toUpperCase() === "URGENTE",
         circuito:  tipo,
+        origenRepuesto: _origenRepuestoDe(f),               // AA: quién pone el repuesto (badge)
+        cierreTipo:     String(f[SCHEMA.OT.CIERRE_TIPO]||"").trim(), // AB: reposición vs NC
         esBateria: mapaBaterias[String(f[5]||'').trim().toLowerCase()] === true,
         dias:      dias,
         diasEstado: diasEstado,
@@ -215,12 +377,24 @@ function cargarTodo() {
     }
 
     var tecnicosDisp = obtenerTecnicosDisponibles();
+
+    // soloOrdenes: refresco liviano — devuelve la lista viva SIN el catálogo
+    // (el catálogo es estático, se trae una sola vez y se cachea en el cliente).
+    if (soloOrdenes) {
+      return {
+        ordenes:             ordenes,
+        tecnicos:            Object.keys(tecSet).sort(),
+        tecnicosDisponibles: tecnicosDisp,
+        cerradasCount:       cerradasCount
+      };
+    }
+
     var catalogo = cargarCatalogo();
-    
     return {
       ordenes:             ordenes,
       tecnicos:            Object.keys(tecSet).sort(),
       tecnicosDisponibles: tecnicosDisp,
+      cerradasCount:       cerradasCount,
       repuestos:           catalogo.repuestos,
       resellers:           catalogo.resellers,
       equipos:             catalogo.equipos,
@@ -417,6 +591,10 @@ function actualizarOrden(data) {
     var old  = hoja.getRange(fila, 1, 1, 26).getValues()[0];
     var estadoAnterior = String(old[SCHEMA.OT.ESTADO] || "");
 
+    // getRange NO auto-expande columnas: asegurar que existan AA/AB antes de escribirlas.
+    var _maxCol = hoja.getMaxColumns();
+    if (_maxCol < SCHEMA.OT.CIERRE_TIPO + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.CIERRE_TIPO + 1) - _maxCol);
+
     // ── CONTROL DE CONCURRENCIA OPTIMISTA ──────────────────────
     var rawUM = old[SCHEMA.OT.ULTIMA_MODIFICACION];
     var currentUMms = (rawUM instanceof Date) ? rawUM.getTime() : 0;
@@ -427,6 +605,12 @@ function actualizarOrden(data) {
         ot:        data.ot || '',
         msg:       'La orden fue modificada por otro usuario. Recargá los datos antes de guardar.'
       };
+    }
+
+    // Unicidad de CAS / FWRC contra las DEMÁS órdenes (excluye la actual por su nº de OT).
+    var _dupU = _otBuscarDuplicadoCasFwrc(data.cas, data.fwrc, data.ot);
+    if (_dupU) {
+      return { resultado: 'El ' + _dupU.campo + ' ' + _dupU.valor + ' ya está usado en la orden ' + _dupU.ot + '.', ot: data.ot || '' };
     }
 
     // Sello de tiempo en Columna U (21) si el estado cambia
@@ -460,9 +644,13 @@ function actualizarOrden(data) {
     hoja.getRange(fila, SCHEMA.OT.TRABAJO          + 1).setValue(data.trabajo);
     hoja.getRange(fila, SCHEMA.OT.FECHA_ACTIVACION + 1).setValue(data.factura || "");
     hoja.getRange(fila, SCHEMA.OT.CAS              + 1).setValue(data.cas);
+    if (data.fwrc !== undefined) hoja.getRange(fila, SCHEMA.OT.FWRC + 1).setValue(data.fwrc || "");
     hoja.getRange(fila, SCHEMA.OT.REPUESTOS        + 1).setValue(data.repuestos);
     hoja.getRange(fila, SCHEMA.OT.PRIORIDAD        + 1).setValue(data.prioridad ? "URGENTE" : "NORMAL");
     hoja.getRange(fila, SCHEMA.OT.CIRCUITO         + 1).setValue(data.circuito);
+    // Origen del repuesto (AA) y tipo de cierre (AB) — informativos, editables en HUB
+    if (data.origenRepuesto !== undefined) hoja.getRange(fila, SCHEMA.OT.ORIGEN_REPUESTO + 1).setValue(data.origenRepuesto || "");
+    if (data.cierreTipo     !== undefined) hoja.getRange(fila, SCHEMA.OT.CIERRE_TIPO     + 1).setValue(data.cierreTipo || "");
     if (data.manoObraGuardada !== undefined) {
       hoja.getRange(fila, SCHEMA.OT.MANO_OBRA      + 1).setValue(data.manoObraGuardada);
       if (data.notasInternas !== undefined) {
@@ -470,7 +658,7 @@ function actualizarOrden(data) {
       }
     }
 
-    var esEstadoTerminal = (data.estado === "Finalizado" || data.estado === "Entregado" || data.estado === "CANCELADO");
+    var esEstadoTerminal = (data.estado === "Finalizado" || data.estado === "Entregado" || data.estado === "CANCELADO" || data.estado === "Rechazado DJI" || data.estado === "Sin respuesta · Cerrado");
 
     if (data.estado === "Finalizado") {
       hoja.getRange(fila, SCHEMA.OT.FECHA_CIERRE + 1).setValue(new Date());
@@ -709,19 +897,99 @@ function _cerrarSolicitudesPendientes(idOT, operador) {
 // ============================================================
 //  CREAR NUEVA OT (CON CANDADO DE CONCURRENCIA)
 // ============================================================
-function crearNuevaOT() {
+// Normaliza un CAS/FWRC SOLO para comparar unicidad: minúsculas y sin guiones ni espacios.
+// Así "AB-123", "ab 123" y "AB123" cuentan como el mismo número (para que no se pasen de vivos
+// metiendo un guion o cambiando mayúsculas). El valor se GUARDA tal cual lo escribió el operador;
+// esta normalización es solo para el chequeo de duplicados.
+function _normCasFwrc(v) {
+  return String(v == null ? "" : v).toLowerCase().replace(/[\s\-]/g, "");
+}
+
+// Unicidad de CAS / FWRC: devuelve { campo, valor, ot } del primer conflicto, o null.
+// cas/fwrc vacíos se ignoran (son opcionales). otExcluir = nº de OT a saltear (al editar,
+// para no chocar consigo misma). CAS se compara contra la columna CAS y FWRC contra la
+// columna FWRC (mismo tipo), normalizados (sin guiones/espacios, case-insensitive). Lee del
+// sheet (force), no del cache.
+function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
+  var casN  = _normCasFwrc(cas);
+  var fwrcN = _normCasFwrc(fwrc);
+  if (!casN && !fwrcN) return null;
+  var O = SCHEMA.OT;
+  var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+  var excl  = String(otExcluir || "").trim();
+  for (var i = 1; i < datos.length; i++) {
+    var otRow = String(datos[i][O.OT] || "").trim();
+    if (!otRow || (excl && otRow === excl)) continue;
+    if (casN  && _normCasFwrc(datos[i][O.CAS])  === casN)  return { campo: "CAS",  valor: String(cas).trim(),  ot: otRow };
+    if (fwrcN && _normCasFwrc(datos[i][O.FWRC]) === fwrcN) return { campo: "FWRC", valor: String(fwrc).trim(), ot: otRow };
+  }
+  return null;
+}
+
+function crearNuevaOT(datos) {
+  datos = datos || {};
   var lock = LockService.getScriptLock();
   var nOT  = "";
   try {
     lock.waitLock(10000);
+
+    // Unicidad: no permitir dos OTs con el mismo CAS o FWRC (con el lock tomado → sin carreras).
+    var _dup = _otBuscarDuplicadoCasFwrc(datos.cas, datos.fwrc, null);
+    if (_dup) return { resultado: "Error: El " + _dup.campo + " " + _dup.valor + " ya está usado en la orden " + _dup.ot + ".", ot: "", duplicado: _dup };
 
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var num  = String(hoja.getLastRow() + 1);
     while (num.length < 5) num = "0" + num;
     nOT = "WH/REP/" + num;
 
-    hoja.appendRow([new Date(),"",nOT,"OOW","Abierto","","","","","","","","","","","","","NORMAL","Taller","",new Date()]);
-    registrarLog(nOT, "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
+    var fechaAct = "";
+    if (datos.fechaActivacion) {
+      var parts = String(datos.fechaActivacion).split("-");
+      if (parts.length === 3) fechaAct = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+
+    var row = new Array(21).fill("");
+    row[0]  = new Date();
+    row[2]  = nOT;
+    row[3]  = datos.garantia  || "OOW";
+    row[4]  = "Abierto";
+    row[5]  = datos.equipo    || "";
+    row[6]  = datos.sn        || "";
+    row[7]  = datos.reseller  || "";
+    row[9]  = datos.tecnico   || "";
+    row[12] = datos.trabajo   || "";
+    row[13] = fechaAct        || "";
+    row[14] = datos.cas       || "";   // O: CAS (opcional, único)
+    row[15] = datos.fwrc      || "";   // P: FWRC (opcional, único)
+    row[17] = datos.prioridad || "NORMAL";
+    row[18] = datos.circuito  || "Taller";
+    row[20] = new Date();
+    hoja.appendRow(row);
+
+    registrarLog(nOT, datos.reseller || "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
+
+    // Notificar la apertura — igual criterio que actualizarOrden: "Abierto" está en
+    // ESTADOS_NOTIFICAR_RESELLER/TÉCNICO. Sin esto, las OT creadas desde el HUB (no desde
+    // el Portal Reseller) no avisaban al reseller/técnico ni dejaban registro en EMAIL_LOGS.
+    try {
+      var dataNotif = {
+        ot:        nOT,
+        estado:    "Abierto",
+        reseller:  datos.reseller || "",
+        equipo:    datos.equipo   || "",
+        sn:        datos.sn       || "",
+        garantia:  datos.garantia || "OOW",
+        circuito:  datos.circuito || "Taller",
+        cas:       datos.cas      || "",
+        fwrc:      datos.fwrc     || "",
+        trabajo:   datos.trabajo  || "",
+        repuestos: "",
+        cliente:   "",
+        prioridad: (String(datos.prioridad || "").toUpperCase() === "URGENTE")
+      };
+      dataNotif._fechaEstimada = calcularFechaEstimada(dataNotif.circuito, dataNotif.garantia, row[0]);
+      enviarNotificaciones(dataNotif, "-", datos.tecnico || "");
+    } catch(eN) { Logger.log("crearNuevaOT notif: " + eN); }
 
     return { resultado: nOT, ot: nOT };
 
@@ -733,6 +1001,152 @@ function crearNuevaOT() {
     invalidateSheetValues(SCHEMA.SHEETS.OT);
     if (lock.hasLock()) lock.releaseLock();
   }
+}
+
+// ============================================================
+//  RECUPERAR MAIL DE APERTURA — OT creadas desde el HUB antes del
+//  fix v2.14 (crearNuevaOT no llamaba a enviarNotificaciones).
+//  Lee la fila ACTUAL de la OT y dispara el aviso de estado.
+//  NO modifica la OT: solo manda el mail y lo registra en EMAIL_LOGS.
+//    HUB_notificarOT("WH/REP/00123")        → mail del estado ACTUAL de la OT
+//    HUB_notificarOT("WH/REP/00123", true)  → fuerza el texto de "Abierto"
+// ============================================================
+function HUB_notificarOT(numeroOT, forzarAbierto) {
+  try {
+    var buscado = String(numeroOT || "").trim();
+    if (!buscado) return { ok: false, error: "Falta el número de OT" };
+
+    var datos = getSheetValues(SCHEMA.SHEETS.OT, true);  // force: leer del sheet, no del cache
+    var O = SCHEMA.OT;
+    var f = null;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][O.OT] || "").trim() === buscado) { f = datos[i]; break; }
+    }
+    if (!f) return { ok: false, error: "OT no encontrada: " + buscado };
+
+    var estadoActual = String(f[O.ESTADO] || "").trim();
+    var estadoNotif  = forzarAbierto ? "Abierto" : estadoActual;
+    var tecnico      = String(f[O.TECNICO] || "").trim();
+
+    var data = {
+      ot:        buscado,
+      estado:    estadoNotif,
+      reseller:  String(f[O.RESELLER]  || "").trim(),
+      equipo:    String(f[O.EQUIPO]    || "").trim(),
+      sn:        String(f[O.SN]        || "").trim(),
+      garantia:  String(f[O.GARANTIA]  || "OOW").trim(),
+      circuito:  String(f[O.CIRCUITO]  || "Taller").trim(),
+      cas:       String(f[O.CAS]       || "").trim(),
+      cliente:   String(f[O.CLIENTE]   || "").trim(),
+      trabajo:   String(f[O.TRABAJO]   || "").trim(),
+      repuestos: String(f[O.REPUESTOS] || "").trim(),
+      prioridad: (String(f[O.PRIORIDAD] || "").toUpperCase() === "URGENTE")
+    };
+    data._fechaEstimada = calcularFechaEstimada(data.circuito, data.garantia, f[O.FECHA_INGRESO]);
+
+    // estadoAnterior "-" → enviarNotificaciones lo trata como aviso nuevo (estado != anterior)
+    enviarNotificaciones(data, "-", tecnico);
+
+    var avisaReseller = estaEnLista(estadoNotif, CONFIG.ESTADOS_NOTIFICAR_RESELLER);
+    return {
+      ok: true,
+      ot: buscado,
+      estadoNotificado: estadoNotif,
+      reseller: data.reseller,
+      nota: avisaReseller
+        ? "Aviso disparado — revisá EMAIL_LOGS para confirmar el envío."
+        : "El estado '" + estadoNotif + "' no está en ESTADOS_NOTIFICAR_RESELLER: no se manda mail al reseller (usá forzarAbierto=true si querés el mail de apertura)."
+    };
+  } catch(e) {
+    Logger.log("HUB_notificarOT: " + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Wrapper editable para correr desde el editor de Apps Script.
+// Poné uno o varios números separados por coma. FORZAR_ABIERTO=true manda el
+// texto de "Abierto" aunque la OT ya haya avanzado de estado.
+function HUB_notificarOTTest() {
+  var NUMEROS        = "WH/REP/00000";   // ej: "WH/REP/00123, WH/REP/00124"
+  var FORZAR_ABIERTO = false;
+
+  var lista = String(NUMEROS).split(",");
+  var res   = [];
+  for (var i = 0; i < lista.length; i++) {
+    var n = lista[i].trim();
+    if (!n) continue;
+    res.push(HUB_notificarOT(n, FORZAR_ABIERTO));
+  }
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+// ============================================================
+//  DIAGNÓSTICO DE MAILS DE BATERÍA — read-only, no manda nada.
+//  Dice por qué una OT de batería no está enviando mails.
+//    HUB_diagnosticoBateria("WH/REP/00123")
+//  o editá HUB_diagnosticoBateriaTest() y corré desde el editor.
+// ============================================================
+function HUB_diagnosticoBateria(numeroOT) {
+  try {
+    var buscado = String(numeroOT || "").trim();
+    if (!buscado) return { ok: false, error: "Falta el número de OT" };
+
+    var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+    var O = SCHEMA.OT, f = null;
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][O.OT] || "").trim() === buscado) { f = datos[i]; break; }
+    }
+    if (!f) return { ok: false, error: "OT no encontrada: " + buscado };
+
+    var equipo   = String(f[O.EQUIPO]   || "").trim();
+    var estado   = String(f[O.ESTADO]   || "").trim();
+    var reseller = String(f[O.RESELLER] || "").trim();
+
+    // Tipo del equipo tal como figura en la hoja EQUIPOS (col B)
+    var tipoEquipo = "(equipo no encontrado en EQUIPOS)";
+    var dEq = getSheetValues(SCHEMA.SHEETS.EQUIPOS);
+    for (var e = 1; e < dEq.length; e++) {
+      if (String(dEq[e][0] || "").trim().toLowerCase() === equipo.toLowerCase()) {
+        tipoEquipo = String(dEq[e][1] || "").trim(); break;
+      }
+    }
+
+    var esBat          = esBateria(equipo);
+    var emailReseller  = obtenerEmailReseller(reseller);
+    var emailLogistica = obtenerEmailGestionLogistica();
+    var enLista        = estaEnLista(estado, CONFIG.ESTADOS_NOTIFICAR_RESELLER);
+
+    var problemas = [];
+    if (!esBat) problemas.push("esBateria('" + equipo + "')=false → NO dispara la reposición ni los textos de batería. Tipo en EQUIPOS col B = '" + tipoEquipo + "' (debe ser exactamente 'bateria', minúscula y sin tilde).");
+    if (!emailReseller) problemas.push("El reseller '" + reseller + "' no tiene email válido en Resellers (col J) → no le llega nada.");
+    if (!emailLogistica) problemas.push("No hay usuario 'Gestion Logistica' con email válido en Usuarios_Internos → el mail de reposición (estado 'Scrap Enviado (Evidencias)') se ABORTA entero: ni logística ni la copia al reseller, y no queda registro en EMAIL_LOGS.");
+    if (!enLista) problemas.push("El estado actual '" + estado + "' NO está en ESTADOS_NOTIFICAR_RESELLER → en este estado no sale mail de cambio de estado (es esperable si el estado es 'Scrap Enviado (Evidencias)', que usa el mail de reposición aparte).");
+
+    var r = {
+      ok: true,
+      ot: buscado,
+      equipo: equipo,
+      tipoEnEquipos: tipoEquipo,
+      esBateria: esBat,
+      estadoActual: estado,
+      estadoAvisaAlReseller: enLista,
+      reseller: reseller,
+      emailReseller: emailReseller || "(SIN EMAIL)",
+      emailGestionLogistica: emailLogistica || "(SIN USUARIO / SIN EMAIL)",
+      problemas: problemas.length ? problemas : ["Sin problemas de config detectados: en este estado la OT debería mandar mail. Si igual no llega, revisá EMAIL_LOGS por filas 'ERROR:' de esta OT."]
+    };
+    Logger.log(JSON.stringify(r, null, 2));
+    return r;
+  } catch(e) {
+    Logger.log("HUB_diagnosticoBateria: " + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+function HUB_diagnosticoBateriaTest() {
+  var NUMERO = "WH/REP/00000";   // poné acá una OT de batería que no esté mandando mails
+  return HUB_diagnosticoBateria(NUMERO);
 }
 
 // ============================================================
@@ -1015,15 +1429,15 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
     var tieneBackorder = detectarBackorder(data.repuestos);
     Logger.log("=== NOTIF " + data.ot + " | " + estadoAnterior + " → " + estadoNuevo + " ===");
 
-    // 0. REPOSICIÓN BATERÍA — automático al llegar a "Aprobacion DJI"
-    if (estadoNuevo === "Aprobado por DJI" && estadoAnterior !== "Aprobado por DJI") {
+    // 0. REPOSICIÓN BATERÍA — se dispara al confirmar el envío del scrap a DJI
+    if (estadoNuevo === "Scrap Enviado (Evidencias)" && estadoAnterior !== "Scrap Enviado (Evidencias)") {
       if (esBateria(data.equipo)) {
         enviarEmailReposicionBateria(data);
       }
     }
 
-    // 1. RESELLER
-    if (estaEnLista(estadoNuevo, CONFIG.ESTADOS_NOTIFICAR_RESELLER)) {
+    // 1. RESELLER — solo cuando CAMBIA de estado (no en cada guardado ni al re-guardar el mismo estado)
+    if (estadoNuevo !== estadoAnterior && estaEnLista(estadoNuevo, CONFIG.ESTADOS_NOTIFICAR_RESELLER)) {
       var emailR = obtenerEmailReseller(data.reseller);
       if (emailR) {
         var asuntoR = armarAsunto(data);
@@ -1067,7 +1481,86 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
         registrarEmailLog(data.ot, CONFIG.EMAIL_SUPERVISOR, "Supervisor", asuntoS, "ERROR: " + e.message, "");
       }
     }
+
+    // 4. FACTURACIÓN (Administración) — solo al FINALIZAR una OT fuera de garantía (con presupuesto).
+    //    Se dispara únicamente en la transición a "Finalizado" (estadoAnterior distinto) para no duplicar la solicitud.
+    if (estadoNuevo === "Finalizado" && estadoAnterior !== "Finalizado"
+        && String(data.garantia || "").toUpperCase() === "OOW") {
+      var asuntoF = "[FACTURAR] OT " + data.ot + " — " + data.reseller + " · " + data.equipo;
+      try {
+        var tidF = _enviarConHilo(data.ot, CONFIG.EMAIL_FACTURACION, asuntoF, armarEmailFacturacion(data, tecnico));
+        registrarEmailLog(data.ot, CONFIG.EMAIL_FACTURACION, "Facturación", asuntoF, "OK", tidF || "");
+      } catch(e) {
+        registrarEmailLog(data.ot, CONFIG.EMAIL_FACTURACION, "Facturación", asuntoF, "ERROR: " + e.message, "");
+      }
+    }
   } catch(e) { Logger.log("enviarNotificaciones: " + e); }
+}
+
+// Email a Administración solicitando la facturación de una OT finalizada fuera de garantía (OOW).
+// Reutiliza los datos del presupuesto: mano de obra (manoObraGuardada) + repuestos consumidos.
+function armarEmailFacturacion(data, tecnico) {
+  // Mano de obra: manoObraGuardada es un JSON [{codigo,descripcion,precio}]
+  var mo = [];
+  try { if (data.manoObraGuardada) mo = JSON.parse(data.manoObraGuardada); } catch(e) {}
+  var tablaMOHTML = "", totalMO = 0;
+  if (mo && mo.length) {
+    var filasMO = "";
+    for (var i = 0; i < mo.length; i++) {
+      var pMO = parseFloat(String(mo[i].precio).replace(/[^0-9.]/g, "")) || 0;
+      totalMO += pMO;
+      filasMO += "<tr>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + mo[i].codigo + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + mo[i].descripcion + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + mo[i].precio + "</td></tr>";
+    }
+    tablaMOHTML = "<div style='margin-top:20px'>" +
+      "<p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Mano de Obra</p>" +
+      "<table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+      "<thead><tr style='background:#f5f5f5'>" +
+      "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Código</th>" +
+      "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Descripción</th>" +
+      "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>Precio</th>" +
+      "</tr></thead><tbody>" + filasMO +
+      (totalMO > 0 ? "<tr style='background:#f5f5f5;font-weight:700'>" +
+        "<td colspan='2' style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>SUBTOTAL MANO DE OBRA</td>" +
+        "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>USD " + _fmtNum(totalMO) + "</td></tr>" : "") +
+      "</tbody></table></div>";
+  }
+
+  var cuerpoDetalle =
+    filaDetalle("Orden de Trabajo", data.ot) +
+    filaDetalle("Reseller", data.reseller) +
+    filaDetalle("Equipo / Modelo", data.equipo) +
+    filaDetalle("Nº de Serie", data.sn || "—") +
+    (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", data.cas) : "") +
+    filaDetalle("Garantía", "Fuera de garantía (OOW)") +
+    (tecnico && tecnico !== "Gestión Reseller" ? filaDetalle("Técnico", tecnico) : "");
+
+  var repFact = construirTablaRepuestosFacturacion(data.repuestos);
+  var totalGeneral = Math.round((totalMO + repFact.total) * 100) / 100;
+  var totalFilaHTML = totalGeneral > 0
+    ? "<table style='width:100%;border-collapse:collapse;margin-top:14px'>" +
+      "<tr style='background:#111;color:#fff;font-weight:700;font-size:14px'>" +
+      "<td style='padding:10px 14px;text-align:right'>TOTAL A FACTURAR (USD, sin impuestos)</td>" +
+      "<td style='padding:10px 14px;text-align:right;white-space:nowrap'>USD " + _fmtNum(totalGeneral) + "</td></tr></table>"
+    : "";
+
+  var bloques =
+    bloqueCard("🧾 Solicitud de facturación",
+      "Esta orden fue <strong>finalizada fuera de garantía</strong>. Solicitamos generar la factura correspondiente al reseller.", "#e67e22") +
+    "<div style='background:rgba(0,0,0,.02);border:1px solid #eef2f6;border-radius:8px;padding:6px 16px;margin-bottom:12px'>" + cuerpoDetalle + "</div>" +
+    repFact.html +
+    tablaMOHTML +
+    totalFilaHTML +
+    "<p style='font-size:11px;color:#888;margin-top:14px'>Repuestos con precio neto reseller (40% de descuento sobre PVP), sin impuestos. Los importes finales son los del presupuesto enviado al reseller para esta orden.</p>";
+
+  return construirEmailHTML(
+    "Solicitud de facturación — OT " + data.ot,
+    "Área de Administración,<br>Solicitamos la facturación de la siguiente orden finalizada fuera de garantía:",
+    bloques,
+    "Cualquier duda, respondé este correo."
+  );
 }
 
 function estaEnLista(v, lista) {
@@ -1140,6 +1633,17 @@ function armarEmailReseller(data, ant, nvo, tec) {
     "Finalizado":           "La reparación fue completada exitosamente. La orden queda cerrada en el sistema."
   };
   var msgs = esReseller ? msgsReseller : msgsTaller;
+  // Estados exclusivos del flujo de batería — textos propios (solo si el equipo ES batería,
+  // porque "Rechazado DJI" también existe en el circuito Reseller Propio y no debe usar esta redacción)
+  if (esBateria(data.equipo)) {
+    var msgsBateria = {
+      "Caso Enviado":               "Enviamos su caso a DJI para la evaluación de la batería en garantía. Le avisaremos apenas tengamos la respuesta.",
+      "Aprobado por DJI":           "DJI aprobó el caso: la batería quedó reconocida en garantía. Coordinaremos la reposición y le informaremos los próximos pasos.",
+      "Rechazado DJI":              "DJI no aprobó el caso de la batería en garantía. Nos comunicaremos con usted para informarle las opciones disponibles.",
+      "Bateria enviada a reseller": "Despachamos su batería de reemplazo. En breve la recibirá."
+    };
+    for (var kB in msgsBateria) { if (msgsBateria.hasOwnProperty(kB)) msgs[kB] = msgsBateria[kB]; }
+  }
   var estimada = data._fechaEstimada ? filaDetalle("Fecha estimada de entrega", "<strong style='color:#00a3e0'>" + data._fechaEstimada + "</strong>") : "";
   var urgBanner = data.prioridad ? bloqueCard("⚡ Prioridad URGENTE", "Esta orden tiene prioridad máxima.", "#e74c3c") : "";
   var ficha =
@@ -1161,7 +1665,7 @@ function armarEmailReseller(data, ant, nvo, tec) {
     urgBanner +
     "<p style='font-size:14px;color:#444;line-height:1.7;margin:0 0 22px'>" + (msgs[nvo]||"Su orden fue actualizada.") + "</p>" +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:4px'>" + ficha + "</div>" +
-    construirTablaRepuestos(data.repuestos) + informe,
+    construirTablaRepuestos(data.repuestos, nvo === "Finalizado") + informe,
     "Ante consultas comuníquese con su representante en BIDCOMAGRO."
   );
 }
@@ -1192,7 +1696,7 @@ function armarEmailTecnico(data, estado, tec) {
 function armarEmailSupervisor(data, ant, nvo, tec, back) {
   var alertas = "";
   if (data.prioridad) alertas += bloqueCard("⚡ URGENTE","OT marcada como urgente.","#e74c3c");
-  if (back)            alertas += bloqueCard("📦 Backorder","Repuestos pendientes de envío.","#e67e22");
+  if (back)            alertas += bloqueCard(" Backorder","Repuestos pendientes de envío.","#e67e22");
   if (nvo==="Finalizado") alertas += bloqueCard("✓ Finalizada","Orden cerrada correctamente.","#27ae60");
   return construirEmailHTML(
     "Alerta — " + data.ot, "Supervisor",
@@ -1225,7 +1729,8 @@ function filaDetalle(label, valor) {
     "<span style='font-size:12px;color:#333;text-align:right'>" + valor + "</span></div>";
 }
 
-function construirTablaRepuestos(rep) {
+// cerrada=true (OT finalizada): los repuestos se muestran como entregados, sin marcar pendientes.
+function construirTablaRepuestos(rep, cerrada) {
   if (!rep || rep === "Sin consumo de repuestos") return "";
   var ls = rep.split(" ; "), filas = "", hayBack = false;
   for (var i = 0; i < ls.length; i++) {
@@ -1235,6 +1740,7 @@ function construirTablaRepuestos(rep) {
     var des  = (p[1]||"").replace("("+cod+")","").replace(/\(\s*\)/g,"").trim();
     var ped  = parseInt(p[2].split(" E:")[0].replace("P:",""))||0;
     var env  = parseInt(p[2].split(" E:")[1])||0;
+    if (cerrada) env = ped; // OT cerrada: no hay pendientes, todo entregado
     var back = ped - env;
     if (back > 0) hayBack = true;
     var est = back > 0
@@ -1258,6 +1764,62 @@ function construirTablaRepuestos(rep) {
     "</tr></thead><tbody>" + filas + "</tbody></table>" +
     (hayBack ? "<p style='font-size:11px;color:#e67e22;margin-top:8px'>Algunos repuestos están pendientes de envío.</p>" : "") +
     "</div>";
+}
+
+// Tabla de repuestos CON PRECIOS para la solicitud de facturación.
+// Usa la misma lógica de precios que el presupuesto: PVP (sin imp.) desde
+// DB_REPUESTOS × descuento reseller (40%). Devuelve { html, total }.
+function construirTablaRepuestosFacturacion(rep) {
+  if (!rep || rep === "Sin consumo de repuestos") return { html: "", total: 0 };
+
+  // Mapa de precios PVP (col F / índice 5) por código (col B / índice 1) — igual que obtenerPresupuestoHTML
+  var precioMap = {};
+  var hojaRep = getSheet(SCHEMA.SHEETS.DB_REPUESTOS);
+  if (hojaRep) {
+    var dRep = getSheetValues(hojaRep);
+    for (var pr = 1; pr < dRep.length; pr++) {
+      var codR = String(dRep[pr][1] || "").trim().toUpperCase();
+      if (codR) precioMap[codR] = parseFloat(String(dRep[pr][5] || "0").replace(",", ".")) || 0;
+    }
+  }
+
+  var DESC_RESELLER = 0.40; // precio reseller = PVP × (1 − 40%)
+  var ls = rep.split(" ; "), filas = "", total = 0;
+  for (var i = 0; i < ls.length; i++) {
+    var p = ls[i].split(" | ");
+    if (p.length < 3) continue;
+    var cod = p[0].trim();
+    var des = (p[1] || "").replace("(" + cod + ")", "").replace(/\(\s*\)/g, "").trim();
+    var ped = parseInt((p[2].split(" E:")[0] || "").replace("P:", "")) || 0;
+    var pvpBase = precioMap[cod.toUpperCase()] || 0;
+    var pNeto = pvpBase > 0 ? Math.round(pvpBase * (1 - DESC_RESELLER) * 100) / 100 : 0;
+    var sub = Math.round(pNeto * ped * 100) / 100;
+    total += sub;
+    filas += "<tr>" +
+      "<td style='padding:7px 10px;font-size:11px;color:#00a3e0;font-weight:600;border:1px solid #e0e0e0'>" + cod + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;color:#333;border:1px solid #e0e0e0'>" + des + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:center;border:1px solid #e0e0e0'>" + ped + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:right;border:1px solid #e0e0e0'>" + (pNeto ? "USD " + _fmtNum(pNeto) : "—") + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border:1px solid #e0e0e0'>" + (sub ? "USD " + _fmtNum(sub) : "—") + "</td></tr>";
+  }
+  if (!filas) return { html: "", total: 0 };
+
+  var html = "<div style='margin-top:20px'>" +
+    "<p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Repuestos</p>" +
+    "<table style='width:100%;border-collapse:collapse;font-size:12px'>" +
+    "<thead><tr style='background:#f5f5f5'>" +
+    "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Código</th>" +
+    "<th style='padding:7px 10px;text-align:left;border:1px solid #e0e0e0'>Descripción</th>" +
+    "<th style='padding:7px 10px;text-align:center;border:1px solid #e0e0e0'>Cant.</th>" +
+    "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>P.Unit neto (USD)</th>" +
+    "<th style='padding:7px 10px;text-align:right;border:1px solid #e0e0e0'>Subtotal (USD)</th>" +
+    "</tr></thead><tbody>" + filas +
+    (total > 0 ? "<tr style='background:#f5f5f5;font-weight:700'>" +
+      "<td colspan='4' style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>SUBTOTAL REPUESTOS</td>" +
+      "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>USD " + _fmtNum(total) + "</td></tr>" : "") +
+    "</tbody></table></div>";
+
+  return { html: html, total: Math.round(total * 100) / 100 };
 }
 
 function construirEmailHTML(titulo, saludo, cuerpo, footer) {
@@ -1902,7 +2464,29 @@ function obtenerDatosSupervisor() {
       ? { promedio: Math.round(sumDesp / cntDesp), count: cntDesp }
       : null;
 
-    return { backorderPred: backorderPred, slaData: slaFinal, tiempoDespacho: tiempoDespacho };
+    // ── Ranking de resellers con más casos abiertos ──────────────
+    var EST_CERRADOS_R = ['CANCELADO', 'Finalizado', 'Entregado', 'Partes dañadas scrapeadas'];
+    var resMap = {};
+    for (var ri = 1; ri < datos.length; ri++) {
+      var rf = datos[ri];
+      if (!rf[SCHEMA.OT.OT]) continue;
+      var estR   = String(rf[SCHEMA.OT.ESTADO]   || '').trim();
+      var circR  = String(rf[SCHEMA.OT.CIRCUITO] || '').trim().toUpperCase();
+      var esResR = (circR === 'RESELLER' || circR === 'SI' || circR === 'RESELLER PROPIO');
+      if (!esResR) continue;
+      if (EST_CERRADOS_R.indexOf(estR) !== -1) continue;
+      var resellerR = String(rf[SCHEMA.OT.RESELLER] || '').trim() || 'Sin nombre';
+      resMap[resellerR] = (resMap[resellerR] || 0) + 1;
+    }
+    var resellersRanking = [];
+    var rkeys = Object.keys(resMap);
+    for (var rk = 0; rk < rkeys.length; rk++) {
+      resellersRanking.push({ nombre: rkeys[rk], count: resMap[rkeys[rk]] });
+    }
+    resellersRanking.sort(function(a, b) { return b.count - a.count; });
+    if (resellersRanking.length > 10) resellersRanking = resellersRanking.slice(0, 10);
+
+    return { backorderPred: backorderPred, slaData: slaFinal, tiempoDespacho: tiempoDespacho, resellersRanking: resellersRanking };
   } catch(e) {
     Logger.log("obtenerDatosSupervisor: " + e);
     return { backorderPred: [], slaData: {} };
@@ -2058,14 +2642,14 @@ function enviarEmailReposicionBateria(data) {
     var htmlEmail = construirEmailHTML(
       "Reposición de Batería — " + data.ot,
       "Estimado equipo de Logística,",
-      bloqueCard("🔋 Caso aprobado — Reposición requerida",
+      bloqueCard("Caso aprobado — Reposición requerida",
         "El reseller <strong>" + data.reseller + "</strong> completó los dos pasos requeridos: " +
         "carga del caso reconocido por DJI como en garantía y envío del scrap. " +
         "Se requiere reponer la batería al reseller.",
         "#00a3e0") +
       "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:16px'>" +
       cuerpoDetalle + "</div>" +
-      bloqueCard("📦 Acción requerida",
+      bloqueCard(" Acción requerida",
         "Coordinar envío de batería de reemplazo al reseller <strong>" + data.reseller + "</strong>.",
         "#27ae60"),
       "Aviso automático generado por DJI HUB PRO."
@@ -2093,7 +2677,7 @@ function verificarSLAs() {
       var f = datos[i];
       if (!f[2]) continue;
       var est = String(f[4]||"");
-      if (est === "Finalizado" || est === "CANCELADO") continue;
+      if (est === "Finalizado" || est === "CANCELADO" || est === "Rechazado DJI" || est === "Sin respuesta · Cerrado") continue;
       var dias = (f[0] instanceof Date) ? Math.floor((hoy - f[0]) / 86400000) : 0;
       var urg  = String(f[17]).toUpperCase() === "URGENTE";
       if (!((urg && dias > 1) || (!urg && dias > 7))) continue;

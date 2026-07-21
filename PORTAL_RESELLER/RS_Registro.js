@@ -19,7 +19,11 @@ var _REG_COL = {
   ESTADO:    5,  // F  Pendiente / Aprobado / Rechazado
   TOKEN:     6,  // G  Token único por solicitud (SHA-256, un solo uso)
   FECHA_RES: 7,  // H  Fecha de resolución
-  NOTAS:     8   // I  Mensaje del solicitante
+  NOTAS:     8,  // I  Mensaje del solicitante
+  DIRECCION: 9,  // J  (solo si faltaba en el sheet)
+  CP:        10, // K  (solo si faltaba en el sheet)
+  LOCALIDAD: 11, // L  (solo si faltaba en el sheet)
+  PROVINCIA: 12  // M  (solo si faltaba en el sheet)
 };
 
 // ── Asegura que la hoja existe con encabezados ────────────────
@@ -27,7 +31,7 @@ function _REG_asegurarHoja() {
   var hoja = getSheet(_REG_HOJA);
   if (!hoja) {
     hoja = getDb().insertSheet(_REG_HOJA);
-    var hdrs = ['Fecha','Empresa','CUIT','Email','Teléfono','Estado','Token','Fecha resolución','Notas'];
+    var hdrs = ['Fecha','Empresa','CUIT','Email','Teléfono','Estado','Token','Fecha resolución','Notas','Dirección','CP','Localidad','Provincia'];
     hoja.appendRow(hdrs);
     hoja.getRange(1, 1, 1, hdrs.length).setFontWeight('bold').setBackground('#f0f0f0');
     hoja.setFrozenRows(1);
@@ -79,10 +83,14 @@ function REG_obtenerCamposVacios(empresaNombre) {
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][RS.NOMBRE] || '').trim().toLowerCase() !== empNorm) continue;
 
-      var pin      = String(datos[i][RS.PIN]      || '').trim();
-      var email    = String(datos[i][RS.EMAIL]    || '').trim();
-      var telefono = String(datos[i][RS.TELEFONO] || '').trim();
-      var cuit     = String(datos[i][RS.CUIT]     || '').trim();
+      var pin       = String(datos[i][RS.PIN]       || '').trim();
+      var email     = String(datos[i][RS.EMAIL]     || '').trim();
+      var telefono  = String(datos[i][RS.TELEFONO]  || '').trim();
+      var cuit      = String(datos[i][RS.CUIT]      || '').trim();
+      var direccion = String(datos[i][RS.DIRECCION] || '').trim();
+      var cp        = String(datos[i][RS.CP]        || '').trim();
+      var localidad = String(datos[i][RS.LOCALIDAD] || '').trim();
+      var provincia = String(datos[i][RS.PROVINCIA] || '').trim();
 
       // Si ya tiene PIN puede ingresar directamente
       if (pin) return { ok: false, error: 'Esta empresa ya tiene acceso al portal. Ingresá con tu empresa y PIN.' };
@@ -101,9 +109,13 @@ function REG_obtenerCamposVacios(empresaNombre) {
         ok:      true,
         empresa: String(datos[i][RS.NOMBRE] || '').trim(),
         campos: {
-          email:    !email,
-          telefono: !telefono,
-          cuit:     !cuit
+          email:     !email,
+          telefono:  !telefono,
+          cuit:      !cuit,
+          direccion: !direccion,
+          cp:        !cp,
+          localidad: !localidad,
+          provincia: !provincia
         }
       };
     }
@@ -116,15 +128,19 @@ function REG_obtenerCamposVacios(empresaNombre) {
 }
 
 // ── Punto de entrada público — llamado desde el cliente ───────
-// params: { empresa, cuit?, email?, telefono?, notas? }
+// params: { empresa, cuit?, email?, telefono?, notas?, direccion?, cp?, localidad?, provincia? }
 // Solo se envían los campos que estaban vacíos en el sheet.
 function REG_solicitarAcceso(params) {
   try {
-    var empresa  = String(params.empresa  || '').trim();
-    var cuit     = String(params.cuit     || '').trim();
-    var email    = String(params.email    || '').trim().toLowerCase();
-    var telefono = String(params.telefono || '').trim();
-    var notas    = String(params.notas    || '').trim();
+    var empresa   = String(params.empresa   || '').trim();
+    var cuit      = String(params.cuit      || '').trim();
+    var email     = String(params.email     || '').trim().toLowerCase();
+    var telefono  = String(params.telefono  || '').trim();
+    var notas     = String(params.notas     || '').trim();
+    var direccion = String(params.direccion || '').trim();
+    var cp        = String(params.cp        || '').trim();
+    var localidad = String(params.localidad || '').trim();
+    var provincia = String(params.provincia || '').trim();
 
     if (!empresa) return { ok: false, error: 'Empresa requerida.' };
 
@@ -152,16 +168,17 @@ function REG_solicitarAcceso(params) {
     }
 
     // Al menos email o algún dato nuevo debe ser aportado
-    if (!email && !telefono && !cuit) return { ok: false, error: 'Completá al menos el email de contacto.' };
+    if (!email && !telefono && !cuit && !direccion && !cp && !localidad && !provincia)
+      return { ok: false, error: 'Completá al menos el email de contacto.' };
     if (email && email.indexOf('@') < 1) return { ok: false, error: 'Email inválido.' };
 
     // Guardar solicitud
     var ahora = new Date();
     var token = _REG_generarToken(empresa, ahora.getTime());
-    hoja.appendRow([ahora, empresa, cuit, email, telefono, 'Pendiente', token, '', notas]);
+    hoja.appendRow([ahora, empresa, cuit, email, telefono, 'Pendiente', token, '', notas, direccion, cp, localidad, provincia]);
 
     // Notificar al admin
-    _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token);
+    _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token, direccion, cp, localidad, provincia);
 
     return { ok: true };
   } catch(e) {
@@ -171,18 +188,24 @@ function REG_solicitarAcceso(params) {
 }
 
 // ── Email al admin con botones Aprobar / Rechazar 1-click ─────
-function _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token) {
+function _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token, direccion, cp, localidad, provincia) {
   try {
     var base  = ScriptApp.getService().getUrl();
     var urlOk = base + '?action=reg-ok&token=' + token;
     var urlNo = base + '?action=reg-no&token=' + token;
 
+    var tdL = 'style="padding:9px 0;font-size:11px;color:#999;width:120px"';
+    var tdR = 'style="padding:9px 0;font-size:13px;color:#222"';
+    var sep = 'style="border-bottom:1px solid #f5f5f5"';
+    var dirStr = [direccion, (cp ? 'CP ' + cp : ''), localidad, provincia].filter(Boolean).join(' · ');
+
     var filasTbl =
-      '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:9px 0;font-size:11px;color:#999;width:120px">Empresa</td><td style="padding:9px 0;font-size:13px;font-weight:700;color:#222">' + empresa + '</td></tr>' +
-      (cuit     ? '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:9px 0;font-size:11px;color:#999">CUIT</td><td style="padding:9px 0;font-size:13px;color:#222">' + cuit + '</td></tr>' : '') +
-      (email    ? '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:9px 0;font-size:11px;color:#999">Email</td><td style="padding:9px 0;font-size:13px;color:#222">' + email + '</td></tr>' : '') +
-      (telefono ? '<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:9px 0;font-size:11px;color:#999">Teléfono</td><td style="padding:9px 0;font-size:13px;color:#222">' + telefono + '</td></tr>' : '') +
-      (notas    ? '<tr><td style="padding:9px 0;font-size:11px;color:#999">Mensaje</td><td style="padding:9px 0;font-size:13px;color:#555;font-style:italic">' + notas + '</td></tr>' : '');
+      '<tr ' + sep + '><td ' + tdL + '>Empresa</td><td ' + tdR + ' style="font-weight:700">' + empresa + '</td></tr>' +
+      (cuit    ? '<tr ' + sep + '><td ' + tdL + '>CUIT</td><td ' + tdR + '>'     + cuit    + '</td></tr>' : '') +
+      (email   ? '<tr ' + sep + '><td ' + tdL + '>Email</td><td ' + tdR + '>'    + email   + '</td></tr>' : '') +
+      (telefono? '<tr ' + sep + '><td ' + tdL + '>Teléfono</td><td ' + tdR + '>' + telefono+ '</td></tr>' : '') +
+      (dirStr  ? '<tr ' + sep + '><td ' + tdL + '>Dirección</td><td ' + tdR + '>'+ dirStr  + '</td></tr>' : '') +
+      (notas   ? '<tr><td ' + tdL + '>Mensaje</td><td style="padding:9px 0;font-size:13px;color:#555;font-style:italic">' + notas + '</td></tr>' : '');
 
     var html =
       "<div style='font-family:sans-serif;max-width:560px;margin:0 auto'>" +
@@ -234,11 +257,15 @@ function _REG_procesarDecision(token, accion) {
     if (estado !== 'Pendiente')
       return _REG_paginaResultado('Ya procesada', 'Esta solicitud ya fue <strong>' + estado.toLowerCase() + '</strong> anteriormente.', '#f39c12', 'ℹ️');
 
-    var empresa  = String(datos[fila][_REG_COL.EMPRESA]  || '').trim();
-    var cuit     = String(datos[fila][_REG_COL.CUIT]     || '').trim();
-    var email    = String(datos[fila][_REG_COL.EMAIL]    || '').trim();
-    var telefono = String(datos[fila][_REG_COL.TELEFONO] || '').trim();
-    var ahora    = new Date();
+    var empresa   = String(datos[fila][_REG_COL.EMPRESA]   || '').trim();
+    var cuit      = String(datos[fila][_REG_COL.CUIT]      || '').trim();
+    var email     = String(datos[fila][_REG_COL.EMAIL]     || '').trim();
+    var telefono  = String(datos[fila][_REG_COL.TELEFONO]  || '').trim();
+    var direccion = String(datos[fila][_REG_COL.DIRECCION] || '').trim();
+    var cp        = String(datos[fila][_REG_COL.CP]        || '').trim();
+    var localidad = String(datos[fila][_REG_COL.LOCALIDAD] || '').trim();
+    var provincia = String(datos[fila][_REG_COL.PROVINCIA] || '').trim();
+    var ahora     = new Date();
 
     if (esAprobar) {
       // Buscar la fila existente del reseller y actualizar solo campos vacíos
@@ -264,12 +291,20 @@ function _REG_procesarDecision(token, accion) {
           pin = _REG_generarPin();
           hojaRes.getRange(filaRes + 1, RS.PIN + 1).setValue(pin);
         }
-        if (cuit     && !String(resRows[filaRes][RS.CUIT]     || '').trim())
-          hojaRes.getRange(filaRes + 1, RS.CUIT     + 1).setValue(cuit);
-        if (email    && !String(resRows[filaRes][RS.EMAIL]    || '').trim())
-          hojaRes.getRange(filaRes + 1, RS.EMAIL    + 1).setValue(email);
-        if (telefono && !String(resRows[filaRes][RS.TELEFONO] || '').trim())
-          hojaRes.getRange(filaRes + 1, RS.TELEFONO + 1).setValue(telefono);
+        if (cuit      && !String(resRows[filaRes][RS.CUIT]      || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.CUIT      + 1).setValue(cuit);
+        if (email     && !String(resRows[filaRes][RS.EMAIL]     || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.EMAIL     + 1).setValue(email);
+        if (telefono  && !String(resRows[filaRes][RS.TELEFONO]  || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.TELEFONO  + 1).setValue(telefono);
+        if (direccion && !String(resRows[filaRes][RS.DIRECCION] || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.DIRECCION + 1).setValue(direccion);
+        if (cp        && !String(resRows[filaRes][RS.CP]        || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.CP        + 1).setValue(cp);
+        if (localidad && !String(resRows[filaRes][RS.LOCALIDAD] || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.LOCALIDAD + 1).setValue(localidad);
+        if (provincia && !String(resRows[filaRes][RS.PROVINCIA] || '').trim())
+          hojaRes.getRange(filaRes + 1, RS.PROVINCIA + 1).setValue(provincia);
       }
 
       invalidateSheetValues(SCHEMA.SHEETS.RESELLERS);

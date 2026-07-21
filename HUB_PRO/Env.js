@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 
 var SCHEMA = {
@@ -35,6 +35,7 @@ var SCHEMA = {
     FACTURA: 13,
     FECHA_ACTIVACION: 13,
     CAS: 14,
+    FWRC: 15,           // P: nº de caso FWRC (DJI), único; opcional
     REPUESTOS: 16,
     PRIORIDAD: 17,
     CIRCUITO: 18,
@@ -42,7 +43,9 @@ var SCHEMA = {
     MANO_OBRA: 22,
     NOTAS_INTERNAS: 23,
     HISTORIAL_ESTADOS: 24,
-    ULTIMA_MODIFICACION: 25
+    ULTIMA_MODIFICACION: 25,
+    ORIGEN_REPUESTO: 26,   // AA: quién pone el repuesto — "Adelantado" | "Stock reseller" | ""
+    CIERRE_TIPO: 27        // AB: cómo cerramos — "Reposicion" | "NC" | ""
   },
   STOCK_REPUESTOS: {
     CODIGO: 0,
@@ -77,6 +80,7 @@ var SCHEMA = {
     DIRECCION: 2,
     CP: 3,
     LOCALIDAD: 4,
+    PROVINCIA: 5,
     TELEFONO: 6,
     EMAIL: 9,
     PIN: 10
@@ -96,6 +100,12 @@ var SCHEMA = {
     CODIGO: 1,
     DESCRIPCION: 2,
     MODELOS: 3
+  },
+  EQUIPOS: {
+    NOMBRE: 0,
+    TIPO:   1,
+    PREFIJO:2,
+    MESES:  3
   },
   RESERVAS_STOCK: {
     ID:           0,

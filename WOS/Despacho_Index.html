@@ -1,3 +1,4 @@
+<!-- @version 3.30 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -231,6 +232,17 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .stock-low{background:var(--yellow-l);color:var(--yellow);border:1px solid rgba(255,139,0,.3)}
 .stock-out{background:var(--red-l);color:var(--red);border:1px solid rgba(222,53,11,.25)}
 .pend-warn{color:var(--orange-m);font-weight:700}
+
+/* ── WMS BADGES ─────────────────────────────────────────── */
+.wms-badges{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.wms-bin{display:inline-flex;flex-direction:column;padding:4px 8px;border-radius:var(--r);gap:1px;min-width:0;flex-shrink:0}
+.wms-bin.picking{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue)}
+.wms-bin.reserva{background:var(--surf);color:var(--tx-m);border:1px dotted var(--brd)}
+.wms-bin-id{font-family:var(--f-mono);font-size:12px;font-weight:700;white-space:nowrap}
+.wms-bin-qty{font-size:10px;font-weight:600;white-space:nowrap}
+.wms-bin-tipo{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75}
+.badge-wms.alert-critica{display:inline-flex;align-items:center;gap:4px;background:var(--red-l);color:var(--red);border:1px solid var(--red-m);padding:3px 8px;border-radius:var(--r);font-size:10px;font-weight:700;white-space:nowrap}
+.wms-loading{color:var(--tx-d);font-size:10px;font-style:italic}
 .pend-zero{color:var(--green-m);font-weight:700}
 
 /* ── CARD ACTIONS ─────────────────────────────────────── */
@@ -258,6 +270,9 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .pk-sku{font-family:var(--f-mono);font-size:10px;font-weight:700;color:var(--blue);flex-shrink:0;width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk-desc{font-size:11px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .pk-ready{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--rm);margin-top:8px;font-size:12px;font-weight:600;color:var(--green-m)}
+.pk-caja-sel{flex-shrink:0;height:24px;padding:0 5px;border:1.5px solid var(--brd);border-radius:12px;font-size:10px;font-weight:700;cursor:pointer;background:var(--panel);color:var(--tx-d);outline:none;transition:border-color .13s,color .13s,background .13s;min-width:64px}
+.pk-caja-sel:focus,.pk-caja-sel:hover{border-color:var(--blue);color:var(--blue)}
+.pk-caja-sel.active{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 .total-usd{font-size:12px;color:var(--tx-m);margin-right:auto;font-weight:500}
 .total-usd strong{color:var(--blue);font-size:15px;font-weight:800;letter-spacing:-.01em}
 .email-sent-badge{font-size:9px;color:var(--green);background:var(--green-l);border:1px solid rgba(0,135,90,.25);border-radius:var(--r);padding:3px 8px;font-weight:700;flex-shrink:0}
@@ -277,6 +292,14 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .btn-ghost:hover{background:var(--raise);border-color:var(--brd2);transform:translateY(-1px)}
 .btn-teal{background:var(--teal-m);color:#fff}     .btn-teal:hover{background:var(--teal);transform:translateY(-1px)}
 .btn-amber{background:var(--yellow-m);color:#fff}  .btn-amber:hover{background:#e07600;transform:translateY(-1px)}
+/* Aviso persistente: backorders con stock listos para despachar */
+.bo-ready-banner{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;background:var(--yellow-l);border:1px solid var(--yellow-m);border-left:4px solid var(--yellow-m);border-radius:var(--rm);animation:boPulse 2.4s ease-in-out infinite}
+@keyframes boPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,139,0,0)}50%{box-shadow:0 0 0 4px rgba(255,139,0,.14)}}
+.bo-ready-ico{font-size:22px;line-height:1;flex-shrink:0}
+.bo-ready-txt{flex:1;min-width:0;font-size:13px;color:var(--tx)}
+.bo-ready-txt strong{color:var(--yellow)}
+.bo-ready-banner .btn{flex-shrink:0}
+.bo-listo-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--yellow-m);border-radius:4px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
 
 /* ── MODAL ────────────────────────────────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(9,30,66,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
@@ -298,6 +321,14 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .modal-item-sol{font-size:10px;color:var(--tx-d);margin-top:2px}
 .modal-desp-inp{width:76px;height:40px;padding:0 8px;border:1.5px solid var(--brd);border-radius:var(--rm);font-size:15px;font-weight:700;text-align:center;flex-shrink:0;background:var(--surf);font-family:var(--f)}
 .modal-desp-inp:focus{outline:none;border-color:var(--green-m);background:#fff;box-shadow:0 0 0 3px rgba(0,135,90,.12)}
+.modal-ser-chk-lbl{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--tx-d);cursor:pointer;user-select:none;margin-top:1px}
+.modal-ser-chk-lbl input{accent-color:var(--blue);width:13px;height:13px;cursor:pointer}
+.modal-ser-wrap{display:flex;flex-direction:column;gap:3px;margin-top:2px}
+.modal-ser-item{display:flex;align-items:center;gap:6px}
+.modal-ser-lbl{font-size:10px;font-weight:700;color:var(--tx-d);width:18px;text-align:right;flex-shrink:0}
+.modal-ser-single{flex:1;padding:4px 7px;border:1px solid var(--brd);border-radius:4px;font-size:11px;color:var(--tx);background:var(--surf);font-family:var(--f-mono);box-sizing:border-box}
+.modal-ser-single:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 2px rgba(0,82,204,.1)}
+.modal-ser-cnt{font-size:10px;font-weight:600;margin-top:3px;padding-left:24px}
 /* Transportista buttons */
 .transp-btn{padding:0 16px;height:40px;border:1.5px solid var(--brd);border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;background:var(--surf);color:var(--tx-m);transition:all .13s;font-family:var(--f)}
 .transp-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
@@ -331,6 +362,12 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .bulto-peso:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
 .bulto-del{background:none;border:none;color:var(--tx-d);cursor:pointer;font-size:16px;padding:4px 6px;line-height:1;border-radius:var(--r);transition:all .13s}
 .bulto-del:hover{color:var(--red-m);background:var(--red-l)}
+/* Selector de caja por ítem */
+.caja-wrap{display:none;align-items:center;gap:6px;margin-top:6px}
+.caja-wrap.visible{display:flex}
+.caja-sel{height:28px;padding:0 6px;border:1.5px solid var(--brd);border-radius:6px;font-size:11px;font-weight:600;background:var(--bg);color:var(--tx);outline:none;cursor:pointer;transition:border-color .13s}
+.caja-sel:focus{border-color:var(--blue)}
+.caja-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx-d);white-space:nowrap}
 /* Faltante */
 .falt-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--surf)}
 .falt-row:last-child{border-bottom:none}
@@ -484,9 +521,10 @@ table.items-tbl tr:hover td{background:var(--surf)}
 
 /* ── PRINT ────────────────────────────────────────────── */
 @media print{
+  html,body{height:auto!important;overflow:visible!important}
   body>*{display:none!important}
-  #pt-print-zone{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;padding:24px;font-family:var(--f)}
-  #rsm-print-zone{display:block!important;position:fixed;top:0;left:0;width:100%;background:#fff;padding:24px;font-family:var(--f);font-size:12px}
+  #pt-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #rsm-print-zone{display:block!important;position:static;width:100%;background:#fff;padding:24px;font-family:var(--f);font-size:12px}
   .no-print{display:none!important}
   .pt-chk{border:1.5px solid #888}
 }
@@ -631,6 +669,9 @@ body{overflow:hidden}
       <button class="nav-tab" id="btn-compras" onclick="abrirListaCompras()">
         <i class="fa fa-shopping-cart"></i><span>Compras / Backorder</span>
       </button>
+      <button class="nav-tab" onclick="abrirDespachable()">
+        <i class="fa fa-truck-loading"></i><span>Despacho parcial</span>
+      </button>
       <button class="nav-tab" onclick="abrirResumen()">
         <i class="fa fa-file-alt"></i><span>Resumen Envíos</span>
       </button>
@@ -696,6 +737,9 @@ body{overflow:hidden}
         </div>
       </div>
 
+      <!-- Aviso: backorders con stock listos para despachar -->
+      <div id="bo-ready-banner" class="bo-ready-banner" style="display:none"></div>
+
       <!-- Orders -->
       <div id="orders-wrap">
         <div class="empty-state"><p>Cargando pedidos…</p></div>
@@ -716,7 +760,7 @@ body{overflow:hidden}
     <div class="modal-foot">
       <span class="email-notice">📧 Responde en el hilo original · Notifica a facturación</span>
       <button class="btn btn-ghost" onclick="cerrarModal('desp')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmarDespacho()">🚚 Confirmar despacho y generar nota</button>
+      <button class="btn btn-success" id="btn-confirmar-desp" onclick="confirmarDespacho()">🚚 Confirmar despacho y generar nota</button>
     </div>
   </div>
 </div>
@@ -736,6 +780,50 @@ body{overflow:hidden}
       <span class="email-notice">📧 Se enviará Opción B / C al reseller — siempre se despacha lo disponible</span>
       <button class="btn btn-ghost" onclick="cerrarModal('faltante')">Cancelar</button>
       <button class="btn btn-amber" onclick="confirmarFaltante()">⚠ Notificar al reseller</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Preparar con N° de serie (OBLIGATORIO) -->
+<div class="modal-overlay" id="modal-prep" style="display:none;z-index:350">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <div class="title">📦 N° de serie para despachar</div>
+        <div class="subtitle" id="modal-prep-sub"></div>
+      </div>
+      <button class="modal-close" onclick="cerrarModal('prep')">✕</button>
+    </div>
+    <div style="padding:9px 16px;border-bottom:1px solid var(--brd);background:var(--surf);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="position:relative;flex:1">
+          <i class="fa fa-qrcode" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--blue);font-size:13px"></i>
+          <input id="prep-scan" type="text" placeholder="Escaneá el QR con la pistola (o tipeá) y Enter…" autocomplete="off"
+                 onkeydown="_prepScanKey(event)"
+                 style="width:100%;padding:8px 10px 8px 30px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-family:var(--f-mono);box-sizing:border-box">
+        </div>
+        <button class="btn btn-ghost" id="prep-cam-btn" onclick="_prepCamToggle()" style="white-space:nowrap"><i class="fa fa-camera"></i> Cámara</button>
+      </div>
+      <div id="prep-cam-wrap" style="display:none;margin-top:8px">
+        <div id="prep-cam" style="width:100%;max-width:320px;margin:0 auto;border-radius:8px;overflow:hidden"></div>
+        <div id="prep-cam-msg" style="font-size:11px;color:var(--tx-d);text-align:center;margin-top:5px"></div>
+      </div>
+      <div id="prep-scan-msg" style="font-size:11px;color:var(--tx-m);margin-top:5px;min-height:14px"></div>
+    </div>
+    <div class="modal-body" id="modal-prep-body"></div>
+    <div style="padding:9px 16px;border-top:1px solid var(--brd);background:var(--surf);flex-shrink:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label for="prep-peso" style="font-size:12px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:6px">
+        <i class="fa fa-weight-hanging" style="color:var(--blue)"></i> Peso exacto del paquete (kg):
+      </label>
+      <input id="prep-peso" type="number" min="0" step="0.001" placeholder="kg" inputmode="decimal"
+             oninput="_prepCount()"
+             style="width:100px;padding:7px 10px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-weight:700;text-align:right;outline:none;box-sizing:border-box">
+      <span style="font-size:11px;color:var(--tx-d)">Obligatorio — se usa al despachar</span>
+    </div>
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <span class="email-notice" id="modal-prep-cnt" style="font-weight:700">—</span>
+      <button class="btn btn-ghost" onclick="cerrarModal('prep')">Cancelar</button>
+      <button class="btn btn-success" id="btn-confirmar-prep" onclick="confirmarPreparar()">✅ Confirmar y marcar preparado</button>
     </div>
   </div>
 </div>
@@ -881,6 +969,22 @@ body{overflow:hidden}
   </div>
 </div>
 
+<!-- OVERLAY: Despacho parcial por reseller -->
+<div class="stk-overlay" id="dp-overlay" style="display:none">
+  <div class="stk-head">
+    <div>
+      <div class="stk-title">Despacho parcial · qué puedo enviar ahora por reseller</div>
+      <div class="stk-sub" id="dp-sub">—</div>
+    </div>
+    <button class="btn btn-ghost" onclick="cerrarDespachable()" style="flex-shrink:0;margin-left:auto">✕ Cerrar</button>
+  </div>
+  <div class="stk-body">
+    <div class="stk-wrap">
+      <div id="dp-content"><div class="stk-empty">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
 <!-- OVERLAY: Cola de Picking -->
 <div class="stk-overlay" id="pk-overlay" style="display:none">
   <div class="stk-head">
@@ -928,6 +1032,7 @@ var _pedidos      = [];
 var _lcRows       = [];
 var _pickState    = {}; // { numero: { itemIdx: cantPickeada } } — client-side only, no persistence
 var _filtroEst    = '';
+var _wmsSnapshot  = null; // snapshot read-only de Carmen+Master; cargado post-render
 var _selBatch     = {};
 var _ultimoLoadMs    = 0;
 var _pollingTimer    = null;
@@ -935,8 +1040,22 @@ var _filtroReseller  = '';
 var _pendingAccion   = null; // { timer, interval, toastEl, execute, revert }
 var _vistaCompacta   = false;
 var _modalDesp = null;
+var _ubicAlloc = {}; // row → { locs:[{ubicacion,cantidad}], cantTotal:N }
 var _modalFalt = null;
+<<<<<<< HEAD
 var _usuario   = { email: '', nombre: '', tipo: '', esAdmin: false };
+=======
+var _usuario   = { email: '', nombre: '', tipo: '' };
+var _maestro   = {}; // SKU(mayúsculas) → { porBolsa:bool, bulto:N } — se prepara por bolsa
+
+// Trae el maestro de artículos (qué SKU va "por bolsa"). Cacheado en el server 5 min.
+function _cargarMaestro() {
+  google.script.run
+    .withSuccessHandler(function(r) { if (r && r.ok && r.map) _maestro = r.map; })
+    .withFailureHandler(function() {})
+    .WOS_maestroArticulos();
+}
+>>>>>>> dev
 
 var SLA_HORAS_HABILES = 96; // 4 días hábiles (lunes–viernes)
 
@@ -984,6 +1103,11 @@ var STEPS_CARGAR   = [
   { pct: 15, msg: 'Conectando con el sistema…', icon: '📡' },
   { pct: 50, msg: 'Cargando pedidos…',          icon: '📦' },
   { pct: 82, msg: 'Calculando KPIs…',           icon: '📊' }
+];
+var STEPS_STOCK    = [
+  { pct: 15, msg: 'Conectando con el inventario…', icon: '📡' },
+  { pct: 55, msg: 'Leyendo stock de CARMEN…',      icon: '📦' },
+  { pct: 85, msg: 'Cargando ubicaciones WMS…',     icon: '🗺️' }
 ];
 var STEPS_DESPACHO = [
   { pct: 10, msg: 'Procesando despacho…',        icon: '📋' },
@@ -1145,7 +1269,6 @@ function _imprimirEtiqueta(numero) {
         localidad: r.localidad || '',
         provincia: r.provincia || '',
         telefono:  r.telefono  || '',
-        obs:       r.obs       || '',
         fecha:     new Date().toLocaleDateString('es-AR')
       }).replace(/<\/script>/gi, '<\\/script>');
 
@@ -1159,7 +1282,6 @@ function _imprimirEtiqueta(numero) {
         'function renderLabel(i,n){' +
           'var D=window._D;' +
           'var pb=i<n?" page-break":"";' +
-          'var obs=D.obs?"<div class=\'obs-band\'>&#9888;&nbsp;"+esc(D.obs)+"</div>":"";' +
           'var qrDiv=window._mapsUrl?"<div class=\'qr-wrap\'><div id=\'qr-"+i+"\'></div><div class=\'qr-lbl\'>&#128205; Ubicaci\xf3n</div><a href=\'"+window._mapsUrl+"\' target=\'_blank\' class=\'qr-verify\'>Verificar en Maps &#8599;</a></div>":"";' +
           'return "<div class=\'label"+pb+"\'>" +' +
             '"<div class=\'main-row\'>" +' +
@@ -1192,7 +1314,6 @@ function _imprimirEtiqueta(numero) {
                 '"</div>" +' +
               '"</div>" +' +
             '"</div>" +' +
-            'obs +' +
             '"<div class=\'footer-bar\'>" +' +
               '"<span class=\'pedido-tag\'>N&#176;&nbsp;"+esc(D.numero)+"</span>" +' +
               '"<div><span class=\'bulto-caption\'>Bulto</span><span class=\'bulto-txt\'>"+i+" de "+n+"</span></div>" +' +
@@ -1332,6 +1453,13 @@ function _renderTablaCompacta(lista) {
       '<div class="empty-state"><div class="ico">📭</div><p>Sin pedidos</p></div>';
     return;
   }
+  // Ordenar igual que la vista regular: por posición en _EST_ORDEN, luego más antiguo primero
+  lista = lista.slice().sort(function(a, b) {
+    var ai = _EST_ORDEN.indexOf(a.estado); if (ai === -1) ai = 999;
+    var bi = _EST_ORDEN.indexOf(b.estado); if (bi === -1) bi = 999;
+    if (ai !== bi) return ai - bi;
+    return (a.fechaMs || 0) - (b.fechaMs || 0);
+  });
   var h = '<div style="overflow-x:auto"><table class="compact-tbl"><thead><tr>' +
     '<th>N° Pedido</th><th>Reseller</th><th>Estado</th><th style="text-align:center" title="Cantidad de ítems distintos">Ítems</th>' +
     '<th style="text-align:right" title="Valor total del pedido">Total</th><th title="Tiempo desde el pedido (SLA: 96 hs hábiles)">SLA</th><th>Acción rápida</th>' +
@@ -1351,7 +1479,7 @@ function _renderTablaCompacta(lista) {
     if (est === 'Pendiente_Revision' || est === 'Confirmado') accion = '<button class="btn btn-teal" style="padding:3px 10px;font-size:11px" onclick="accion(\'' + escH(p.numero) + '\',\'preparar\')">📦 Preparar</button>';
     else if (est === 'Preparado' || est === 'Preparado Parcial') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">✅ Despachar</button>';
     else if (est === 'En_Espera_Reseller') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">✅ Despachar disponible</button>';
-    else if (est === 'Backorder') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalDespacho(\'' + escH(p.numero) + '\')">📦 Despachar lo que llegó</button>';
+    else if (est === 'Backorder') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="abrirModalPreparar(\'' + escH(p.numero) + '\', true)">📦 Preparar lo que llegó</button>';
     else if (est === 'Listo_Retiro') accion = '<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="accion(\'' + escH(p.numero) + '\',\'confirmarRetiro\')">✅ Confirmar retiro</button>';
     h += '<tr onclick="toggleCard(\'' + escH(p.numero) + '\')" style="cursor:pointer">' +
       '<td class="c-num">' + escH(p.numero) + '</td>' +
@@ -1426,9 +1554,63 @@ function _tiempoHace(ms) {
   return 'hace ' + Math.floor(hrs / 24) + 'd';
 }
 
+// ── WMS Snapshot — badges de ubicación en la tabla de ítems ──
+
+function wosPintarBadgesUbicacion(sku, cantidadSolicitada) {
+  if (!_wmsSnapshot || !_wmsSnapshot.stockMap) {
+    return '<span class="wms-loading"><i class="fa fa-circle-notch fa-spin" style="font-size:10px"></i></span>';
+  }
+  var skuKey = String(sku || '').trim().toUpperCase();
+  var entry  = _wmsSnapshot.stockMap[skuKey] || null;
+
+  if (!entry || entry.stock_neto_total <= 0) {
+    return '<span class="badge-wms alert-critica">⚠ SIN STOCK EN SISTEMA</span>';
+  }
+
+  var cajas = entry.cajas_disponibles || [];
+  if (!cajas.length) {
+    return '<span style="font-size:10px;color:var(--tx-d)">Sin ubicaci\xf3n WMS</span>';
+  }
+
+  var html = '<div class="wms-badges">';
+  for (var c = 0; c < cajas.length; c++) {
+    var caja   = cajas[c];
+    var isPick = caja.tipo_almacen === 'PICKING';
+    html += '<div class="wms-bin ' + (isPick ? 'picking' : 'reserva') + '">' +
+      '<span class="wms-bin-id">'   + escH(caja.bin_id)         + '</span>' +
+      '<span class="wms-bin-qty">'  + caja.cantidad_en_caja + ' u. disp.</span>' +
+      '<span class="wms-bin-tipo">' + escH(caja.tipo_almacen)   + '</span>' +
+    '</div>';
+  }
+  return html + '</div>';
+}
+
+function _actualizarBadgesWms() {
+  var cells = document.querySelectorAll('.wms-badge-cell');
+  for (var i = 0; i < cells.length; i++) {
+    var cell = cells[i];
+    var sku  = cell.getAttribute('data-sku')  || '';
+    var cant = parseInt(cell.getAttribute('data-cant')) || 0;
+    cell.innerHTML = wosPintarBadgesUbicacion(sku, cant);
+  }
+}
+
+function _cargarWmsSnapshot() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        _wmsSnapshot = res;
+        _actualizarBadgesWms();
+      }
+    })
+    .withFailureHandler(function() {}) // falla silenciosa — snapshot es best-effort
+    .WOS_obtenerStockSnapshot();
+}
+
 // ── Carga inicial ─────────────────────────────────────────────
 function cargar() {
   wosLoadStart(STEPS_CARGAR);
+  _cargarMaestro();   // refresca en paralelo qué SKU va por bolsa (para pre-marcar la preparación)
   var btn = document.getElementById('btn-refresh');
   btn.classList.add('loading');
   google.script.run
@@ -1441,6 +1623,7 @@ function cargar() {
       actualizarStats();
       actualizarKPI();
       renderPedidos();
+      _cargarWmsSnapshot();
       var now = new Date();
       document.getElementById('last-refresh').textContent =
         'Actualizado ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
@@ -1519,6 +1702,7 @@ function actualizarKPI() {
   document.getElementById('kpi-back').textContent     = back;
   var slaPill = document.getElementById('kpi-sla-pill');
   if (slaPill) slaPill.className = 'kpi ' + (slaAlert > 0 ? 'kpi-crit' : 'kpi-ok');
+  _syncBackorderBanner();
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -1762,22 +1946,30 @@ function _renderPickTracker(p) {
   var allDone = totalPicked >= totalPend;
   var sn = escH(numero);
 
+  var multiItem = pickable.length > 1;
   var rows = '';
   for (var r = 0; r < pickable.length; r++) {
-    var ri = pickable[r];
-    var it = p.items[ri];
-    var pk = Math.min(state[ri] || 0, it.cantPend);
-    var dn = pk >= it.cantPend;
+    var ri    = pickable[r];
+    var it    = p.items[ri];
+    var pk    = Math.min(state[ri] || 0, it.cantPend);
+    var dn    = pk >= it.cantPend;
+    var caja  = state['c_' + ri] !== undefined ? state['c_' + ri] : 0;
+    var cajaActive = caja > 0;
     rows += '<div class="pk-row' + (dn ? ' pk-row-done' : '') + '" id="pk-row-' + sn + '-' + ri + '">' +
       '<button class="pk-btn' + (dn ? ' done' : '') + '" id="pk-btn-' + sn + '-' + ri +
         '" onclick="_incPick(\'' + sn + '\',' + ri + ',' + it.cantPend + ')">' + (dn ? '✓' : '+1') + '</button>' +
       '<span class="pk-count' + (dn ? ' done' : '') + '" id="pk-cnt-' + sn + '-' + ri + '">' + pk + '/' + it.cantPend + '</span>' +
       '<span class="pk-sku">'  + escH(it.sku)  + '</span>' +
       '<span class="pk-desc">' + escH(it.desc) + '</span>' +
+      (multiItem
+        ? '<select class="pk-caja-sel' + (cajaActive ? ' active' : '') + '" id="pk-caja-' + sn + '-' + ri +
+            '" onchange="_onPickCajaSel(this,\'' + sn + '\',' + ri + ')" title="Asignar caja">' +
+            _buildPickCajaOpts(numero, caja) + '</select>'
+        : '') +
     '</div>';
   }
 
-  return '<div class="pk-wrap">' +
+  return '<div class="pk-wrap" id="pk-wrap-' + sn + '">' +
     '<div class="pk-hdr">' +
       '<span class="pk-lbl">🗂 Picking</span>' +
       '<span class="pk-prog-txt' + (allDone ? ' done' : '') + '" id="pk-prog-' + sn + '">' + totalPicked + '/' + totalPend + ' u.</span>' +
@@ -1787,6 +1979,55 @@ function _renderPickTracker(p) {
       '<span>✅</span><span>¡Todo en mano! Ya podés marcar como Preparado.</span>' +
     '</div>' +
   '</div>';
+}
+
+function _buildPickCajaOpts(numero, selectedCaja) {
+  var state = _pickState[numero] || {};
+  var maxCaja = 0;
+  for (var k in state) {
+    if (k.indexOf('c_') === 0) {
+      var v = parseInt(state[k]);
+      if (!isNaN(v) && v > maxCaja) maxCaja = v;
+    }
+  }
+  var opts = '';
+  for (var j = 0; j <= maxCaja + 1; j++) {
+    opts += '<option value="' + j + '"' + (j === selectedCaja ? ' selected' : '') + '>📦 ' + (j + 1) + '</option>';
+  }
+  return opts;
+}
+
+function _onPickCajaSel(sel, numero, itemIdx) {
+  if (!_pickState[numero]) _pickState[numero] = {};
+  var val = parseInt(sel.value) || 0;
+  _pickState[numero]['c_' + itemIdx] = val;
+  try { localStorage.setItem('wos_pick_' + numero, JSON.stringify(_pickState[numero])); } catch(e) {}
+  val > 0 ? sel.classList.add('active') : sel.classList.remove('active');
+  _actualizarPickCajaSelects(numero);
+}
+
+function _actualizarPickCajaSelects(numero) {
+  var state = _pickState[numero] || {};
+  var maxCaja = 0;
+  for (var k in state) {
+    if (k.indexOf('c_') === 0) {
+      var v = parseInt(state[k]);
+      if (!isNaN(v) && v > maxCaja) maxCaja = v;
+    }
+  }
+  var pickEl = document.getElementById('pk-wrap-' + numero);
+  if (!pickEl) return;
+  var sels = pickEl.querySelectorAll('[id^="pk-caja-' + numero + '-"]');
+  for (var i = 0; i < sels.length; i++) {
+    var s = sels[i];
+    var cur = parseInt(s.value) || 0;
+    var opts = '';
+    for (var j = 0; j <= maxCaja + 1; j++) {
+      opts += '<option value="' + j + '"' + (j === cur ? ' selected' : '') + '>📦 ' + (j + 1) + '</option>';
+    }
+    s.innerHTML = opts;
+    cur > 0 ? s.classList.add('active') : s.classList.remove('active');
+  }
 }
 
 function _incPick(numero, itemIdx, max) {
@@ -1875,6 +2116,9 @@ function renderCard(p) {
       '<td class="num-cell ' + pendClass + '">' + it.cantPend + '</td>' +
       '<td class="num-cell">' + it.cantDesp + '</td>' +
       '<td class="num-cell" style="text-align:center">' + stkActCell + '</td>' +
+      '<td class="wms-badge-cell" data-sku="' + escH(it.sku) + '" data-cant="' + it.cantPend + '">' +
+        wosPintarBadgesUbicacion(it.sku, it.cantPend) +
+      '</td>' +
       '<td class="price-cell">' + (it.precio > 0 ? fmtUSD(it.precio) : '—') + '</td>' +
       (p.esMixto ? '<td><span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:8px;padding:2px 5px">' + escH(it.estado || '—') + '</span></td>' : '') +
     '</tr>';
@@ -1901,11 +2145,12 @@ function renderCard(p) {
   return '<div class="pedido-card' + (isSlaWarn ? ' sla-warn' : '') + '" id="card-' + escH(p.numero) + '">' +
 
     '<div class="card-head est-' + clsEst + '" onclick="toggleCard(\'' + escH(p.numero) + '\')">' +
-      ((est === 'Preparado' || est === 'Preparado Parcial')
-        ? '<input type="checkbox" class="batch-chk" id="bchk-' + escH(p.numero) + '" onclick="event.stopPropagation()" onchange="toggleBatch(\'' + escH(p.numero) + '\',this.checked)" title="Seleccionar para despachar junto con otros">'
+      ((est === 'Preparado' || est === 'Preparado Parcial' || est === 'Backorder')
+        ? '<input type="checkbox" class="batch-chk" id="bchk-' + escH(p.numero) + '" onclick="event.stopPropagation()" onchange="toggleBatch(\'' + escH(p.numero) + '\',this.checked)" title="' + (est === 'Backorder' ? 'Incluir este backorder en un despacho conjunto' : 'Seleccionar para despachar junto con otros') + '">'
         : '') +
       '<span class="card-num">' + escH(p.numero) + '</span>' +
       '<span class="card-reseller">' + escH(p.reseller) + '</span>' +
+      (_esBackorderListo(p) ? '<span class="bo-listo-badge" title="Hay stock para cubrir todo lo pendiente — se puede finalizar completo">📦 finalizable</span>' : '') +
       (function() {
         var pct = p.totalSol > 0 ? Math.round(p.totalDesp / p.totalSol * 100) : 0;
         var pctCap = Math.min(pct, 100);
@@ -1943,6 +2188,7 @@ function renderCard(p) {
           '<th style="text-align:center" title="Cantidad pendiente de despacho">Pend.</th>' +
           '<th style="text-align:center" title="Cantidad ya despachada">Enviado</th>' +
           '<th style="text-align:center" title="Stock disponible en Carmen al momento de la carga">Stock</th>' +
+          '<th title="Ubicación WMS: bins de picking y reserva ordenados por prioridad">Ubicación WMS</th>' +
           '<th style="text-align:right">Precio</th>' +
           (p.esMixto ? '<th>Estado</th>' : '') +
         '</tr></thead><tbody>' + tbody + '</tbody></table>' +
@@ -1967,7 +2213,7 @@ function renderAcciones(p) {
   var n = escH(p.numero), est = p.estado, btns = '';
 
   if (est === 'Pendiente_Revision' || est === 'Confirmado') {
-    btns += '<button class="btn btn-teal" onclick="accion(\'' + n + '\',\'preparar\')">📦 Listo para despachar</button>';
+    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Listo para despachar</button>';
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
   }
   if (est === 'En_Espera_Reseller') {
@@ -2000,9 +2246,8 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Generar nota de entrega</button>';
   }
   if (est === 'Backorder') {
-    btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería: si llegó todo usá "Todo disponible", si llegó solo parte usá "Despachar lo que llegó".</div>' + btns;
-    btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">📦 Despachar lo que llegó</button>';
-    btns += '<button class="btn btn-primary" onclick="accion(\'' + n + '\',\'reactivar\')">✅ Todo disponible</button>';
+    btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería, prepará lo que llegó (podés preparar cantidades parciales por ítem); lo que falte queda en backorder para el próximo envío.</div>' + btns;
+    btns += '<button class="btn btn-success" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
   }
 
   if (est === 'Listo_Retiro') {
@@ -2149,7 +2394,798 @@ function accion(numero, tipo) {
   _toastUndo('Pedido ' + numero + ' → ' + _labels[tipo]);
 }
 
+// ── MODAL: Preparar con N° de serie (OBLIGATORIO) ─────────────
+// Al marcar "Listo para despachar" se exige un N° de serie por CADA unidad.
+// Si una pieza no tiene serie → botón SO (código autogenerado). Todo queda en la
+// nota de entrega para poder auditar (picker dice 10, reseller dice 4).
+var _modalPrep = null;
+
+function abrirModalPreparar(numero, parcial) {
+  parcial = !!parcial;
+  var ped = _buscarPedido(numero);
+  if (!ped) { toast('Pedido no encontrado', 'err'); return; }
+
+  // Modo NORMAL: exige stock completo para todos los ítems (bloquea si falta).
+  // Modo PARCIAL (backorder): no bloquea; incluye solo los ítems con stock y permite cantidad parcial.
+  if (!parcial) {
+    var sinStock = [];
+    for (var si = 0; si < ped.items.length; si++) {
+      var it0 = ped.items[si];
+      if (it0.cantPend <= 0) continue;
+      if (it0.estado === 'Cancelado') continue; // faltante cancelado (Opción B): no es pendiente aunque col G no se haya actualizado
+      if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
+        sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
+      }
+    }
+    if (sinStock.length > 0) {
+      alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Faltan \xedtems en stock" para gestionar los faltantes.');
+      return;
+    }
+  }
+
+  _modalPrep = { numero: numero, items: [], parcial: parcial };
+  document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + (parcial ? ' \x2014 prepar\xe1 lo que lleg\xf3 (cantidad por \xedtem editable)' : ' \x20 ingresá el N\xba de serie de CADA unidad');
+
+  var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
+    (parcial ? '<strong>Backorder:</strong> ajust\xe1 cu\xe1ntas unidades de cada \xedtem lleg\xf3, ' : '<strong>Obligatorio:</strong> ') +
+    'un c\xf3digo \xfanico por cada unidad. <strong>Escane\xe1</strong> el QR con la pistola o la c\xe1mara (barra de arriba) \x2014 se va cargando solo unidad por unidad \x2014 o cargalos a mano. Si una pieza no trae N\xba de serie, us\xe1 el <strong>SO</strong>. Para tornillos, gaskets y dem\xe1s consumibles pas\xe1 el \xedtem a <strong>🔩 Por bolsa</strong>: 1 c\xf3digo SO por bolsa de N unidades.' +
+    (parcial ? ' Lo que no prepares queda en backorder.' : ' Queda en la nota de entrega para auditar el env\xedo.') +
+    '</div>';
+  var hayItems = false;
+  for (var i = 0; i < ped.items.length; i++) {
+    var it = ped.items[i];
+    if (it.cantPend <= 0) continue;
+    if (it.estado === 'Cancelado') continue; // no serializar líneas canceladas (faltante Opción B)
+    var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
+    // En parcial, saltear ítems sin stock (quedan en backorder). En normal, incluir todo.
+    if (parcial && stk !== null && stk <= 0) continue;
+    var qMax = (stk === null) ? it.cantPend : Math.min(it.cantPend, stk);
+    if (qMax <= 0) continue;
+    var qty = parcial ? qMax : it.cantPend;   // en normal siempre cantPend
+    hayItems = true;
+    var prev = String(it.seriales || '').split(',');
+    // ¿Este SKU se prepara por bolsa? Pre-marcar desde el maestro, o si el manifiesto previo ya trae bolsas ("SO x50").
+    var _skuU  = String(it.sku || '').toUpperCase();
+    var _mEntry = _maestro[_skuU] || null;
+    var _prevBags = _parseManifest(it.seriales);
+    var _prevEsBolsa = false;
+    for (var _pb = 0; _pb < _prevBags.length; _pb++) { if (_prevBags[_pb].qty > 1) { _prevEsBolsa = true; break; } }
+    var _mode  = (_prevEsBolsa || (_mEntry && _mEntry.porBolsa)) ? 'bolsa' : 'unidad';
+    var _bulto = (_mEntry && _mEntry.bulto) ? _mEntry.bulto : 0;
+    _modalPrep.items.push({
+      row: it.row, sku: it.sku, desc: it.desc || '', cantPend: it.cantPend,
+      qtyPrep: qty, target: qty, qMax: qMax, parcial: parcial,
+      prevSers: prev, prevBags: _prevBags, mode: _mode, bulto: _bulto, bagsSeeded: false
+    });
+    html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
+        '<div style="min-width:0"><span class="modal-item-sku">' + escH(it.sku) + '</span> ' +
+          '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
+        '<div id="prep-qtybox-' + it.row + '" style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+          (parcial
+            ? '<span style="font-size:11px;font-weight:700;color:var(--tx)">Preparar</span>' +
+              '<input type="number" id="prep-qty-' + it.row + '" min="1" max="' + qMax + '" value="' + qty + '" ' +
+                'oninput="_prepQtyChange(' + it.row + ')" ' +
+                'style="width:56px;padding:5px 7px;border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;text-align:center;outline:none">' +
+              '<span style="font-size:11px;color:var(--tx-d)">de ' + it.cantPend + (stk !== null ? ' \xb7 lleg\xf3 ' + stk : '') + '</span>'
+            : '<span style="font-size:11px;font-weight:700;color:var(--tx)">' + qty + 'u</span>') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin:0 0 8px">' +
+        '<button type="button" id="prep-mode-unidad-' + it.row + '" onclick="_prepSetMode(' + it.row + ',\'unidad\')" style="' + _prepModeBtnStyle(_mode === 'unidad') + '">🔢 Por unidad</button>' +
+        '<button type="button" id="prep-mode-bolsa-' + it.row + '" onclick="_prepSetMode(' + it.row + ',\'bolsa\')" style="' + _prepModeBtnStyle(_mode === 'bolsa') + '">🔩 Por bolsa</button>' +
+      '</div>' +
+      '<div id="prep-ser-wrap-' + it.row + '" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px"></div>' +
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--surf)">' +
+        '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:2px">De qu\xe9 ubicaci\xf3n WMS lo sac\xe1s</div>' +
+        '<div id="prep-ubic-wrap-' + it.row + '" class="ubic-wrap" style="font-size:11px;color:var(--tx-d)">Cargando ubicaciones…</div>' +
+      '</div>' +
+    '</div>';
+  }
+  if (!hayItems) { toast(parcial ? 'Todav\xeda no lleg\xf3 stock de este pedido' : 'Este pedido no tiene unidades pendientes de preparar', 'err'); _modalPrep = null; return; }
+
+  document.getElementById('modal-prep-body').innerHTML = html;
+  document.getElementById('modal-prep').style.display = 'flex';
+  // Render inicial por ítem según su modo (por unidad = 1 código c/u; por bolsa = 1 código por bolsa)
+  for (var ri = 0; ri < _modalPrep.items.length; ri++) {
+    _prepSetMode(_modalPrep.items[ri].row, _modalPrep.items[ri].mode);
+  }
+  // Cargar ubicaciones WMS (bins) para elegir de dónde se saca cada ítem
+  var _prepSkus = [];
+  for (var ps = 0; ps < _modalPrep.items.length; ps++) {
+    if (_modalPrep.items[ps].sku) _prepSkus.push(_modalPrep.items[ps].sku);
+  }
+  if (_prepSkus.length) {
+    google.script.run
+      .withSuccessHandler(function(r) { if (r && r.ok) _prepInyectarUbicaciones(r.map); })
+      .withFailureHandler(function() {
+        for (var fi = 0; fi < _modalPrep.items.length; fi++) {
+          var fw = document.getElementById('prep-ubic-wrap-' + _modalPrep.items[fi].row);
+          if (fw) fw.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">No se pudieron cargar ubicaciones</span>';
+        }
+      })
+      .WOS_cargarUbicacionesPedido(_prepSkus);
+  }
+  // Reset de la barra de escaneo
+  var scEl = document.getElementById('prep-scan'); if (scEl) scEl.value = '';
+  var smEl = document.getElementById('prep-scan-msg'); if (smEl) smEl.textContent = '';
+  // Peso del paquete: precargar si ya se había guardado (re-preparación), si no vacío
+  var pesoEl = document.getElementById('prep-peso');
+  if (pesoEl) pesoEl.value = (ped.pesoPrep && ped.pesoPrep > 0) ? ped.pesoPrep : '';
+  _prepCamStop();
+  _prepCount();
+  // Foco en el campo de escaneo (flujo principal con pistola)
+  setTimeout(function() { var f = document.getElementById('prep-scan'); if (f) f.focus(); }, 60);
+}
+
+// Renderiza los inputs de N° de serie de un ítem según la cantidad a preparar.
+// Preserva lo ya tipeado; si se pasa prevVals (seriales previos), los usa de base.
+function _prepRenderSers(row, qty, prevVals) {
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!wrap) return;
+  var base = prevVals;
+  if (!base) {
+    base = [];
+    var old = wrap.querySelectorAll('.prep-ser');
+    for (var oi = 0; oi < old.length; oi++) base.push(old[oi].value);
+  }
+  var html = '';
+  for (var u = 0; u < qty; u++) {
+    var pv = String(base[u] || '').trim().replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    html += '<div class="modal-ser-item">' +
+      '<span class="modal-ser-lbl">' + (u + 1) + '</span>' +
+      '<input class="modal-ser-single prep-ser" data-row="' + row + '" type="text" placeholder="N\xba de serie" value="' + pv + '" ' +
+        'oninput="_prepCount()" onkeydown="_prepKey(event,this)">' +
+    '</div>';
+  }
+  wrap.innerHTML = html;
+}
+
+// Cambio de cantidad a preparar de un ítem (modo parcial): re-renderiza SN + bins.
+function _prepQtyChange(row) {
+  var inp = document.getElementById('prep-qty-' + row);
+  if (!inp) return;
+  var q   = parseInt(inp.value, 10) || 0;
+  var max = parseInt(inp.max, 10) || 0;
+  if (max > 0 && q > max) { q = max; inp.value = max; }
+  if (q < 1) { q = 1; inp.value = 1; }
+  _prepRenderSers(row, q);   // preserva lo tipeado
+  // Actualizar qtyPrep del ítem
+  if (_modalPrep && _modalPrep.items) {
+    for (var i = 0; i < _modalPrep.items.length; i++) {
+      if (_modalPrep.items[i].row === row) { _modalPrep.items[i].qtyPrep = q; break; }
+    }
+  }
+  // Actualizar bins (si ya cargaron): el total a repartir pasa a ser la nueva cantidad
+  if (_ubicAlloc[row]) {
+    _ubicAlloc[row].cantTotal = q;
+    _renderBinAlloc(row, _ubicAlloc[row].locs, _autoAlocar(_ubicAlloc[row].locs, q), q, 'prep');
+  }
+  _prepCount();
+}
+
+// ── MANIFIESTO DE SERIALES / BOLSAS ───────────────────────────
+// "SO-123 x50" = una bolsa de 50 unidades con un único código. "SN-9" = 1 unidad.
+// Un mismo código puede representar N unidades para consumibles (tornillos, gaskets).
+function _parseManifest(str) {
+  var out = [], parts = String(str || '').split(',');
+  for (var i = 0; i < parts.length; i++) {
+    var t = parts[i].trim();
+    if (!t) continue;
+    var m = t.match(/^(.*?)\s+x(\d+)$/i);
+    if (m) out.push({ code: m[1].trim(), qty: parseInt(m[2], 10) || 1 });
+    else   out.push({ code: t, qty: 1 });
+  }
+  return out;
+}
+// Unidades reales que representa un manifiesto (suma de bolsas; cada serial suelto = 1).
+function _serialUnits(str) {
+  var b = _parseManifest(str), n = 0;
+  for (var i = 0; i < b.length; i++) n += (b[i].qty || 1);
+  return n;
+}
+// Arma el string de manifiesto desde bolsas [{qty, code}]. Bolsa (qty>1) → "CODE xN".
+function _bagsToManifest(bags) {
+  var out = [];
+  for (var i = 0; i < bags.length; i++) {
+    var c = String(bags[i].code || '').trim();
+    if (!c) continue;
+    var q = parseInt(bags[i].qty, 10) || 1;
+    out.push(q > 1 ? (c + ' x' + q) : c);
+  }
+  return out.join(', ');
+}
+// Reparte un objetivo en bolsas del tamaño por defecto (si no hay tamaño, una sola bolsa).
+function _autoSeedBags(target, bulto) {
+  target = parseInt(target, 10) || 0;
+  bulto  = parseInt(bulto, 10) || 0;
+  if (target <= 0) return [{ qty: 1, code: '' }];
+  if (bulto <= 1)  return [{ qty: target, code: '' }];
+  var out = [], rem = target;
+  while (rem > 0) { var t = Math.min(bulto, rem); out.push({ qty: t, code: '' }); rem -= t; }
+  return out;
+}
+// Tamaño de bolsa a recordar en el maestro para este SKU (la bolsa más grande usada).
+function _prepBultoRepresentativo(bags, fallback) {
+  var mx = 0;
+  for (var i = 0; i < bags.length; i++) if (bags[i].qty > mx) mx = bags[i].qty;
+  return mx > 0 ? mx : (parseInt(fallback, 10) || 0);
+}
+
+// ── MODO POR UNIDAD / POR BOLSA (preparación) ─────────────────
+function _prepItemGet(row) {
+  if (!_modalPrep || !_modalPrep.items) return null;
+  for (var i = 0; i < _modalPrep.items.length; i++) if (_modalPrep.items[i].row === row) return _modalPrep.items[i];
+  return null;
+}
+function _prepModeBtnStyle(active) {
+  return 'font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;cursor:pointer;outline:none;white-space:nowrap;border:1.5px solid ' +
+    (active ? 'var(--blue);background:var(--blue);color:#fff' : 'var(--brd);background:transparent;color:var(--tx-d)');
+}
+function _prepBagAddStyle() {
+  return 'font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-l);border:1px solid var(--blue-l);border-radius:14px;padding:4px 10px;cursor:pointer;outline:none';
+}
+
+// Cambia el modo de un ítem, re-dibuja su bloque y recalcula.
+function _prepSetMode(row, mode) {
+  var it = _prepItemGet(row);
+  if (!it) return;
+  it.mode = mode;
+  var bu = document.getElementById('prep-mode-unidad-' + row);
+  var bb = document.getElementById('prep-mode-bolsa-' + row);
+  if (bu) bu.style.cssText = _prepModeBtnStyle(mode === 'unidad');
+  if (bb) bb.style.cssText = _prepModeBtnStyle(mode === 'bolsa');
+  var qbox = document.getElementById('prep-qtybox-' + row);
+  if (qbox) qbox.style.display = (mode === 'bolsa') ? 'none' : (it.parcial ? 'flex' : 'flex');
+  _prepRenderMode(row);
+  _prepCount();
+}
+
+// Dibuja el contenido del bloque de un ítem según su modo.
+function _prepRenderMode(row) {
+  var it = _prepItemGet(row);
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!it || !wrap) return;
+  if (it.mode === 'bolsa') {
+    wrap.style.display = 'block';
+    var bags;
+    if (it.bagsSeeded) {
+      bags = _prepBolsaReadDom(row);
+    } else {
+      var anyBag = false, pb = it.prevBags || [];
+      for (var p = 0; p < pb.length; p++) { if (pb[p].qty > 1) { anyBag = true; break; } }
+      if (anyBag) { bags = []; for (var q = 0; q < pb.length; q++) bags.push({ qty: pb[q].qty, code: pb[q].code }); }
+      else bags = _autoSeedBags(it.target, it.bulto);
+      it.bagsSeeded = true;
+    }
+    _prepRenderBolsas(row, bags);
+    _prepBolsaChange(row);
+  } else {
+    wrap.style.display = 'grid';
+    wrap.style.gridTemplateColumns = 'repeat(auto-fill,minmax(150px,1fr))';
+    wrap.style.gap = '6px';
+    _prepRenderSers(row, it.qtyPrep, it.prevSers);
+    it.prevSers = null;               // solo pre-cargar la primera vez
+    _prepAutoAllocBins(row, it.qtyPrep);
+  }
+}
+
+// Lee las bolsas actuales del DOM → [{qty, code}].
+function _prepBolsaReadDom(row) {
+  var rows = document.querySelectorAll('#prep-ser-wrap-' + row + ' .prep-bag-row');
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var q = rows[i].querySelector('.prep-bag-qty');
+    var c = rows[i].querySelector('.prep-bag-code');
+    out.push({ qty: q ? (parseInt(q.value, 10) || 0) : 0, code: c ? c.value.trim() : '' });
+  }
+  return out;
+}
+function _prepBagRowHtml(row, qty, code) {
+  var pv = String(code || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  return '<div class="prep-bag-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    '<input type="number" min="1" class="prep-bag-qty" value="' + (parseInt(qty, 10) || 1) + '" oninput="_prepBolsaChange(' + row + ')" ' +
+      'style="width:56px;padding:5px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;text-align:center;outline:none">' +
+    '<span style="font-size:11px;color:var(--tx-d)">u.</span>' +
+    '<span style="font-size:12px;color:var(--tx-d)">\xd7</span>' +
+    '<input type="text" class="prep-ser prep-bag-code" data-row="' + row + '" data-bag="1" placeholder="SO / N\xba serie de la bolsa" value="' + pv + '" ' +
+      'oninput="_prepCount()" onchange="_prepBolsaResolver(this)" onkeydown="_prepKey(event,this)" ' +
+      'style="flex:1;min-width:110px;padding:5px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;font-family:var(--f-mono);outline:none">' +
+    '<button type="button" onclick="_prepDelBolsa(this,' + row + ')" title="Quitar bolsa" ' +
+      'style="background:none;border:none;color:var(--red-m);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">🗑</button>' +
+  '</div>';
+}
+function _prepRenderBolsas(row, bags) {
+  var wrap = document.getElementById('prep-ser-wrap-' + row);
+  if (!wrap) return;
+  var html = '<div style="background:rgba(0,82,204,.05);border:1px solid var(--blue-l);border-radius:8px;padding:8px 10px">' +
+    '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:6px">🔩 Bolsas \xb7 1 c\xf3digo (SO) por bolsa</div>' +
+    '<div id="prep-bolsas-' + row + '">';
+  for (var i = 0; i < bags.length; i++) html += _prepBagRowHtml(row, bags[i].qty, bags[i].code);
+  html += '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',10)" style="' + _prepBagAddStyle() + '">+ Bolsa 10</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',20)" style="' + _prepBagAddStyle() + '">+ Bolsa 20</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',50)" style="' + _prepBagAddStyle() + '">+ Bolsa 50</button>' +
+      '<button type="button" onclick="_prepAddBolsa(' + row + ',1)" style="' + _prepBagAddStyle() + '">+ Otra</button>' +
+    '</div>' +
+    '<div id="prep-bolsa-sum-' + row + '" style="font-size:11px;font-weight:700;margin-top:6px"></div>' +
+  '</div>';
+  wrap.innerHTML = html;
+}
+function _prepAddBolsa(row, qty) {
+  var cont = document.getElementById('prep-bolsas-' + row);
+  if (!cont) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _prepBagRowHtml(row, qty, '');
+  cont.appendChild(tmp.firstChild);
+  _prepBolsaChange(row);
+  var codes = cont.querySelectorAll('.prep-bag-code');
+  if (codes.length) codes[codes.length - 1].focus();
+}
+function _prepDelBolsa(el, row) {
+  var rowEl = el.closest ? el.closest('.prep-bag-row') : el.parentNode;
+  if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+  _prepBolsaChange(row);
+}
+// Recalcula la suma de bolsas de un ítem, su indicador, los bins y el gate global.
+function _prepBolsaChange(row) {
+  var it = _prepItemGet(row);
+  if (!it) return;
+  var bags = _prepBolsaReadDom(row);
+  var sum = 0;
+  for (var i = 0; i < bags.length; i++) sum += bags[i].qty;
+  it.qtyPrep = sum;
+  var sumEl = document.getElementById('prep-bolsa-sum-' + row);
+  if (sumEl) {
+    var okQty = it.parcial ? (sum >= 1 && sum <= it.qMax) : (sum === it.target);
+    sumEl.textContent = 'Σ ' + sum + ' u.' + (it.parcial ? ' (hasta ' + it.qMax + ')' : ' de ' + it.target) + (okQty ? ' ✓' : '');
+    sumEl.style.color = okQty ? 'var(--green-m)' : 'var(--amber-m)';
+  }
+  _prepAutoAllocBins(row, sum);
+  _prepCount();
+}
+// Círculo cerrado con Stock Manager: si el código de una bolsa fue creado en SM
+// (SO con cantidad), autocompletar la cantidad de unidades de esa bolsa.
+function _prepBolsaResolver(inp) {
+  if (!inp || !inp.classList || !inp.classList.contains('prep-bag-code')) return;
+  var code = String(inp.value || '').trim();
+  if (!code) return;
+  var rowEl = inp.closest ? inp.closest('.prep-bag-row') : null;
+  if (!rowEl) return;
+  var qtyEl = rowEl.querySelector('.prep-bag-qty');
+  if (!qtyEl) return;
+  var rowAttr = parseInt(inp.getAttribute('data-row'), 10);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok && r.cantidad > 1) {
+        qtyEl.value = r.cantidad;
+        if (!isNaN(rowAttr)) _prepBolsaChange(rowAttr);
+        var msg = document.getElementById('prep-scan-msg');
+        if (msg) { msg.style.color = 'var(--green-m)'; msg.textContent = '📦 Bolsa de ' + r.cantidad + ' u. (' + code + ')'; }
+      }
+    })
+    .withFailureHandler(function() {})
+    .WOS_resolverBolsa(code);
+}
+// Re-reparte los bins al total dado (si ya cargaron las ubicaciones).
+function _prepAutoAllocBins(row, cantTotal) {
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  d.cantTotal = cantTotal;
+  _renderBinAlloc(row, d.locs, _autoAlocar(d.locs, cantTotal), cantTotal, 'prep');
+}
+// Estado de validez + unidades de un ítem según su modo.
+function _prepItemState(it) {
+  if (it.mode === 'bolsa') {
+    var bags = _prepBolsaReadDom(it.row);
+    var sum = 0, allCoded = (bags.length > 0);
+    for (var i = 0; i < bags.length; i++) { sum += bags[i].qty; if (bags[i].qty < 1 || !bags[i].code) allCoded = false; }
+    var qtyOk = it.parcial ? (sum >= 1 && sum <= it.qMax) : (sum === it.target);
+    return { units: sum, valid: allCoded && qtyOk };
+  }
+  var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
+  var total = inputs.length, filled = 0;
+  for (var j = 0; j < inputs.length; j++) if (inputs[j].value.trim()) filled++;
+  return { units: filled, valid: (total > 0 && filled === total) };
+}
+
+function _prepCount() {
+  if (!_modalPrep || !_modalPrep.items) return;
+  var totalCodes = 0, filledCodes = 0, allValid = true;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it = _modalPrep.items[i];
+    if (!_prepItemState(it).valid) allValid = false;
+    if (it.mode === 'bolsa') {
+      var bags = _prepBolsaReadDom(it.row);
+      totalCodes += bags.length;
+      for (var b = 0; b < bags.length; b++) if (bags[b].code) filledCodes++;
+    } else {
+      var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
+      totalCodes += inputs.length;
+      for (var k = 0; k < inputs.length; k++) if (inputs[k].value.trim()) filledCodes++;
+    }
+  }
+  var pesoEl = document.getElementById('prep-peso');
+  var pesoOk = pesoEl && (parseFloat(String(pesoEl.value).replace(',', '.')) > 0);
+  var ok = allValid && pesoOk && totalCodes > 0;
+  var cnt = document.getElementById('modal-prep-cnt');
+  if (cnt) {
+    cnt.textContent = filledCodes + ' / ' + totalCodes + ' c\xf3digos (SN/SO)' + (allValid && !pesoOk ? ' \xb7 falta el peso del paquete' : '');
+    cnt.style.color = ok ? 'var(--green-m)' : 'var(--amber-m)';
+  }
+  var btn = document.getElementById('btn-confirmar-prep');
+  if (btn) { btn.disabled = !ok; btn.style.opacity = ok ? '1' : '.5'; btn.style.cursor = ok ? 'pointer' : 'not-allowed'; }
+}
+
+// Enter en un input salta al siguiente (cómodo para escanear con lector de código)
+function _prepKey(e, inp) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  for (var i = 0; i < inputs.length; i++) {
+    if (inputs[i] === inp) { if (inputs[i + 1]) inputs[i + 1].focus(); return; }
+  }
+}
+
+// ── MODO ESCANEO (pistola QR + cámara) ────────────────────────
+// Carga un código en la PRÓXIMA unidad vacía. Bloquea duplicados.
+function _prepFeed(code) {
+  code = String(code || '').trim();
+  var msg = document.getElementById('prep-scan-msg');
+  if (!code) return false;
+  var inputs = document.querySelectorAll('#modal-prep .prep-ser');
+  for (var d = 0; d < inputs.length; d++) {
+    if (inputs[d].value.trim().toUpperCase() === code.toUpperCase()) {
+      if (msg) { msg.textContent = '⚠ Ese código ya estaba cargado: ' + code; msg.style.color = 'var(--amber-m)'; }
+      _prepBeep(false);
+      return false;
+    }
+  }
+  for (var i = 0; i < inputs.length; i++) {
+    if (!inputs[i].value.trim()) {
+      inputs[i].value = code;
+      _prepFlash(inputs[i]);
+      // Círculo cerrado: si es el código de una bolsa creada en Stock Manager, traer su cantidad.
+      if (inputs[i].classList && inputs[i].classList.contains('prep-bag-code')) _prepBolsaResolver(inputs[i]);
+      _prepCount();
+      var filled = 0; for (var k = 0; k < inputs.length; k++) if (inputs[k].value.trim()) filled++;
+      _prepBeep(true);
+      if (msg) {
+        msg.style.color = 'var(--green-m)';
+        msg.textContent = (filled === inputs.length)
+          ? '✓ ¡Todas las unidades cargadas (' + filled + '/' + inputs.length + ')! Ya podés confirmar.'
+          : '✓ ' + code + '  ·  ' + filled + '/' + inputs.length;
+      }
+      if (filled === inputs.length) _prepCamStop();
+      return true;
+    }
+  }
+  if (msg) { msg.textContent = 'Ya están todas las unidades cargadas.'; msg.style.color = 'var(--tx-d)'; }
+  return false;
+}
+
+// Enter (o sufijo del lector) en el campo de escaneo → carga y limpia para el siguiente
+function _prepScanKey(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  var el = document.getElementById('prep-scan');
+  _prepFeed(el.value);
+  el.value = '';
+  el.focus();
+}
+
+function _prepFlash(el) {
+  var o = el.style.background;
+  el.style.background = 'rgba(26,158,74,.25)';
+  setTimeout(function() { el.style.background = o || ''; }, 450);
+}
+
+var _prepAudioCtx = null;
+function _prepBeep(ok) {
+  try {
+    if (!_prepAudioCtx) _prepAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var c = _prepAudioCtx, o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.frequency.value = ok ? 880 : 220; g.gain.value = 0.05;
+    o.start(); setTimeout(function() { try { o.stop(); } catch(e) {} }, ok ? 90 : 200);
+  } catch(e) {}
+}
+
+// ── Cámara (html5-qrcode, best-effort en Apps Script) ─────────
+var _prepCam = null, _prepCamLast = { code: '', t: 0 }, _prepQrLoading = false;
+
+function _prepLoadQrLib(cb) {
+  if (window.Html5Qrcode) { cb(true); return; }
+  // Varias CDNs de respaldo: si una está bloqueada/caída, prueba la siguiente.
+  var urls = [
+    'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  ];
+  var i = 0;
+  (function tryNext() {
+    if (window.Html5Qrcode) { cb(true); return; }
+    if (i >= urls.length) { cb(false); return; }
+    var s = document.createElement('script');
+    s.src = urls[i++];
+    s.onload  = function() { cb(!!window.Html5Qrcode); };
+    s.onerror = function() { tryNext(); };
+    document.head.appendChild(s);
+  })();
+}
+
+function _prepCamFail(msg, btn, texto) {
+  if (msg) { msg.style.color = 'var(--red)'; msg.textContent = texto; }
+  if (btn) btn.innerHTML = '<i class="fa fa-camera"></i> Cámara';
+  _prepCam = null;   // dejamos el panel abierto con el mensaje para que el operario lo lea
+}
+
+function _prepCamToggle() {
+  if (_prepCam) { _prepCamStop(); return; }
+  var wrap = document.getElementById('prep-cam-wrap');
+  var btn  = document.getElementById('prep-cam-btn');
+  var msg  = document.getElementById('prep-cam-msg');
+  wrap.style.display = 'block';
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Abriendo…';
+  msg.style.color = 'var(--tx-d)'; msg.textContent = 'Pidiendo permiso de cámara…';
+
+  // 1) ¿El entorno expone la cámara? (Apps Script embebido a veces la bloquea por Permissions-Policy)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    _prepCamFail(msg, btn, 'Este entorno no expone la cámara (mediaDevices no disponible). Usá el lector físico (pistola), o abrí WOS en una pestaña nueva del navegador.');
+    return;
+  }
+  // 2) Pedir permiso explícito → dispara el prompt y nos da el error REAL si falla.
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(function(stream) {
+      try { stream.getTracks().forEach(function(t) { t.stop(); }); } catch(e) {}  // lo reabre html5-qrcode
+      _prepLoadQrLib(function(ok) {
+        if (!ok) { _prepCamFail(msg, btn, 'No se pudo cargar el lector de cámara (revisá la conexión). Usá el lector físico.'); return; }
+        _prepCamStart(msg, btn);
+      });
+    })
+    .catch(function(err) {
+      var name = (err && err.name) ? err.name : '';
+      var m;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        m = '🚫 Cámara bloqueada. Si el navegador pidió permiso, tocá "Permitir" y reintentá. Si NO apareció ningún permiso, es el sandbox de Apps Script — usá el lector físico (pistola) o abrí WOS en una pestaña nueva.';
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        m = 'No se encontró una cámara en este dispositivo. Usá el lector físico (pistola).';
+      } else if (name === 'NotReadableError' || name === 'AbortError') {
+        m = 'La cámara está en uso por otra app. Cerrala y reintentá, o usá el lector físico.';
+      } else {
+        m = 'No se pudo abrir la cámara (' + (name || (err && err.message) || 'desconocido') + '). Usá el lector físico.';
+      }
+      _prepCamFail(msg, btn, m);
+    });
+}
+
+// Arranca html5-qrcode eligiendo la cámara trasera si se puede (más confiable que facingMode).
+function _prepCamStart(msg, btn) {
+  var config = { fps: 10, qrbox: 220 };
+  var onScan = function(text) {
+    var now = Date.now();
+    if (text === _prepCamLast.code && (now - _prepCamLast.t) < 1600) return; // evitar releer el mismo QR
+    _prepCamLast = { code: text, t: now };
+    _prepFeed(text);
+  };
+  var okStart = function() {
+    if (btn) btn.innerHTML = '<i class="fa fa-times"></i> Cerrar cámara';
+    if (msg) { msg.style.color = 'var(--tx-d)'; msg.textContent = 'Apuntá la cámara al QR de cada unidad / bolsa.'; }
+  };
+  var failStart = function(e) { _prepCamFail(msg, btn, 'No se pudo iniciar la cámara (' + ((e && e.name) || (e && e.message) || e) + '). Usá el lector físico.'); };
+  try {
+    _prepCam = new Html5Qrcode('prep-cam');
+  } catch(e) { _prepCamFail(msg, btn, 'La cámara no está disponible en este entorno (' + ((e && e.message) || e) + '). Usá el lector físico.'); return; }
+  Html5Qrcode.getCameras().then(function(cams) {
+    var camId = null;
+    if (cams && cams.length) {
+      for (var i = 0; i < cams.length; i++) {
+        var lbl = (cams[i].label || '').toLowerCase();
+        if (lbl.indexOf('back') >= 0 || lbl.indexOf('rear') >= 0 || lbl.indexOf('trase') >= 0 || lbl.indexOf('environment') >= 0) { camId = cams[i].id; break; }
+      }
+      if (!camId) camId = cams[cams.length - 1].id;   // suele ser la trasera en celulares
+    }
+    var target = camId ? camId : { facingMode: 'environment' };
+    _prepCam.start(target, config, onScan, function() {}).then(okStart).catch(failStart);
+  }).catch(function() {
+    // getCameras falló → intento directo con facingMode
+    _prepCam.start({ facingMode: 'environment' }, config, onScan, function() {}).then(okStart).catch(failStart);
+  });
+}
+
+function _prepCamStop() {
+  var btn  = document.getElementById('prep-cam-btn'); if (btn) btn.innerHTML = '<i class="fa fa-camera"></i> Cámara';
+  var wrap = document.getElementById('prep-cam-wrap'); if (wrap) wrap.style.display = 'none';
+  if (_prepCam) {
+    try {
+      _prepCam.stop().then(function() { try { _prepCam.clear(); } catch(e) {} _prepCam = null; })
+                     .catch(function() { _prepCam = null; });
+    } catch(e) { _prepCam = null; }
+  }
+}
+
+function confirmarPreparar() {
+  if (!_modalPrep) return;
+  // Construir el payload por ítem según su modo (por unidad = 1 código c/u; por bolsa = 1 código por bolsa).
+  var payload = [], allCodes = [], faltan = false;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it = _modalPrep.items[i];
+    if (!_prepItemState(it).valid) faltan = true;
+    if (it.mode === 'bolsa') {
+      var bags = _prepBolsaReadDom(it.row), clean = [], sum = 0;
+      for (var b = 0; b < bags.length; b++) {
+        if (bags[b].qty >= 1 && bags[b].code) { clean.push(bags[b]); sum += bags[b].qty; allCodes.push(bags[b].code.toUpperCase()); }
+      }
+      payload.push({
+        row: it.row, sku: it.sku, desc: it.desc, qtyPrep: sum,
+        seriales: _bagsToManifest(clean), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
+        porBolsa: true, bulto: _prepBultoRepresentativo(clean, it.bulto)
+      });
+    } else {
+      var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
+      var codes = [];
+      for (var k = 0; k < inputs.length; k++) { var v = inputs[k].value.trim(); if (v) { codes.push(v); allCodes.push(v.toUpperCase()); } }
+      payload.push({
+        row: it.row, sku: it.sku, desc: it.desc, qtyPrep: codes.length,
+        seriales: codes.join(', '), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
+        porBolsa: false, bulto: 0
+      });
+    }
+  }
+  if (faltan) { toast('Complet\xe1 cada \xedtem: todos los c\xf3digos (SN/SO) y la cantidad de cada bolsa.', 'err'); return; }
+
+  // Código duplicado = probable error de tipeo/escaneo
+  var seen = {}, dup = null;
+  for (var d = 0; d < allCodes.length; d++) { if (seen[allCodes[d]]) { dup = allCodes[d]; break; } seen[allCodes[d]] = true; }
+  if (dup) { toast('C\xf3digo repetido: ' + dup + '. Cada c\xf3digo (SN/SO) debe ser \xfanico.', 'err'); return; }
+
+  // Peso exacto del paquete (obligatorio — se pide acá para que no se olvide al despachar)
+  var pesoEl = document.getElementById('prep-peso');
+  var pesoPrep = pesoEl ? (parseFloat(String(pesoEl.value).replace(',', '.')) || 0) : 0;
+  if (!(pesoPrep > 0)) {
+    toast('Ingres\xe1 el peso exacto del paquete (kg) antes de marcar como preparado.', 'err');
+    if (pesoEl) pesoEl.focus();
+    return;
+  }
+
+  var numero = _modalPrep.numero;
+  var enPicking = document.getElementById('pk-overlay') && document.getElementById('pk-overlay').style.display === 'flex';
+  cerrarModal('prep');
+  sp(true, 'Registrando N\xba de serie y marcando como preparado…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'Error desconocido'), 'err'); return; }
+      _cargarMaestro();   // refrescar qué SKU quedó marcado por bolsa
+      try { localStorage.removeItem('wos_pick_' + numero); if (typeof _pickState !== 'undefined') delete _pickState[numero]; } catch(e) {}
+      for (var k in _pkState) { if (k.indexOf(numero + '___') === 0) delete _pkState[k]; }
+      toast('Pedido ' + numero + ' → Preparado 📦', 'ok');
+      cargar();
+      if (enPicking) setTimeout(function() { _renderColaPicking(); }, 1800);
+    })
+    .withFailureHandler(function(e) {
+      sp(false);
+      toast('Sin respuesta del servidor — puede haberse completado. Actualizando…', 'err');
+      cargar();
+    })
+    .WOS_prepararConSeriales(numero, payload, _usuario ? _usuario.email : '', pesoPrep);
+}
+
 // ── MODAL: Despacho ───────────────────────────────────────────
+// ── Backorder del mismo reseller con stock disponible ─────────
+// Devuelve [{numero, items:[{sku,desc,cantPend,stock}]}] — pedidos (distintos de
+// excluirNumero) del reseller con ítems en Backorder cuyo SKU ya tiene stock (≥1u).
+function _backordersConStock(reseller, excluirNumero) {
+  var out = [];
+  for (var i = 0; i < _pedidos.length; i++) {
+    var p = _pedidos[i];
+    if (!p || p.numero === excluirNumero || p.reseller !== reseller) continue;
+    var items = [];
+    for (var j = 0; j < (p.items || []).length; j++) {
+      var it = p.items[j];
+      if (it.estado !== 'Backorder' || !(it.cantPend > 0)) continue;
+      var stk = (typeof it.stockActual === 'number') ? it.stockActual : 0;
+      if (stk >= 1) items.push({ sku: it.sku, desc: it.desc, cantPend: it.cantPend, stock: stk });
+    }
+    if (items.length) out.push({ numero: p.numero, items: items });
+  }
+  return out;
+}
+// ¿el pedido se puede FINALIZAR completo? = tiene ítems en Backorder y TODOS
+// los pendientes tienen stock suficiente para cubrirse enteros (stock >= pendiente).
+// Los parciales NO cuentan acá: se resuelven con el bloqueo al despachar (feature 1).
+function _esBackorderListo(p) {
+  var tieneBO = false;
+  for (var j = 0; j < (p.items || []).length; j++) {
+    var it = p.items[j];
+    if (it.estado !== 'Backorder' || !(it.cantPend > 0)) continue;
+    tieneBO = true;
+    var stk = (typeof it.stockActual === 'number') ? it.stockActual : 0;
+    if (stk < it.cantPend) return false;   // algún ítem no se cubre entero → no finalizable
+  }
+  return tieneBO;
+}
+// Todos los pedidos con backorder listo para despachar (cualquier reseller)
+function _backordersListos() {
+  var out = [];
+  for (var i = 0; i < _pedidos.length; i++) {
+    if (_pedidos[i] && _esBackorderListo(_pedidos[i])) out.push(_pedidos[i]);
+  }
+  return out;
+}
+// Aviso persistente arriba del listado: obliga a finalizar los backorder con stock
+function _syncBackorderBanner() {
+  var banner = document.getElementById('bo-ready-banner');
+  if (!banner) return;
+  var listos = _backordersListos();
+  if (!listos.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  var resSet = {};
+  for (var i = 0; i < listos.length; i++) resSet[listos[i].reseller] = true;
+  var nRes = Object.keys(resSet).length;
+  banner.style.display = 'flex';
+  banner.innerHTML =
+    '<span class="bo-ready-ico">📦</span>' +
+    '<div class="bo-ready-txt"><strong>' + listos.length + ' backorder se puede' + (listos.length === 1 ? '' : 'n') + ' finalizar completo' + (listos.length === 1 ? '' : 's') + '</strong>' +
+      '<span> — hay stock para cubrir todo lo pendiente de est' + (listos.length === 1 ? 'a orden' : 'as órdenes') +
+      (nRes > 1 ? ' (' + nRes + ' resellers)' : '') + '.</span></div>' +
+    '<button class="btn btn-amber" onclick="_verBackordersListos()">Ver y finalizar</button>';
+}
+function _verBackordersListos() {
+  filtrarEstado('Backorder');
+  var q = document.getElementById('search-inp'); if (q) q.value = '';
+  var sel = document.getElementById('reseller-sel'); if (sel) { sel.value = ''; _filtroReseller = ''; }
+  renderPedidos();
+  try { document.querySelector('.ws-content').scrollTop = 0; } catch(e) {}
+}
+function _avisoBackorderHTML(list) {
+  var filas = '';
+  for (var i = 0; i < list.length; i++) {
+    for (var j = 0; j < list[i].items.length; j++) {
+      var it = list[i].items[j];
+      filas += '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(151,79,12,.12)">' +
+        '<span><strong style="font-family:monospace">' + escH(it.sku) + '</strong> <span style="color:var(--tx-d)">' + escH(list[i].numero) + '</span></span>' +
+        '<span style="white-space:nowrap">pend. <strong>' + it.cantPend + '</strong> \xb7 stock <strong style="color:var(--green-m)">' + it.stock + '</strong></span>' +
+      '</div>';
+    }
+  }
+  return '<div id="bo-aviso" style="margin-bottom:14px;padding:12px 14px;background:var(--yellow-l);border:1px solid var(--yellow-m);border-left:4px solid var(--yellow-m);border-radius:8px">' +
+    '<div style="font-weight:700;color:var(--yellow);font-size:13px;margin-bottom:6px">⚠ Este reseller tiene backorder con stock disponible</div>' +
+    '<div style="font-size:12px;color:var(--tx-m);margin-bottom:8px">Hay que despacharlo en el mismo env\xedo. Agregalo, o si el stock no est\xe1 realmente disponible, despach\xe1 solo este pedido.</div>' +
+    filas +
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+      '<button type="button" class="btn btn-success" style="font-size:12px;padding:6px 12px" onclick="_incluirBackorder()">➕ Agregar backorder y despachar junto</button>' +
+      '<button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="_despacharSinBackorder()">Despachar solo este pedido</button>' +
+    '</div>' +
+  '</div>';
+}
+// Habilita/deshabilita "Confirmar despacho" según el bloqueo de backorder
+function _gateDespachoBtn() {
+  var btn = document.getElementById('btn-confirmar-desp');
+  if (!btn) return;
+  var bloq = !!(_modalDesp && _modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride);
+  btn.disabled = bloq;
+  btn.title = bloq ? 'Primero resolvé el backorder con stock de este reseller' : '';
+}
+// Re-arma el modal como despacho conjunto: este pedido + los backorder con stock
+function _incluirBackorder() {
+  if (!_modalDesp || !_modalDesp.backorderNums || !_modalDesp.backorderNums.length) return;
+  var numeros = [_modalDesp.numero].concat(_modalDesp.backorderNums);
+  _abrirBatchCon(numeros);
+}
+// Override: despachar solo este pedido (el backorder con stock queda pendiente)
+function _despacharSinBackorder() {
+  if (!_modalDesp) return;
+  if (!confirm('El backorder con stock de este reseller quedar\xe1 sin despachar.\n\n\xbfDespachar SOLO este pedido igualmente?')) return;
+  _modalDesp.backorderOverride = true;
+  var av = document.getElementById('bo-aviso');
+  if (av) {
+    av.style.borderColor = 'var(--tx-d)';
+    av.style.background = 'var(--surf)';
+    av.innerHTML = '<div style="font-size:12px;color:var(--tx-m)">✔ Vas a despachar solo este pedido. El backorder con stock queda pendiente.</div>';
+  }
+  _gateDespachoBtn();
+}
 function abrirModalDespacho(numero) {
   var ped = _buscarPedido(numero);
   if (!ped) return;
@@ -2157,11 +3193,24 @@ function abrirModalDespacho(numero) {
   var html = '';
   for (var j = 0; j < ped.items.length; j++) {
     var it = ped.items[j];
-    _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp });
-
+    var esCancelado = it.estado === 'Cancelado';
     var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
     var esBackorder = it.estado === 'Backorder';
-    if (yaEnviado) {
+
+    if (!esCancelado) {
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku });
+    }
+
+    if (esCancelado) {
+      html += '<div class="modal-item-row" style="opacity:.4;pointer-events:none;border-left:3px solid var(--red-m)">' +
+        '<div class="modal-item-info">' +
+          '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+          '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+          '<div class="modal-item-sol">Sol.: <strong>' + it.cantSol + '</strong> \xa0\xb7\xa0 Cancelado por el reseller</div>' +
+        '</div>' +
+        '<span style="font-size:11px;font-weight:700;color:var(--red-m);padding:0 8px;white-space:nowrap">CANCELADO</span>' +
+      '</div>';
+    } else if (yaEnviado) {
       // Ítem ya despachado en envío anterior — solo referencia, sin input
       html += '<div class="modal-item-row" style="opacity:.45;pointer-events:none">' +
         '<div class="modal-item-info">' +
@@ -2178,25 +3227,44 @@ function abrirModalDespacho(numero) {
         (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
         ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>' +
         ' \xa0<span style="color:var(--amber-m);font-weight:700;font-size:10px">▶ BACKORDER — ingres\xe1 cu\xe1nto despachar\xe1s ahora</span>';
-      html += '<div class="modal-item-row" style="border-left:3px solid var(--amber-m)">' +
-        '<div class="modal-item-info">' +
-          '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
-          '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
-          '<div class="modal-item-sol">' + metaBack + '</div>' +
+      html += '<div class="modal-item-row" style="border-left:3px solid var(--amber-m);flex-direction:column;align-items:stretch;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          '<div class="modal-item-info">' +
+            '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+            '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+            '<div class="modal-item-sol">' + metaBack + '</div>' +
+          '</div>' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
-        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0">' +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
+        '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
     } else {
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
         (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
         ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>';
-      html += '<div class="modal-item-row">' +
-        '<div class="modal-item-info">' +
-          '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
-          '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
-          '<div class="modal-item-sol">' + metaLine + '</div>' +
+      // Cantidad por defecto a despachar = unidades preparadas (SN registrados o suma de bolsas
+      // "SO x50"), acotada a lo pendiente. Si no hay nada registrado, despacha todo lo pendiente.
+      var _uPrep = _serialUnits(it.seriales);
+      var _defDesp = (_uPrep > 0) ? Math.min(_uPrep, it.cantPend) : it.cantPend;
+      html += '<div class="modal-item-row" style="flex-direction:column;align-items:stretch;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          '<div class="modal-item-info">' +
+            '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+            '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+            '<div class="modal-item-sol">' + metaLine + '</div>' +
+          '</div>' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + _defDesp + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
-        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '">' +
+        (it.seriales ? '<div style="font-size:10px;color:var(--teal-m);font-family:var(--f-mono);word-break:break-word">🏷 Series registradas: ' + escH(it.seriales) + '</div>' : '') +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
+        '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
+        '<div class="caja-wrap" id="mdi-caja-wrap-' + it.row + '">' +
+          '<span class="caja-lbl">Va en:</span>' +
+          '<select class="caja-sel" id="mdi-caja-' + it.row + '"><option value="0">Bulto 1</option></select>' +
+        '</div>' +
       '</div>';
     }
   }
@@ -2240,11 +3308,242 @@ function abrirModalDespacho(numero) {
   }
   _modalDesp.transportista = esRetiro ? 'Retiro' : 'Correo Argentino';
   _bultoCounter = 0;
+  // ── Bloqueo: backorder del mismo reseller con stock disponible ──
+  var _boStock = _backordersConStock(ped.reseller, numero);
+  _modalDesp.backorderNums    = [];
+  _modalDesp.bloqueoBackorder = false;
+  _modalDesp.backorderOverride = false;
+  if (_boStock.length) {
+    _modalDesp.bloqueoBackorder = true;
+    for (var bk = 0; bk < _boStock.length; bk++) _modalDesp.backorderNums.push(_boStock[bk].numero);
+    html = _avisoBackorderHTML(_boStock) + html;
+  }
+
   document.getElementById('modal-desp-title').textContent = 'Generar nota de entrega \xb7 ' + numero;
   document.getElementById('modal-desp-sub').textContent   = ped.reseller + (ped.envio ? ' · ' + ped.envio : '');
   document.getElementById('modal-desp-body').innerHTML    = html;
-  if (!esRetiro) _agregarBulto();   // pre-agregar un bulto vacío
-  document.getElementById('modal-desp').style.display     = 'flex';
+  _gateDespachoBtn();
+  if (!esRetiro) {
+    // Leer asignaciones de caja del pick state
+    var pickSt = {};
+    try { var _ls2 = localStorage.getItem('wos_pick_' + numero); pickSt = _ls2 ? JSON.parse(_ls2) : {}; } catch(e) {}
+    // Determinar cuántas cajas distintas se usaron
+    var maxCajaPick = 0;
+    for (var pi = 0; pi < ped.items.length; pi++) {
+      var pc = pickSt['c_' + pi];
+      if (pc !== undefined && pc > maxCajaPick) maxCajaPick = pc;
+    }
+    var numBultos = maxCajaPick + 1;   // al menos 1
+    for (var bi = 0; bi < numBultos; bi++) _agregarBulto();
+    // Pre-llenar el peso del 1er bulto con el peso capturado al preparar (editable; si hay
+    // varios bultos el operador lo reparte). Así nunca se despacha sin peso.
+    if (ped.pesoPrep && ped.pesoPrep > 0) {
+      var _firstPeso = document.querySelector('#bultos-list .bulto-peso');
+      if (_firstPeso && !_firstPeso.value) _firstPeso.value = ped.pesoPrep;
+    }
+    // Pre-llenar selectores de caja según pick state
+    if (numBultos > 1) {
+      for (var pi2 = 0; pi2 < ped.items.length; pi2++) {
+        var pIt  = ped.items[pi2];
+        var pCaja = pickSt['c_' + pi2];
+        if (pCaja !== undefined && pCaja > 0) {
+          var pSel = document.getElementById('mdi-caja-' + pIt.row);
+          if (pSel) pSel.value = pCaja;
+        }
+      }
+    }
+  }
+  document.getElementById('modal-desp').style.display = 'flex';
+  // Los bins (ubicación WMS) ya se eligieron al preparar → el despacho no los pide.
+}
+
+function _autoAlocar(locs, cantTotal) {
+  // locs ya vienen ordenados ASC por el backend; vaciar los más chicos primero
+  var remaining = cantTotal;
+  var result = [];
+  for (var i = 0; i < locs.length && remaining > 0; i++) {
+    var take = Math.min(locs[i].cantidad, remaining);
+    if (take > 0) { result.push({ bin: locs[i].ubicacion, cant: take }); remaining -= take; }
+  }
+  return result;
+}
+
+// Inyecta las ubicaciones WMS (bins) en el modal de PREPARACIÓN. La cantidad es fija
+// (cantPend, no editable) y los contenedores/handlers usan el prefijo 'prep'.
+function _prepInyectarUbicaciones(map) {
+  _ubicAlloc = {};
+  if (!_modalPrep || !_modalPrep.items) return;
+  for (var i = 0; i < _modalPrep.items.length; i++) {
+    var it   = _modalPrep.items[i];
+    var wrap = document.getElementById('prep-ubic-wrap-' + it.row);
+    if (!wrap) continue;
+    var locs = (it.sku && map[it.sku.toUpperCase()]) ? map[it.sku.toUpperCase()] : [];
+    if (!locs.length) {
+      wrap.innerHTML = '<span style="font-size:10px;color:var(--tx-d)">Sin ubicaci\xf3n en WMS</span>';
+      continue;
+    }
+    var cantTotal = (it.qtyPrep != null ? it.qtyPrep : it.cantPend) || 0;
+    _ubicAlloc[it.row] = { locs: locs, cantTotal: cantTotal };
+    _renderBinAlloc(it.row, locs, _autoAlocar(locs, cantTotal), cantTotal, 'prep');
+  }
+}
+
+function _renderBinAlloc(row, locs, alloc, cantTotal, pfx) {
+  pfx = pfx || 'mdi';
+  var wrap = document.getElementById(pfx + '-ubic-wrap-' + row);
+  if (!wrap) return;
+  var allocMap = {};
+  for (var a = 0; a < alloc.length; a++) allocMap[alloc[a].bin.toUpperCase()] = alloc[a].cant;
+  if (locs.length === 1) {
+    var loc = locs[0];
+    var warn = cantTotal > loc.cantidad
+      ? ' <span style="color:var(--red-m);font-weight:700">⚠ solo ' + loc.cantidad + ' disponibles</span>' : '';
+    wrap.innerHTML =
+      '<div style="font-size:10px;color:var(--tx-d);display:flex;align-items:center;gap:6px;margin-top:4px">' +
+        '<span style="font-weight:700;color:var(--blue);font-family:var(--f-mono)">' + escH(loc.ubicacion) + '</span>' +
+        '<span>(' + loc.cantidad + ' en stock)</span>' + warn +
+      '</div>';
+    return;
+  }
+  var totalAlloc = alloc.reduce(function(s, a) { return s + a.cant; }, 0);
+  var ok = totalAlloc === cantTotal;
+  var html =
+    '<div style="margin-top:4px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' +
+        '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d)">Bins</span>' +
+        '<button type="button" onclick="_binAllocAuto(' + row + ',\'' + pfx + '\')" ' +
+          'style="font-size:10px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0 3px;line-height:1.4;border-radius:3px;border:1px solid var(--blue-l)">Auto</button>' +
+      '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<tr style="color:var(--tx-d);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">' +
+          '<td style="padding:1px 4px">Bin</td>' +
+          '<td style="padding:1px 4px;text-align:right">Stock</td>' +
+          '<td style="padding:1px 4px;text-align:right;width:64px">Sacar</td>' +
+        '</tr>';
+  for (var li = 0; li < locs.length; li++) {
+    var loc = locs[li];
+    var v   = allocMap[loc.ubicacion.toUpperCase()] || 0;
+    html +=
+      '<tr style="border-top:1px solid var(--surf)">' +
+        '<td style="padding:2px 4px;font-family:var(--f-mono);font-weight:700;color:var(--blue);font-size:10px">' + escH(loc.ubicacion) + '</td>' +
+        '<td style="padding:2px 4px;text-align:right;color:var(--tx-d)">' + loc.cantidad + '</td>' +
+        '<td style="padding:2px 4px">' +
+          '<input type="number" min="0" max="' + loc.cantidad + '" value="' + v + '" ' +
+            'id="bin-alloc-' + row + '-' + li + '" ' +
+            'oninput="_binAllocCheck(' + row + ',' + cantTotal + ')" ' +
+            'style="width:56px;padding:2px 5px;border:1.5px solid var(--brd);border-radius:4px;font-size:12px;font-weight:700;text-align:center;outline:none">' +
+        '</td>' +
+      '</tr>';
+  }
+  html +=
+      '</table>' +
+      '<div id="bin-alloc-total-' + row + '" style="font-size:10px;margin-top:2px;font-weight:' + (ok ? '600' : '700') + ';color:' + (ok ? 'var(--green-m)' : 'var(--red-m)') + '">' +
+        'Total asignado: ' + totalAlloc + ' / ' + cantTotal +
+      '</div>' +
+    '</div>';
+  wrap.innerHTML = html;
+}
+
+function _binAllocAuto(row, pfx) {
+  pfx = pfx || 'mdi';
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  var inp = document.getElementById(pfx + '-' + row);
+  var cantTotal = inp ? (parseInt(inp.value) || 0) : d.cantTotal;
+  _ubicAlloc[row].cantTotal = cantTotal;
+  var auto = _autoAlocar(d.locs, cantTotal);
+  var allocMap = {};
+  for (var a = 0; a < auto.length; a++) allocMap[auto[a].bin.toUpperCase()] = auto[a].cant;
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    if (el) el.value = allocMap[d.locs[li].ubicacion.toUpperCase()] || 0;
+  }
+  _binAllocCheck(row, cantTotal);
+}
+
+function _binAllocCheck(row, cantTotal) {
+  var d = _ubicAlloc[row];
+  if (!d) return;
+  var total = 0;
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    total += el ? (parseInt(el.value) || 0) : 0;
+  }
+  var totalEl = document.getElementById('bin-alloc-total-' + row);
+  if (!totalEl) return;
+  var ok = total === cantTotal;
+  totalEl.textContent  = 'Total asignado: ' + total + ' / ' + cantTotal;
+  totalEl.style.color  = ok ? 'var(--green-m)' : 'var(--red-m)';
+  totalEl.style.fontWeight = ok ? '600' : '700';
+}
+
+function _getBinAllocForRow(row, pfx) {
+  pfx = pfx || 'mdi';
+  var d = _ubicAlloc[row];
+  if (!d) return [];
+  if (d.locs.length === 1) {
+    var inp = document.getElementById(pfx + '-' + row);
+    var cant = inp ? (parseInt(inp.value) || 0) : (d.cantTotal || 0);
+    return cant > 0 ? [{ bin: d.locs[0].ubicacion, cant: cant }] : [];
+  }
+  var result = [];
+  for (var li = 0; li < d.locs.length; li++) {
+    var el = document.getElementById('bin-alloc-' + row + '-' + li);
+    var cant = el ? (parseInt(el.value) || 0) : 0;
+    if (cant > 0) result.push({ bin: d.locs[li].ubicacion, cant: cant });
+  }
+  return result;
+}
+
+function _toggleSeriales(row) {
+  var chk = document.getElementById('mdi-chk-' + row);
+  if (chk && chk.checked) {
+    var inp = document.getElementById('mdi-' + row);
+    _syncSeriales(row, inp ? (parseInt(inp.value) || 0) : 0);
+  } else {
+    var wrap = document.getElementById('mdi-ser-wrap-' + row);
+    var cnt  = document.getElementById('mdi-ser-cnt-' + row);
+    if (wrap) wrap.innerHTML = '';
+    if (cnt)  { cnt.style.display = 'none'; cnt.textContent = ''; }
+  }
+}
+
+function _syncSeriales(row, qty) {
+  var chk  = document.getElementById('mdi-chk-' + row);
+  var wrap = document.getElementById('mdi-ser-wrap-' + row);
+  var cntEl = document.getElementById('mdi-ser-cnt-' + row);
+  if (!wrap || !chk || !chk.checked) return;
+  // Preservar valores ya ingresados
+  var prev = [];
+  var old = wrap.querySelectorAll('.modal-ser-single');
+  for (var oi = 0; oi < old.length; oi++) prev.push(old[oi].value);
+  wrap.innerHTML = '';
+  if (qty <= 0) { if (cntEl) cntEl.style.display = 'none'; return; }
+  var html = '';
+  for (var n = 0; n < qty; n++) {
+    var v = (prev[n] || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    html += '<div class="modal-ser-item">' +
+      '<span class="modal-ser-lbl">' + (n + 1) + '</span>' +
+      '<input class="modal-ser-single" id="mdi-ser-' + row + '-' + n + '" type="text" ' +
+        'placeholder="N\xba de serie" value="' + v + '" ' +
+        'oninput="_cntSer(' + row + ',' + qty + ')">' +
+    '</div>';
+  }
+  wrap.innerHTML = html;
+  _cntSer(row, qty);
+}
+
+function _cntSer(row, qty) {
+  var cntEl = document.getElementById('mdi-ser-cnt-' + row);
+  if (!cntEl) return;
+  var filled = 0;
+  for (var n = 0; n < qty; n++) {
+    var inp = document.getElementById('mdi-ser-' + row + '-' + n);
+    if (inp && inp.value.trim()) filled++;
+  }
+  cntEl.style.display = '';
+  cntEl.textContent = filled + ' / ' + qty + ' n\xba de serie ingresados';
+  cntEl.style.color = filled === qty ? 'var(--green-m)' : 'var(--amber-m)';
 }
 
 var _bultoCounter = 0;
@@ -2270,6 +3569,7 @@ function _agregarBulto() {
     '<input class="bulto-peso"  id="bt-peso-'  + id + '" type="number" min="0" step="0.001" placeholder="kg">' +
     '<button class="bulto-del" onclick="_quitarBulto(' + id + ')" title="Quitar bulto">✕</button>';
   list.appendChild(div);
+  _actualizarCajaOpts();
 }
 
 function _quitarBulto(id) {
@@ -2282,11 +3582,41 @@ function _quitarBulto(id) {
       var lbl = rows[i].querySelector('.bulto-num');
       if (lbl) lbl.textContent = 'Bulto ' + (i + 1);
     }
+    _actualizarCajaOpts();
   }
 }
 
+function _actualizarCajaOpts() {
+  var n = document.querySelectorAll('#bultos-list .bulto-row').length;
+  var wraps = document.querySelectorAll('[id^="mdi-caja-wrap-"]');
+  for (var i = 0; i < wraps.length; i++) {
+    var wrap  = wraps[i];
+    var rowId = wrap.id.replace('mdi-caja-wrap-', '');
+    var sel   = document.getElementById('mdi-caja-' + rowId);
+    wrap.classList.toggle('visible', n > 1);
+    if (!sel) continue;
+    var cur = parseInt(sel.value) || 0;
+    sel.innerHTML = '';
+    for (var j = 0; j < n; j++) {
+      var opt = document.createElement('option');
+      opt.value = j;
+      opt.textContent = 'Bulto ' + (j + 1);
+      if (j === cur && cur < n) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+}
+
+var _despachoEnCurso = false;   // guard de re-entrada: evita doble-submit del despacho
+function _wosGenToken() { return 'd' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function confirmarDespacho() {
   if (!_modalDesp) return;
+  if (_despachoEnCurso) return;   // ya hay un despacho en curso → ignorar el 2° click
+  if (_modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride) {
+    toast('Este reseller tiene backorder con stock — agregalo al envío o elegí "despachar solo este pedido"', 'err');
+    return;
+  }
+  var _despToken = _wosGenToken();   // token de idempotencia (mismo para batch e individual)
   var transportista = _modalDesp.transportista || 'Correo Argentino';
   var _costoEl  = document.getElementById('modal-costo-envio');
   var costoEnvio = _costoEl ? (parseFloat(_costoEl.value) || 0) : 0;
@@ -2311,7 +3641,15 @@ function confirmarDespacho() {
       var bIt = _modalDesp.items[bi];
       var bInp = document.getElementById('mdi-' + bIt.row);
       if (!pedsByNum[bIt.numero]) pedsByNum[bIt.numero] = [];
-      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bInp ? (parseInt(bInp.value) || 0) : 0 });
+      var bCnt = bInp ? (parseInt(bInp.value) || 0) : 0;
+      var bSers = [];
+      for (var bsn = 0; bsn < bCnt; bsn++) {
+        var bSEl = document.getElementById('mdi-ser-' + bIt.row + '-' + bsn);
+        if (bSEl && bSEl.value.trim()) bSers.push(bSEl.value.trim());
+      }
+      var bCajaEl  = document.getElementById('mdi-caja-' + bIt.row);
+      var bCajaIdx = bCajaEl ? (parseInt(bCajaEl.value) || 0) : 0;
+      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', '), cajaIdx: bCajaIdx });
     }
     for (var bn = 0; bn < _modalDesp.batchNumeros.length; bn++) {
       var bNum = _modalDesp.batchNumeros[bn];
@@ -2321,8 +3659,10 @@ function confirmarDespacho() {
     cerrarModal('desp');
     limpiarBatch();
     wosLoadStart(STEPS_BATCH);
+    _despachoEnCurso = true;
     google.script.run
       .withSuccessHandler(function(res) {
+        _despachoEnCurso = false;
         wosLoadDone();
         if (!res.ok && !res.resultados) { toast('Error: ' + res.error, 'err'); return; }
         var ok = 0, err = 0;
@@ -2334,11 +3674,12 @@ function confirmarDespacho() {
         cargar();
       })
       .withFailureHandler(function(e) {
+        _despachoEnCurso = false;
         wosLoadDone();
         toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
         cargar();
       })
-      .WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, _usuario.email);
+      .WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, _usuario.email, _despToken);
     return;
   }
 
@@ -2347,7 +3688,15 @@ function confirmarDespacho() {
   for (var i = 0; i < _modalDesp.items.length; i++) {
     var it  = _modalDesp.items[i];
     var inp = document.getElementById('mdi-' + it.row);
-    despachos.push({ row: it.row, cantDesp: inp ? (parseInt(inp.value) || 0) : 0 });
+    var cnt = inp ? (parseInt(inp.value) || 0) : 0;
+    var sers = [];
+    for (var sn = 0; sn < cnt; sn++) {
+      var sEl = document.getElementById('mdi-ser-' + it.row + '-' + sn);
+      if (sEl && sEl.value.trim()) sers.push(sEl.value.trim());
+    }
+    var cajaEl  = document.getElementById('mdi-caja-' + it.row);
+    var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;
@@ -2358,8 +3707,10 @@ function confirmarDespacho() {
   var numero = _modalDesp.numero;
   cerrarModal('desp');
   wosLoadStart(STEPS_DESPACHO);
+  _despachoEnCurso = true;
   google.script.run
     .withSuccessHandler(function(res) {
+      _despachoEnCurso = false;
       wosLoadDone();
       if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
       toast('Despacho registrado · ' + numero, 'ok');
@@ -2368,11 +3719,12 @@ function confirmarDespacho() {
       cargar();
     })
     .withFailureHandler(function(e) {
+      _despachoEnCurso = false;
       wosLoadDone();
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, _usuario.email);
+    .WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, _usuario.email, _despToken);
 }
 
 // ── MODAL: Notificar Faltante ─────────────────────────────────
@@ -2440,7 +3792,7 @@ function confirmarFaltante() {
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_notificarFaltante(numero, faltantes, _usuario.email);
+    .WOS_notificarFaltante(numero, faltantes, _usuario.email, 'falt_' + numero);
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -2456,6 +3808,7 @@ function cerrarModal(which) {
   if (which === 'faltante') { document.getElementById('modal-faltante').style.display   = 'none'; _modalFalt = null; }
   if (which === 'resp-tel') { document.getElementById('modal-resp-tel').style.display   = 'none'; _modalRT   = null; }
   if (which === 'cancelar') { document.getElementById('modal-cancelar').style.display   = 'none'; _modalCanc = null; }
+  if (which === 'prep')     { _prepCamStop(); document.getElementById('modal-prep').style.display = 'none'; _modalPrep = null; }
   if (which === 'resumen')  { cerrarResumen(); }
 }
 
@@ -2485,7 +3838,7 @@ function confirmarCancelacion() {
       cargar();
     })
     .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
-    .WOS_cancelarPedido(numero, motivo, _usuario.email);
+    .WOS_cancelarPedido(numero, motivo, _usuario.email, 'canc_' + numero);
 }
 
 // ── Pick Ticket ───────────────────────────────────────────────
@@ -2494,14 +3847,37 @@ function abrirPickTicket(numero) {
   if (!ped) return;
 
   var fecha = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+  var _ptLbl = {
+    'Pendiente_Revision': 'Nuevo',     'Confirmado': 'Confirmado',
+    'En_Espera_Reseller': 'Esp. reseller', 'Preparado': 'Preparado',
+    'Preparado Parcial':  'Parcial',   'Backorder': 'Sin stock',
+    'Entregado_Cerrado':  'Despachado','Listo_Retiro': 'Retiro listo',
+    'Entregado_Confirmado': 'Recibido ✓', 'Cancelado': 'Cancelado'
+  };
+
   var filas = '';
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
     var cantTarget = it.cantPend > 0 ? it.cantPend : it.cantSol;
+    var estadoBadge = '<span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:10px;padding:2px 7px">' +
+      escH(_ptLbl[it.estado] || it.estado || '—') + '</span>';
+    // Ubicación: mostrar la primera (recomendación) en negrita, el resto en gris
+    var ubicStr = it.ubicacion || '—';
+    var ubicDisplay = ubicStr;
+    if (ubicStr.indexOf(' · ') >= 0) {
+      var _partes = ubicStr.split(' · ');
+      ubicDisplay = '<strong>' + escH(_partes[0]) + '</strong>' +
+        ' <span style="color:#aaa;font-size:9px">' + escH(_partes.slice(1).join(' · ')) + '</span>';
+    } else if (ubicStr !== '—') {
+      ubicDisplay = '<strong>' + escH(ubicStr) + '</strong>';
+    }
     filas += '<tr>' +
       '<td class="pt-sku">' + escH(it.sku) + '</td>' +
       '<td>' + escH(it.desc) + '</td>' +
       '<td style="text-align:center;font-weight:700">' + cantTarget + '</td>' +
+      '<td style="text-align:center">' + estadoBadge + '</td>' +
+      '<td style="font-size:10px;line-height:1.3">' + ubicDisplay + '</td>' +
       '<td style="text-align:center"><span class="pt-chk"></span></td>' +
     '</tr>';
   }
@@ -2520,7 +3896,7 @@ function abrirPickTicket(numero) {
     '</div>' +
     (ped.obs ? '<div style="background:#fffbe6;border:1px solid #f9d95a;border-radius:6px;padding:7px 10px;font-size:11px;margin-bottom:10px"><strong>Obs:</strong> ' + escH(ped.obs) + '</div>' : '') +
     '<table class="pt-table">' +
-      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Picking</th></tr></thead>' +
+      '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Estado</th><th>Ubicación</th><th style="text-align:center">Picking</th></tr></thead>' +
       '<tbody>' + filas + '</tbody>' +
     '</table>' +
     '<div class="pt-firma">' +
@@ -2567,9 +3943,11 @@ function cerrarStock() {
 }
 
 function _cargarStockRemoto(q) {
-  document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Cargando stock…</div>';
+  // Misma pantalla de carga que al ingresar a WOS (overlay con barra + pasos).
+  wosLoadStart(STEPS_STOCK);
   google.script.run
     .withSuccessHandler(function(res) {
+      wosLoadDone();
       document.getElementById('btn-stock').classList.remove('loading');
       if (!res.ok) {
         document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Error: ' + escH(res.error) + '</div>';
@@ -2580,6 +3958,7 @@ function _cargarStockRemoto(q) {
       _renderStock();
     })
     .withFailureHandler(function(e) {
+      wosLoadDone();
       document.getElementById('btn-stock').classList.remove('loading');
       document.getElementById('stk-content').innerHTML = '<div class="stk-empty">Error de conexión: ' + escH(e.message) + '</div>';
     })
@@ -2701,6 +4080,187 @@ function cerrarListaCompras() {
   document.getElementById('btn-compras').classList.remove('loading');
 }
 
+// ════════════════════════════════════════════════════════════
+//  DESPACHO PARCIAL — qué se puede enviar AHORA, agrupado por reseller
+//  Se calcula 100% en el cliente desde _pedidos (ya trae stockActual por SKU).
+//  El stock se reparte GLOBALMENTE en orden FIFO (pedido más viejo primero)
+//  para no prometer las mismas unidades a dos líneas/resellers distintos.
+// ════════════════════════════════════════════════════════════
+var _despachableData = [];
+// "Despacho parcial" = todo lo que le DEBEMOS al reseller: cualquier línea con cantPend>0 que
+// NO esté en un estado terminal. Antes era un whitelist (Confirmado/Preparado/Parcial/Backorder)
+// que dejaba afuera las líneas En_Espera_Reseller (faltantes ya notificados al reseller) y las
+// Pendiente_Revision → no aparecían aunque se debieran. Ahora se excluyen solo los estados cerrados.
+var DP_ESTADOS_CERRADOS = { 'Entregado_Cerrado':1, 'Entregado_Confirmado':1, 'Listo_Retiro':1, 'Cancelado':1 };
+
+function abrirDespachable() {
+  document.getElementById('dp-overlay').style.display = 'flex';
+  _despachableData = _computeDespachable();
+  _renderDespachable();
+}
+function cerrarDespachable() {
+  document.getElementById('dp-overlay').style.display = 'none';
+}
+
+function _computeDespachable() {
+  // 1. Pool de stock por SKU (stockActual es el mismo para todas las líneas del SKU)
+  var pool = {};
+  for (var i = 0; i < _pedidos.length; i++) {
+    var its = (_pedidos[i] && _pedidos[i].items) || [];
+    for (var j = 0; j < its.length; j++) {
+      var sku = String(its[j].sku || '').trim().toUpperCase();
+      if (!sku || pool[sku] !== undefined) continue;
+      pool[sku] = (typeof its[j].stockActual === 'number' && its[j].stockActual > 0) ? its[j].stockActual : 0;
+    }
+  }
+  // 2. Líneas pendientes candidatas (con unidades pendientes y estado despachable)
+  var lineas = [];
+  for (var p = 0; p < _pedidos.length; p++) {
+    var ped = _pedidos[p]; if (!ped) continue;
+    var pits = ped.items || [];
+    for (var k = 0; k < pits.length; k++) {
+      var it = pits[k];
+      if (!(it.cantPend > 0) || DP_ESTADOS_CERRADOS[it.estado]) continue;
+      lineas.push({
+        numero: ped.numero, reseller: ped.reseller || '(sin reseller)', fechaMs: ped.fechaMs || 0,
+        sku: String(it.sku || '').trim().toUpperCase(), skuRaw: it.sku, desc: it.desc || '',
+        cantPend: it.cantPend, precio: Number(it.precio) || 0, estado: it.estado
+      });
+    }
+  }
+  // 3. FIFO global (pedido más viejo primero) y asignación del pool
+  lineas.sort(function(a, b) { return a.fechaMs - b.fechaMs; });
+  for (var l = 0; l < lineas.length; l++) {
+    var ln = lineas[l];
+    var disp = pool[ln.sku] || 0;
+    ln.ahora = Math.min(ln.cantPend, disp);
+    pool[ln.sku] = disp - ln.ahora;
+    ln.falta = ln.cantPend - ln.ahora;
+  }
+  // 4. Agrupar por reseller → pedidos
+  var byRes = {};
+  for (var m = 0; m < lineas.length; m++) {
+    var x = lineas[m];
+    if (!byRes[x.reseller]) byRes[x.reseller] = { reseller: x.reseller, pedidos: {}, uAhora:0, uFalta:0, usdAhora:0, usdFalta:0 };
+    var R = byRes[x.reseller];
+    if (!R.pedidos[x.numero]) R.pedidos[x.numero] = { numero: x.numero, fechaMs: x.fechaMs, lineas: [] };
+    R.pedidos[x.numero].lineas.push(x);
+    R.uAhora += x.ahora; R.uFalta += x.falta;
+    R.usdAhora += x.ahora * x.precio; R.usdFalta += x.falta * x.precio;
+  }
+  // 5. A array ordenado (más para despachar ahora primero)
+  var arr = [];
+  var rk = Object.keys(byRes);
+  for (var r = 0; r < rk.length; r++) {
+    var Rr = byRes[rk[r]];
+    var peds = [];
+    var pk = Object.keys(Rr.pedidos);
+    for (var q = 0; q < pk.length; q++) peds.push(Rr.pedidos[pk[q]]);
+    peds.sort(function(a, b) { return a.fechaMs - b.fechaMs; });
+    Rr.pedidosArr = peds; Rr.nPedidos = peds.length;
+    arr.push(Rr);
+  }
+  arr.sort(function(a, b) { return b.uAhora - a.uAhora || b.uFalta - a.uFalta; });
+  return arr;
+}
+
+function _fmtUSD(n) { return (Math.round(n * 100) / 100).toLocaleString('es-AR'); }
+
+function _renderDespachable() {
+  var data = _despachableData || [];
+  var cont = document.getElementById('dp-content');
+  if (!data.length) {
+    document.getElementById('dp-sub').textContent = 'Sin pedidos pendientes de despacho';
+    cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes de despacho (nada que debamos). ¡Todo al día!</div>';
+    return;
+  }
+  var totUAhora = 0, totUFalta = 0;
+  for (var t = 0; t < data.length; t++) { totUAhora += data[t].uAhora; totUFalta += data[t].uFalta; }
+  document.getElementById('dp-sub').textContent =
+    data.length + ' reseller' + (data.length === 1 ? '' : 's') + ' con pendientes · ' +
+    totUAhora + ' u. despachables ahora · ' + totUFalta + ' u. quedan para próximo envío';
+
+  var html = '';
+  for (var i = 0; i < data.length; i++) {
+    var R = data[i];
+    html += '<div style="background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);box-shadow:var(--shd);margin-bottom:12px;overflow:hidden">';
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--brd);flex-wrap:wrap">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--tx)">' + escH(R.reseller) + '</div>' +
+      '<span style="font-size:11px;color:var(--tx-d)">' + R.nPedidos + ' pedido' + (R.nPedidos === 1 ? '' : 's') + '</span>' +
+      '<div style="margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
+        '<span style="font-size:12px;color:var(--green-m);font-weight:700">Ahora: ' + R.uAhora + ' u' + (R.usdAhora > 0 ? ' · $' + _fmtUSD(R.usdAhora) : '') + '</span>' +
+        (R.uFalta > 0 ? '<span style="font-size:12px;color:#B54708;font-weight:700">Falta: ' + R.uFalta + ' u' + (R.usdFalta > 0 ? ' · $' + _fmtUSD(R.usdFalta) : '') + '</span>' : '') +
+        '<button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="_copiarDespachable(' + i + ')"><i class="fa fa-copy"></i> Copiar aviso</button>' +
+      '</div>' +
+    '</div>';
+    html += '<div style="padding:6px 16px 12px">';
+    for (var pp = 0; pp < R.pedidosArr.length; pp++) {
+      var P = R.pedidosArr[pp];
+      html += '<div style="margin-top:8px">';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);font-family:monospace;margin-bottom:3px">' + escH(P.numero) + '</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+      for (var li = 0; li < P.lineas.length; li++) {
+        var L = P.lineas[li];
+        var ahoraCell = L.ahora > 0
+          ? '<span style="color:var(--green-m);font-weight:700">' + L.ahora + '</span>'
+          : '<span style="color:var(--tx-d)">0</span>';
+        var faltaCell = L.falta > 0
+          ? '<span style="color:#B54708;font-weight:700">' + L.falta + '</span>'
+          : '<span style="color:var(--tx-d)">—</span>';
+        html += '<tr style="border-bottom:1px solid var(--brd)">' +
+          '<td style="padding:4px 6px;font-family:monospace;white-space:nowrap">' + escH(L.skuRaw || L.sku) + '</td>' +
+          '<td style="padding:4px 6px;color:var(--tx-m)">' + escH(L.desc) + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap;color:var(--tx-d)" title="Pendiente total de la línea">pend ' + L.cantPend + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">ahora ' + ahoraCell + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">falta ' + faltaCell + '</td>' +
+        '</tr>';
+      }
+      html += '</table></div>';
+    }
+    html += '</div></div>';
+  }
+  cont.innerHTML = html;
+}
+
+function _copiarDespachable(idx) {
+  var R = _despachableData[idx];
+  if (!R) return;
+  var ahora = [], falta = [];
+  for (var pp = 0; pp < R.pedidosArr.length; pp++) {
+    var P = R.pedidosArr[pp];
+    for (var li = 0; li < P.lineas.length; li++) {
+      var L = P.lineas[li];
+      var label = (L.skuRaw || L.sku) + (L.desc ? ' — ' + L.desc : '');
+      if (L.ahora > 0) ahora.push('• ' + label + ' — ' + L.ahora + ' u (pedido ' + P.numero + ')');
+      if (L.falta > 0) falta.push('• ' + label + ' — ' + L.falta + ' u (pedido ' + P.numero + ')');
+    }
+  }
+  var txt = 'Hola ' + R.reseller + ',\n\n';
+  txt += 'De tus pedidos pendientes te puedo despachar AHORA:\n' + (ahora.length ? ahora.join('\n') : '(nada disponible por el momento)') + '\n';
+  if (falta.length) txt += '\nQueda para el próximo envío (sin stock por ahora):\n' + falta.join('\n') + '\n';
+  txt += '\n¿Querés que te envíe ahora lo disponible y el resto en el próximo envío?';
+  _dpCopiarTexto(txt);
+}
+
+function _dpCopiarTexto(txt) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function() { toast('Aviso copiado al portapapeles', 'ok'); },
+        function() { _dpCopiarFallback(txt); });
+    } else { _dpCopiarFallback(txt); }
+  } catch(e) { _dpCopiarFallback(txt); }
+}
+function _dpCopiarFallback(txt) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Aviso copiado al portapapeles', 'ok');
+  } catch(e) { toast('No se pudo copiar automáticamente', 'err'); }
+}
+
 function _renderListaCompras(ecMap, stockMap, loading) {
   stockMap = stockMap || {};
   // Agrupa ítems de backorder por SKU, acumula cantPend y resellers
@@ -2735,8 +4295,8 @@ function _renderListaCompras(ecMap, stockMap, loading) {
     var bo  = bySkuMap[sku].cantBO;
     var ec  = (ecMap && ecMap[sku]) ? ecMap[sku].total : 0;
     var ecOcs = (ecMap && ecMap[sku] && ecMap[sku].ocs) ? Object.keys(ecMap[sku].ocs) : [];
-    var aComprar = Math.max(0, bo - ec);
-    var stk = (stockMap[sku] !== undefined) ? stockMap[sku] : null;
+    var stk      = (stockMap[sku] !== undefined) ? stockMap[sku] : null;
+    var aComprar = Math.max(0, bo - ec - Math.max(0, stk || 0));
     rows.push({ sku: sku, desc: bySkuMap[sku].desc, cantBO: bo, enCamino: ec, ecOcs: ecOcs, aComprar: aComprar, resellers: bySkuMap[sku].resellers, stockActual: stk });
   }
   // Ordenar: primero los que más hay que comprar, luego los cubiertos por en-camino
@@ -3016,44 +4576,12 @@ function togglePkItem(key, checked) {
 }
 
 function pkMarcarPreparado(numero) {
-  // Reutiliza la misma verificación de stock que accion('preparar')
-  var ped = _buscarPedido(numero);
-  if (ped) {
-    var sinStock = [];
-    for (var si = 0; si < ped.items.length; si++) {
-      var it = ped.items[si];
-      if (it.cantPend <= 0) continue;
-      if (it.stockActual !== null && it.stockActual !== undefined && it.stockActual < it.cantPend) {
-        sinStock.push(it.sku + ': necesita ' + it.cantPend + ' \xb7 stock actual ' + (it.stockActual <= 0 ? 'sin stock (' + it.stockActual + ')' : it.stockActual));
-      }
-    }
-    if (sinStock.length > 0) {
-      alert('No se puede preparar \x2014 ' + sinStock.length + ' \xedtem' + (sinStock.length > 1 ? 's' : '') + ' sin stock suficiente:\n\n' + sinStock.join('\n') + '\n\nUs\xe1 "⚠ Notificar Faltante" para gestionar los \xedtems faltantes.');
-      return;
-    }
-  }
-  sp(true, 'Marcando pedido como preparado…');
-  google.script.run
-    .withSuccessHandler(function(res) {
-      sp(false);
-      if (!res.ok) { toast('Error: ' + escH(res.error || 'Error desconocido'), 'err'); return; }
-      for (var k in _pkState) {
-        if (k.indexOf(numero + '___') === 0) delete _pkState[k];
-      }
-      toast(numero + ' → Preparado 📦', 'ok');
-      cargar();
-      setTimeout(function() { _renderColaPicking(); }, 1800);
-    })
-    .withFailureHandler(function(e) {
-      sp(false);
-      toast('Sin respuesta del servidor — la operaci\xf3n puede haberse completado. Actualizando…', 'err');
-      cargar();
-    })
-    .WOS_cambiarEstado(numero, 'Preparado', _usuario.email);
+  // Ahora "Marcar preparado" exige registrar el N° de serie de cada unidad → abre el modal.
+  abrirModalPreparar(numero);
 }
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { cerrarModal('desp'); cerrarModal('faltante'); cerrarModal('resp-tel'); cerrarPickTicket(); cerrarStock(); cerrarResumen(); cerrarListaCompras(); cerrarColaPicking(); }
+  if (e.key === 'Escape') { cerrarModal('prep'); cerrarModal('desp'); cerrarModal('faltante'); cerrarModal('resp-tel'); cerrarPickTicket(); cerrarStock(); cerrarResumen(); cerrarListaCompras(); cerrarColaPicking(); }
 });
 
 // ── Resumen de Envíos ─────────────────────────────────────────
@@ -3165,7 +4693,7 @@ function enviarResumenEmail() {
       toast('Resumen enviado por email · ' + res.enviados + ' env\xedo' + (res.enviados !== 1 ? 's' : ''), 'ok');
     })
     .withFailureHandler(function(e) { sp(false); toast('Error de conexi\xf3n: ' + e.message, 'err'); })
-    .WOS_enviarResumenEnvios(_rsmData.reseller, _rsmData.mesAnio);
+    .WOS_enviarResumenEnvios(_rsmData.reseller, _rsmData.mesAnio, 'resum_' + _rsmData.reseller + '_' + _rsmData.mesAnio);
 }
 
 // ── Respuesta Telefónica ──────────────────────────────────────
@@ -3245,7 +4773,7 @@ function confirmarRespuestaTelefonica() {
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_procesarRespuestaManual(numero, opcion, cantidades, _usuario.email);
+    .WOS_procesarRespuestaManual(numero, opcion, cantidades, _usuario.email, 'rt_' + numero + '_' + opcion);
 }
 
 // ── Batch Dispatch ────────────────────────────────────────────
@@ -3285,7 +4813,12 @@ function limpiarBatch() {
 function abrirBatchDespacho() {
   var numeros = Object.keys(_selBatch);
   if (numeros.length < 2) { toast('Seleccioná al menos 2 pedidos', 'err'); return; }
+  _abrirBatchCon(numeros);
+}
 
+// Arma el modal de despacho conjunto para una lista explícita de pedidos (mismo reseller).
+// Reutilizado por el batch manual (checkboxes) y por "agregar backorder al despacho".
+function _abrirBatchCon(numeros) {
   // Todos deben ser del mismo reseller
   var primerReseller = null;
   for (var v = 0; v < numeros.length; v++) {
@@ -3311,20 +4844,31 @@ function abrirBatchDespacho() {
   for (var n = 0; n < numeros.length; n++) {
     var ped = _buscarPedido(numeros[n]);
     if (!ped) continue;
-    html += '<div class="batch-sep-head">' + escH(numeros[n]) + ' · ' + escH(ped.reseller) + '</div>';
+    var pedEsBO = ped.estado === 'Backorder';
+    var badgeBO = pedEsBO ? ' <span style="font-size:9px;font-weight:700;background:var(--yellow-l);color:var(--yellow);border:1px solid rgba(151,79,12,.25);border-radius:3px;padding:1px 5px;vertical-align:middle">BACKORDER</span>' : '';
+    html += '<div class="batch-sep-head">' + escH(numeros[n]) + ' · ' + escH(ped.reseller) + badgeBO + '</div>';
     for (var j = 0; j < ped.items.length; j++) {
       var it = ped.items[j];
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, numero: numeros[n] });
+      var esCancelado = it.estado === 'Cancelado';
+      var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
+      var esItemBO    = pedEsBO || it.estado === 'Backorder';
+
+      if (esCancelado || yaEnviado) continue; // ítems cerrados no se incluyen en batch
+
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, numero: numeros[n] });
+
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
-        (it.cantDesp > 0 ? ' &nbsp;·&nbsp; Ya desp.: <strong style="color:var(--teal)">' + it.cantDesp + '</strong>' : '') +
-        ' &nbsp;·&nbsp; Pend.: <strong>' + it.cantPend + '</strong>';
-      html += '<div class="modal-item-row">' +
+        (it.cantDesp > 0 ? ' \xa0·\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
+        ' \xa0·\xa0 Pend.: <strong>' + it.cantPend + '</strong>';
+      if (esItemBO) metaLine += ' \xa0<span style="color:var(--amber-m);font-weight:700;font-size:10px">▶ BACKORDER — ingresá cuánto despacharás ahora</span>';
+
+      html += '<div class="modal-item-row" style="' + (esItemBO ? 'border-left:3px solid var(--amber-m)' : '') + '">' +
         '<div class="modal-item-info">' +
           '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
           '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
           '<div class="modal-item-sol">' + metaLine + '</div>' +
         '</div>' +
-        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + it.cantPend + '">' +
+        '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + (esItemBO ? '0' : it.cantPend) + '">' +
       '</div>';
     }
   }
@@ -3361,6 +4905,7 @@ function abrirBatchDespacho() {
   document.getElementById('modal-desp-body').innerHTML    = html;
   if (!_batchTodosRetiro) _agregarBulto();
   document.getElementById('modal-desp').style.display = 'flex';
+  _gateDespachoBtn();   // batch ya incluye el backorder → botón habilitado
 }
 
 cargar();

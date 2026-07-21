@@ -1,5 +1,5 @@
+<!-- @version 2.13 -->
 <!DOCTYPE html>
-<!-- @version 1.1 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -269,7 +269,7 @@ td:first-child{padding-left:20px}
 .form-control:focus,.form-select:focus{outline:none!important;border-color:var(--blue)!important;box-shadow:0 0 0 2px var(--blue-a)!important;background:var(--raise)!important}
 .form-control::placeholder{color:var(--tx-d)!important}
 .form-select option{background:var(--surf)}
-#f-cas{color:var(--blue)!important;font-weight:600!important}
+#f-cas,#f-fwrc{color:var(--blue)!important;font-weight:600!important}
 textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
 .eq-drop-item{padding:8px 12px;font-size:12px;cursor:pointer;color:var(--tx,#333);border-bottom:1px solid var(--brd,#eee)}
 .eq-drop-item:last-child{border-bottom:none}
@@ -439,6 +439,17 @@ body.compact tbody td{padding:6px 14px!important}
   .p-row{grid-template-columns:1fr 2fr 52px 52px 26px}
   .met-grid{grid-template-columns:1fr 1fr}
 }
+
+/* ── MODAL NUEVA OT ─────────────────────────── */
+.nev-toggle-grp{display:flex;gap:5px;flex-wrap:wrap}
+.nev-toggle-btn{flex:1;padding:8px 10px;border:1.5px solid var(--brd);border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;background:var(--panel);color:var(--tx-m);text-align:center;transition:all .13s;white-space:nowrap}
+.nev-toggle-btn:hover{border-color:var(--blue);color:var(--blue)}
+.nev-toggle-btn.sel{background:var(--blue);border-color:var(--blue);color:#fff}
+.nev-toggle-btn.sel-urg{background:var(--red);border-color:var(--red);color:#fff}
+.nev-eq-wrap{position:relative}
+.nev-eq-drop{display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:var(--surf,#fff);border:1px solid var(--brd,#ddd);border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.nev-eq-item{padding:8px 12px;font-size:12px;cursor:pointer;color:var(--tx);transition:background .1s}
+.nev-eq-item:hover,.nev-eq-item.active{background:var(--blue-l);color:var(--blue)}
 </style>
 </head>
 <body>
@@ -474,11 +485,44 @@ body.compact tbody td{padding:6px 14px!important}
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body" style="padding:16px 20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--surf);border-radius:6px;border:1px solid var(--brd)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--surf);border-radius:6px;border:1px solid var(--brd)">
           <input type="checkbox" id="rep-wos-aprobado" style="width:16px;height:16px;cursor:pointer">
           <label for="rep-wos-aprobado" style="font-size:13px;font-weight:600;cursor:pointer;margin:0">Caso DJI aprobado</label>
           <span style="font-size:11px;color:var(--tx-d);margin-left:auto">Desmarcá si el cliente aún no tiene aprobación</span>
         </div>
+
+        <!-- Modalidad de entrega -->
+        <div style="margin-bottom:14px">
+          <!-- Taller: entrega en mano al técnico (sin elección) -->
+          <div id="rep-wos-entrega-taller" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(99,102,241,.07);border:1.5px solid rgba(99,102,241,.25);border-radius:8px">
+            <i class="fa fa-user-cog" style="color:var(--indigo);font-size:16px"></i>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--indigo)">Entrega directa al técnico</div>
+              <div style="font-size:11px;color:var(--tx-d)">Reparación en taller — sin envío externo</div>
+            </div>
+          </div>
+          <!-- Reseller: elegir envío o retiro -->
+          <div id="rep-wos-entrega-envio" style="display:none;flex-direction:column;gap:8px">
+            <div style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.05em">Modalidad de entrega</div>
+            <div style="display:flex;gap:8px">
+              <label id="lbl-rep-env-envio" style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surf);border:1.5px solid var(--brd);border-radius:8px;cursor:pointer">
+                <input type="radio" name="rep-wos-envio" id="rep-wos-env-envio" value="Envío" style="width:15px;height:15px" onchange="_repWosActualizarEnvioUI()">
+                <div>
+                  <div style="font-size:12px;font-weight:700">Envío al reseller</div>
+                  <div style="font-size:11px;color:var(--tx-d)">WOS coordina el transporte</div>
+                </div>
+              </label>
+              <label id="lbl-rep-env-retiro" style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surf);border:1.5px solid var(--brd);border-radius:8px;cursor:pointer">
+                <input type="radio" name="rep-wos-envio" id="rep-wos-env-retiro" value="Retiro" style="width:15px;height:15px" onchange="_repWosActualizarEnvioUI()">
+                <div>
+                  <div style="font-size:12px;font-weight:700">Retiro en local</div>
+                  <div style="font-size:11px;color:var(--tx-d)">El reseller pasa a buscar</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div id="rep-wos-items" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <input id="rep-wos-add-cod"  type="text" placeholder="Código" class="form-control" style="width:130px;font-size:12px;font-family:monospace">
@@ -492,6 +536,37 @@ body.compact tbody td{padding:6px 14px!important}
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" id="btn-rep-wos-confirmar" class="btn btn-primary" onclick="_repWosConfirmar()">
           <i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR PIEZAS RECIBIDAS -->
+<div class="modal fade" id="modal-piezas-recv" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-box-open" style="color:var(--orange);margin-right:8px"></i>Registrar piezas recibidas</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px">
+        <p style="font-size:12px;color:var(--tx-d);margin:0 0 14px;line-height:1.6">
+          Describí qué piezas dañadas trajo el reseller. Se registra en notas internas y
+          el estado pasa a <strong style="color:var(--orange)">Piezas dañadas recibidas</strong>.
+        </p>
+        <label style="font-size:12px;font-weight:600;color:var(--tx-m);display:block;margin-bottom:6px">Piezas recibidas</label>
+        <textarea id="piezas-recv-desc" rows="5"
+          class="form-control"
+          placeholder="Ej: Módulo gimbal · Motor CW dañado · Shell superior con crack"
+          style="font-size:13px;resize:vertical;border-color:var(--brd);background:var(--surf);color:var(--tx)"></textarea>
+        <p id="piezas-recv-err" style="display:none;font-size:11px;color:var(--red);margin:6px 0 0"></p>
+      </div>
+      <div class="modal-footer" style="padding:12px 20px;gap:8px">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btn-piezas-recv-ok" class="btn btn-primary" onclick="_confirmarPiezasRecibidas()"
+          style="background:var(--orange);border-color:var(--orange)">
+          <i class="fa fa-check" style="margin-right:6px"></i>Confirmar recepción
         </button>
       </div>
     </div>
@@ -546,6 +621,108 @@ body.compact tbody td{padding:6px 14px!important}
         <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px">Volver</button>
         <button onclick="cancelarCasoEjecutar()" style="flex:1;padding:10px;background:var(--red);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
           <i class="fa fa-ban"></i> Confirmar cancelación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA ORDEN DE TRABAJO -->
+<div class="modal fade" id="modal-nueva-ot" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:560px">
+    <div class="modal-content">
+      <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--brd)">
+        <h5 class="modal-title" style="font-size:14px;font-weight:700">
+          <i class="fa fa-plus-circle" style="color:var(--blue);margin-right:8px"></i>Nueva Orden de Trabajo
+        </h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 18px;display:flex;flex-direction:column;gap:16px">
+        <!-- Reseller -->
+        <div>
+          <label class="flbl">Reseller <span style="color:var(--red)">*</span></label>
+          <select id="nev-res" class="form-control" style="font-size:13px">
+            <option value="">— Seleccionar reseller —</option>
+          </select>
+        </div>
+        <!-- Equipo + S/N -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="flbl">Equipo / Modelo <span style="color:var(--red)">*</span></label>
+            <div class="nev-eq-wrap">
+              <input type="text" id="nev-equi" class="form-control" placeholder="Buscar modelo…" autocomplete="off"
+                     oninput="_filtrarEqNuev(this)" onfocus="_filtrarEqNuev(this)"
+                     onblur="_cerrarEqNuev()" onkeydown="_navEqNuev(event)" style="font-size:13px">
+              <div class="nev-eq-drop" id="nev-eq-drop"></div>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">N° de Serie <span style="color:var(--red)">*</span></label>
+            <input type="text" id="nev-sn" class="form-control" placeholder="Serial number" style="font-size:13px">
+          </div>
+        </div>
+        <!-- Garantía + Circuito -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="flbl">Garantía</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-gar-IW" onclick="_nevSetGar('IW')">IW (en garantía)</button>
+              <button class="nev-toggle-btn" id="nev-btn-gar-OOW" onclick="_nevSetGar('OOW')">OOW (fuera)</button>
+            </div>
+          </div>
+          <div>
+            <label class="flbl">Circuito</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-circ-0" onclick="_nevSetCirc('Taller')">Taller</button>
+              <button class="nev-toggle-btn" id="nev-btn-circ-1" onclick="_nevSetCirc('Reseller')">Reseller</button>
+              <button class="nev-toggle-btn" id="nev-btn-circ-2" onclick="_nevSetCirc('Reseller Propio')">Propio</button>
+            </div>
+          </div>
+        </div>
+        <!-- Fecha activación (IW only) -->
+        <div id="nev-fecha-row">
+          <label class="flbl">Fecha de activación (garantía IW) <span style="color:var(--red)">*</span></label>
+          <input type="date" id="nev-fecha-act" class="form-control" style="font-size:13px;max-width:220px">
+        </div>
+        <!-- Descripción de falla -->
+        <div>
+          <label class="flbl">Descripción de falla <span style="color:var(--red)">*</span></label>
+          <textarea id="nev-falla" class="form-control" rows="3" placeholder="Describir el problema reportado por el cliente…" style="font-size:13px;resize:vertical"></textarea>
+        </div>
+        <!-- CAS / FWRC (opcionales, únicos) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label class="flbl">CAS <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input type="text" id="nev-cas" class="form-control" placeholder="Nº de caso CAS" autocomplete="off" style="font-size:13px">
+          </div>
+          <div>
+            <label class="flbl">FWRC <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input type="text" id="nev-fwrc" class="form-control" placeholder="Nº de caso FWRC" autocomplete="off" style="font-size:13px">
+          </div>
+        </div>
+        <!-- Técnico + Prioridad -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div id="nev-tec-row">
+            <label class="flbl">Técnico asignado</label>
+            <select id="nev-tec" class="form-control" style="font-size:13px">
+              <option value="">— Sin asignar —</option>
+            </select>
+          </div>
+          <div>
+            <label class="flbl">Prioridad</label>
+            <div class="nev-toggle-grp">
+              <button class="nev-toggle-btn sel" id="nev-btn-prio-N" onclick="_nevSetPrio('NORMAL')">Normal</button>
+              <button class="nev-toggle-btn" id="nev-btn-prio-U" onclick="_nevSetPrio('URGENTE')">🔴 Urgente</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:12px 18px;gap:8px;border-top:1px solid var(--brd)">
+        <button class="btn-cm" data-bs-dismiss="modal" style="padding:8px 16px;font-size:13px">Cancelar</button>
+        <button onclick="confirmarNuevaOT()"
+          style="padding:10px 22px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:opacity .15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <i class="fa fa-plus"></i> Crear Orden
         </button>
       </div>
     </div>
@@ -670,6 +847,10 @@ body.compact tbody td{padding:6px 14px!important}
             <select id="fil-tec" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%" onchange="render()">
               <option value="">— Todos —</option>
             </select>
+            <div class="sb-lbl" style="margin-top:8px;margin-bottom:4px">Estado</div>
+            <select id="fil-est" class="form-select" style="font-size:11px;padding:5px 7px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--rm);width:100%" onchange="render()">
+              <option value="">— Todos —</option>
+            </select>
           </div>
         </div>
       </div>
@@ -689,6 +870,10 @@ body.compact tbody td{padding:6px 14px!important}
       <button class="btn-tool" onclick="openSettings()" style="border-color:rgba(0,163,224,.2);color:var(--blue)">
         <span><i class="fa fa-cog" style="margin-right:6px"></i>Configuración</span>
         <i class="fa fa-chevron-right" style="font-size:9px;opacity:.4"></i>
+      </button>
+      <button class="btn-tool" onclick="abrirGuiaFlujos()">
+        <span><i class="fa fa-map" style="margin-right:6px;color:var(--blue)"></i>Guía de flujos</span>
+        <i class="fa fa-external-link-alt" style="font-size:9px;opacity:.4"></i>
       </button>
       <button class="btn-tool" onclick="load()">
         <span><i class="fa fa-sync-alt" style="margin-right:6px"></i>Actualizar</span>
@@ -784,16 +969,16 @@ body.compact tbody td{padding:6px 14px!important}
     <!-- Vista Supervisor -->
     <div id="sup-view" style="display:none">
 
-      <!-- KPI de reincidentes -->
+      <!-- Ranking resellers con más casos abiertos -->
       <div class="tbl-wrap" style="margin-bottom:16px">
         <div class="tbl-bar">
           <div style="display:flex;align-items:center;gap:8px">
-            <i class="fa fa-barcode" style="color:var(--green)"></i>
-            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">S/N reincidentes</span>
+            <i class="fa fa-store" style="color:var(--indigo)"></i>
+            <span style="font-size:11px;font-weight:600;color:var(--tx);text-transform:uppercase;letter-spacing:.06em">Resellers con más casos abiertos</span>
           </div>
-          <span style="font-size:10px;color:var(--tx-d)">Equipos con más de una OT histórica</span>
+          <span style="font-size:10px;color:var(--tx-d)">Top 10 · OTs activas por reseller</span>
         </div>
-        <div id="sup-sn" style="padding:14px 18px">
+        <div id="sup-res" style="padding:14px 18px">
           <div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando...</p></div>
         </div>
       </div>
@@ -867,6 +1052,9 @@ body.compact tbody td{padding:6px 14px!important}
         <button id="btn-rep-wos" class="btn-rem" onclick="abrirModalRepWos()" style="display:none;border-color:var(--indigo);color:var(--indigo)">
           <i class="fa fa-boxes-stacking"></i> Pedir Repuestos
         </button>
+        <button id="btn-piezas-recv" class="btn-rem" onclick="abrirModalPiezasRecibidas()" style="display:none;border-color:var(--orange);color:var(--orange)">
+          <i class="fa fa-box-open"></i> Piezas Recibidas
+        </button>
         <button id="btn-factura" class="btn-rem" onclick="solicitarFacturaManual()" style="display:none;border-color:var(--blue);color:var(--blue)">
           <i class="fa fa-file-invoice-dollar"></i> Solicitar Factura
         </button>
@@ -897,8 +1085,41 @@ body.compact tbody td{padding:6px 14px!important}
       </div>
 
       <div class="f-body">
+        <!-- Info read-only: fecha apertura, cliente, drive -->
+        <div id="f-info-strip" style="display:none;background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:9px 14px;margin-bottom:14px;flex-wrap:wrap;gap:14px;align-items:center">
+          <div id="f-info-fecha" style="display:none;font-size:11px;color:var(--tx-d)">
+            <i class="fa fa-calendar-alt" style="margin-right:4px;opacity:.6"></i><span id="f-info-fecha-val"></span>
+          </div>
+          <div id="f-info-cliente" style="display:none;font-size:11px;color:var(--tx-d)">
+            <i class="fa fa-user" style="margin-right:4px;opacity:.6"></i><span id="f-info-cliente-val" style="color:var(--tx);font-weight:600"></span>
+          </div>
+          <div id="f-info-drive" style="display:none;font-size:11px">
+            <i class="fa fa-folder-open" style="margin-right:4px;color:#f4b400"></i><a id="f-info-drive-lnk" href="#" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">Carpeta Drive</a>
+          </div>
+        </div>
+
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
+
+        <!-- Origen del repuesto (quién pone la pieza) + Cierre (reposición vs NC) -->
+        <div id="repo-block" style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px">
+          <div style="flex:1;min-width:230px">
+            <label class="flbl" style="display:flex;align-items:center;gap:8px">Origen del repuesto <span id="f-origen-badge"></span></label>
+            <select id="f-origen" class="form-control" onchange="markDirty();_pintarRepoBadges()">
+              <option value="">— Sin definir —</option>
+              <option value="Adelantado">🔧 Repuesto Repuesto adelantado</option>
+              <option value="Stock reseller">📦 Reseller reparó con su stock (reposición)</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:230px">
+            <label class="flbl" style="display:flex;align-items:center;gap:8px">Cierre del caso <span id="f-cierre-badge"></span></label>
+            <select id="f-cierre" class="form-control" onchange="markDirty();_pintarRepoBadges()">
+              <option value="">— Sin definir —</option>
+              <option value="Reposicion">📦 Parte de reposición enviada</option>
+              <option value="NC">🧾 Nota de Crédito (NC) solicitada</option>
+            </select>
+          </div>
+        </div>
 
         <div class="row g-3 mb-1">
           <div class="col-md-6" style="position:relative">
@@ -913,14 +1134,18 @@ body.compact tbody td{padding:6px 14px!important}
             <input type="text" id="f-sn" class="form-control" placeholder="Serial number" oninput="markDirty()">
           </div>
           <div class="col-md-3">
-            <label class="flbl">CAS / FWR</label>
-            <input type="text" id="f-cas" class="form-control" placeholder="Caso DJI" oninput="markDirty()">
+            <label class="flbl">CAS</label>
+            <input type="text" id="f-cas" class="form-control" placeholder="Nº de caso CAS" oninput="markDirty()">
+          </div>
+          <div class="col-md-3">
+            <label class="flbl">FWRC</label>
+            <input type="text" id="f-fwrc" class="form-control" placeholder="Nº de caso FWRC" oninput="markDirty()">
           </div>
 
           <!-- Fecha de activación col N — editable desde el HUB -->
           <div class="col-md-4">
             <label class="flbl" style="display:flex;align-items:center;gap:6px">
-              Fecha activación //
+              Fecha activación
               <span id="f-fecha-badge" style="display:none;font-size:9px;font-weight:700;background:rgba(212,137,10,.15);color:var(--yellow);border:1px solid rgba(212,137,10,.3);border-radius:3px;padding:1px 6px">SIN FECHA</span>
             </label>
             <input type="date" id="f-fecha-act" class="form-control" oninput="markDirty()">
@@ -1084,9 +1309,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── ESTADO GLOBAL ─────────────────────────────────────────────
 var dataset=[], actual=null, urgente=false, filtro='pendientes';
+// B (performance): dataset = solo OTs activas. Las cerradas se traen on-demand (vista Finalizados).
+var datasetCerradas=[], _cerradasLoaded=false, _cerradasCargando=false, _cerradasCount=0;
+var EST_CERRADOS=['Finalizado','Entregado','CANCELADO','Rechazado DJI','Sin respuesta · Cerrado'];
+function _esCerradoCli(e){ return EST_CERRADOS.indexOf(e)!==-1; }
+function _necesitaCerradas(){
+  var fe=document.getElementById('fil-est'); var v=fe?fe.value:'';
+  return filtro==='todos' || _esCerradoCli(v);
+}
+function _fuenteActual(){ return _necesitaCerradas() ? datasetCerradas : dataset; }
 var _settings = { tema:'dark', density:'normal', vistaInicial:'pendientes', autoRefresh:0, displayName:'' };
 var _arTimer = null;
+var _loadEnCurso = false;      // evita cargas superpuestas (auto-refresh + manual)
+var _visListenerAdded = false; // el listener de visibilidad se agrega una sola vez
 var repCache=[], estadoAct='', adCache=[], tecCache=[], resCache=[], equiposCache=[];
+var _pendingOpenOT = '', _nevGar = 'IW', _nevCirc = 'Taller', _nevPrio = 'NORMAL', _nevEqDropIdx = -1;
 var esBateriaActual=false;
 var tecDisponibles=[];
 var manoObraCache=[], manoObraSeleccionada=[];
@@ -1094,9 +1331,9 @@ var isDirty=false, histCargado=false;
 
 var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
 var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
-var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Recepcion piezas dañadas','Aprobacion DJI','Finalizado'];
-var EST_RP = ['Abierto','Pedido de repuesto para reparar','Reparado y aprobado en el aftersales','Partes dañadas scrapeadas','Finalizado'];
-var EST_RPB = ['Abierto','Aprobado por DJI','Finalizado'];
+var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
+var EST_RP = ['Abierto','Pedido de repuesto para reparar','En reparacion','Aprobado DJI · Repuestos en preparación','En cierre','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
+var EST_BAT = ['Abierto','Caso Enviado','Aprobado por DJI','Rechazado DJI','Scrap Enviado (Evidencias)','Bateria enviada a reseller','Sin respuesta · Cerrado','Finalizado'];
 
 // ── UI HELPERS ────────────────────────────────────────────────
 function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
@@ -1197,28 +1434,19 @@ function detectarBackorderLocal(rep, circuito, estado) {
 }
 
 // ── CARGA ─────────────────────────────────────────────────────
-function load() {
-  hubLoadStart(STEPS_LOAD);
+function load(silent) {
+  if (silent && _loadEnCurso) return;   // el refresco de fondo no se superpone; el manual siempre corre
+  _loadEnCurso = true;
+  if (!silent) hubLoadStart(STEPS_LOAD);
   google.script.run
     .withSuccessHandler(function(d) {
-      hubLoadDone();
-      if (!d||d.error) { toast('Error al cargar datos','err'); return; }
-      dataset  = d.ordenes;
+      _loadEnCurso = false;
+      if (!silent) hubLoadDone();
+      if (!d||d.error) { if (!silent) toast('Error al cargar datos','err'); return; }
+      dataset  = d.ordenes;             // solo activas
+      _cerradasCount = d.cerradasCount || 0;
       tecCache = d.tecnicos || [];
       tecDisponibles = d.tecnicosDisponibles || [];
-      // Caché de catálogo en sessionStorage (30 min)
-      var _catNuevo = { repuestos: d.repuestos||[], resellers: d.resellers||[], manoObra: d.manoObra||[], equipos: d.equipos||[] };
-      try {
-        var _catOld = JSON.parse(sessionStorage.getItem('hub_cat')||'null');
-        var _catOldTs = parseInt(sessionStorage.getItem('hub_cat_ts')||'0');
-        if (_catOld && Date.now() - _catOldTs < 30*60*1000) {
-          repCache = _catOld.repuestos; resCache = _catOld.resellers; manoObraCache = _catOld.manoObra; equiposCache = _catOld.equipos || [];
-        } else {
-          repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos;
-          sessionStorage.setItem('hub_cat', JSON.stringify(_catNuevo));
-          sessionStorage.setItem('hub_cat_ts', String(Date.now()));
-        }
-      } catch(ec) { repCache = _catNuevo.repuestos; resCache = _catNuevo.resellers; manoObraCache = _catNuevo.manoObra; equiposCache = _catNuevo.equipos || []; }
 
       // Poblar filtro de resellers
       var selRes = document.getElementById('fil-res');
@@ -1253,12 +1481,122 @@ function load() {
           filTecEl.appendChild(o);
         });
       }
+
+      // Poblar filtro de estado
+      var filEstEl = document.getElementById('fil-est');
+      if (filEstEl) {
+        var valEstAnt = filEstEl.value;
+        filEstEl.innerHTML = '<option value="">— Todos —</option>';
+        var estSet = {};
+        for (var e2=0; e2<dataset.length; e2++) {
+          if (dataset[e2].estado) estSet[dataset[e2].estado] = (estSet[dataset[e2].estado]||0)+1;
+        }
+        // Sumar los estados cerrados (dataset ya no los trae) para no perder la opción del filtro
+        for (var ec=0; ec<EST_CERRADOS.length; ec++) { if (!(EST_CERRADOS[ec] in estSet)) estSet[EST_CERRADOS[ec]] = 0; }
+        Object.keys(estSet).sort().forEach(function(e) {
+          var o = document.createElement('option');
+          o.value = e; o.textContent = estSet[e] > 0 ? (e + ' (' + estSet[e] + ')') : e;
+          if (e === valEstAnt) o.selected = true;
+          filEstEl.appendChild(o);
+        });
+      }
       render(); kpis();
       var t = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
       document.getElementById('ts').textContent = 'Actualizado '+t;
+      if (_pendingOpenOT) {
+        var _pOT = _pendingOpenOT;
+        _pendingOpenOT = '';
+        setTimeout(function() { abrirOTPorNombre(_pOT); }, 80);
+      }
     })
-    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
-    .cargarTodo();
+    .withFailureHandler(function(e){ _loadEnCurso = false; if (!silent) { hubLoadDone(); toast('Error: '+e.message,'err'); } })
+    .cargarOrdenes(false);   // refresco liviano: solo activas, sin catálogo ni cerradas
+}
+
+// Carga on-demand de las OTs cerradas (vista Finalizados). Trae todas y separa
+// activas/cerradas → así de paso refresca las activas en la misma llamada.
+function _cargarCerradas(cb) {
+  if (_cerradasCargando) return;
+  _cerradasCargando = true;
+  google.script.run
+    .withSuccessHandler(function(d) {
+      _cerradasCargando = false;
+      if (!d || d.error) { return; }
+      var todas = d.ordenes || [];
+      var activas = [], cerradas = [];
+      for (var i=0;i<todas.length;i++){ (_esCerradoCli(todas[i].estado) ? cerradas : activas).push(todas[i]); }
+      dataset = activas;
+      datasetCerradas = cerradas;
+      _cerradasCount = (typeof d.cerradasCount === 'number') ? d.cerradasCount : cerradas.length;
+      _cerradasLoaded = true;
+      tecCache = d.tecnicos || tecCache;
+      if (cb) cb(); else render();
+    })
+    .withFailureHandler(function(){ _cerradasCargando = false; })
+    .cargarOrdenes(true);
+}
+
+// ── CATÁLOGO ESTÁTICO (repuestos/resellers/equipos/mano de obra) ──
+// Se trae UNA sola vez y se cachea 30 min en sessionStorage → no viaja en cada refresh.
+function aplicarCatalogo(cat) {
+  repCache      = cat.repuestos || [];
+  resCache      = cat.resellers || [];
+  manoObraCache = cat.manoObra  || [];
+  equiposCache  = cat.equipos   || [];
+}
+function cargarCatalogoFront(force) {
+  try {
+    var _catOld   = JSON.parse(sessionStorage.getItem('hub_cat') || 'null');
+    var _catOldTs = parseInt(sessionStorage.getItem('hub_cat_ts') || '0');
+    if (!force && _catOld && Date.now() - _catOldTs < 30*60*1000) {
+      aplicarCatalogo(_catOld);   // cache fresco → sin llamada al server
+      return;
+    }
+  } catch(e) {}
+  google.script.run
+    .withSuccessHandler(function(cat) {
+      if (!cat || cat.error) return;
+      aplicarCatalogo(cat);
+      try {
+        sessionStorage.setItem('hub_cat', JSON.stringify({ repuestos: cat.repuestos||[], resellers: cat.resellers||[], manoObra: cat.manoObra||[], equipos: cat.equipos||[] }));
+        sessionStorage.setItem('hub_cat_ts', String(Date.now()));
+      } catch(e) {}
+    })
+    .withFailureHandler(function(){})
+    .cargarCatalogo();
+}
+
+// Refresco de fondo silencioso: no interrumpe si el operador está trabajando.
+function _bgRefresh() {
+  if (_loadEnCurso) return;                            // ya hay una carga en curso
+  if (document.hidden) return;                         // pestaña no visible
+  if (actual || isDirty) return;                       // hay una OT abierta / edición sin guardar
+  if (document.querySelector('.modal.show')) return;   // hay un modal abierto
+  var ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return; // está tipeando/filtrando
+  load(true);
+}
+
+// Lista filtrada según vista/búsqueda/filtros. Fuente = activas o cerradas (Finalizados).
+// Compartida por render() y abrirDesdeTabla() → mismo índice garantizado.
+function _listaFiltrada() {
+  var q=document.getElementById('busc').value.toLowerCase();
+  var filRes=document.getElementById('fil-res').value;
+  var filEstVal = document.getElementById('fil-est') ? document.getElementById('fil-est').value : '';
+  var f=_fuenteActual().slice();
+  if (!filEstVal) {
+    if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&!_esCerradoCli(c.estado);});
+    else if (filtro==='pendientes') f=f.filter(function(c){return !_esCerradoCli(c.estado);});
+    else if (filtro==='todos')      f=f.filter(function(c){return _esCerradoCli(c.estado);});
+    else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&!_esCerradoCli(c.estado);});
+  } else {
+    f=f.filter(function(c){return c.estado===filEstVal;});
+  }
+  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
+  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
+  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
+  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+(c.fwrc||'')+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  return f;
 }
 
 // ── RENDER TABLA (CORREGIDA CON ÍNDICE SEGURO) ────────────────
@@ -1278,17 +1616,13 @@ function render() {
   if (isMsg)    { renderMensajes();   return; }
 
   var tb=document.getElementById('tbody');
-  var q=document.getElementById('busc').value.toLowerCase();
-  var filRes=document.getElementById('fil-res').value;
-  var f=dataset.slice();
-  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
-  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
-  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
-  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
-  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  // Vista Finalizados (o filtro por un estado cerrado): traer las cerradas on-demand
+  if (_necesitaCerradas() && !_cerradasLoaded) {
+    tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Cargando finalizados…</p></div></td></tr>';
+    _cargarCerradas();
+    return;
+  }
+  var f=_listaFiltrada();
   document.getElementById('cnt').textContent=f.length;
   if (!f.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><i class="fa fa-inbox"></i><p>Sin resultados</p></div></td></tr>';return;}
   
@@ -1321,14 +1655,18 @@ function render() {
     h+='<td>'+c.reseller+'</td>';
     h+='<td><span class="eq">'+c.equipo+'</span></td>';
     h+='<td>'+tecHtml+'</td>';
-    h+='<td>'+(esCancelado?'<span class="badge-cancelado">CANCELADO</span>':'<span class="b-est">'+c.estado+'</span>')+'</td>';
+    var _repB = '';
+    if (c.origenRepuesto) _repB += _repoBadge(_origenLabel(c.origenRepuesto), _origenColor(c.origenRepuesto));
+    if (c.cierreTipo)     _repB += _repoBadge(_cierreLabel(c.cierreTipo), _cierreColor(c.cierreTipo));
+    h+='<td>'+(esCancelado?'<span class="badge-cancelado">CANCELADO</span>':'<span class="b-est">'+c.estado+'</span>')
+       +(_repB?'<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">'+_repB+'</div>':'')+'</td>';
     h+='<td>'+diasHtml+'</td>';
     // Fecha estimada calculada en frontend
     var diasEst = {'Taller-IW':30,'Taller-OOW':30,'Reseller-IW':30,'Reseller-OOW':30,'Reseller Propio-IW':30,'Reseller Propio-OOW':30}; //Dias para calcular fecha estimada de finalizacion
     var keyEst  = c.circuito + '-' + c.garantia;
     var dEst    = diasEst[keyEst] || 10;
     var fechaEstHTML = '';
-    var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado';
+    var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado' || c.estado === 'CANCELADO' || c.estado === 'Rechazado DJI' || c.estado === 'Sin respuesta · Cerrado';
     if (!esTerminal && c.dias <= dEst) {
       var restante = dEst - c.dias;
       fechaEstHTML = '<span style="font-size:10px;color:' + (restante<=2?'var(--red)':(restante<=5?'var(--yellow)':'var(--tx-d)')) + '">' + restante + 'd</span>';
@@ -1344,8 +1682,8 @@ function render() {
 }
 
 function kpis(){
-  document.getElementById('kpi-p').textContent=dataset.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
-  document.getElementById('kpi-u').textContent=dataset.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';}).length;
+  document.getElementById('kpi-p').textContent=dataset.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';}).length;
+  document.getElementById('kpi-u').textContent=dataset.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO'&&c.estado!=='Rechazado DJI'&&c.estado!=='Sin respuesta · Cerrado';}).length;
   var noLeidos = dataset.filter(function(c){return c.msgNoLeido;}).length;
   var badge = document.getElementById('kpi-msg-badge');
   if (badge) { badge.textContent = noLeidos; badge.style.display = noLeidos > 0 ? 'inline' : 'none'; }
@@ -1483,6 +1821,7 @@ function setF(f,btn){
   var btns=document.querySelectorAll('.nb');
   for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
   if(btn) btn.classList.add('active');
+  if(f==='todos') _cerradasLoaded=false;   // al entrar a Finalizados, recargar cerradas frescas
   render();
 }
 
@@ -1540,20 +1879,8 @@ function renderMetricas() {
 
 // ── FUNCIÓN PUENTE INDEPENDIENTE DE COMILLAS ──────────────────
 function abrirDesdeTabla(indice) {
-  var q = document.getElementById('busc').value.toLowerCase();
-  var filRes = document.getElementById('fil-res').value;
-  var f = dataset.slice();
-  
-  // Replicamos los filtros exactos de la tabla para dar con el índice correcto
-  if (filtro==='urgentes')        f=f.filter(function(c){return c.prioridad&&c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  else if (filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='Entregado'||c.estado==='CANCELADO';});
-  else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Entregado'&&c.estado!=='CANCELADO';});
-  if (filRes) f=f.filter(function(c){return c.reseller===filRes;});
-  var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
-  if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
-  if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
-  
+  // Misma lista filtrada que render() → el índice siempre coincide (activas o cerradas)
+  var f = _listaFiltrada();
   var ordenSeleccionada = f[indice];
   if (ordenSeleccionada) {
     abrirLista(ordenSeleccionada);
@@ -1770,7 +2097,7 @@ function navEquipoDrop(e) {
 
 // ── LIMPIEZA DE FORMULARIO ────────────────────────────────────
 function limpiarFormulario() {
-  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
+  var ids = ['f-cas','f-fwrc','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -1822,9 +2149,35 @@ function abrir(c){
   document.getElementById('hist-body').classList.remove('show');
   document.getElementById('hist-items').innerHTML='';
 
-  // 3. Inyección limpia de campos (Una sola vez)
+  // 3. Info strip: fecha apertura, cliente, drive
+  (function() {
+    var strip      = document.getElementById('f-info-strip');
+    var elFecha    = document.getElementById('f-info-fecha');
+    var elCliente  = document.getElementById('f-info-cliente');
+    var elDrive    = document.getElementById('f-info-drive');
+    var anyVisible = false;
+    if (actual.fechaIngreso) {
+      var fd = new Date(actual.fechaIngreso);
+      document.getElementById('f-info-fecha-val').textContent = 'Apertura: ' +
+        fd.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      elFecha.style.display = 'block'; anyVisible = true;
+    } else { elFecha.style.display = 'none'; }
+    if (actual.cliente) {
+      document.getElementById('f-info-cliente-val').textContent = actual.cliente;
+      elCliente.style.display = 'block'; anyVisible = true;
+    } else { elCliente.style.display = 'none'; }
+    var driveMatch = (actual.mensajes || '').match(/📁 Drive: (https?:\/\/[^\s\n\[]+)/);
+    if (driveMatch) {
+      document.getElementById('f-info-drive-lnk').href = driveMatch[1];
+      elDrive.style.display = 'block'; anyVisible = true;
+    } else { elDrive.style.display = 'none'; }
+    strip.style.display = anyVisible ? 'flex' : 'none';
+  })();
+
+  // 4. Inyección limpia de campos (Una sola vez)
   document.getElementById('f-ot').textContent  = actual.ot;
   document.getElementById('f-cas').value       = actual.cas;
+  document.getElementById('f-fwrc').value      = actual.fwrc || '';
   document.getElementById('f-equi').value      = actual.equipo;
   document.getElementById('f-sn').value        = actual.sn;
   renderResellerSelect(actual.reseller);
@@ -1875,8 +2228,8 @@ function abrir(c){
   if (moSec) moSec.style.display = esOOW ? 'block' : 'none';
   // Botón Pedir Repuestos al WOS: OOW + orden activa
   var btnRepWos = document.getElementById('btn-rep-wos');
-  var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO');
-  if (btnRepWos) btnRepWos.style.display = (esOOW && !_esTerminalHub) ? 'inline-flex' : 'none';
+  var _esTerminalHub = (actual.estado === 'Finalizado' || actual.estado === 'Entregado' || actual.estado === 'CANCELADO' || actual.estado === 'Rechazado DJI' || actual.estado === 'Sin respuesta · Cerrado');
+  if (btnRepWos) btnRepWos.style.display = !_esTerminalHub ? 'inline-flex' : 'none';
 
   // Botones presupuesto: solo OOW + estado "En Revision" o "Presupuesto enviado"
   var _mostrarPresup = esOOW && (actual.estado === 'En Revision' || actual.estado === 'Presupuesto enviado');
@@ -1886,6 +2239,14 @@ function abrir(c){
   if (btnPresup) btnPresup.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-flex' : 'none';
   var selDest = document.getElementById('sel-dest');
   if (selDest) selDest.style.display = (esOOW && actual.estado === 'En Revision') ? 'inline-block' : 'none';
+  // Botón Piezas Recibidas: cualquier circuito Reseller, estado no terminal
+  var btnPiezasRecv = document.getElementById('btn-piezas-recv');
+  if (btnPiezasRecv) {
+    var _circ = document.getElementById('f-circ').value || actual.circuito || '';
+    var _est  = actual.estado || '';
+    var _esTermPR = _est === 'Finalizado' || _est === 'Entregado' || _est === 'CANCELADO' || _est === 'Rechazado DJI' || _est === 'Sin respuesta · Cerrado';
+    btnPiezasRecv.style.display = (_circ.indexOf('Reseller') !== -1 && !_esTermPR) ? 'inline-flex' : 'none';
+  }
   // Botón Solicitar Factura: OOW + tiene repuestos despachados
   var btnFactura = document.getElementById('btn-factura');
   if (btnFactura) {
@@ -1921,6 +2282,10 @@ function abrir(c){
   document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Cargando repuestos...</div>';
   document.getElementById('f-tra').value = '';
   document.getElementById('f-notas').value = actual.notasInternas || '';
+  // Origen del repuesto + tipo de cierre (badges claros)
+  document.getElementById('f-origen').value = actual.origenRepuesto || '';
+  document.getElementById('f-cierre').value = actual.cierreTipo || '';
+  _pintarRepoBadges();
 
   // Ocultar botón de cancelar si la OT ya está cancelada o finalizada
   var btnCancelar = document.getElementById('btn-cancelar-caso');
@@ -1936,12 +2301,27 @@ function updBadge(v){
   document.getElementById('c-badge').textContent=m[v]||v;
 }
 
+// ── Badges: origen del repuesto + tipo de cierre ──────────────
+function _origenLabel(v){ return v==='Stock reseller' ? '📦 Reparó con su stock' : (v==='Adelantado' ? '🔧 Repuesto adelantado' : ''); }
+function _origenColor(v){ return v==='Stock reseller' ? '#1a9e4a' : (v==='Adelantado' ? '#d4890a' : ''); }
+function _cierreLabel(v){ return v==='Reposicion' ? '📦 Reposición' : (v==='NC' ? '🧾 NC' : ''); }
+function _cierreColor(v){ return v==='Reposicion' ? '#00a3e0' : (v==='NC' ? '#8e44ad' : ''); }
+function _repoBadge(label,color){
+  return label ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;color:#fff;background:'+color+';white-space:nowrap">'+label+'</span>' : '';
+}
+function _pintarRepoBadges(){
+  var o=document.getElementById('f-origen'), c=document.getElementById('f-cierre');
+  var ob=document.getElementById('f-origen-badge'), cb=document.getElementById('f-cierre-badge');
+  if(ob) ob.innerHTML=_repoBadge(_origenLabel(o?o.value:''), _origenColor(o?o.value:''));
+  if(cb) cb.innerHTML=_repoBadge(_cierreLabel(c?c.value:''), _cierreColor(c?c.value:''));
+}
+
 function renderEst(){
   var v=document.getElementById('f-circ').value;
   updBadge(v);
   // Mostrar/ocultar campo técnico según circuito
   document.getElementById('tec-row').style.display = (v==='Taller') ? '' : 'none';
-  var list=v==='Reseller'?EST_R:(v==='Reseller Propio'?(esBateriaActual?EST_RPB:EST_RP):(actual&&actual.garantia==='IW'?EST_T_IW:EST_T));
+  var list=esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T)));
   var ai=list.indexOf(estadoAct),h='';
   for(var i=0;i<list.length;i++){
     var cls='st-step'+(list[i]===estadoAct?' active':(i<ai?' done':''));
@@ -1956,7 +2336,7 @@ function renderEst(){
 function dispararLogicaDeFlujoAutomatico() {
   if (!actual) return;
   var circ = document.getElementById('f-circ').value || actual.circuito || 'Taller';
-  esBateriaActual = (circ === 'Reseller Propio' && actual.esBateria === true);
+  esBateriaActual = (actual.esBateria === true);
   renderEst(); // actualiza badge, visibilidad tec-row y stepper de estados
 }
 
@@ -2194,7 +2574,7 @@ function selR(inp,cod,desc){
 
 // ── RESET PARCIAL — limpia inputs antes de disparar google.script.run ──
 function resetUIPartial() {
-  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
+  var ids = ['f-cas','f-fwrc','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -2227,6 +2607,7 @@ function guardar(){
     ot:                 actual.ot,
     tecnico:            tec,
     cas:                document.getElementById('f-cas').value,
+    fwrc:               document.getElementById('f-fwrc').value,
     garantia:           document.getElementById('f-gar').value,
     estado:             estadoAct,
     equipo:             _eq,
@@ -2236,6 +2617,8 @@ function guardar(){
     repuestos:          rs.length ? rs.join(' ; ') : 'Sin consumo de repuestos',
     manoObraGuardada:   manoObraSeleccionada.length ? JSON.stringify(manoObraSeleccionada) : '',
     notasInternas:      document.getElementById('f-notas').value || '',
+    origenRepuesto:     document.getElementById('f-origen').value || '',
+    cierreTipo:         document.getElementById('f-cierre').value || '',
     prioridad:          urgente,
     circuito:           circ,
     factura:            document.getElementById('f-fecha-act').value || '',
@@ -2304,20 +2687,176 @@ function cancelarCasoEjecutar() {
     .cancelarCaso(actual.ot);
 }
 
-function crearCaso(){
+function crearCaso() {
+  // Poblar resellers
+  var sel = document.getElementById('nev-res');
+  sel.innerHTML = '<option value="">— Seleccionar reseller —</option>';
+  var sorted = resCache.slice().sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+  for (var i = 0; i < sorted.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = sorted[i].nombre;
+    opt.textContent = sorted[i].nombre;
+    sel.appendChild(opt);
+  }
+  // Poblar técnicos
+  var tsel = document.getElementById('nev-tec');
+  tsel.innerHTML = '<option value="">— Sin asignar —</option>';
+  var fuente = tecDisponibles.length ? tecDisponibles : tecCache.map(function(t) { return { nombre: t }; });
+  for (var j = 0; j < fuente.length; j++) {
+    var topt = document.createElement('option');
+    topt.value = fuente[j].nombre;
+    topt.textContent = fuente[j].nombre;
+    tsel.appendChild(topt);
+  }
+  // Reset form
+  document.getElementById('nev-equi').value = '';
+  document.getElementById('nev-sn').value = '';
+  document.getElementById('nev-falla').value = '';
+  document.getElementById('nev-fecha-act').value = '';
+  document.getElementById('nev-cas').value = '';
+  document.getElementById('nev-fwrc').value = '';
+  _nevSetGar('IW');
+  _nevSetCirc('Taller');
+  _nevSetPrio('NORMAL');
+  new bootstrap.Modal(document.getElementById('modal-nueva-ot')).show();
+  setTimeout(function() { document.getElementById('nev-res').focus(); }, 350);
+}
+
+function _nevSetGar(v) {
+  _nevGar = v;
+  document.getElementById('nev-btn-gar-IW').classList.toggle('sel', v === 'IW');
+  document.getElementById('nev-btn-gar-OOW').classList.toggle('sel', v === 'OOW');
+  document.getElementById('nev-fecha-row').style.display = v === 'IW' ? '' : 'none';
+}
+
+function _nevSetCirc(v) {
+  _nevCirc = v;
+  var circs = ['Taller','Reseller','Reseller Propio'];
+  for (var i = 0; i < circs.length; i++) {
+    document.getElementById('nev-btn-circ-' + i).classList.toggle('sel', circs[i] === v);
+  }
+  document.getElementById('nev-tec-row').style.display = v === 'Taller' ? '' : 'none';
+}
+
+function _nevSetPrio(v) {
+  _nevPrio = v;
+  document.getElementById('nev-btn-prio-N').classList.toggle('sel', v === 'NORMAL');
+  document.getElementById('nev-btn-prio-U').classList.toggle('sel-urg', v === 'URGENTE');
+}
+
+function _filtrarEqNuev(inp) {
+  var val = inp.value.trim().toLowerCase();
+  var drop = document.getElementById('nev-eq-drop');
+  _nevEqDropIdx = -1;
+  if (!val || !equiposCache.length) { drop.style.display = 'none'; return; }
+  var escaped = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var matches = [];
+  for (var i = 0; i < equiposCache.length; i++) {
+    if (equiposCache[i].toLowerCase().indexOf(val) !== -1) matches.push(equiposCache[i]);
+  }
+  if (!matches.length) { drop.style.display = 'none'; return; }
+  var html = '';
+  for (var j = 0; j < Math.min(matches.length, 30); j++) {
+    var hi = matches[j].replace(new RegExp('(' + escaped + ')', 'gi'), '<strong>$1</strong>');
+    html += '<div class="nev-eq-item" data-val="' + matches[j].replace(/"/g, '&quot;') + '" data-idx="' + j + '" ' +
+            'onmousedown="_selEqNuev(this)" onmouseover="_resaltEqNuev(this)">' + hi + '</div>';
+  }
+  drop.innerHTML = html;
+  drop.style.display = 'block';
+}
+
+function _selEqNuev(el) {
+  document.getElementById('nev-equi').value = el.getAttribute('data-val');
+  document.getElementById('nev-eq-drop').style.display = 'none';
+  _nevEqDropIdx = -1;
+}
+
+function _cerrarEqNuev() {
+  setTimeout(function() {
+    var d = document.getElementById('nev-eq-drop');
+    if (d) d.style.display = 'none';
+    _nevEqDropIdx = -1;
+  }, 180);
+}
+
+function _resaltEqNuev(el) {
+  var items = document.querySelectorAll('.nev-eq-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+  el.classList.add('active');
+  _nevEqDropIdx = parseInt(el.getAttribute('data-idx'), 10);
+}
+
+function _navEqNuev(e) {
+  var drop = document.getElementById('nev-eq-drop');
+  if (!drop || drop.style.display === 'none') { return; }
+  var items = drop.querySelectorAll('.nev-eq-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _nevEqDropIdx = Math.min(_nevEqDropIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _nevEqDropIdx = Math.max(_nevEqDropIdx - 1, 0);
+  } else if (e.key === 'Enter' && _nevEqDropIdx >= 0) {
+    e.preventDefault();
+    _selEqNuev(items[_nevEqDropIdx]);
+    return;
+  } else if (e.key === 'Escape') {
+    drop.style.display = 'none';
+    _nevEqDropIdx = -1;
+    return;
+  } else {
+    return;
+  }
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+  if (_nevEqDropIdx >= 0) items[_nevEqDropIdx].classList.add('active');
+}
+
+function confirmarNuevaOT() {
+  var reseller = document.getElementById('nev-res').value;
+  var equipo   = document.getElementById('nev-equi').value.trim();
+  var sn       = document.getElementById('nev-sn').value.trim();
+  var falla    = document.getElementById('nev-falla').value.trim();
+  var fechaAct = document.getElementById('nev-fecha-act').value;
+  var tecnico  = document.getElementById('nev-tec').value;
+  var cas      = document.getElementById('nev-cas').value.trim();
+  var fwrc     = document.getElementById('nev-fwrc').value.trim();
+
+  if (!reseller) { toast('Seleccioná un reseller.', 'err'); return; }
+  if (!equipo)   { toast('Ingresá el modelo del equipo.', 'err'); return; }
+  if (!sn)       { toast('Ingresá el número de serie.', 'err'); return; }
+  if (!falla)    { toast('Describí la falla.', 'err'); return; }
+  if (_nevGar === 'IW' && !fechaAct) { toast('La fecha de activación es obligatoria para garantías IW.', 'err'); return; }
+
+  var datos = {
+    reseller: reseller,
+    equipo:   equipo,
+    sn:       sn,
+    garantia: _nevGar,
+    circuito: _nevCirc,
+    tecnico:  tecnico,
+    trabajo:  falla,
+    fechaActivacion: fechaAct,
+    prioridad: _nevPrio,
+    cas:      cas,
+    fwrc:     fwrc
+  };
+
+  bootstrap.Modal.getInstance(document.getElementById('modal-nueva-ot')).hide();
   hubLoadStart(STEPS_CREAR);
   google.script.run
     .withSuccessHandler(function(r) {
       hubLoadDone();
       if (!r || !r.resultado || r.resultado.indexOf('Error') === 0) {
-        toast('Error al crear OT','err');
+        toast((r && r.resultado) ? r.resultado.replace(/^Error:\s*/, '') : 'Error al crear OT', 'err');
         return;
       }
       toast('Nueva OT creada: ' + r.resultado);
+      _pendingOpenOT = r.ot;
       load();
     })
-    .withFailureHandler(function(e){ hubLoadDone(); toast('Error: '+e.message,'err'); })
-    .crearNuevaOT();
+    .withFailureHandler(function(e) { hubLoadDone(); toast('Error: ' + e.message, 'err'); })
+    .crearNuevaOT(datos);
 }
 
 function cerrarV(){
@@ -2336,16 +2875,16 @@ function exportCSV(){
   else if(filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
   else if(filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='CANCELADO';});
   else if(filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
-  if(q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  if(q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+(c.fwrc||'')+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
   if(!f.length){toast('No hay datos para exportar','err');return;}
 
-  var cols=['OT','Garantía','Reseller','Equipo','N° Serie','Técnico','CAS/FWR','Estado','Días total','Días en estado','Circuito','Prioridad','Backorder'];
+  var cols=['OT','Garantía','Reseller','Equipo','N° Serie','Técnico','CAS','FWRC','Estado','Días total','Días en estado','Circuito','Prioridad','Backorder'];
   var rows=[cols.join(';')];
   for(var i=0;i<f.length;i++){
     var c=f[i];
     var row=[
       c.ot, c.garantia, c.reseller, c.equipo, c.sn,
-      c.tecnico||'', c.cas, c.estado, c.dias,
+      c.tecnico||'', c.cas, c.fwrc||'', c.estado, c.dias,
       c.diasEstado !== undefined ? c.diasEstado : '',
       c.circuito, c.prioridad?'URGENTE':'Normal',
       detectarBackorderLocal(c.repuestos)?'SI':'NO'
@@ -2365,6 +2904,18 @@ function exportCSV(){
   document.body.appendChild(a); a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},100);
   toast('CSV exportado ('+f.length+' registros)');
+}
+
+// Sanea texto para jsPDF (fuente estándar sin glifos CJK). El catálogo DJI trae
+// caracteres full-width (ej. "（ZS）") que la fuente no puede medir → el texto se
+// "estira" y se corta. Los pasa a su ASCII equivalente y saca lo no soportado.
+function sanitizePdf(s){
+  s = String(s == null ? '' : s);
+  // full-width ASCII (Ａ-ｚ, ０-９, （）「」 etc.) → ASCII
+  s = s.replace(/[！-～]/g, function(ch){ return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); });
+  s = s.replace(/　/g, ' ');            // espacio full-width → espacio normal
+  s = s.replace(/[^\x00-\xFF]/g, '');        // quita cualquier glifo fuera de Latín-1 (CJK, etc.)
+  return s.replace(/\s{2,}/g, ' ').trim();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2398,22 +2949,22 @@ function impRemito(){
       doc.text('Dirección: '+(info&&info.direccion?info.direccion:'—'),15,70);
       if(info&&info.localidad) doc.text('Localidad: '+info.localidad+(info.cp?' — CP: '+info.cp:''),15,76);
       if(info&&info.telefono)  doc.text('Teléfono: '+info.telefono,15,86);
-      doc.autoTable({startY:90,head:[['Equipo / Modelo','N° de Serie','Estado']],body:[[actual.equipo,actual.sn,actual.estado]],theme:'grid',headStyles:{fillColor:[0,163,224],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9}});
+      doc.autoTable({startY:90,head:[['Equipo / Modelo','N° de Serie','Estado']],body:[[sanitizePdf(actual.equipo),sanitizePdf(actual.sn),sanitizePdf(actual.estado)]],theme:'grid',headStyles:{fillColor:[0,163,224],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9}});
       var fY=doc.lastAutoTable.finalY+10;
       doc.setFont(undefined,'bold'); doc.setFontSize(9); doc.text('REPUESTOS UTILIZADOS',15,fY);
       if(actual.repuestos&&actual.repuestos!=='Sin consumo de repuestos'){
         var rows2=[],ls2=actual.repuestos.split(' ; ');
         for(var i=0;i<ls2.length;i++){
-          var p2=ls2[i].split(' | '),cod2=p2[0].trim();
-          var des2=(p2[1]||'').replace('('+cod2+')','').replace(/\(\s*\)/g,'').replace(/ÿ/g,'').trim();
+          var p2=ls2[i].split(' | '),cod2=sanitizePdf(p2[0].trim());
+          var des2=sanitizePdf((p2[1]||'').replace('('+cod2+')','').replace(/\(\s*\)/g,'').replace(/ÿ/g,'').trim());
           var cr=p2[2]?(p2[2].indexOf('E:')!==-1?p2[2].split('E:')[1]:p2[2]):'';
           rows2.push([cod2,des2,cr.replace(/[^0-9]/g,'')]);
         }
-        doc.autoTable({startY:fY+4,head:[['Código','Descripción','Cant.']],body:rows2,theme:'striped',headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{2:{halign:'center',cellWidth:18}}});
+        doc.autoTable({startY:fY+4,head:[['Código','Descripción','Cant.']],body:rows2,theme:'striped',styles:{fontSize:9,overflow:'linebreak',valign:'middle'},headStyles:{fillColor:[94,98,98],fontStyle:'bold',fontSize:9},bodyStyles:{fontSize:9},columnStyles:{0:{cellWidth:38},1:{cellWidth:120,overflow:'linebreak'},2:{halign:'center',cellWidth:18}}});
       } else {doc.setFont(undefined,'normal');doc.text('Sin cambios de repuestos.',15,fY+8);doc.lastAutoTable={finalY:fY+14};}
       var tY=doc.lastAutoTable.finalY+10;
       doc.setFont(undefined,'bold');doc.setFontSize(9);doc.text('TRABAJO TÉCNICO REALIZADO',15,tY);
-      doc.setFont(undefined,'normal');doc.text(doc.splitTextToSize(actual.trabajo||'—',180),15,tY+6);
+      doc.setFont(undefined,'normal');doc.text(doc.splitTextToSize(sanitizePdf(actual.trabajo||'—'),180),15,tY+6);
       var pgH=doc.internal.pageSize.height;
       doc.setDrawColor(200);doc.line(15,pgH-36,85,pgH-36);doc.line(125,pgH-36,195,pgH-36);
       doc.setFontSize(8);doc.setTextColor(120);
@@ -2516,9 +3067,23 @@ function applySettings() {
   var activeBtn = document.getElementById(vistaMap[filtro] || 'fb-p');
   if (activeBtn) activeBtn.classList.add('active');
 
+  // Auto-refresh de fondo SIEMPRE activo (silencioso + con guardas). Si el usuario
+  // configuró un intervalo en Ajustes se usa ese; si no, 90s por defecto.
   if (_arTimer) { clearInterval(_arTimer); _arTimer = null; }
   var mins = parseInt(_settings.autoRefresh) || 0;
-  if (mins > 0) _arTimer = setInterval(function() { load(); }, mins * 60000);
+  var intervalMs = mins > 0 ? mins * 60000 : 90000;
+  _arTimer = setInterval(_bgRefresh, intervalMs);
+  // Al volver a la pestaña, refrescar enseguida (una sola vez se registra el listener)
+  if (!_visListenerAdded) {
+    _visListenerAdded = true;
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) _bgRefresh(); });
+  }
+}
+
+function abrirGuiaFlujos() {
+  google.script.run.withSuccessHandler(function(url) {
+    window.open(url, '_blank');
+  }).getGuiaUrl();
 }
 
 function openSettings() {
@@ -2597,21 +3162,53 @@ function cargarEmails() {
 var supCargado = false;
 
 function cargarSupervisor() {
-  if (supCargado) return; // cache: no recargar si ya está cargado
-  supCargado = false; // siempre recargar al entrar
+  if (supCargado) return;
+  supCargado = false;
+  document.getElementById('sup-res').innerHTML  = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
   document.getElementById('sup-back').innerHTML = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
   document.getElementById('sup-sla').innerHTML  = '<div class="empty"><i class="fa fa-circle-notch fa-spin"></i><p>Calculando...</p></div>';
 
   google.script.run
     .withSuccessHandler(function(d) {
+      renderResellersRanking(d.resellersRanking || []);
       renderBackorderPred(d.backorderPred || []);
       renderSLA(d.slaData || {}, d.tiempoDespacho || null);
     })
     .withFailureHandler(function(e) {
+      document.getElementById('sup-res').innerHTML  = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
       document.getElementById('sup-back').innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
       document.getElementById('sup-sla').innerHTML  = '<div style="padding:16px;color:var(--red);font-size:12px">Error: '+e.message+'</div>';
     })
     .obtenerDatosSupervisor();
+}
+
+function renderResellersRanking(lista) {
+  var el = document.getElementById('sup-res');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><i class="fa fa-check-circle" style="color:var(--green)"></i><p>Sin casos abiertos</p></div>';
+    return;
+  }
+  var max = lista[0].count || 1;
+  var barColors = [
+    'var(--indigo)','var(--blue)','var(--blue)','var(--blue)','var(--blue)',
+    'var(--tx-m)','var(--tx-m)','var(--tx-m)','var(--tx-m)','var(--tx-m)'
+  ];
+  var h = '<div style="padding:4px 0">';
+  for (var i = 0; i < lista.length; i++) {
+    var r    = lista[i];
+    var pct  = Math.round((r.count / max) * 100);
+    var col  = barColors[i] || 'var(--tx-m)';
+    var bold = i < 3 ? 'font-weight:700' : 'font-weight:400';
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+    h +=   '<span style="font-size:12px;color:var(--tx);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+bold+'" title="'+_escHtml(r.nombre)+'">'+_escHtml(r.nombre)+'</span>';
+    h +=   '<div style="flex:1;height:18px;background:var(--surf);border-radius:4px;overflow:hidden">';
+    h +=     '<div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:4px;transition:width .4s ease"></div>';
+    h +=   '</div>';
+    h +=   '<span style="font-size:13px;font-weight:700;color:var(--tx);width:24px;text-align:right;flex-shrink:0">'+r.count+'</span>';
+    h += '</div>';
+  }
+  h += '</div>';
+  el.innerHTML = h;
 }
 
 function renderBackorderPred(lista) {
@@ -2705,16 +3302,25 @@ function renderSLA(slaData, tiempoDespacho) {
 }
 
 function abrirOTPorNombre(otNombre) {
-  // Busca la OT en el dataset y la abre
-  for (var i=0; i<dataset.length; i++) {
-    if (dataset[i].ot === otNombre) {
-      // Volver a la vista de lista primero
-      setF('pendientes', document.getElementById('fb-p'));
-      abrirLista(dataset[i]);
-      return;
+  // Busca la OT en activas y cerradas y la abre (ajustando la vista al tipo de OT)
+  var buscar = function() {
+    var pools = [dataset, datasetCerradas];
+    for (var p=0; p<pools.length; p++) {
+      for (var i=0; i<pools[p].length; i++) {
+        if (pools[p][i].ot === otNombre) {
+          if (_esCerradoCli(pools[p][i].estado)) { _cerradasLoaded=true; setF('todos', document.getElementById('fb-h')); }
+          else setF('pendientes', document.getElementById('fb-p'));
+          abrirLista(pools[p][i]);
+          return true;
+        }
+      }
     }
-  }
-  toast('OT no encontrada en la vista actual — cambiá el filtro a "Pendientes"','err');
+    return false;
+  };
+  if (buscar()) return;
+  // No está entre las activas: si las cerradas aún no se cargaron, traerlas y reintentar
+  if (!_cerradasLoaded) { _cargarCerradas(function(){ if (!buscar()) toast('OT no encontrada','err'); }); return; }
+  toast('OT no encontrada','err');
 }
 
 // ── RESERVAS DE IMPORTACIÓN ───────────────────────────────────
@@ -2830,48 +3436,10 @@ function buscarSN() {
 //  MÓDULO DE SINCRONIZACIÓN SILENCIOSA (AUTO-REFRESH)
 // ════════════════════════════════════════════════════════════
 function iniciarSincronizacionSilenciosa() {
-  // Configuramos el temporizador para que corra cada 60.000 milisegundos (1 minuto)
-  setInterval(function() {
-    
-    // 1. SEGURO ANTI-INTERRUPCIONES
-    // Verificamos si el usuario tiene un panel abierto (Offcanvas/Modal) o tiene una OT seleccionada ('actual')
-    var ventanaAbierta = document.querySelector('.offcanvas.show') || document.querySelector('.modal.show');
-    
-    // Si el técnico está interactuando con el sistema, abortamos el refresh silencioso para no borrarle el trabajo
-    if (ventanaAbierta || actual) {
-      console.log("↻ Auto-Refresh pausado: El usuario está editando una orden.");
-      return; 
-    }
-
-    // 2. LLAMADA INVISIBLE AL SERVIDOR
-    // Pedimos los datos sin activar el spinner visual (sp(true)) para que nadie se dé cuenta
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (!res || res.error) return; // Si hay micro-corte de internet, abortamos en silencio
-        
-        // 3. ACTUALIZACIÓN EN MEMORIA
-        // Pisamos la memoria local (dOT) con la lista de órdenes frescas que acaba de mandar el servidor
-        if (res.ordenes) dOT = res.ordenes;
-        
-        // 4. REDIBUJADO DE PANTALLA
-        if (typeof renOT === 'function') renOT(); // Vuelve a dibujar las tarjetas
-        
-        // 5. RESTAURAR BUSCADOR
-        // Si el usuario justo estaba leyendo y tenía la palabra "motor" escrita en el buscador, volvemos a filtrar
-        var inputBuscador = document.getElementById('q'); 
-        if (inputBuscador && inputBuscador.value.trim() !== "" && typeof fil === 'function') {
-          fil();
-        }
-        
-        console.log("↻ Sincronización silenciosa completada: " + new Date().toLocaleTimeString());
-      })
-      .withFailureHandler(function(err) {
-        // Fallo silencioso absoluto. No mostramos alertas rojas para no asustar si se cortó el WiFi 2 segundos.
-        console.log("↻ Error en auto-refresh: " + err);
-      })
-      .cargarTodo(); // Usamos tu función maestra para traer la info validada
-      
-  }, 60000); 
+  // DESHABILITADO. Reemplazado por _bgRefresh() (auto-refresh silencioso, con guardas,
+  // que usa cargarOrdenes liviano y SÍ redibuja la lista). Esta versión previa llamaba a
+  // cargarTodo() COMPLETO cada 60s y no actualizaba nada (renOT/fil/dOT no existen en esta
+  // app) → era puro gasto de servidor + red. Se deja como no-op para no romper el listener.
 }
 
 // Usamos addEventListener en lugar de onload para no pisar el arranque original de tu sistema
@@ -2940,8 +3508,20 @@ function abrirModalRepWos() {
   }
 
   document.getElementById('rep-wos-subtitle').textContent = 'OT: ' + actual.ot + ' · ' + actual.reseller;
-  document.getElementById('rep-wos-num-preview').textContent = 'REP-OT-' + actual.ot;
-  document.getElementById('rep-wos-aprobado').checked = !!actual.cas;
+  document.getElementById('rep-wos-num-preview').textContent = 'OT-' + actual.ot;
+  document.getElementById('rep-wos-aprobado').checked = !!(actual.estado && actual.estado.indexOf('Aprobado') !== -1);
+
+  // Modalidad de entrega según circuito
+  var circuito = String(actual.circuito || '').trim();
+  var esTaller = !circuito || circuito === 'Taller' || circuito.toLowerCase() === 'taller';
+  document.getElementById('rep-wos-entrega-taller').style.display = esTaller ? '' : 'none';
+  var envioDiv = document.getElementById('rep-wos-entrega-envio');
+  envioDiv.style.display = esTaller ? 'none' : 'flex';
+  if (!esTaller) {
+    document.getElementById('rep-wos-env-envio').checked = true;
+    _repWosActualizarEnvioUI();
+  }
+
   _repWosRenderItems();
   new bootstrap.Modal(document.getElementById('modal-rep-wos')).show();
 }
@@ -2966,6 +3546,18 @@ function _repWosRenderItems() {
 }
 
 function _repWosQuitarItem(i) { _repWosItems.splice(i, 1); _repWosRenderItems(); }
+
+function _repWosActualizarEnvioUI() {
+  var envChk = document.getElementById('rep-wos-env-envio');
+  var retChk = document.getElementById('rep-wos-env-retiro');
+  var lblE   = document.getElementById('lbl-rep-env-envio');
+  var lblR   = document.getElementById('lbl-rep-env-retiro');
+  if (!envChk || !retChk) return;
+  var activo = 'flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--blue);background:rgba(59,130,246,.07);border-radius:8px;cursor:pointer';
+  var normal = 'flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--brd);background:var(--surf);border-radius:8px;cursor:pointer';
+  lblE.style.cssText = envChk.checked ? activo : normal;
+  lblR.style.cssText = retChk.checked ? activo : normal;
+}
 
 function _repWosAgregarItem() {
   var cod  = (document.getElementById('rep-wos-add-cod').value  || '').trim().toUpperCase();
@@ -2995,7 +3587,13 @@ function _repWosConfirmar() {
       btn.innerHTML = '<i class="fa fa-paper-plane" style="margin-right:6px"></i>Generar Pedido WOS';
       bootstrap.Modal.getInstance(document.getElementById('modal-rep-wos')).hide();
       if (r.ok) {
-        toast('Pedido creado en WOS: ' + r.numero, 'ok');
+        toast('Pedido enviado a WOS: ' + r.numero, 'ok');
+        var bRepWos = document.getElementById('btn-rep-wos');
+        if (bRepWos) {
+          bRepWos.style.borderColor = 'var(--green)';
+          bRepWos.style.color = 'var(--green)';
+          bRepWos.innerHTML = '<i class="fa fa-check-circle"></i> WOS: ' + r.numero;
+        }
       } else {
         toast('Error: ' + r.error, 'err');
       }
@@ -3011,7 +3609,14 @@ function _repWosConfirmar() {
       garantia:     actual.garantia,
       cas:          actual.cas || '',
       estado:       actual.estado || '',
+      circuito:     actual.circuito || 'Taller',
+      tecnico:      actual.tecnico  || '',
       aprobadoDJI:  document.getElementById('rep-wos-aprobado').checked,
+      envio:        (function() {
+        var circ = String(actual.circuito || '').trim();
+        if (!circ || circ === 'Taller' || circ.toLowerCase() === 'taller') return 'Retiro';
+        return document.getElementById('rep-wos-env-envio').checked ? 'Envío' : 'Retiro';
+      })(),
       items:        _repWosItems
     });
 }
@@ -3120,6 +3725,57 @@ function _tieneRepuestosDespachados(repStr) {
     if ((parseInt(p[2].split('E:')[1]) || 0) > 0) return true;
   }
   return false;
+}
+
+// ── REGISTRAR PIEZAS RECIBIDAS ────────────────────────────────
+function abrirModalPiezasRecibidas() {
+  if (!actual) return;
+  var ta  = document.getElementById('piezas-recv-desc');
+  var err = document.getElementById('piezas-recv-err');
+  if (ta)  ta.value = '';
+  if (err) err.style.display = 'none';
+  var btn = document.getElementById('btn-piezas-recv-ok');
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Confirmar recepción'; }
+  var m = new bootstrap.Modal(document.getElementById('modal-piezas-recv'));
+  m.show();
+  setTimeout(function() { if (ta) ta.focus(); }, 300);
+}
+
+function _confirmarPiezasRecibidas() {
+  var ta  = document.getElementById('piezas-recv-desc');
+  var err = document.getElementById('piezas-recv-err');
+  var desc = ta ? ta.value.trim() : '';
+  if (!desc) {
+    if (err) { err.textContent = 'Describí al menos una pieza recibida.'; err.style.display = 'block'; }
+    return;
+  }
+  var btn = document.getElementById('btn-piezas-recv-ok');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Guardando...'; }
+
+  // Armar entrada de nota con fecha
+  var tz   = new Date();
+  var dd   = ('0' + tz.getDate()).slice(-2);
+  var mm   = ('0' + (tz.getMonth() + 1)).slice(-2);
+  var yyyy = tz.getFullYear();
+  var entrada = '📦 Piezas recibidas [' + dd + '/' + mm + '/' + yyyy + ']: ' + desc;
+
+  // Agregar a notas internas
+  var fNotas = document.getElementById('f-notas');
+  var notasActuales = fNotas ? fNotas.value.trim() : '';
+  if (fNotas) fNotas.value = notasActuales ? notasActuales + '\n' + entrada : entrada;
+
+  // Cambiar estado a "Piezas dañadas recibidas" en el stepper
+  var steps = document.querySelectorAll('.st-step');
+  for (var i = 0; i < steps.length; i++) {
+    if (steps[i].textContent.trim() === 'Piezas dañadas recibidas') {
+      setE(steps[i], 'Piezas dañadas recibidas');
+      break;
+    }
+  }
+
+  // Cerrar modal y guardar
+  bootstrap.Modal.getInstance(document.getElementById('modal-piezas-recv')).hide();
+  guardar();
 }
 
 function solicitarFacturaManual() {
@@ -3239,7 +3895,8 @@ window.onload=function(){
   try { loadSettings(); applySettings(); } catch(e) {}
   initSbGroups();
   cargarUsuario();
-  load();
+  cargarCatalogoFront();   // catálogo estático: una vez (o desde cache de sesión)
+  load();                  // lista viva (rápida, sin catálogo)
 };
 </script>
 
