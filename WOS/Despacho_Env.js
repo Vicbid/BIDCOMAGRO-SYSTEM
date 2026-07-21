@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-// @version 1.0
-var NOTAS_SS_ID   = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-var CARMEN_SS_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
-var MASTER_SS_ID  = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
-var PLANIF_SS_ID  = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
-var HOJA_PEDIDOS  = 'Pedidos_resellers';
-=======
+// @version 1.1
 var NOTAS_SS_ID            = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
@@ -24,7 +17,6 @@ var COL_MAESTRO = {
   FECHA:     4,   // E: última actualización
   OPERADOR:  5    // F: quién lo marcó por última vez
 };
->>>>>>> dev
 // Defaults — sobreescritos por WOS_CONFIG en MASTER si existe
 var EMAIL_SOPORTE     = 'soporteagrasdji@bidcom.com.ar';
 var EMAIL_FACTURACION = 'Cecilia.f@bidcom.com.ar,lucia.c@bidcom.com.ar';

@@ -1042,9 +1042,6 @@ var _vistaCompacta   = false;
 var _modalDesp = null;
 var _ubicAlloc = {}; // row → { locs:[{ubicacion,cantidad}], cantTotal:N }
 var _modalFalt = null;
-<<<<<<< HEAD
-var _usuario   = { email: '', nombre: '', tipo: '', esAdmin: false };
-=======
 var _usuario   = { email: '', nombre: '', tipo: '' };
 var _maestro   = {}; // SKU(mayúsculas) → { porBolsa:bool, bulto:N } — se prepara por bolsa
 
@@ -1055,7 +1052,6 @@ function _cargarMaestro() {
     .withFailureHandler(function() {})
     .WOS_maestroArticulos();
 }
->>>>>>> dev
 
 var SLA_HORAS_HABILES = 96; // 4 días hábiles (lunes–viernes)
 

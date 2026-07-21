@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// @version 1.0
-=======
 // @version 1.3
->>>>>>> dev
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 

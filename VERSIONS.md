@@ -268,11 +268,6 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 ## WOS
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-<<<<<<< HEAD
-| Despacho_Código.js | 3.5 | Backorder XLS: columnas FOB vacías (se llenan a mano); etiqueta agrega provincia (DB_REPUESTOS col G) |
-| Despacho_Index.html | 2.5 | Etiqueta multi-bulto: fix portrait al imprimir varios (100vh en vez de 100% en label print) |
-| WOS_GmailFlow.js | 1.2 | Batch writes en WOS_despacharCompleto; fix fallback thread email |
-=======
 | Despacho_Index.html | 3.30 | FIX "no me deja cargar los seriales" tras cancelar faltantes (Opción B): abrirModalPreparar ahora saltea las líneas en estado 'Cancelado' tanto en el pre-chequeo de stock (que abortaba con "No se puede preparar — sin stock suficiente") como en el listado de seriales. Antes, una línea cancelada cuya col G (CANT_PEND) había quedado sin actualizar figuraba como pendiente sin stock y bloqueaba toda la preparación del pedido. Robustece contra datos viejos aunque no se haya seteado CANT_CANCEL |
 | WOS_GmailFlow.js | 2.16 | Diagnóstico/arreglo en bloque de líneas 'Cancelado' sin CANT_CANCEL (datos viejos previos al fix 2.15): WOS_previewCanceladosSinCancel() lista (log + return) las filas afectadas en Pedidos_resellers y Pedidos_OTs (estado Cancelado con CANT_PEND=E−F−Z aún > 0 porque Z quedó vacío); WOS_aplicarCanceladosSinCancel() las corrige seteando Z = CANT_SOL − CANT_DESP → CANT_PEND = 0. Read-only el preview; el apply escribe col Z (se corre a mano desde el editor, sin deploy). Desbloquea de una todos los pedidos tipo Leber antes del deploy |
 | WOS_GmailFlow.js | 2.15 | FIX raíz del bloqueo de preparación al cancelar faltantes (Opción B en WOS_detectarRespuestasResellers): al pasar una línea a 'Cancelado' (cantDisp=0) ahora también setea CANT_CANCEL (col Z) = pendiente (CANT_SOL − CANT_DESP), para que CANT_PEND (=E−F−Z) quede en 0. Antes solo cambiaba el estado y dejaba col G con la cantidad completa → la línea cancelada seguía contando como pendiente y rompía la preparación/otros lectores. Complementa el guard de Despacho_Index (que tolera el dato viejo de pedidos ya cancelados) |
@@ -340,16 +335,11 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Despacho_Index.html | 3.8 | Badges WMS en tabla de ítems: columna "Ubicación WMS" con wosPintarBadgesUbicacion(); CSS .wms-bin picking/reserva (tokens nativos); snapshot cargado post-render via _cargarWmsSnapshot() + _actualizarBadgesWms() sin bloquear UI |
 | WOS_StockSnapshot.js | 1.1 | WOS_obtenerStockSnapshot() función pública para google.script.run; devuelve stockMap serializable al frontend |
 | WOS_StockSnapshot.js | 1.0 | Módulo read-only WMS: _wosCargarStockSnapshot() triple in-memory mapping (Carmen STOCK + UBICACIONES + MASTER TABLA_POSICIONES); sort PICKING-first + alfanumérico natural; _wosStockBySku() helper de consulta |
->>>>>>> dev
 | Despacho_Env.js | 1.0 | |
 
 ## STOCK_MANAGER
 | Archivo | Versión | Notas |
 |---------|---------|-------|
-<<<<<<< HEAD
-| SM_Index.html | 1.2 | Pedidos DJI: campo ETA en modal + badge naranja en tarjeta kanban y dashboard |
-| Sm_Código.js | 1.1 | ETA: nueva col 15 en COMPRAS_DJI; cargarCompras y casTransito exponen eta; actualizarEstadoCAS acepta eta |
-=======
 | Sm_Compras.js | 1.2 | FIX "Cobertura pedidos" en el detalle de un CAS (obtenerDetalleCAS): la demanda pendiente por SKU se leía de SOLICITUDES_DESPACHO (solo repuestos de OT de HUB PRO + ventas directas), que NO incluye los pedidos de resellers → el número de "N pend." estaba mal (le faltaba el canal principal y contaba solicitudes 'Pendiente' fantasma de OTs no finalizadas). Ahora la cobertura mide la demanda REAL de resellers desde Pedidos_resellers (WOS): pendiente por SKU = Σ max(0, CANT_SOL − CANT_DESP − CANT_CANCEL) — descuenta lo ya despachado y lo cancelado (misma fórmula que el mail de "Backorders desbloqueados", que ya usaba WOS). Se quitó la dependencia de SD/SOLICITUDES_DESPACHO en esa función |
 | Sm_Stock.js | 1.2 | Espejo a Carmen (Carmen es la ÚNICA fuente de stock; SM lo lee de ahí): registrarEventoLedgerSeguro ahora, tras cada movimiento, escribe en Carmen (delta>0→Recibidos, delta<0→Entregados, vía _registrarMovimientoCarmen, mismo formato que compras/WOS) — cubre el motor "seguro" (hoy sin callers) para que a futuro también refleje en Carmen. Origen LEGIBLE = referencia/tipo + operador; ubicación tomada del propio ítem. ajustarInventario: origen de la línea de Carmen ahora "Ajuste: motivo · operador" (legible en el sheet). NO se tocan compras/ajuste/ventas (ya escribían Carmen) ni transferencias (neto 0) ni importación inicial (baseline). Equipos NO entran (Carmen es solo repuestos). (No hay reconciliación SM vs Carmen: no existen dos stocks, SM ya muestra Carmen) |
 | Sm_Equipos.js | 1.0 | NUEVO módulo EQUIPOS EN DEPÓSITO (inventario de equipos completos por N° de serie, distinto del stock de repuestos). FASE 1: getEquiposDeposito() lista la hoja EQUIPOS_DEPOSITO (auto-creada); guardarEquipo(data) hace upsert por SN (valida SN único, alta fija fecha ingreso, no pisa la fecha en edición). Campos: SN, modelo, condición (Nuevo/Usado), destino (Venta/Harvesting/HV/Donante de partes), estado (Completo/Incompleto), ubicación, fecha ingreso, origen, valor, faltantes (nota texto), observaciones, situación (En depósito/Vendido/Baja). El "qué le falta" es nota de texto por ahora; Fase 2 = ledger de partes por equipo |
@@ -436,7 +426,6 @@ Regla: **incrementar la versión cada vez que se edita un archivo**.
 | Env.js | 1.1 | Agrega CATALOGO_REPUESTOS_ID con ID del sheet externo de catálogo DJI |
 | SM_Index.html | 1.8 | Borrador de pedido: buscador interactivo con dropdown (código+descripción+stock), navegación por teclado ↑↓/Enter, igual al portal reseller |
 | Sm_Código.js | 1.5 | cruzarComprasExternas: incluye items (cols D/E/F) en cada entrada nuevas |
->>>>>>> dev
 | Env.js | 1.0 | |
 
 ## LAUNCHER

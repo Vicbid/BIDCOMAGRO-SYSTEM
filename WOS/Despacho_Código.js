@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// @version 3.5
-=======
 // @version 3.11
->>>>>>> dev
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1455,121 +1451,18 @@ function WOS_reporteBackorder() {
       return;
     }
 
-<<<<<<< HEAD
-    // 4b. Lookup modelos (CARMEN) para XLS
-    var modelosMap = {};
-    try {
-      var carmenSheet = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK');
-      if (carmenSheet) {
-        var carmenData = carmenSheet.getDataRange().getValues();
-        for (var cm = 1; cm < carmenData.length; cm++) {
-          var cmSku = String(carmenData[cm][0] || '').trim().toUpperCase();
-          if (cmSku) modelosMap[cmSku] = String(carmenData[cm][4] || '').trim();
-        }
-      }
-    } catch(eCM) { Logger.log('WOS_reporteBackorder modelosMap: ' + eCM); }
-
-    // 5. Generar XLS con todos los ítems y enviar manteniendo hilo
-    var fechaStr   = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
-    var emailHtml  = _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr);
-    var asuntoHilo = '[WOS] Reporte Backorder Logistica Internacional';
-
-    var todosItems = sinCubrir.concat(cubiertos);
-    var xlsBlob    = todosItems.length > 0 ? _wosBackorderGenerarXLS(todosItems, modelosMap) : null;
-
-    var toField = destinatarios[0];
-    var ccField = destinatarios.slice(1).join(', ');
-    console.log('WOS paso5: to=' + toField + ' xls=' + (xlsBlob ? 'OK' : 'null') + ' sinCubrir=' + sinCubrir.length);
-
-    var mailOpts = { htmlBody: emailHtml, name: 'WOS \xb7 BidcomAgro' };
-    if (ccField) mailOpts.cc = ccField;
-    if (xlsBlob) mailOpts.attachments = [xlsBlob];
-
-    try {
-      GmailApp.sendEmail(toField, asuntoHilo, '', mailOpts);
-      console.log('WOS sendEmail OK: ' + toField + ' | xls=' + (xlsBlob ? 'OK' : 'null'));
-    } catch(eSend) {
-      console.log('WOS sendEmail FALLO: ' + eSend);
-    }
-
-    console.log('WOS_reporteBackorder OK | sinCubrir:' + sinCubrir.length + ' cubiertos:' + cubiertos.length + ' xls:' + (xlsBlob ? 'OK' : 'FALLO'));
-=======
     // 6. Enviar email
     var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr);
     var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
     GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
     Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
->>>>>>> dev
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
   }
 }
 
-<<<<<<< HEAD
-// Genera el XLS como HTML tabla (no usa Drive ni SpreadsheetApp.create — sin timeouts)
-// Columnas FOB vacías: se completan a mano por logística
-function _wosBackorderGenerarXLS(items, modelosMap) {
-  try {
-    var fechaTag = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyyMMdd');
-
-    var HDR_BG = '#1e3a8a';
-    var HDR_FG = '#ffffff';
-    var html =
-      '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
-             'xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
-             'xmlns="http://www.w3.org/TR/REC-html40">' +
-      '<head><meta charset="UTF-8">' +
-      '<xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
-      '<x:Name>Backorder</x:Name>' +
-      '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>' +
-      '</head><body>' +
-      '<table border="1" cellspacing="0" cellpadding="5" ' +
-             'style="font-family:Arial,sans-serif;font-size:11px;border-collapse:collapse">';
-
-    html += '<tr style="background:' + HDR_BG + ';color:' + HDR_FG + ';font-weight:bold;text-align:center">' +
-      '<td>Codigo</td><td>Descripcion</td><td>Equipo / Modelos</td>' +
-      '<td>FOB Unitario (USD)</td><td>Nec. total</td><td>En camino</td>' +
-      '<td>A comprar</td><td>Total FOB (USD)</td>' +
-      '<td>PN Bidcom</td><td>PA</td><td>Link de referencia</td></tr>';
-
-    for (var i = 0; i < items.length; i++) {
-      var it       = items[i];
-      var aComprar = it.gap || 0;
-      var bg       = it.gap === 0 ? '#f0fdf4' : (i % 2 === 0 ? '#fff5f5' : '#fee2e2');
-
-      html += '<tr style="background:' + bg + '">' +
-        '<td style="font-family:monospace">'                              + _xlsEsc(it.sku)                  + '</td>' +
-        '<td>'                                                            + _xlsEsc(it.desc)                 + '</td>' +
-        '<td>'                                                            + _xlsEsc(modelosMap[it.sku] || '') + '</td>' +
-        '<td></td>' +
-        '<td style="text-align:center">'                                  + (it.nec    || 0)                 + '</td>' +
-        '<td style="text-align:center">'                                  + (it.camino || 0)                 + '</td>' +
-        '<td style="text-align:center;font-weight:bold;color:#1e3a8a">'  + aComprar                         + '</td>' +
-        '<td></td>' +
-        '<td></td><td></td><td></td></tr>';
-    }
-
-    html += '</table></body></html>';
-
-    var blob = Utilities.newBlob(html, 'application/vnd.ms-excel', 'WOS_Backorder_' + fechaTag + '.xls');
-    Logger.log('_wosBackorderGenerarXLS OK: ' + items.length + ' items');
-    return blob;
-
-  } catch(e) {
-    Logger.log('_wosBackorderGenerarXLS ERROR: ' + e);
-    return null;
-  }
-}
-
-function _xlsEsc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function _wosBackorderEmailHTML(sinCubrir, cubiertos, fechaStr) {
-=======
 function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
->>>>>>> dev
   var rowsRojo = '';
   for (var i = 0; i < sinCubrir.length; i++) {
     var it = sinCubrir[i];

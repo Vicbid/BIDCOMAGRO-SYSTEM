@@ -1,14 +1,10 @@
-<<<<<<< HEAD
-// @version 1.0
-var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
-=======
+// @version 1.1
 var MASTER_SHEET_ID        = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var WOS_NOTAS_SS_ID        = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw'; // WOS — contiene Pedidos_resellers y Pedidos_OTs
 var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
 var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab resumen WMS (fórmulas SUMIFS, solo lectura)
 var CARMEN_ENTREGADOS_TAB  = 'Entregados';  // log de salidas en Carmen
 var CARMEN_RECIBIDOS_TAB   = 'Recibidos';   // log de entradas en Carmen
->>>>>>> dev
 
 var SCHEMA = {
   SHEETS: {

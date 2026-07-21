@@ -1,9 +1,5 @@
 <!DOCTYPE html>
-<<<<<<< HEAD
-<!-- @version 1.2 -->
-=======
 <!-- @version 5.17 -->
->>>>>>> dev
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1765,11 +1761,7 @@ tr:last-child td{border-bottom:none}
           <input type="text" id="est-cas-obs" class="form-control" placeholder="Ej: Vuelo AA1234">
         </div>
         <div class="mb-3">
-<<<<<<< HEAD
-          <label class="flbl">ETA estimada (opcional)</label>
-=======
           <label class="flbl"><i class="fa fa-plane-arrival" style="margin-right:4px;color:var(--blue)"></i>ETA — llegada estimada (opcional)</label>
->>>>>>> dev
           <input type="date" id="est-cas-eta" class="form-control">
         </div>
         <div class="mb-3">
@@ -2630,13 +2622,6 @@ function renderCASdashboard(lista) {
   var h = '<div style="padding:10px 14px;display:flex;flex-direction:column;gap:10px">';
   lista.forEach(function(c) {
     var paso = ESTADOS_CAS.indexOf(c.estado);
-<<<<<<< HEAD
-    var etaDash = c.eta ? '<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:8px"><i class="fa fa-truck" style="margin-right:2px"></i>ETA: '+c.eta+'</span>' : '';
-    h += '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px">' +
-         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-           '<span style="font-size:12px;font-weight:700;color:var(--blue)">'+c.cas+etaDash+'</span>' +
-           '<span style="font-size:11px;color:var(--tx-m)">'+c.fechaPedido+'</span>' +
-=======
     var etaBadge = c.eta
       ? '<span style="font-size:11px;font-weight:600;color:var(--blue);white-space:nowrap"><i class="fa fa-plane-arrival" style="margin-right:3px"></i>ETA '+c.eta+'</span>'
       : '<span style="font-size:11px;color:var(--tx-m)">'+c.fechaPedido+'</span>';
@@ -2644,7 +2629,6 @@ function renderCASdashboard(lista) {
          '<div style="display:flex;justify-content:space-between;margin-bottom:8px">' +
            '<span style="font-size:12px;font-weight:700;color:var(--blue)">'+c.cas+'</span>' +
            etaBadge +
->>>>>>> dev
          '</div>' + renderTimeline(paso) + '</div>';
   });
   h += '</div>';
@@ -3929,11 +3913,6 @@ function cargarComprasTab() {
             var ultimaAct = c.ultimaActualizacion
               ? '<div class="kban-meta" style="margin-top:2px"><i class="fa fa-edit" style="margin-right:3px;color:var(--tx-d)"></i>Actualizado: ' + c.ultimaActualizacion + '</div>'
               : '';
-<<<<<<< HEAD
-            var etaHtml = c.eta
-              ? '<div class="kban-meta" style="margin-top:2px;color:var(--orange);font-weight:600"><i class="fa fa-truck" style="margin-right:3px"></i>ETA: ' + c.eta + '</div>'
-              : '';
-=======
             var etaHtml = '';
             if (c.eta) {
               var etaLate = false;
@@ -3941,7 +3920,6 @@ function cargarComprasTab() {
               etaHtml = '<div class="kban-meta" style="margin-top:2px;color:' + (etaLate ? 'var(--red)' : 'var(--blue)') + '">' +
                 '<i class="fa fa-plane-arrival" style="margin-right:3px"></i>ETA: ' + c.eta + (etaLate ? ' (vencida)' : '') + '</div>';
             }
->>>>>>> dev
             h += '<div class="kban-card">' +
               '<div class="kban-cas-id" title="' + c.cas + '">' + c.cas + '</div>' +
               '<div class="kban-meta"><i class="fa fa-calendar-alt" style="margin-right:3px"></i>' + c.fechaPedido +
@@ -3951,11 +3929,7 @@ function cargarComprasTab() {
               diasHtml +
               '<div class="kban-actions">' +
                 '<button class="btn-s" style="font-size:10px;padding:2px 7px" onclick=\'verDetalleCAS("' + c.cas + '")\' title="Ver contenido y reservas"><i class="fa fa-list"></i></button>' +
-<<<<<<< HEAD
-                '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '","' + safeEta + '")\'>Avanzar</button>' +
-=======
                 '<button class="btn-s blue" style="font-size:10px;padding:2px 7px" onclick=\'abrirEstadoCAS("' + c.cas + '","' + safeEstado + '","' + (c.etaISO || '') + '")\'>Avanzar</button>' +
->>>>>>> dev
               '</div>' +
             '</div>';
           });
@@ -4333,22 +4307,12 @@ function confirmarCAS() {
     .registrarCAS(cas, pago, op);
 }
 
-<<<<<<< HEAD
-function abrirEstadoCAS(cas, estadoActual, eta) {
-=======
 function abrirEstadoCAS(cas, estadoActual, etaISO) {
->>>>>>> dev
   document.getElementById('est-cas-num').value = cas;
   document.getElementById('est-cas-info').textContent = cas;
   document.getElementById('est-cas-nuevo').value = estadoActual;
   document.getElementById('est-cas-obs').value = '';
-<<<<<<< HEAD
-  var etaInput = '';
-  if (eta) { var ep = eta.split('/'); if (ep.length === 3) etaInput = ep[2]+'-'+ep[1]+'-'+ep[0]; }
-  document.getElementById('est-cas-eta').value = etaInput;
-=======
   document.getElementById('est-cas-eta').value = etaISO || '';
->>>>>>> dev
   document.getElementById('recepcion-wrap').style.display = 'none';
   document.getElementById('recepcion-items').innerHTML = '';
   document.getElementById('est-cas-nuevo').onchange = function() {
@@ -4392,12 +4356,7 @@ function confirmarEstadoCAS() {
       .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
       .recibirMercaderia(cas, items, op, deposito);
   } else {
-<<<<<<< HEAD
-    var etaStr = document.getElementById('est-cas-eta').value;
-    var eta = etaStr ? new Date(etaStr + 'T12:00:00') : null;
-=======
     var eta = document.getElementById('est-cas-eta').value; // 'yyyy-MM-dd' o ''
->>>>>>> dev
     google.script.run
       .withSuccessHandler(function(res) {
         sp(false);
