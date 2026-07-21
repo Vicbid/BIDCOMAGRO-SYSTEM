@@ -93,16 +93,16 @@ if ($changedModules.Count -eq 0) {
 }
 
 $currentBranch = git rev-parse --abbrev-ref HEAD
-if ($currentBranch -ne "dev") {
-    Write-Host "  Cambiando a dev..." -ForegroundColor Yellow
-    git checkout dev
+if ($currentBranch -ne "main") {
+    Write-Host "  Cambiando a main..." -ForegroundColor Yellow
+    git checkout main
 }
 
 git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
 $msg = "deploy: $($changedModules -join ', ')"
 git commit -m $msg
-Write-Host "  Commit en dev: $msg" -ForegroundColor Green
-Write-Host "  (push: git push origin dev)" -ForegroundColor DarkGray
+Write-Host "  Commit en main: $msg" -ForegroundColor Green
+Write-Host "  (push: git push origin main)" -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "--- FIN BETA ---"

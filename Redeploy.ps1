@@ -23,7 +23,7 @@ Write-Host "--- INICIANDO DEPLOY ---"
 $whoami = clasp whoami 2>&1
 Write-Host "  clasp login: $whoami" -ForegroundColor DarkGray
 if ($stable) { Write-Host "  Modo: ESTABLE (commit en main + tag)" -ForegroundColor Magenta }
-else          { Write-Host "  Modo: BETA (commit en dev)" -ForegroundColor Cyan }
+else          { Write-Host "  Modo: BETA (commit en main)" -ForegroundColor Cyan }
 
 $changedModules = @()
 
@@ -126,19 +126,15 @@ $commitMsg  = "${prefix}: ${moduleList}"
 Write-Host ""
 Write-Host "--- GIT ---"
 
-# Determinar rama destino
+# Rama unica: main
 $currentBranch = git rev-parse --abbrev-ref HEAD
+if ($currentBranch -ne "main") {
+    Write-Host "  Cambiando a main..." -ForegroundColor Yellow
+    git checkout main
+}
+git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
 
 if ($stable) {
-    # Asegurar que el commit quede en dev primero, luego merge a main
-    if ($currentBranch -ne "dev") {
-        Write-Host "  Cambiando a dev..." -ForegroundColor Yellow
-        git checkout dev
-    }
-    git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
-    git commit -m $commitMsg
-    Write-Host "  Commit en dev: $commitMsg" -ForegroundColor Green
-
     # Calcular tag si no se paso uno
     if (-not $tag) {
         $lastTag = git describe --tags --abbrev=0 2>$null
@@ -148,25 +144,15 @@ if ($stable) {
             $tag = "v1.1"
         }
     }
-
-    Write-Host "  Mergeando a main con tag $tag..." -ForegroundColor Magenta
-    git checkout main
-    git merge dev --no-ff -m "release: $tag - $moduleList"
+    git commit -m "release: $tag - $moduleList"
     git tag $tag
-    git checkout dev
-    Write-Host "  Release $tag listo en main" -ForegroundColor Green
-    Write-Host "  (pushea con: git push origin main dev --tags)" -ForegroundColor DarkGray
+    Write-Host "  Release $tag listo en main (tag $tag)" -ForegroundColor Green
+    Write-Host "  (pushea con: git push origin main --tags)" -ForegroundColor DarkGray
 
 } else {
-    # Beta: commit directo en dev
-    if ($currentBranch -ne "dev") {
-        Write-Host "  Cambiando a dev..." -ForegroundColor Yellow
-        git checkout dev
-    }
-    git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
     git commit -m $commitMsg
-    Write-Host "  Commit en dev: $commitMsg" -ForegroundColor Green
-    Write-Host "  (pushea con: git push origin dev)" -ForegroundColor DarkGray
+    Write-Host "  Commit en main: $commitMsg" -ForegroundColor Green
+    Write-Host "  (pushea con: git push origin main)" -ForegroundColor DarkGray
 }
 
 Write-Host ""

@@ -94,25 +94,18 @@ if (-not $tag) {
 
 $moduleList = $changedModules -join ", "
 
-# Commit en dev
+# Commit en main + etiqueta de version
 $currentBranch = git rev-parse --abbrev-ref HEAD
-if ($currentBranch -ne "dev") {
-    Write-Host "  Cambiando a dev..." -ForegroundColor Yellow
-    git checkout dev
+if ($currentBranch -ne "main") {
+    Write-Host "  Cambiando a main..." -ForegroundColor Yellow
+    git checkout main
 }
 git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
-git commit -m "release: $moduleList"
-Write-Host "  Commit en dev OK" -ForegroundColor Green
-
-# Merge a main + tag
-Write-Host "  Mergeando a main con tag $tag..." -ForegroundColor Magenta
-git checkout main
-git merge dev --no-ff -m "release: $tag - $moduleList"
+git commit -m "release: $tag - $moduleList"
 git tag $tag
-git checkout dev
 
-Write-Host "  Tag $tag creado en main" -ForegroundColor Green
-Write-Host "  (push: git push origin main dev --tags)" -ForegroundColor DarkGray
+Write-Host "  Release $tag listo en main (tag $tag)" -ForegroundColor Green
+Write-Host "  (push: git push origin main --tags)" -ForegroundColor DarkGray
 
 Write-Host ""
 Write-Host "--- FIN ESTABLE ---"
