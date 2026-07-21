@@ -15,7 +15,7 @@ function Get-ModuleHash {
 }
 
 Write-Host "--- DEPLOY BETA ---" -ForegroundColor Cyan
-$whoami = clasp whoami 2>&1
+$whoami = (clasp show-authorized-user 2>&1 | Select-Object -First 1)
 Write-Host "  clasp login: $whoami" -ForegroundColor DarkGray
 
 $changedModules = @()
