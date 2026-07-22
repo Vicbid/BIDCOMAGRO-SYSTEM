@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.50 -->
+<!-- @version 1.52 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4562,6 +4562,7 @@ var _cotCart      = [];
 var _cotMO        = [];   // líneas de mano de obra
 var _cotMOCatalogo = [];  // catálogo de mano de obra recomendada
 var _cotBusTimer  = null;
+var _cotHistorialItems = {};  // id → itemsJson, para "Repetir presupuesto"
 
 function pedirPinCotizador() {
   if (resellerActual) {
@@ -4668,11 +4669,13 @@ function _cotRenderResultados(items) {
     var it   = items[i];
     var base = _cotBaseDesde40(it.precio || 0);
     var skuE = _escHtml(it.sku), descE = _escHtml(it.descripcion), modE = _escHtml(it.modelos || '');
+    var remplzE = _escHtml(it.reemplazadoPor || '');
     html +=
-      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '">' +
+      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '" data-cot-remplz="' + remplzE + '">' +
         '<div>' +
           '<div class="rep-code">' + skuE + '</div>' +
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
+          (remplzE ? '<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px"><i class="fa fa-arrow-right"></i> Reemplazado por ' + remplzE + '</div>' : '') +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
           (base > 0 ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a;white-space:nowrap">PVP ' + _fmtPedUsd(base) + '</div>' : '') +
@@ -4685,21 +4688,44 @@ function _cotRenderResultados(items) {
   resDiv.onclick = function(e) {
     var row = e.target.closest('[data-cot-sku]');
     if (!row) return;
-    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '');
+    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '', row.dataset.cotRemplz || '');
   };
 }
 
-function _cotAgregarItem(sku, desc, precioLista, modelos) {
+function _cotAgregarItem(sku, desc, precioLista, modelos, reemplazadoPor) {
   var qtyInp = document.getElementById('cot-qty');
   var qty = parseInt(qtyInp.value) || 1; if (qty < 1) qty = 1;
-  for (var i = 0; i < _cotCart.length; i++) {
-    if (sku && _cotCart[i].sku === sku) { _cotCart[i].cantidad += qty; _cotAfterChange(); return; }
+
+  // Auto-sustituir: si el repuesto fue reemplazado, cotizar el nuevo directamente (igual que RS_Pedidos)
+  var remplz = String(reemplazadoPor || '').trim();
+  var skuViejo = '';
+  if (remplz && typeof _pedIndice !== 'undefined' && _pedIndice) {
+    var rUp = remplz.toUpperCase();
+    for (var j = 0; j < _pedIndice.length; j++) {
+      if ((_pedIndice[j][0] || '').toUpperCase() === rUp) {
+        var ni = _pedIndice[j];
+        skuViejo    = sku;
+        sku         = ni[0];
+        desc        = ni[1];
+        modelos     = ni[2];
+        precioLista = _cotBaseDesde40(ni[4] || 0);
+        break;
+      }
+    }
   }
-  _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25 });
+
+  var merged = false;
+  for (var i = 0; i < _cotCart.length; i++) {
+    if (sku && _cotCart[i].sku === sku) { _cotCart[i].cantidad += qty; merged = true; break; }
+  }
+  if (!merged) {
+    _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25 });
+  }
   _cotAfterChange();
   document.getElementById('cot-q').value = '';
   qtyInp.value = 1;
   document.getElementById('cot-results').style.display = 'none';
+  if (skuViejo) toast(skuViejo + ' → ' + sku + ' (reemplazado automaticamente)', 'inf');
 }
 
 function _cotAgregarDesconocido() {
@@ -4861,16 +4887,22 @@ function _cotCargarHistorial() {
         cont.innerHTML = '<div style="font-size:12px;color:var(--tx-d)">Todavía no generaste presupuestos.</div>';
         return;
       }
+      _cotHistorialItems = {};
       var html = '';
       for (var i = 0; i < r.historial.length; i++) {
         var h = r.historial[i];
+        _cotHistorialItems[h.id] = h.itemsJson || '';
+        var idSafe = String(h.id).replace(/'/g, "\\'");
         html +=
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">' +
             '<div style="min-width:0">' +
               '<div style="font-size:12px;font-weight:700;color:var(--tx)">' + _escHtml(h.id) + ' · ' + _escHtml(h.cliente || '—') + '</div>' +
               '<div style="font-size:10px;color:var(--tx-d)">' + _escHtml(h.fecha) + ' · ' + h.cantItems + ' ítem(s) · ' + _fmtPedUsd(h.totalUsd) + '</div>' +
             '</div>' +
-            (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="flex-shrink:0;font-size:11px;color:#3a9e3a;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
+            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+              (h.itemsJson ? '<button onclick="_cotRepetirCotizacion(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-a);border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-rotate-right"></i> Repetir</button>' : '') +
+              (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="font-size:11px;color:#3a9e3a;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
+            '</div>' +
           '</div>';
       }
       cont.innerHTML = html;
@@ -4879,6 +4911,57 @@ function _cotCargarHistorial() {
       cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Error al cargar.</div>';
     })
     .obtenerHistorialCotizaciones(resellerActual);
+}
+
+// Repetir un presupuesto del historial: recarga sus repuestos (mergeando cantidades)
+// y su mano de obra al carrito actual — igual que "Repetir pedido" en RS_Pedidos.
+function _cotRepetirCotizacion(id) {
+  var itemsJson = _cotHistorialItems[id];
+  if (!itemsJson) { toast('No se pudo cargar el presupuesto', 'err'); return; }
+  var data;
+  try { data = JSON.parse(itemsJson); } catch(e) { toast('Error al leer el presupuesto', 'err'); return; }
+  var repuestos = (data && data.repuestos) ? data.repuestos : [];
+  var manoObra  = (data && data.manoObra)  ? data.manoObra  : [];
+  if (!repuestos.length && !manoObra.length) { toast('El presupuesto no tiene ítems', 'err'); return; }
+
+  var added = 0;
+  for (var i = 0; i < repuestos.length; i++) {
+    var it = repuestos[i] || {};
+    var found = false;
+    for (var j = 0; j < _cotCart.length; j++) {
+      if (_cotCart[j].sku && it.sku && _cotCart[j].sku === it.sku && _cotCart[j].descripcion === it.descripcion) {
+        _cotCart[j].cantidad += (Number(it.cantidad) || 1);
+        found = true; break;
+      }
+    }
+    if (!found) {
+      var desc = Number(it.descuento); if (isNaN(desc)) desc = 25;
+      var precioLista = Number(it.precioLista) || 0;
+      // Precio actual del catálogo si el SKU sigue vigente (así el carrito coincide con el PDF final)
+      if (it.sku && typeof _pedIndice !== 'undefined' && _pedIndice) {
+        var skuUp = String(it.sku).toUpperCase();
+        for (var ri = 0; ri < _pedIndice.length; ri++) {
+          if ((_pedIndice[ri][0] || '').toUpperCase() === skuUp) { precioLista = _cotBaseDesde40(_pedIndice[ri][4] || 0); break; }
+        }
+      }
+      _cotCart.push({ sku: it.sku || '', descripcion: it.descripcion || '', modelos: it.modelos || '', cantidad: Number(it.cantidad) || 1, precioLista: precioLista, descuento: desc });
+    }
+    added++;
+  }
+  // Mano de obra: el cotizador maneja una línea por presupuesto → se reproduce la del historial
+  if (manoObra.length) {
+    _cotMO = [];
+    for (var m = 0; m < manoObra.length; m++) {
+      var mo = manoObra[m] || {};
+      _cotMO.push({ codigo: mo.codigo || '', descripcion: mo.descripcion || mo.codigo || '', precio: Number(mo.precio) || 0, cantidad: 1 });
+      added++;
+    }
+  }
+
+  _cotAfterChange();
+  toast(added + ' ítem(s) cargados del presupuesto ' + id, 'ok');
+  var card = document.getElementById('cot-cart-card');
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function _pedMostrarMain() {

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.7
+// @version 1.8
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -496,6 +496,7 @@ function obtenerHistorialCotizaciones(reseller) {
                      : String(fecha || ''),
         cliente:   String(f[4] || '').trim(),
         cantItems: Number(f[6]) || 0,
+        itemsJson: String(f[7] || ''),   // col 8: { repuestos:[...], manoObra:[...] } — para "Repetir"
         totalUsd:  Number(f[8]) || 0,
         pdfUrl:    String(f[9] || '').trim(),
         obs:       String(f[10] || '').trim()
