@@ -1,4 +1,4 @@
-<!-- @version 3.30 -->
+<!-- @version 3.32 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2213,7 +2213,8 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
   }
   if (est === 'En_Espera_Reseller') {
-    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés despachar lo disponible ahora o registrar su respuesta si ya contestó.</div>';
+    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés preparar (N° de serie + peso) y despachar lo disponible ahora, sin esperar su respuesta; o registrar su respuesta si ya contestó.</div>';
+    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar lo disponible</button>';
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Despachar lo disponible</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>';
   }
@@ -2409,6 +2410,7 @@ function abrirModalPreparar(numero, parcial) {
       var it0 = ped.items[si];
       if (it0.cantPend <= 0) continue;
       if (it0.estado === 'Cancelado') continue; // faltante cancelado (Opción B): no es pendiente aunque col G no se haya actualizado
+      if (it0.estado === 'En_Espera_Reseller') continue; // faltante esperando la decisión del reseller: se prepara solo lo disponible, no bloquea
       if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
         sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
       }
@@ -2432,6 +2434,7 @@ function abrirModalPreparar(numero, parcial) {
     var it = ped.items[i];
     if (it.cantPend <= 0) continue;
     if (it.estado === 'Cancelado') continue; // no serializar líneas canceladas (faltante Opción B)
+    if (it.estado === 'En_Espera_Reseller') continue; // faltante esperando al reseller: solo se prepara lo disponible
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
     // En parcial, saltear ítems sin stock (quedan en backorder). En normal, incluir todo.
     if (parcial && stk !== null && stk <= 0) continue;
@@ -3192,6 +3195,7 @@ function abrirModalDespacho(numero) {
     var esCancelado = it.estado === 'Cancelado';
     var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
     var esBackorder = it.estado === 'Backorder';
+    var esEnEspera  = it.estado === 'En_Espera_Reseller';   // faltante esperando la decisión del reseller
 
     if (!esCancelado) {
       _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku });
@@ -3229,6 +3233,27 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaBack + '</div>' +
+          '</div>' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+        '</div>' +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
+        '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
+      '</div>';
+    } else if (esEnEspera) {
+      // Ítem faltante en espera de la respuesta del reseller: por defecto NO se despacha ahora (0),
+      // así "Despachar lo disponible" manda solo lo que sí hay. El ítem queda esperando la decisión
+      // A/B del reseller. Editable por si el operador consiguió stock y decide mandarlo igual.
+      var metaEsp = 'Sol.: <strong>' + it.cantSol + '</strong>' +
+        (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
+        ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>' +
+        ' \xa0<span style="color:var(--purple-m);font-weight:700;font-size:10px">⏳ EN ESPERA DEL RESELLER — faltante, no se despacha ahora</span>';
+      html += '<div class="modal-item-row" style="border-left:3px solid var(--purple-m);flex-direction:column;align-items:stretch;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          '<div class="modal-item-info">' +
+            '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+            '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+            '<div class="modal-item-sol">' + metaEsp + '</div>' +
           '</div>' +
           '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
