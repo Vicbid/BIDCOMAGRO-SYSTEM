@@ -1,4 +1,4 @@
-<!-- @version 3.34 -->
+<!-- @version 3.35 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2434,13 +2434,16 @@ function abrirModalPreparar(numero, parcial) {
     var it = ped.items[i];
     if (it.cantPend <= 0) continue;
     if (it.estado === 'Cancelado') continue; // no serializar líneas canceladas (faltante Opción B)
-    if (it.estado === 'En_Espera_Reseller') continue; // faltante esperando al reseller: solo se prepara lo disponible
+    // Faltante esperando al reseller: se prepara SOLO lo disponible (como parcial), sin bloquear; la
+    // línea sigue En_Espera hasta que el reseller decida (el backend no la saca de En_Espera al preparar).
+    var esEnEsperaIt = it.estado === 'En_Espera_Reseller';
+    var itParcial = parcial || esEnEsperaIt;
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
-    // En parcial, saltear ítems sin stock (quedan en backorder). En normal, incluir todo.
-    if (parcial && stk !== null && stk <= 0) continue;
+    // En parcial / en espera, saltear ítems sin stock (quedan en backorder / siguen esperando). En normal, incluir todo.
+    if (itParcial && stk !== null && stk <= 0) continue;
     var qMax = (stk === null) ? it.cantPend : Math.min(it.cantPend, stk);
     if (qMax <= 0) continue;
-    var qty = parcial ? qMax : it.cantPend;   // en normal siempre cantPend
+    var qty = itParcial ? qMax : it.cantPend;   // en normal siempre cantPend; parcial/espera = disponible
     hayItems = true;
     var prev = String(it.seriales || '').split(',');
     // ¿Este SKU se prepara por bolsa? Pre-marcar desde el maestro, o si el manifiesto previo ya trae bolsas ("SO x50").
@@ -2453,7 +2456,7 @@ function abrirModalPreparar(numero, parcial) {
     var _bulto = (_mEntry && _mEntry.bulto) ? _mEntry.bulto : 0;
     _modalPrep.items.push({
       row: it.row, sku: it.sku, desc: it.desc || '', cantPend: it.cantPend,
-      qtyPrep: qty, target: qty, qMax: qMax, parcial: parcial,
+      qtyPrep: qty, target: qty, qMax: qMax, parcial: itParcial,
       prevSers: prev, prevBags: _prevBags, mode: _mode, bulto: _bulto, bagsSeeded: false
     });
     html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
@@ -2461,7 +2464,7 @@ function abrirModalPreparar(numero, parcial) {
         '<div style="min-width:0"><span class="modal-item-sku">' + escH(it.sku) + '</span> ' +
           '<span style="font-size:11px;color:var(--tx-d)">' + escH(it.desc || '') + '</span></div>' +
         '<div id="prep-qtybox-' + it.row + '" style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
-          (parcial
+          (itParcial
             ? '<span style="font-size:11px;font-weight:700;color:var(--tx)">Preparar</span>' +
               '<input type="number" id="prep-qty-' + it.row + '" min="1" max="' + qMax + '" value="' + qty + '" ' +
                 'oninput="_prepQtyChange(' + it.row + ')" ' +

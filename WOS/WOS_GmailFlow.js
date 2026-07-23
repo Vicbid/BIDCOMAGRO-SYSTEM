@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.17
+// @version 2.18
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1365,9 +1365,16 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         var cantSolSf   = Number(ped.datos[sf][COL.CANT_SOL])  || 0;
         var oldDespSf   = Number(ped.datos[sf][COL.CANT_DESP]) || 0;
         var cantFinalSf = oldDespSf + dispNowSf;
+        var estPrevSf   = String(ped.datos[sf][COL.ESTADO] || '').trim();
         var rSf = ped.hoja.getRange(sf + 1, COL.ESTADO + 1);
         rSf.clearDataValidations();
-        rSf.setValue(cantFinalSf >= cantSolSf ? estadoDesp : EST.BACKORDER);
+        // Si queda pendiente y la línea estaba En_Espera_Reseller (faltante esperando la decisión del
+        // reseller), se MANTIENE En_Espera aunque despachemos lo disponible ahora — así la respuesta
+        // A/B (que filtra por En_Espera) todavía la resuelve. Antes pasaba a Backorder y la Opción B
+        // (cancelar) ya no la alcanzaba → el faltante quedaba en backorder en vez de cancelarse.
+        var _estFinalSf = (cantFinalSf >= cantSolSf) ? estadoDesp
+                        : (estPrevSf === EST.EN_ESPERA ? EST.EN_ESPERA : EST.BACKORDER);
+        rSf.setValue(_estFinalSf);
         ped.hoja.getRange(sf + 1, COL.FECHA_ESTADO + 1).setValue(ahora2);
       } else {
         // Ítem no despachado: si estaba Preparado/Parcial y nunca tuvo despacho previo → volver a Backorder

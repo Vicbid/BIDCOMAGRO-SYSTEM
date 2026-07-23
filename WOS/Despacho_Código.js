@@ -1,4 +1,4 @@
-// @version 3.11
+// @version 3.12
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -651,7 +651,11 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
       var _cantDesp   = Number(datos[i][COL.CANT_DESP])   || 0;
       var _cantCancel = Number(datos[i][COL.CANT_CANCEL]) || 0;
       var _cantPend   = _cantSol - _cantDesp - _cantCancel;
-      var _estNuevo = (qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL;
+      // Si la línea está En_Espera_Reseller (faltante esperando al reseller), preparar lo disponible
+      // NO la saca de En_Espera: se registran SN + peso pero el estado se mantiene para que la respuesta
+      // A/B del reseller la siga resolviendo. Resto: Preparado / Preparado Parcial según lo preparado.
+      var _estNuevo = (estActual === EST.EN_ESPERA) ? EST.EN_ESPERA
+                    : ((qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL);
       hoja.getRange(fila, COL.ESTADO       + 1).setValue(_estNuevo);
       hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
       if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
