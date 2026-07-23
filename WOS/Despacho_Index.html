@@ -1,4 +1,4 @@
-<!-- @version 3.32 -->
+<!-- @version 3.33 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2828,9 +2828,20 @@ function _prepKey(e, inp) {
 }
 
 // ── MODO ESCANEO (pistola QR + cámara) ────────────────────────
+// La pistola con layout de teclado no coincidente mapea el '-' de los códigos SO a "'"
+// (ej. escanea "SO'YC.ST.LL000750'000003" en vez de "SO-YC.ST.LL000750-000003"). El fix
+// de fondo es la config del lector; esto es la red de seguridad: SOLO en códigos SO
+// (SO-<SKU>-NNN, mayúsculas y guiones) revertimos apóstrofo→guion y normalizamos la caja.
+// Los N° de serie reales (DJI: alfanuméricos, sin guiones) NO se tocan para no corromperlos.
+function _normSO(code) {
+  code = String(code || '').trim();
+  if (/^SO['\-]/i.test(code)) code = code.replace(/'/g, '-').toUpperCase();
+  return code;
+}
+
 // Carga un código en la PRÓXIMA unidad vacía. Bloquea duplicados.
 function _prepFeed(code) {
-  code = String(code || '').trim();
+  code = _normSO(code);
   var msg = document.getElementById('prep-scan-msg');
   if (!code) return false;
   var inputs = document.querySelectorAll('#modal-prep .prep-ser');
