@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.22
+// @version 2.23
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -928,6 +928,30 @@ function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
   return null;
 }
 
+// Unicidad de N° de serie: no puede haber DOS casos ABIERTOS con el mismo S/N.
+// Cubre también los casos abiertos desde el Portal Reseller, porque ambos sistemas
+// escriben en la MISMA hoja 'Ordenes de trabajo'. "Abierto" = estado NO cerrado
+// (usa _esCerrada, misma definición que el front y que el resto del HUB), así una OT
+// ya cerrada (Finalizado/Entregado/CANCELADO/Rechazado DJI/Sin respuesta·Cerrado) no
+// bloquea abrir un caso nuevo para el mismo equipo. S/N vacío se ignora. Lee del sheet
+// (force). otExcluir = nº de OT a saltear (para no chocar consigo misma).
+// Devuelve { sn, ot, estado } del primer conflicto, o null.
+function _otBuscarSnAbierto(sn, otExcluir) {
+  var snN = String(sn == null ? "" : sn).trim().toUpperCase();
+  if (!snN) return null;
+  var O = SCHEMA.OT;
+  var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+  var excl  = String(otExcluir || "").trim();
+  for (var i = 1; i < datos.length; i++) {
+    var otRow = String(datos[i][O.OT] || "").trim();
+    if (!otRow || (excl && otRow === excl)) continue;
+    if (String(datos[i][O.SN] || "").trim().toUpperCase() !== snN) continue;
+    var estadoFila = String(datos[i][O.ESTADO] || "").trim();
+    if (!_esCerrada(estadoFila)) return { sn: snN, ot: otRow, estado: estadoFila };
+  }
+  return null;
+}
+
 function crearNuevaOT(datos) {
   datos = datos || {};
   var lock = LockService.getScriptLock();
@@ -938,6 +962,11 @@ function crearNuevaOT(datos) {
     // Unicidad: no permitir dos OTs con el mismo CAS o FWRC (con el lock tomado → sin carreras).
     var _dup = _otBuscarDuplicadoCasFwrc(datos.cas, datos.fwrc, null);
     if (_dup) return { resultado: "Error: El " + _dup.campo + " " + _dup.valor + " ya está usado en la orden " + _dup.ot + ".", ot: "", duplicado: _dup };
+
+    // Unicidad: no puede haber dos casos ABIERTOS con el mismo N° de serie (incluye los
+    // abiertos desde el Portal Reseller, misma hoja). Solo bloquea contra OTs no cerradas.
+    var _dupSn = _otBuscarSnAbierto(datos.sn, null);
+    if (_dupSn) return { resultado: "Error: Ya existe la orden " + _dupSn.ot + " abierta (" + _dupSn.estado + ") con el N° de serie " + _dupSn.sn + ". No puede haber dos casos abiertos para el mismo equipo.", ot: "", duplicado: _dupSn };
 
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var num  = String(hoja.getLastRow() + 1);

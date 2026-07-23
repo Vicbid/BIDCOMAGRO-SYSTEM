@@ -1,7 +1,7 @@
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.9
+// @version 1.10
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -13,10 +13,16 @@ function enviarCasoAlHub(data) {
     var ss   = SpreadsheetApp.openById(MASTER_SHEET_ID);
     var hoja = ss.getSheetByName("Ordenes de trabajo");
 
-    // Verificar duplicado S/N antes de crear
+    // Verificar duplicado S/N antes de crear.
+    // Mismo criterio de "cerrada" que HUB PRO (_esCerrada / _ESTADOS_CERRADOS): una OT en
+    // cualquiera de estos estados NO bloquea abrir un caso nuevo para el mismo equipo. Debe
+    // quedar sincronizado con HUB_Código.js para que Portal y HUB decidan idéntico.
     var snNorm = String(data.sn || '').trim().toUpperCase();
     if (snNorm) {
-      var ESTADOS_TERMINAL = { 'Finalizado': true, 'Entregado': true, 'CANCELADO': true };
+      var ESTADOS_TERMINAL = {
+        'Finalizado': true, 'Entregado': true, 'CANCELADO': true,
+        'Rechazado DJI': true, 'Sin respuesta · Cerrado': true
+      };
       var datosOT = hoja.getDataRange().getValues();
       for (var di = 1; di < datosOT.length; di++) {
         var snFila    = String(datosOT[di][SCHEMA.OT.SN]    || '').trim().toUpperCase();
