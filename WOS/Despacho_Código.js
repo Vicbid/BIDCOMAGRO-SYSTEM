@@ -1,4 +1,4 @@
-// @version 3.12
+// @version 3.13
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -438,11 +438,14 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
         var canPlain = 'Hola ' + canReseller + ',\n\nTu pedido ' + numero + ' fue cancelado.' +
           (canObs ? '\nMotivo: ' + canObs : '') + '\n\nConsultas: ' + _wosConfig().emailSoporte;
         try {
-          GmailApp.getThreadById(canThreadId).replyAll(canPlain, {
+          // Reply al hilo apuntando a los destinatarios ORIGINALES (no a una conversación aparte),
+          // garantizando que el reseller reciba la cancelación.
+          var _canOk = _wosReplyHiloOriginal(canThreadId, canPlain, {
             htmlBody: canHtml,
             name:     'BIDCOMAGRO · Portal Resellers',
             replyTo:  _wosConfig().emailSoporte
-          });
+          }, [_wosGetEmailReseller(canReseller)]);
+          if (!_canOk) _enviarEmailEstado(numero, canReseller, canObs);
         } catch(eReply) {
           Logger.log('WOS_cambiarEstado cancelacion reply error: ' + eReply);
           _enviarEmailEstado(numero, canReseller, canObs);
@@ -802,11 +805,16 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
             "</p>" +
             _wosPortalFoot('Pedido ' + numero + ' · ' + reseller + '.');
           var plain = 'Hola ' + reseller + ',\n\nEl stock de ' + skuUp + ' llegó y estamos preparando tu pedido ' + numero + ' para el despacho. Te avisaremos cuando sea enviado.';
-          GmailApp.getThreadById(threadId).replyAll(plain, {
+          // Reply al hilo apuntando a los destinatarios ORIGINALES (no a una conversación aparte).
+          var _notifOk = _wosReplyHiloOriginal(threadId, plain, {
             htmlBody: html,
             name:     'BIDCOMAGRO · Portal Resellers',
             replyTo:  _wosConfig().emailSoporte
-          });
+          }, [_wosGetEmailReseller(reseller)]);
+          if (!_notifOk) {
+            var _emNotif = _wosGetEmailReseller(reseller);
+            if (_emNotif) GmailApp.sendEmail(_emNotif, 'Stock disponible — Pedido ' + numero, plain, { htmlBody: html, name: 'BIDCOMAGRO · Portal Resellers', replyTo: _wosConfig().emailSoporte });
+          }
         } catch(eN) { Logger.log('WOS_recibirMercaderia notif [' + numero + ']: ' + eN); }
       }
       reactivados.push(numero);

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.18
+// @version 2.19
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -157,6 +157,35 @@ function _wosSetEstadoPorSku(hoja, datos, numero, skuFaltSet, estFalt, estDisp) 
     rEst.setValue(nuevoEst);
     hoja.getRange(i + 1, COL.FECHA_ESTADO + 1).setValue(ahora);
   }
+}
+
+// Responde DENTRO del hilo pero apuntando a los destinatarios ORIGINALES del pedido, no a quien
+// haya quedado en el ÚLTIMO mensaje. Problema que resuelve: thread.replyAll() responde al último
+// mensaje del hilo; si alguien tuvo una conversación aparte con el reseller, el 2º envío / mail de
+// administración / confirmación le llegaba a ESA gente y NO al reseller/facturación originales.
+// Solución: (1) respondemos al PRIMER mensaje (getMessages()[0] → destinatarios originales del hilo),
+// (2) forzamos en CC los que SÍ o SÍ deben recibir (reseller + los que pase el caller), sin duplicar,
+// así reciben aunque el primer mensaje no los tuviera. Devuelve true si respondió en el hilo, false
+// si no hay hilo/mensajes (el caller hace el fallback con sendEmail explícito).
+function _wosReplyHiloOriginal(threadId, plainBody, opts, mustCc) {
+  var thread = GmailApp.getThreadById(String(threadId || '').trim());
+  if (!thread) return false;
+  var msgs = thread.getMessages();
+  if (!msgs || !msgs.length) return false;
+  var seen = {}, ccList = [];
+  function _addCc(v) {
+    String(v || '').split(',').forEach(function(x) {
+      x = x.trim(); var key = x.toLowerCase();
+      if (x && !seen[key]) { seen[key] = true; ccList.push(x); }
+    });
+  }
+  _addCc(opts && opts.cc);
+  (mustCc || []).forEach(_addCc);
+  var o = {};
+  for (var k in opts) if (opts.hasOwnProperty(k)) o[k] = opts[k];
+  if (ccList.length) o.cc = ccList.join(',');
+  msgs[0].replyAll(plainBody, o);   // primer mensaje = destinatarios originales, ignora conversaciones aparte
+  return true;
 }
 
 // Lookup de metadata del reseller desde hoja master
@@ -1342,13 +1371,19 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     };
     if (pdfBlob) replyOpts.attachments = [pdfBlob];
     try {
-      var despThread = GmailApp.getThreadById(ped.threadId);
-      despThread.replyAll(plainCombinado, replyOpts);
+      // Responder al hilo apuntando a los destinatarios ORIGINALES (no a quien haya quedado en el
+      // último mensaje si hubo una conversación aparte), garantizando reseller + facturación en CC.
+      var _repOk = _wosReplyHiloOriginal(ped.threadId, plainCombinado, replyOpts, [email, EMAIL_FACTURACION]);
+      if (!_repOk) {
+        // Sin email de cliente (externo) → al menos facturación recibe la sección administrativa.
+        var _destFallback = email || EMAIL_FACTURACION;
+        Logger.log('WOS_despacharCompleto: hilo no disponible (' + ped.threadId + '), enviando email nuevo → ' + _destFallback);
+        GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
+      }
     } catch(eThread) {
-      // Sin email de cliente (externo) → al menos facturación recibe la sección administrativa.
       var _destFallback = email || EMAIL_FACTURACION;
-      Logger.log('WOS_despacharCompleto: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + _destFallback);
-      GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
+      Logger.log('WOS_despacharCompleto reply hilo error (' + ped.threadId + '): ' + eThread + ' → email nuevo a ' + _destFallback);
+      try { GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts); } catch(eSE) { Logger.log('WOS_despacharCompleto fallback sendEmail: ' + eSE); }
     }
 
     // ── Estado final por ítem ────────────────────────────────────
@@ -1569,15 +1604,24 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       replyTo:  EMAIL_SOPORTE
     };
     try {
-      var faltThread = GmailApp.getThreadById(ped.threadId);
-      faltThread.replyAll(plainBody, faltOpts);
+      // Responder al hilo apuntando a los destinatarios ORIGINALES (no a una conversación aparte),
+      // garantizando que el reseller reciba la pregunta Opción A/B.
+      var _faltOk = _wosReplyHiloOriginal(ped.threadId, plainBody, faltOpts, [email]);
+      if (!_faltOk) {
+        // Sin email (cliente externo) y sin hilo → no hay a quién preguntar Opción A/B; se omite el envío.
+        if (email) {
+          Logger.log('WOS_notificarFaltante: hilo no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
+          GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+        } else {
+          Logger.log('WOS_notificarFaltante: hilo no disponible y sin email (cliente externo) → se omite el aviso; los estados igual cambian');
+        }
+      }
     } catch(eThread) {
-      // Sin email (cliente externo) y sin hilo → no hay a quién preguntar Opción A/B; se omite el envío.
       if (email) {
-        Logger.log('WOS_notificarFaltante: thread no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
-        GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+        Logger.log('WOS_notificarFaltante reply hilo error (' + ped.threadId + '): ' + eThread + ' → email nuevo → ' + email);
+        try { GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts); } catch(eSE) { Logger.log('WOS_notificarFaltante fallback: ' + eSE); }
       } else {
-        Logger.log('WOS_notificarFaltante: thread no disponible y sin email (cliente externo) → se omite el aviso; los estados igual cambian');
+        Logger.log('WOS_notificarFaltante: sin hilo y sin email (cliente externo) → se omite el aviso');
       }
     }
 
