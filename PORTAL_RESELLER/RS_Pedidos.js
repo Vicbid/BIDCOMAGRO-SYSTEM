@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.6
+// @version 2.7
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -873,9 +873,13 @@ function RS_confirmarRecepcion(numero, reseller) {
         actualizados++;
       }
     }
-    // Nada entregado para cerrar → no hay confirmación válida, no se manda mail
-    if (actualizados === 0) return { ok: true, actualizados: 0 };
+    // 2b. Marcar la confirmación en la hoja PROPIA del Portal (AUTORITATIVA): el historial la respeta
+    //     aunque el cruce con WOS cambie/falle → el botón "Confirmar recepción" no reaparece.
+    try { _rsMarcarPedidoConfirmado(numero); } catch(ePP) { Logger.log('RS_confirmarRecepcion mark portal: ' + ePP); }
     SpreadsheetApp.flush();
+
+    // Nada entregado para cerrar en WOS → igual quedó marcado en el Portal; no se manda mail de cierre
+    if (actualizados === 0) return { ok: true, actualizados: 0 };
 
     // 3. Mail de cierre — UNA sola vez (protegido por lock + guarda de arriba)
     try { _rsEnviarCierreRecepcion(numero, reseller, threadId); }
@@ -893,6 +897,24 @@ function RS_confirmarRecepcion(numero, reseller) {
   } finally {
     try { lock.releaseLock(); } catch(eF) {}
   }
+}
+
+// Marca el pedido como confirmado por el reseller en la hoja PROPIA del Portal (PEDIDOS_REPUESTOS),
+// de forma AUTORITATIVA. El historial (obtenerHistorialPedidosPortal) respeta este estado por encima
+// del cruce con WOS, así el botón "Confirmar recepción" no reaparece aunque el estado en WOS cambie o
+// el cruce falle. Idempotente. Una fila por pedido en PEDIDOS_REPUESTOS.
+function _rsMarcarPedidoConfirmado(numero) {
+  var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+  if (!hojaPed) return;
+  var P     = SCHEMA.PEDIDOS_REPUESTOS;
+  var datos = hojaPed.getDataRange().getValues();
+  var num   = String(numero || '').trim();
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][P.ID] || '').trim() !== num) continue;
+    hojaPed.getRange(i + 1, P.ESTADO + 1).setValue('Entregado_Confirmado');
+    break;
+  }
+  invalidateSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
 }
 
 // Mail "pedido cerrado" al reseller. Responde en el hilo del pedido si existe; si no, mail directo.
@@ -988,6 +1010,9 @@ function obtenerHistorialPedidosPortal(reseller) {
 
         // Calcular estado simple + datos de despacho por pedido
         for (var k = 0; k < out.length; k++) {
+          // Confirmación del reseller registrada en la hoja PROPIA del pedido = AUTORITATIVA: gana sobre
+          // lo que diga WOS, así el botón "Confirmar recepción" NO reaparece aunque el cruce con WOS cambie.
+          if (out[k].estado === 'Entregado_Confirmado') { out[k].estadoSimple = 'recibido'; continue; }
           var ws = wosEstados[out[k].id];
           if (!ws || !ws.total) {
             // Fallback: usar el estado de la hoja propia del portal

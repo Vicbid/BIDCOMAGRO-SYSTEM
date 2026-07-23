@@ -1,7 +1,7 @@
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.8
+// @version 1.9
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -658,6 +658,7 @@ function confirmarRecepcionRepuestos(ot, sn) {
         return { ok: false, msg: "El estado actual no es 'Repuestos enviados'." };
       }
       ref.hoja.getRange(i + 1, 5).setValue("En reparacion");
+      invalidateSheetValues(SCHEMA.SHEETS.OT);   // sin esto el cache (getSheetValues, TTL 60s) sigue devolviendo "Repuestos enviados" y el botón reaparece por ~1 min
       return { ok: true };
     }
     return { ok: false, msg: "OT no encontrada." };
