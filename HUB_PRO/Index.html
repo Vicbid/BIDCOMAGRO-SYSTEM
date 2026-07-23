@@ -1,4 +1,4 @@
-<!-- @version 2.13 -->
+<!-- @version 2.14 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -269,7 +269,7 @@ td:first-child{padding-left:20px}
 .form-control:focus,.form-select:focus{outline:none!important;border-color:var(--blue)!important;box-shadow:0 0 0 2px var(--blue-a)!important;background:var(--raise)!important}
 .form-control::placeholder{color:var(--tx-d)!important}
 .form-select option{background:var(--surf)}
-#f-cas,#f-fwrc{color:var(--blue)!important;font-weight:600!important}
+#f-cas{color:var(--blue)!important;font-weight:600!important}
 textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
 .eq-drop-item{padding:8px 12px;font-size:12px;cursor:pointer;color:var(--tx,#333);border-bottom:1px solid var(--brd,#eee)}
 .eq-drop-item:last-child{border-bottom:none}
@@ -689,16 +689,10 @@ body.compact tbody td{padding:6px 14px!important}
           <label class="flbl">Descripción de falla <span style="color:var(--red)">*</span></label>
           <textarea id="nev-falla" class="form-control" rows="3" placeholder="Describir el problema reportado por el cliente…" style="font-size:13px;resize:vertical"></textarea>
         </div>
-        <!-- CAS / FWRC (opcionales, únicos) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label class="flbl">CAS <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-            <input type="text" id="nev-cas" class="form-control" placeholder="Nº de caso CAS" autocomplete="off" style="font-size:13px">
-          </div>
-          <div>
-            <label class="flbl">FWRC <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-            <input type="text" id="nev-fwrc" class="form-control" placeholder="Nº de caso FWRC" autocomplete="off" style="font-size:13px">
-          </div>
+        <!-- CAS / FWRC — un solo caso DJI (es CAS o FWRC, nunca los dos a la vez) -->
+        <div>
+          <label class="flbl">CAS / FWRC <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+          <input type="text" id="nev-cas" class="form-control" placeholder="Nº de caso DJI (CAS o FWRC)" autocomplete="off" style="font-size:13px">
         </div>
         <!-- Técnico + Prioridad -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1134,12 +1128,8 @@ body.compact tbody td{padding:6px 14px!important}
             <input type="text" id="f-sn" class="form-control" placeholder="Serial number" oninput="markDirty()">
           </div>
           <div class="col-md-3">
-            <label class="flbl">CAS</label>
-            <input type="text" id="f-cas" class="form-control" placeholder="Nº de caso CAS" oninput="markDirty()">
-          </div>
-          <div class="col-md-3">
-            <label class="flbl">FWRC</label>
-            <input type="text" id="f-fwrc" class="form-control" placeholder="Nº de caso FWRC" oninput="markDirty()">
+            <label class="flbl">CAS / FWRC</label>
+            <input type="text" id="f-cas" class="form-control" placeholder="Nº de caso DJI (CAS o FWRC)" oninput="markDirty()">
           </div>
 
           <!-- Fecha de activación col N — editable desde el HUB -->
@@ -2097,7 +2087,7 @@ function navEquipoDrop(e) {
 
 // ── LIMPIEZA DE FORMULARIO ────────────────────────────────────
 function limpiarFormulario() {
-  var ids = ['f-cas','f-fwrc','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -2176,8 +2166,7 @@ function abrir(c){
 
   // 4. Inyección limpia de campos (Una sola vez)
   document.getElementById('f-ot').textContent  = actual.ot;
-  document.getElementById('f-cas').value       = actual.cas;
-  document.getElementById('f-fwrc').value      = actual.fwrc || '';
+  document.getElementById('f-cas').value       = actual.cas || actual.fwrc || '';   // FWRC (col P) es legado: si un caso viejo solo lo tenía, se muestra en el campo unificado
   document.getElementById('f-equi').value      = actual.equipo;
   document.getElementById('f-sn').value        = actual.sn;
   renderResellerSelect(actual.reseller);
@@ -2574,7 +2563,7 @@ function selR(inp,cod,desc){
 
 // ── RESET PARCIAL — limpia inputs antes de disparar google.script.run ──
 function resetUIPartial() {
-  var ids = ['f-cas','f-fwrc','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -2607,7 +2596,6 @@ function guardar(){
     ot:                 actual.ot,
     tecnico:            tec,
     cas:                document.getElementById('f-cas').value,
-    fwrc:               document.getElementById('f-fwrc').value,
     garantia:           document.getElementById('f-gar').value,
     estado:             estadoAct,
     equipo:             _eq,
@@ -2714,7 +2702,6 @@ function crearCaso() {
   document.getElementById('nev-falla').value = '';
   document.getElementById('nev-fecha-act').value = '';
   document.getElementById('nev-cas').value = '';
-  document.getElementById('nev-fwrc').value = '';
   _nevSetGar('IW');
   _nevSetCirc('Taller');
   _nevSetPrio('NORMAL');
@@ -2820,7 +2807,6 @@ function confirmarNuevaOT() {
   var fechaAct = document.getElementById('nev-fecha-act').value;
   var tecnico  = document.getElementById('nev-tec').value;
   var cas      = document.getElementById('nev-cas').value.trim();
-  var fwrc     = document.getElementById('nev-fwrc').value.trim();
 
   if (!reseller) { toast('Seleccioná un reseller.', 'err'); return; }
   if (!equipo)   { toast('Ingresá el modelo del equipo.', 'err'); return; }
@@ -2838,8 +2824,7 @@ function confirmarNuevaOT() {
     trabajo:  falla,
     fechaActivacion: fechaAct,
     prioridad: _nevPrio,
-    cas:      cas,
-    fwrc:     fwrc
+    cas:      cas
   };
 
   bootstrap.Modal.getInstance(document.getElementById('modal-nueva-ot')).hide();

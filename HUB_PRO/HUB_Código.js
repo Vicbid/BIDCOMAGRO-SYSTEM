@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.21
+// @version 2.22
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -907,9 +907,10 @@ function _normCasFwrc(v) {
 
 // Unicidad de CAS / FWRC: devuelve { campo, valor, ot } del primer conflicto, o null.
 // cas/fwrc vacíos se ignoran (son opcionales). otExcluir = nº de OT a saltear (al editar,
-// para no chocar consigo misma). CAS se compara contra la columna CAS y FWRC contra la
-// columna FWRC (mismo tipo), normalizados (sin guiones/espacios, case-insensitive). Lee del
-// sheet (force), no del cache.
+// para no chocar consigo misma). Como ahora CAS/FWRC es UN solo caso DJI (uno u otro), el
+// valor se compara contra AMBAS columnas (CAS col O y FWRC col P) de las demás OTs, así no
+// puede colisionar ni con un CAS ni con un FWRC viejo. Normalizado (sin guiones/espacios,
+// case-insensitive). Lee del sheet (force), no del cache.
 function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
   var casN  = _normCasFwrc(cas);
   var fwrcN = _normCasFwrc(fwrc);
@@ -920,8 +921,9 @@ function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
   for (var i = 1; i < datos.length; i++) {
     var otRow = String(datos[i][O.OT] || "").trim();
     if (!otRow || (excl && otRow === excl)) continue;
-    if (casN  && _normCasFwrc(datos[i][O.CAS])  === casN)  return { campo: "CAS",  valor: String(cas).trim(),  ot: otRow };
-    if (fwrcN && _normCasFwrc(datos[i][O.FWRC]) === fwrcN) return { campo: "FWRC", valor: String(fwrc).trim(), ot: otRow };
+    var colCas = _normCasFwrc(datos[i][O.CAS]), colFwrc = _normCasFwrc(datos[i][O.FWRC]);
+    if (casN  && (colCas === casN  || colFwrc === casN))  return { campo: "CAS/FWRC", valor: String(cas).trim(),  ot: otRow };
+    if (fwrcN && (colFwrc === fwrcN || colCas === fwrcN)) return { campo: "CAS/FWRC", valor: String(fwrc).trim(), ot: otRow };
   }
   return null;
 }

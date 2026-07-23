@@ -1,4 +1,4 @@
-<!-- @version 3.33 -->
+<!-- @version 3.34 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -3174,8 +3174,17 @@ function _gateDespachoBtn() {
   var btn = document.getElementById('btn-confirmar-desp');
   if (!btn) return;
   var bloq = !!(_modalDesp && _modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride);
-  btn.disabled = bloq;
-  btn.title = bloq ? 'Primero resolvé el backorder con stock de este reseller' : '';
+  // Peso obligatorio (salvo retiro): la suma de los pesos de los bultos debe ser > 0. Evita
+  // despachar sin peso → PESO_ENVIO vacío y mail sin peso.
+  var faltaPeso = false;
+  if (_modalDesp && !_modalDesp.esRetiro) {
+    var _pes = document.querySelectorAll('#bultos-list .bulto-peso'), _sp = 0;
+    for (var _pi = 0; _pi < _pes.length; _pi++) _sp += parseFloat(String(_pes[_pi].value).replace(',', '.')) || 0;
+    if (!(_sp > 0)) faltaPeso = true;
+  }
+  btn.disabled = bloq || faltaPeso;
+  btn.title = bloq ? 'Primero resolvé el backorder con stock de este reseller'
+            : (faltaPeso ? 'Ingresá el peso del paquete (kg) antes de despachar' : '');
 }
 // Re-arma el modal como despacho conjunto: este pedido + los backorder con stock
 function _incluirBackorder() {
@@ -3209,7 +3218,7 @@ function abrirModalDespacho(numero) {
     var esEnEspera  = it.estado === 'En_Espera_Reseller';   // faltante esperando la decisión del reseller
 
     if (!esCancelado) {
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku });
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, desc: it.desc, seriales: it.seriales });
     }
 
     if (esCancelado) {
@@ -3339,6 +3348,7 @@ function abrirModalDespacho(numero) {
     '</div>';
   }
   _modalDesp.transportista = esRetiro ? 'Retiro' : 'Correo Argentino';
+  _modalDesp.esRetiro = esRetiro;   // el peso obligatorio del despacho no aplica a retiro en local
   _bultoCounter = 0;
   // ── Bloqueo: backorder del mismo reseller con stock disponible ──
   var _boStock = _backordersConStock(ped.reseller, numero);
@@ -3373,6 +3383,7 @@ function abrirModalDespacho(numero) {
       var _firstPeso = document.querySelector('#bultos-list .bulto-peso');
       if (_firstPeso && !_firstPeso.value) _firstPeso.value = ped.pesoPrep;
     }
+    _gateDespachoBtn();   // reevaluar el botón ahora que el peso preparado ya está en el bulto
     // Pre-llenar selectores de caja según pick state
     if (numBultos > 1) {
       for (var pi2 = 0; pi2 < ped.items.length; pi2++) {
@@ -3598,10 +3609,11 @@ function _agregarBulto() {
   div.innerHTML =
     '<span class="bulto-num">Bulto ' + (total + 1) + '</span>' +
     '<input class="bulto-track" id="bt-track-' + id + '" type="text" placeholder="Nº seguimiento">' +
-    '<input class="bulto-peso"  id="bt-peso-'  + id + '" type="number" min="0" step="0.001" placeholder="kg">' +
+    '<input class="bulto-peso"  id="bt-peso-'  + id + '" type="number" min="0" step="0.001" placeholder="kg" oninput="_gateDespachoBtn()">' +
     '<button class="bulto-del" onclick="_quitarBulto(' + id + ')" title="Quitar bulto">✕</button>';
   list.appendChild(div);
   _actualizarCajaOpts();
+  _gateDespachoBtn();   // un bulto nuevo arranca sin peso → puede deshabilitar el botón
 }
 
 function _quitarBulto(id) {
@@ -3615,6 +3627,7 @@ function _quitarBulto(id) {
       if (lbl) lbl.textContent = 'Bulto ' + (i + 1);
     }
     _actualizarCajaOpts();
+    _gateDespachoBtn();   // quitar un bulto puede dejar el peso total en 0
   }
 }
 
@@ -3641,6 +3654,17 @@ function _actualizarCajaOpts() {
 
 var _despachoEnCurso = false;   // guard de re-entrada: evita doble-submit del despacho
 function _wosGenToken() { return 'd' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+// Aviso (NO bloqueante) al despachar unidades sin N° de serie registrado — típico de ítems que
+// se despachan sin haber pasado por "Preparar" (backorder directo, "en espera" que se manda igual).
+// list: [{sku, cnt}]. Devuelve true si el operador confirma despachar igual.
+function _confirmarSinSerie(list) {
+  var tot = 0, lineas = [];
+  for (var i = 0; i < list.length; i++) { tot += list[i].cnt; lineas.push('  \xb7 ' + list[i].sku + '  (x' + list[i].cnt + ')'); }
+  return confirm('Vas a despachar ' + tot + ' unidad(es) SIN N\xba de serie registrado:\n\n' +
+    lineas.join('\n') + '\n\nLo normal es que cada unidad lleve su SN/SO (se carga en "Preparar" y ' +
+    'sale en el mail al reseller). \xbfDespachar igual?');
+}
+
 function confirmarDespacho() {
   if (!_modalDesp) return;
   if (_despachoEnCurso) return;   // ya hay un despacho en curso → ignorar el 2° click
@@ -3664,11 +3688,17 @@ function confirmarDespacho() {
       peso:     pInp ? (parseFloat(pInp.value) || 0) : 0
     });
   }
+  // Peso obligatorio (salvo retiro): red de seguridad además del gate del botón.
+  if (_modalDesp && !_modalDesp.esRetiro) {
+    var _pesoTot = 0; for (var _pb = 0; _pb < bultos.length; _pb++) _pesoTot += bultos[_pb].peso || 0;
+    if (!(_pesoTot > 0)) { toast('Ingres\xe1 el peso del paquete (kg) antes de despachar.', 'err'); return; }
+  }
 
   // ── MODO BATCH ──
   if (_modalDesp.batchNumeros) {
     var batchItems = [];
     var pedsByNum  = {};
+    var _sinSerie  = [];
     for (var bi = 0; bi < _modalDesp.items.length; bi++) {
       var bIt = _modalDesp.items[bi];
       var bInp = document.getElementById('mdi-' + bIt.row);
@@ -3679,10 +3709,12 @@ function confirmarDespacho() {
         var bSEl = document.getElementById('mdi-ser-' + bIt.row + '-' + bsn);
         if (bSEl && bSEl.value.trim()) bSers.push(bSEl.value.trim());
       }
+      if (bCnt > 0 && bSers.length === 0 && !String(bIt.seriales || '').trim()) _sinSerie.push({ sku: bIt.sku, cnt: bCnt });
       var bCajaEl  = document.getElementById('mdi-caja-' + bIt.row);
       var bCajaIdx = bCajaEl ? (parseInt(bCajaEl.value) || 0) : 0;
       pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', '), cajaIdx: bCajaIdx });
     }
+    if (_sinSerie.length && !_confirmarSinSerie(_sinSerie)) return;
     for (var bn = 0; bn < _modalDesp.batchNumeros.length; bn++) {
       var bNum = _modalDesp.batchNumeros[bn];
       batchItems.push({ numero: bNum, despachos: pedsByNum[bNum] || [] });
@@ -3717,6 +3749,7 @@ function confirmarDespacho() {
 
   // ── MODO INDIVIDUAL ──
   var despachos = [];
+  var _sinSerieI = [];
   for (var i = 0; i < _modalDesp.items.length; i++) {
     var it  = _modalDesp.items[i];
     var inp = document.getElementById('mdi-' + it.row);
@@ -3726,6 +3759,7 @@ function confirmarDespacho() {
       var sEl = document.getElementById('mdi-ser-' + it.row + '-' + sn);
       if (sEl && sEl.value.trim()) sers.push(sEl.value.trim());
     }
+    if (cnt > 0 && sers.length === 0 && !String(it.seriales || '').trim()) _sinSerieI.push({ sku: it.sku, cnt: cnt });
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
     despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
@@ -3736,6 +3770,7 @@ function confirmarDespacho() {
     toast('Ingresá al menos una unidad a despachar antes de confirmar.', 'err');
     return;
   }
+  if (_sinSerieI.length && !_confirmarSinSerie(_sinSerieI)) return;
   var numero = _modalDesp.numero;
   cerrarModal('desp');
   wosLoadStart(STEPS_DESPACHO);
@@ -4869,7 +4904,7 @@ function _abrirBatchCon(numeros) {
     if (pedRv && String(pedRv.envio || '').toLowerCase().indexOf('retiro') < 0) { _batchTodosRetiro = false; break; }
   }
 
-  _modalDesp = { numero: null, items: [], batchNumeros: numeros, transportista: _batchTodosRetiro ? 'Retiro' : 'Correo Argentino' };
+  _modalDesp = { numero: null, items: [], batchNumeros: numeros, esRetiro: _batchTodosRetiro, transportista: _batchTodosRetiro ? 'Retiro' : 'Correo Argentino' };
   _bultoCounter = 0;
 
   var html = '';
@@ -4887,7 +4922,7 @@ function _abrirBatchCon(numeros) {
 
       if (esCancelado || yaEnviado) continue; // ítems cerrados no se incluyen en batch
 
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, numero: numeros[n] });
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, desc: it.desc, seriales: it.seriales, numero: numeros[n] });
 
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
         (it.cantDesp > 0 ? ' \xa0·\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
