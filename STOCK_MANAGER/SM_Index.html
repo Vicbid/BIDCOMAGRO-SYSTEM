@@ -390,6 +390,9 @@ tr:last-child td{border-bottom:none}
       <button class="nav-tab" id="nt-vent" onclick="showTab('vent','nt-vent')">
         <i class="fa fa-shopping-cart"></i><span>Ventas directas</span>
       </button>
+      <button class="nav-tab" id="nt-compint" onclick="showTab('compint','nt-compint')">
+        <i class="fa fa-tools"></i><span>Compras internas</span>
+      </button>
       <span class="sb-section-lbl">Auditoría</span>
       <button class="nav-tab" id="nt-mov" onclick="showTab('mov','nt-mov')">
         <i class="fa fa-history"></i><span>Movimientos</span>
@@ -707,6 +710,52 @@ tr:last-child td{border-bottom:none}
       </div>
 
     </div><!-- /vent -->
+
+    <!-- ══ COMPRAS INTERNAS (herramientas e insumos) ══ -->
+    <div class="tab-view" id="tab-compint">
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn-p green" onclick="abrirNuevaCompraInterna()"><i class="fa fa-plus"></i> Agregar ítem</button>
+        <input type="text" id="ci-buscar" class="form-control" placeholder="Buscar descripción…" style="max-width:220px" oninput="renderComprasInternas()">
+        <select id="ci-tipo" class="form-select" style="max-width:150px" onchange="renderComprasInternas()">
+          <option value="">Todos los tipos</option>
+          <option>Herramienta</option>
+          <option>Insumo</option>
+        </select>
+        <select id="ci-estado" class="form-select" style="max-width:150px" onchange="renderComprasInternas()">
+          <option value="">Todos los estados</option>
+          <option value="porpedir">Por pedir</option>
+          <option value="pedido">Pedido (sin llegar)</option>
+          <option value="llego">Llegó</option>
+        </select>
+        <button class="btn-p" onclick="cargarComprasInternas()"><i class="fa fa-sync-alt"></i> Actualizar</button>
+        <div style="margin-left:auto;font-size:11px;color:var(--tx-d)"><span id="ci-cnt">0</span> ítems · por pedir: <strong id="ci-cnt-pp">0</strong> · total est. <strong id="ci-total">$0</strong></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-head-left"><i class="fa fa-tools"></i> Herramientas e insumos a pedir</div></div>
+        <div class="tbl-wrap">
+          <table id="tbl-compint">
+            <thead><tr>
+              <th>Fecha</th>
+              <th>Descripción</th>
+              <th>Cant.</th>
+              <th>Tipo</th>
+              <th>P. unit.</th>
+              <th>Total</th>
+              <th style="text-align:center">¿Pedido?</th>
+              <th style="text-align:center">¿Llegó?</th>
+              <th>Link</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="tbody-compint">
+              <tr><td colspan="10"><div class="empty-state"><i class="fa fa-tools" style="opacity:.3"></i><br>Abrí esta pestaña para cargar la lista</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /compint -->
 
     <!-- ══ MOVIMIENTOS ════════════════════════ -->
     <div class="tab-view" id="tab-mov">
@@ -1133,6 +1182,59 @@ tr:last-child td{border-bottom:none}
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" class="btn btn-primary btn-sm" onclick="_leGuardar()">
           <i class="fa fa-save" style="margin-right:5px"></i>Guardar Layout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar / Editar ítem de compra interna -->
+<div class="modal fade" id="modal-compra-interna" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
+      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
+        <span style="font-size:13px;font-weight:700;color:var(--tx-m)"><i class="fa fa-tools" style="margin-right:6px;color:var(--accent)"></i><span id="ci-modal-titulo">Agregar ítem</span></span>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:16px">
+        <input type="hidden" id="ci-f-id">
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Descripción *</label>
+          <input type="text" id="ci-f-desc" class="form-control" placeholder="Ej: Amoladora, guantes, tornillos…" onkeydown="_ciModalEnter(event)">
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <div style="flex:0 0 90px">
+            <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Cantidad *</label>
+            <input type="number" id="ci-f-cant" class="form-control" value="1" min="1" step="1" oninput="_ciCalcTotal()" onkeydown="_ciModalEnter(event)">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Tipo</label>
+            <select id="ci-f-tipo" class="form-select">
+              <option value="">—</option>
+              <option>Herramienta</option>
+              <option>Insumo</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Precio unitario (opcional)</label>
+            <input type="number" id="ci-f-precio" class="form-control" placeholder="0" min="0" step="0.01" oninput="_ciCalcTotal()" onkeydown="_ciModalEnter(event)">
+          </div>
+          <div style="flex:0 0 120px">
+            <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Total</label>
+            <input type="text" id="ci-f-total" class="form-control" value="$0" readonly style="background:var(--surf);font-weight:600">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--tx-d);display:block;margin-bottom:4px">Link (opcional)</label>
+          <input type="text" id="ci-f-link" class="form-control" placeholder="https://…" onkeydown="_ciModalEnter(event)">
+        </div>
+      </div>
+      <div class="modal-footer" style="padding:10px 16px;gap:8px">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="ci-f-guardar" onclick="guardarCompraInterna()">
+          <i class="fa fa-save" style="margin-right:5px"></i>Guardar
         </button>
       </div>
     </div>
@@ -2110,6 +2212,7 @@ function showTab(id, btnId) {
   }
   if (id==='comp')  cargarComprasTab();
   if (id==='vent')  cargarVentasTab();
+  if (id==='compint') cargarComprasInternas();
   if (id==='mov')   cargarMovimientosTab();
   if (id==='wms')   _wmsTabAbierto();
   if (id==='equip') cargarEquiposTab();
@@ -2361,6 +2464,195 @@ function generarValeUI(fila) {
       toast('Error: ' + e.message, 'err');
     })
     .generarValeMovimiento(fila);
+}
+
+// ══════════════════════════════════════════
+//  COMPRAS INTERNAS (herramientas e insumos)
+// ══════════════════════════════════════════
+var comprasInternasData = [];
+
+function _ciFmtMoney(n) {
+  n = parseFloat(n) || 0;
+  return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+function _ciModalObj() {
+  return bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-compra-interna'));
+}
+
+function cargarComprasInternas() {
+  sp(true, 'Cargando lista…');
+  document.getElementById('tbody-compint').innerHTML = _skelRows(10, 6);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      sp(false);
+      comprasInternasData = (r && r.items) ? r.items : [];
+      renderComprasInternas();
+    })
+    .withFailureHandler(function(e) {
+      sp(false);
+      document.getElementById('tbody-compint').innerHTML =
+        '<tr><td colspan="10"><div class="empty-state" style="color:var(--red)"><i class="fa fa-exclamation-circle"></i><p>Error: ' + escH(e.message) + '</p></div></td></tr>';
+      toast('Error al cargar: ' + e.message, 'err');
+    })
+    .getComprasInternas();
+}
+
+function renderComprasInternas() {
+  var tbody = document.getElementById('tbody-compint');
+  var q    = (document.getElementById('ci-buscar').value || '').trim().toLowerCase();
+  var tipo = document.getElementById('ci-tipo').value;
+  var est  = document.getElementById('ci-estado').value;
+
+  // KPIs sobre TODA la lista (independiente de filtros)
+  var ppCount = 0, ppTotal = 0;
+  for (var k = 0; k < comprasInternasData.length; k++) {
+    if (!comprasInternasData[k].pedido) { ppCount++; ppTotal += (comprasInternasData[k].total || 0); }
+  }
+
+  var fil = [];
+  for (var i = 0; i < comprasInternasData.length; i++) {
+    var r = comprasInternasData[i];
+    if (tipo && r.tipo !== tipo) continue;
+    if (est === 'porpedir' && r.pedido) continue;
+    if (est === 'pedido'   && (!r.pedido || r.llego)) continue;
+    if (est === 'llego'    && !r.llego) continue;
+    if (q && r.descripcion.toLowerCase().indexOf(q) === -1 && (r.tipo || '').toLowerCase().indexOf(q) === -1) continue;
+    fil.push(r);
+  }
+
+  document.getElementById('ci-cnt').textContent    = fil.length;
+  document.getElementById('ci-cnt-pp').textContent = ppCount;
+  document.getElementById('ci-total').textContent  = _ciFmtMoney(ppTotal);
+
+  if (!fil.length) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><i class="fa fa-clipboard-list" style="opacity:.3"></i><br>' +
+      (comprasInternasData.length ? 'Nada coincide con el filtro' : 'No hay ítems cargados todavía') + '</div></td></tr>';
+    return;
+  }
+
+  var html = '';
+  for (var j = 0; j < fil.length; j++) {
+    var it = fil[j];
+    var tipoCell = it.tipo
+      ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:' +
+        (it.tipo === 'Herramienta' ? 'rgba(59,130,246,.15);color:#3b82f6' : 'rgba(16,185,129,.15);color:#10b981') +
+        '">' + escH(it.tipo) + '</span>'
+      : '—';
+    var linkCell = '—';
+    if (it.link) {
+      if (/^https?:\/\//i.test(it.link)) linkCell = '<a href="' + escH(it.link) + '" target="_blank" rel="noopener" title="Abrir link"><i class="fa fa-external-link-alt"></i></a>';
+      else linkCell = '<span title="' + escH(it.link) + '">' + escH(it.link.length > 18 ? it.link.slice(0, 18) + '…' : it.link) + '</span>';
+    }
+    html += '<tr' + (it.llego ? ' style="opacity:.55"' : '') + '>' +
+      '<td style="white-space:nowrap;color:var(--tx-d)">' + (it.fecha || '—') + '</td>' +
+      '<td style="font-weight:600">' + escH(it.descripcion) + '</td>' +
+      '<td>' + it.cantidad + '</td>' +
+      '<td>' + tipoCell + '</td>' +
+      '<td style="color:var(--tx-m)">' + (it.precioUnitario ? _ciFmtMoney(it.precioUnitario) : '—') + '</td>' +
+      '<td style="font-weight:600">' + (it.total ? _ciFmtMoney(it.total) : '—') + '</td>' +
+      '<td style="text-align:center"><input type="checkbox" style="width:16px;height:16px;cursor:pointer" ' + (it.pedido ? 'checked' : '') + ' onchange="_ciToggle(\'' + it.id + '\',\'pedido\',this.checked)"></td>' +
+      '<td style="text-align:center"><input type="checkbox" style="width:16px;height:16px;cursor:pointer" ' + (it.llego ? 'checked' : '') + ' onchange="_ciToggle(\'' + it.id + '\',\'llego\',this.checked)"></td>' +
+      '<td style="text-align:center">' + linkCell + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn-s" onclick="abrirEditarCompraInterna(\'' + it.id + '\')" title="Editar"><i class="fa fa-pen"></i></button> ' +
+        '<button class="btn-s" onclick="_ciBorrar(\'' + it.id + '\')" title="Eliminar" style="color:var(--red)"><i class="fa fa-trash"></i></button>' +
+      '</td>' +
+    '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function abrirNuevaCompraInterna() {
+  document.getElementById('ci-modal-titulo').textContent = 'Agregar ítem';
+  document.getElementById('ci-f-id').value    = '';
+  document.getElementById('ci-f-desc').value  = '';
+  document.getElementById('ci-f-cant').value  = '1';
+  document.getElementById('ci-f-tipo').value  = '';
+  document.getElementById('ci-f-precio').value = '';
+  document.getElementById('ci-f-link').value  = '';
+  _ciCalcTotal();
+  _ciModalObj().show();
+  setTimeout(function() { document.getElementById('ci-f-desc').focus(); }, 250);
+}
+
+function abrirEditarCompraInterna(id) {
+  var it = null;
+  for (var i = 0; i < comprasInternasData.length; i++) { if (comprasInternasData[i].id === id) { it = comprasInternasData[i]; break; } }
+  if (!it) return;
+  document.getElementById('ci-modal-titulo').textContent = 'Editar ítem';
+  document.getElementById('ci-f-id').value    = it.id;
+  document.getElementById('ci-f-desc').value  = it.descripcion;
+  document.getElementById('ci-f-cant').value  = it.cantidad || 1;
+  document.getElementById('ci-f-tipo').value  = it.tipo || '';
+  document.getElementById('ci-f-precio').value = it.precioUnitario ? it.precioUnitario : '';
+  document.getElementById('ci-f-link').value  = it.link || '';
+  _ciCalcTotal();
+  _ciModalObj().show();
+}
+
+function _ciCalcTotal() {
+  var c = parseFloat(document.getElementById('ci-f-cant').value) || 0;
+  var p = parseFloat(document.getElementById('ci-f-precio').value) || 0;
+  document.getElementById('ci-f-total').value = _ciFmtMoney(Math.round(c * p * 100) / 100);
+}
+
+function _ciModalEnter(e) {
+  if (e.key === 'Enter') { e.preventDefault(); guardarCompraInterna(); }
+}
+
+function guardarCompraInterna() {
+  var id   = document.getElementById('ci-f-id').value;
+  var desc = document.getElementById('ci-f-desc').value.trim();
+  if (!desc) { toast('Poné una descripción', 'err'); document.getElementById('ci-f-desc').focus(); return; }
+  var data = {
+    descripcion:    desc,
+    cantidad:       document.getElementById('ci-f-cant').value,
+    tipo:           document.getElementById('ci-f-tipo').value,
+    precioUnitario: document.getElementById('ci-f-precio').value,
+    link:           document.getElementById('ci-f-link').value.trim()
+  };
+  var btn = document.getElementById('ci-f-guardar');
+  btn.disabled = true;
+  var okCb = function(r) {
+    btn.disabled = false;
+    if (r && r.ok) { _ciModalObj().hide(); toast(id ? 'Ítem actualizado' : 'Ítem agregado', 'ok'); cargarComprasInternas(); }
+    else { toast('No se pudo guardar: ' + ((r && r.msg) || ''), 'err'); }
+  };
+  var failCb = function(e) { btn.disabled = false; toast('Error: ' + e.message, 'err'); };
+  var runner = google.script.run.withSuccessHandler(okCb).withFailureHandler(failCb);
+  if (id) runner.editarCompraInterna(id, data);
+  else    runner.agregarCompraInterna(data);
+}
+
+function _ciToggle(id, campo, valor) {
+  var it = null;
+  for (var i = 0; i < comprasInternasData.length; i++) { if (comprasInternasData[i].id === id) { it = comprasInternasData[i]; break; } }
+  if (!it) return;
+  var prev = it[campo];
+  it[campo] = valor;               // update optimista
+  renderComprasInternas();
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) { it[campo] = prev; renderComprasInternas(); toast('No se pudo guardar: ' + ((r && r.msg) || ''), 'err'); }
+    })
+    .withFailureHandler(function(e) { it[campo] = prev; renderComprasInternas(); toast('Error: ' + e.message, 'err'); })
+    .marcarCompraInterna(id, campo, valor);
+}
+
+function _ciBorrar(id) {
+  var it = null;
+  for (var i = 0; i < comprasInternasData.length; i++) { if (comprasInternasData[i].id === id) { it = comprasInternasData[i]; break; } }
+  if (!it) return;
+  if (!confirm('¿Eliminar "' + it.descripcion + '" de la lista?')) return;
+  sp(true, 'Eliminando…');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      sp(false);
+      if (r && r.ok) { toast('Ítem eliminado', 'ok'); cargarComprasInternas(); }
+      else { toast('No se pudo eliminar: ' + ((r && r.msg) || ''), 'err'); }
+    })
+    .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
+    .eliminarCompraInterna(id);
 }
 
 // ══════════════════════════════════════════

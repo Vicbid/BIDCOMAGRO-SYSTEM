@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 var MASTER_SHEET_ID        = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var WOS_NOTAS_SS_ID        = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw'; // WOS — contiene Pedidos_resellers y Pedidos_OTs
 var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
@@ -31,7 +31,8 @@ var SCHEMA = {
     HISTORIAL_COMPRAS: 'HISTORIAL_COMPRAS',
     CATALOGO_DJI:      'CATALOGO_DJI',
     SO_ETIQUETAS:      'SO_ETIQUETAS',
-    EQUIPOS_DEPOSITO:  'EQUIPOS_DEPOSITO'
+    EQUIPOS_DEPOSITO:  'EQUIPOS_DEPOSITO',
+    COMPRAS_INTERNAS:  'Compra de herramientas e insumos'
   },
   OT: {
     FECHA_INGRESO: 0,
@@ -186,6 +187,20 @@ var SCHEMA = {
     SITUACION:     11,  // L: En depósito / Vendido / Baja
     FECHA_ACT:     12,  // M: última actualización
     OPERADOR:      13   // N
+  },
+  // Lista interna "qué hay que comprar" que cargan los operarios (hoja "Compra de
+  // herramientas e insumos"). Cols A–I las definió el usuario; J=ID lo gestiona la app.
+  COMPRAS_INTERNAS: {
+    FECHA_PEDIDO:    0,  // A: fecha en que se cargó el ítem (auto)
+    DESCRIPCION:     1,  // B
+    CANTIDAD:        2,  // C
+    TIPO:            3,  // D: Herramienta / Insumo
+    PRECIO_UNITARIO: 4,  // E
+    TOTAL:           5,  // F: Cantidad × Precio unitario
+    PEDIDO:          6,  // G: ¿Pedido?  (SÍ / vacío)
+    LLEGO:           7,  // H: ¿Llegó?   (SÍ / vacío)
+    LINK:            8,  // I
+    ID:              9   // J: identificador interno (HRR-…)
   }
 };
 
