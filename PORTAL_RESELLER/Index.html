@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.55 -->
+<!-- @version 1.56 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4905,6 +4905,8 @@ function _cotCargarHistorial() {
         var h = r.historial[i];
         _cotHistorialItems[h.id] = h.itemsJson || '';
         var idSafe = String(h.id).replace(/'/g, "\\'");
+        var _cotReps = 0;
+        try { var _cotPd = JSON.parse(h.itemsJson || '{}'); _cotReps = (_cotPd.repuestos || []).length; } catch(e) {}
         html +=
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">' +
             '<div style="min-width:0">' +
@@ -4912,6 +4914,7 @@ function _cotCargarHistorial() {
               '<div style="font-size:10px;color:var(--tx-d)">' + _escHtml(h.fecha) + ' · ' + h.cantItems + ' ítem(s) · ' + _fmtPedUsd(h.totalUsd) + '</div>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+              (_cotReps ? '<button onclick="_cotPedirRepuestos(\'' + idSafe + '\')" title="Cargar estos repuestos al carrito de pedidos" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(58,158,58,.10);border:1px solid rgba(58,158,58,.35);color:#3a9e3a;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-cart-plus"></i> Pedir repuestos</button>' : '') +
               (h.itemsJson ? '<button onclick="_cotRepetirCotizacion(\'' + idSafe + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-a);border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap"><i class="fa fa-rotate-right"></i> Repetir</button>' : '') +
               (h.pdfUrl ? '<a href="' + h.pdfUrl + '" target="_blank" style="font-size:11px;color:#3a9e3a;text-decoration:none;font-weight:700"><i class="fa fa-file-pdf"></i> PDF</a>' : '') +
             '</div>' +
@@ -4974,6 +4977,68 @@ function _cotRepetirCotizacion(id) {
   toast(added + ' ítem(s) cargados del presupuesto ' + id, 'ok');
   var card = document.getElementById('cot-cart-card');
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Pedir los REPUESTOS de un presupuesto del historial: los carga al carrito de PEDIDOS
+// (RS_Pedidos) y salta a esa sección. La mano de obra no aplica (pedidos = solo repuestos).
+// El precio del carrito es cosmético: el backend lo reprecia al confirmar (confirmarPedidoPortal).
+function _cotPedirRepuestos(id) {
+  var itemsJson = _cotHistorialItems[id];
+  if (!itemsJson) { toast('No se pudo cargar el presupuesto', 'err'); return; }
+  var data;
+  try { data = JSON.parse(itemsJson); } catch(e) { toast('Error al leer el presupuesto', 'err'); return; }
+  var repuestos = (data && data.repuestos) ? data.repuestos : [];
+  if (!repuestos.length) { toast('Este presupuesto no tiene repuestos para pedir', 'err'); return; }
+
+  // 1) Ir a Pedidos. OJO: _pedMostrarMain restaura el carrito guardado y carga el catálogo,
+  //    así que los ítems se agregan DESPUÉS (si no, los pisaría la restauración).
+  showTab('ped', 'tb-ped');
+  _pedMostrarMain();
+
+  // 2) Mergear los repuestos de la cotización al carrito de pedidos ya restaurado.
+  var added = 0;
+  for (var i = 0; i < repuestos.length; i++) {
+    var it   = repuestos[i] || {};
+    var sku  = it.sku || '';
+    var desc = it.descripcion || '';
+    var cant = Number(it.cantidad) || 1;
+    var found = false;
+    for (var j = 0; j < _pedCart.length; j++) {
+      if (_pedCart[j].sku === sku && _pedCart[j].descripcion === desc) {
+        _pedCart[j].cantidad += cant; found = true; break;
+      }
+    }
+    if (!found) {
+      _pedCart.push({ sku: sku, descripcion: desc, estado: 'consultar_Backorder', cantidad: cant, precio: 0, modelos: it.modelos || '' });
+    }
+    added++;
+  }
+
+  _pedRenderCarrito();                 // muestra los ítems ya
+  _cotAplicarPreciosPedido(0);         // precios del catálogo cuando termine de cargar
+
+  toast(added + ' repuesto(s) del presupuesto ' + id + ' cargados al carrito de pedidos', 'ok');
+  var cartCard = document.getElementById('ped-cart-card');
+  if (cartCard) cartCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Espera a que el catálogo (_pedIndice) esté listo, aplica el precio del reseller (col 4) a los
+// ítems del carrito que quedaron sin precio y re-renderiza. Tope ~5s. El backend igual enforcea.
+function _cotAplicarPreciosPedido(intentos) {
+  if (_pedIndice && _pedIndice.length) {
+    for (var i = 0; i < _pedCart.length; i++) {
+      if (_pedCart[i].precio && _pedCart[i].precio > 0) continue;
+      var sku = String(_pedCart[i].sku || '').toUpperCase();
+      if (!sku) continue;
+      for (var r = 0; r < _pedIndice.length; r++) {
+        if (String(_pedIndice[r][0] || '').toUpperCase() === sku) { _pedCart[i].precio = _pedIndice[r][4] || 0; break; }
+      }
+    }
+    _pedRenderCarrito();
+    return;
+  }
+  if (intentos >= 25) return;   // ~5s: dejamos el carrito con los ítems (precios los pone el back)
+  setTimeout(function() { _cotAplicarPreciosPedido(intentos + 1); }, 200);
 }
 
 function _pedMostrarMain() {
