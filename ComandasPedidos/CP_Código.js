@@ -1,4 +1,4 @@
-// @version 1.42
+// @version 1.43
 // ============================================================
 //  COMANDAS · CARGA MASTERCHIEF — Backend · modelo N-envíos por venta
 // ============================================================
@@ -1288,6 +1288,30 @@ function _cpDetalleVenta(idVenta) {
   };
 }
 
+// Mapa LIVIANO { IDVENTA: {reseller, rtv} } de UNA sola lectura de Ventas.
+// Sirve para chequear destinatarios de muchos envíos sin releer toda la hoja Ventas
+// por cada uno (lo que colgaba el diagnóstico cuando había muchos envíos con guía
+// pendientes de mail). Usa la misma detección de columnas que _cpDetalleVenta.
+function _cpVentaResellerRtvMap() {
+  var out = {};
+  try {
+    var rows = _cpHoja().getDataRange().getValues();
+    var det = _cpDetectar(rows);
+    if (!det) return out;
+    var col = det.col;
+    function get(r, f) { var i = col[f]; return i === -1 ? '' : r[i]; }
+    for (var i = det.headerRow + 1; i < rows.length; i++) {
+      var r = rows[i];
+      var key = _s(get(r, 'idVenta')).toUpperCase();
+      if (!key) continue;
+      if (!out[key]) out[key] = { reseller: '', rtv: '' };
+      if (!out[key].reseller) out[key].reseller = _s(get(r, 'reseller'));
+      if (!out[key].rtv)      out[key].rtv      = _s(get(r, 'rtv'));
+    }
+  } catch (e) { Logger.log('_cpVentaResellerRtvMap error: ' + e); }
+  return out;
+}
+
 // Mapa nombre_reseller(normalizado) → {mail, rtv}, leído de la pestaña "Resellers".
 //   B = Reseller (nombre) | C = RTV | J = Email  (se detectan por encabezado)
 function _cpResellerMap() {
@@ -1377,12 +1401,14 @@ function _cpFindCol(H, alias) {
 
 // Destinatarios del mail al reseller de un envío: reseller (Resellers col J) + RTV (hoja RTV) +
 // fijos (_CONFIG MAIL_DESTINATARIOS). Devuelve { to:[...], detalle:[...] } deduplicado.
-function _cpDestinatariosEnvio(det, cfg) {
+// resellerMap / rtvMap: opcionales. Si se pasan (ya leídos una vez), evita releer
+// las hojas Resellers/RTV por cada envío (clave para no colgar el diagnóstico en lote).
+function _cpDestinatariosEnvio(det, cfg, resellerMap, rtvMap) {
   var toList = [], detalle = [];
-  var rinfo = _cpResellerMap()[_kitKey(det.reseller)] || {};
+  var rinfo = (resellerMap || _cpResellerMap())[_kitKey(det.reseller)] || {};
   if (rinfo.mail) { toList.push(rinfo.mail); detalle.push('reseller'); }
   var rtvName = rinfo.rtv || det.rtv;
-  var mailRtv = rtvName ? _cpRtvMailMap()[_kitKey(rtvName)] : '';
+  var mailRtv = rtvName ? (rtvMap || _cpRtvMailMap())[_kitKey(rtvName)] : '';
   if (mailRtv) { toList.push(mailRtv); detalle.push('RTV (' + rtvName + ')'); }
   if (cfg['MAIL_DESTINATARIOS']) { toList.push(cfg['MAIL_DESTINATARIOS']); detalle.push('fijos'); }
   var seen = {}, to = [];
@@ -1996,6 +2022,11 @@ function CP_diagAutoMail() {
   out.push('');
   var mapAll = _cpEnviosMap();
   var master = _cpMasterMap();
+  // Pre-lecturas ÚNICAS: antes se releía Ventas/Resellers/RTV por CADA envío con guía →
+  // con un backlog grande de envíos sin mail, el diagnóstico se colgaba y no mostraba nada.
+  var ventaMap    = _cpVentaResellerRtvMap();   // { IDVENTA: {reseller, rtv} } (1 lectura de Ventas)
+  var resellerMap = _cpResellerMap();           // 1 lectura de Resellers
+  var rtvMap      = _cpRtvMailMap();            // 1 lectura de RTV
   var total = 0, yaMail = 0, sinComanda = 0, sinGuia = 0, sinDest = 0, listos = 0;
   var detListos = [], detSinGuia = [], detSinDest = [];
 
@@ -2007,8 +2038,9 @@ function CP_diagAutoMail() {
       if (!parts.length) { sinComanda++; return; }
       var tieneGuia = parts.every(function(p){ var m = master[p.toUpperCase()]; return m && m.guia; });
       if (!tieneGuia) { sinGuia++; if (detSinGuia.length < 8) detSinGuia.push(k + ' env' + e.envio + ' (' + e.comanda + ')'); return; }
-      var det = _cpDetalleVenta(k);
-      var dest = _cpDestinatariosEnvio(det, cfg);
+      var vi = ventaMap[k.toUpperCase()] || {};
+      var det = { reseller: vi.reseller || '', rtv: vi.rtv || '' };
+      var dest = _cpDestinatariosEnvio(det, cfg, resellerMap, rtvMap);
       if (!dest.to.length) { sinDest++; if (detSinDest.length < 8) detSinDest.push(k + ' env' + e.envio + ' — ' + (det.reseller || '?')); return; }
       listos++; if (detListos.length < 8) detListos.push(k + ' env' + e.envio + ' → ' + dest.to.join(', '));
     });
