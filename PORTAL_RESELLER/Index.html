@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.59 -->
+<!-- @version 1.60 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1566,35 +1566,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <div id="cat-conjuntos"></div>
           </div>
 
-          <!-- MODAL detalle del conjunto (despiece + lista) -->
-          <div id="cat-modal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);padding:2.5vh 2vw">
-            <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);width:min(1500px,96vw);max-width:100%;height:95vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-              <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--brd);flex-shrink:0">
-                <button id="cat-nav-prev" onclick="_catNav(-1)" title="Conjunto anterior (←)" aria-label="Anterior" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-chevron-left"></i></button>
-                <div style="flex:1;min-width:0;text-align:center">
-                  <div id="cat-modal-title" style="font-size:15px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-                  <div id="cat-modal-pos" style="font-size:10px;color:var(--tx-d);margin-top:1px"></div>
-                </div>
-                <button id="cat-nav-next" onclick="_catNav(1)" title="Conjunto siguiente (→)" aria-label="Siguiente" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-chevron-right"></i></button>
-                <button onclick="_catCerrarDetalle()" title="Cerrar (Esc)" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-times"></i></button>
-              </div>
-              <div id="cat-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
-            </div>
-          </div>
-
-          <!-- LIGHTBOX ZOOM del despiece -->
-          <div id="cat-zoom" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.92);touch-action:none;user-select:none;overflow:hidden">
-            <img id="cat-zoom-img" src="" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;max-width:none;cursor:grab;will-change:transform">
-            <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1"><i class="fa fa-times"></i></button>
-            <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 10px">
-              <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-minus"></i></button>
-              <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
-              <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-plus"></i></button>
-              <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer"><i class="fa fa-compress"></i> 1:1</button>
-              <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Rueda para zoom · arrastrá para mover</span>
-            </div>
-          </div>
-
           <!-- MODO EXCEL -->
           <div id="ped-panel-excel" style="display:none">
             <div style="background:rgba(26,158,74,.05);border:1px solid rgba(26,158,74,.2);border-radius:var(--rm);padding:8px 12px;font-size:11px;color:var(--tx-m);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -2185,6 +2156,40 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 <a href="https://wa.me/5491130641898?text=Hola%2C+necesito+ayuda+con+el+Portal+Resellers+BIDCOMAGRO" target="_blank" class="btn-float-pdf" id="btn-wa-help" title="Contactar soporte por WhatsApp">
   <i class="fab fa-whatsapp" style="color:#25d366"></i> ¿Necesitás ayuda?
 </a>
+
+<!-- ══ OVERLAYS DEL CATÁLOGO (despieces) — a nivel <body> ══════════════════════════
+     Van acá arriba de todo, fuera de cualquier tab-panel, para que NUNCA queden atrapados
+     dentro de un tab en display:none. El catálogo se abre tanto desde Pedidos como desde el
+     alta de OT (Reparación en mi taller / Aftersales propio); si el modal viviera dentro del
+     tab de Pedidos, al abrirlo desde la OT (con ese tab oculto) no se vería. Se comparten:
+     se abre uno a la vez y sólo cambia a qué carrito agrega. -->
+<div id="cat-modal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);padding:2.5vh 2vw">
+  <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);width:min(1500px,96vw);max-width:100%;height:95vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <button id="cat-nav-prev" onclick="_catNav(-1)" title="Conjunto anterior (←)" aria-label="Anterior" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-chevron-left"></i></button>
+      <div style="flex:1;min-width:0;text-align:center">
+        <div id="cat-modal-title" style="font-size:15px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="cat-modal-pos" style="font-size:10px;color:var(--tx-d);margin-top:1px"></div>
+      </div>
+      <button id="cat-nav-next" onclick="_catNav(1)" title="Conjunto siguiente (→)" aria-label="Siguiente" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-chevron-right"></i></button>
+      <button onclick="_catCerrarDetalle()" title="Cerrar (Esc)" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="cat-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
+  </div>
+</div>
+
+<!-- LIGHTBOX ZOOM del despiece -->
+<div id="cat-zoom" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.92);touch-action:none;user-select:none;overflow:hidden">
+  <img id="cat-zoom-img" src="" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;max-width:none;cursor:grab;will-change:transform">
+  <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1"><i class="fa fa-times"></i></button>
+  <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 10px">
+    <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-minus"></i></button>
+    <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
+    <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-plus"></i></button>
+    <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer"><i class="fa fa-compress"></i> 1:1</button>
+    <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Rueda para zoom · arrastrá para mover</span>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════
@@ -5462,13 +5467,14 @@ function _catFindConjunto(nombre) {
   return null;
 }
 
-// Reubica un overlay del catálogo (#cat-modal / #cat-zoom) al <body> la primera vez que se abre.
-// Los overlays están dentro del tab de Pedidos; al abrir el catálogo desde el flujo de la OT (otro
-// tab), el tab de Pedidos está en display:none y el overlay —aunque sea position:fixed— NO se ve
-// por tener un ancestro oculto. Moverlo al body lo saca de ese contenedor y se muestra desde cualquier flujo.
+// Garantiza que el overlay del catálogo (#cat-modal / #cat-zoom) esté a nivel <body> al abrirlo.
+// El markup ya vive a nivel body (fuera de todo tab-panel), así que normalmente no hay nada que
+// mover; pero re-anclamos SIEMPRE de forma idempotente para blindarnos: si por cualquier motivo el
+// nodo hubiera quedado dentro de un contenedor oculto (tab en display:none) o por debajo de otro
+// hermano tardío, appendChild lo devuelve como último hijo del body y por encima en el DOM.
 function _catOverlayEnBody(overlayId) {
   var el = document.getElementById(overlayId);
-  if (el && el.parentNode !== document.body) document.body.appendChild(el);
+  if (el) document.body.appendChild(el);
   return el;
 }
 
