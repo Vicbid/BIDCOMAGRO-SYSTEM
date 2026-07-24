@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.57 -->
+<!-- @version 1.58 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5440,6 +5440,16 @@ function _catFindConjunto(nombre) {
   return null;
 }
 
+// Reubica un overlay del catálogo (#cat-modal / #cat-zoom) al <body> la primera vez que se abre.
+// Los overlays están dentro del tab de Pedidos; al abrir el catálogo desde el flujo de la OT (otro
+// tab), el tab de Pedidos está en display:none y el overlay —aunque sea position:fixed— NO se ve
+// por tener un ancestro oculto. Moverlo al body lo saca de ese contenedor y se muestra desde cualquier flujo.
+function _catOverlayEnBody(overlayId) {
+  var el = document.getElementById(overlayId);
+  if (el && el.parentNode !== document.body) document.body.appendChild(el);
+  return el;
+}
+
 function _catAbrir(id) {
   if (!_catModeloActual) return;
   var c = null;
@@ -5549,7 +5559,7 @@ function _catAbrir(id) {
         '</tr></thead><tbody>' + rows + '</tbody></table>' +
       '</div>' +
     '</div>';
-  document.getElementById('cat-modal').style.display = 'block';
+  _catOverlayEnBody('cat-modal').style.display = 'block';
 }
 
 function _catCerrarDetalle() {
@@ -5647,7 +5657,7 @@ var _czScale = 1, _czX = 0, _czY = 0, _czDrag = false, _czSX = 0, _czSY = 0;
 
 function _catZoomAbrir(src) {
   if (!src) return;
-  var ov = document.getElementById('cat-zoom');
+  var ov = _catOverlayEnBody('cat-zoom');
   document.getElementById('cat-zoom-img').src = src;
   _czReset();
   ov.style.display = 'block';
