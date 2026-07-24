@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.56 -->
+<!-- @version 1.57 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -953,6 +953,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <button class="gest-mode-btn active" id="repnueva-mode-manual" onclick="_repNuevaModo('manual')">
             <i class="fa fa-search"></i> Buscar SKU
           </button>
+          <button class="gest-mode-btn cat-nuevo" id="repnueva-mode-catalogo" onclick="_repNuevaModo('catalogo')">
+            <i class="fa fa-sitemap"></i> Catálogo <span class="cat-nuevo-badge">Nuevo</span>
+          </button>
           <button class="gest-mode-btn" id="repnueva-mode-excel" onclick="_repNuevaModo('excel')">
             <i class="fa fa-file-excel"></i> Cargar Excel
           </button>
@@ -960,11 +963,23 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <div id="repnueva-panel-manual">
           <div style="display:flex;gap:8px;margin-bottom:8px">
             <input type="text" id="repnueva-q" class="form-control" placeholder="Código o nombre del repuesto..."
-                   oninput="buscarRepNueva()" style="flex:1">
+                   oninput="_repBuscar('ot')" onkeydown="if(event.key==='Enter')_repBuscar('ot',true)" style="flex:1">
             <input type="number" id="repnueva-qty" class="form-control" value="1" min="1"
-                   style="width:80px;text-align:center" placeholder="Cant.">
+                   style="width:80px;text-align:center" title="Cantidad" placeholder="Cant.">
           </div>
-          <div class="rep-result" id="repnueva-result" style="display:none"></div>
+          <div id="repnueva-result" class="rep-result" style="display:none;max-height:200px"></div>
+          <div id="repnueva-no-result" style="display:none;background:rgba(214,48,49,.05);border:1px dashed rgba(214,48,49,.3);border-radius:var(--rm);padding:10px 14px;font-size:12px;color:var(--tx-m);align-items:center;gap:10px;flex-wrap:wrap">
+            <span><i class="fa fa-circle-exclamation" style="color:var(--red)"></i> No se encontró ese repuesto en el catálogo.</span>
+            <button onclick="_pedAgregarDesconocido()" style="background:rgba(214,48,49,.1);border:1px solid rgba(214,48,49,.3);color:var(--red);border-radius:var(--r);padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">
+              <i class="fa fa-plus"></i> Agregar como pedido especial
+            </button>
+          </div>
+        </div>
+        <div id="repnueva-panel-catalogo" style="display:none">
+          <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
+            <i class="fa fa-circle-info" style="color:var(--blue)"></i> Elegí un conjunto del equipo, mirá el despiece y agregá los repuestos que necesites a la reparación.
+          </div>
+          <div id="repnueva-cat-conjuntos"></div>
         </div>
         <div id="repnueva-panel-excel" style="display:none">
           <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -1530,7 +1545,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             </div>
             <div style="display:flex;gap:8px;margin-bottom:8px">
               <input type="text" id="ped-q" class="form-control" placeholder="Código o nombre del repuesto..."
-                     oninput="_pedBuscar()" onkeydown="if(event.key==='Enter')_pedBuscar(true)" style="flex:1">
+                     oninput="_repBuscar('ped')" onkeydown="if(event.key==='Enter')_repBuscar('ped',true)" style="flex:1">
               <input type="number" id="ped-qty" class="form-control" value="1" min="1" style="width:80px;text-align:center" title="Cantidad">
             </div>
             <div id="ped-results" class="rep-result" style="display:none;max-height:200px"></div>
@@ -2904,6 +2919,8 @@ function selTipo(val, cardId) {
   document.getElementById('panel-reseller-estado').style.display  = esReseller ? 'block' : 'none';
   document.getElementById('panel-repuestos-nueva').style.display  = esLocal    ? 'block' : 'none';
   document.getElementById('panel-drive-link').style.display       = esLocal    ? 'block' : 'none';
+  // Al mostrar el panel de repuestos de la OT, precargar el índice/kits rápidos (mismo que Pedidos)
+  if (esLocal && _pedIndice === null) _pedCargarIndice();
   if (!esPropio)   { aftEstado = '';      ['aft-ya-repare','aft-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); }); }
   if (!esReseller) { resellerEstado = ''; ['res-ya-repare','res-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); }); }
   save();
@@ -4362,10 +4379,16 @@ function _renderRepNueva() {
 
 // ── Excel para repuestos inline ────────────────────────────────
 function _repNuevaModo(mode) {
-  document.getElementById('repnueva-panel-manual').style.display = mode === 'manual' ? 'block' : 'none';
-  document.getElementById('repnueva-panel-excel').style.display  = mode === 'excel'  ? 'block' : 'none';
-  document.getElementById('repnueva-mode-manual').classList.toggle('active', mode === 'manual');
-  document.getElementById('repnueva-mode-excel').classList.toggle('active',  mode === 'excel');
+  _repCtx = 'ot';
+  document.getElementById('repnueva-panel-manual').style.display   = mode === 'manual'   ? 'block' : 'none';
+  document.getElementById('repnueva-panel-catalogo').style.display = mode === 'catalogo' ? 'block' : 'none';
+  document.getElementById('repnueva-panel-excel').style.display    = mode === 'excel'    ? 'block' : 'none';
+  document.getElementById('repnueva-mode-manual').classList.toggle('active',   mode === 'manual');
+  document.getElementById('repnueva-mode-catalogo').classList.toggle('active', mode === 'catalogo');
+  document.getElementById('repnueva-mode-excel').classList.toggle('active',    mode === 'excel');
+  // "Buscar SKU" y "Catálogo" usan el índice/kits rápidos (los mismos que Pedidos) → cargarlos lazy
+  if ((mode === 'manual' || mode === 'catalogo') && _pedIndice === null) _pedCargarIndice();
+  if (mode === 'catalogo') { if (!_catData) _catCargar(); else _catRenderModelos(); }
 }
 
 function _dropRepNueva(event) {
@@ -5301,7 +5324,23 @@ function _pedLimpiarStorageCarrito() {
   try { localStorage.removeItem('_pedCart_' + resellerActual); } catch(e) {}
 }
 
+// ── Componente "Agregar Repuestos" compartido entre Pedidos y OT ──────────────
+// _repCtx marca a qué flujo apunta la búsqueda/catálogo/agregado: 'ped' (carrito
+// _pedCart, ids ped-*) u 'ot' (carrito _repNueva, ids repnueva-*). Así la OT reusa
+// EXACTAMENTE el mismo buscador rápido + catálogo + sustitución + kits que Pedidos,
+// sin duplicar lógica. El modal de despiece #cat-modal es único y se comparte.
+var _repCtx = 'ped';
+function _repCartActivo() { return _repCtx === 'ot' ? _repNueva : _pedCart; }
+function _repIds() {
+  return _repCtx === 'ot'
+    ? { qtyId:'repnueva-qty', qId:'repnueva-q', resultsId:'repnueva-result', noResId:'repnueva-no-result', catWrapId:'repnueva-cat-conjuntos', focusId:'repnueva-q' }
+    : { qtyId:'ped-qty',      qId:'ped-q',      resultsId:'ped-results',      noResId:'ped-no-result',      catWrapId:'cat-conjuntos',          focusId:'ped-q' };
+}
+function _repRender() { if (_repCtx === 'ot') _renderRepNueva(); else _pedRenderCarrito(); }
+function _repBuscar(ctx, immediate) { _repCtx = ctx; _pedBuscar(immediate); }
+
 function _pedSetMode(mode) {
+  _repCtx = 'ped';
   _pedMode = mode;
   document.getElementById('ped-mode-manual').classList.toggle('active', mode === 'manual');
   document.getElementById('ped-mode-catalogo').classList.toggle('active', mode === 'catalogo');
@@ -5309,7 +5348,7 @@ function _pedSetMode(mode) {
   document.getElementById('ped-panel-manual').style.display = mode === 'manual' ? 'block' : 'none';
   document.getElementById('ped-panel-catalogo').style.display = mode === 'catalogo' ? 'block' : 'none';
   document.getElementById('ped-panel-excel').style.display  = mode === 'excel'  ? 'block' : 'none';
-  if (mode === 'catalogo' && !_catData) _catCargar();
+  if (mode === 'catalogo') { if (!_catData) _catCargar(); else _catRenderModelos(); }
 }
 
 // ── CATÁLOGO EXPLOTADAS (despieces DJI) ───────────────────────
@@ -5320,7 +5359,7 @@ var _catConjActual  = null;
 function _catEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function _catCargar() {
-  var wrap = document.getElementById('cat-conjuntos');
+  var wrap = document.getElementById(_repIds().catWrapId);
   wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando catálogo…</div>';
   google.script.run
     .withSuccessHandler(function(r) {
@@ -5337,7 +5376,7 @@ function _catCargar() {
 // Selector de modelo. Si hay uno solo, salta directo a los conjuntos.
 function _catRenderModelos() {
   _catCerrarDetalle();
-  var wrap = document.getElementById('cat-conjuntos');
+  var wrap = document.getElementById(_repIds().catWrapId);
   wrap.style.display = 'block';
   var modelos = (_catData && _catData.modelos) || [];
   if (!modelos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin modelos en el catálogo.</div>'; return; }
@@ -5366,7 +5405,7 @@ function _catElegirModelo(modelo) {
 
 function _catRenderConjuntos() {
   _catCerrarDetalle();
-  var wrap = document.getElementById('cat-conjuntos');
+  var wrap = document.getElementById(_repIds().catWrapId);
   wrap.style.display = 'block';
   if (!_catModeloActual || !_catModeloActual.conjuntos.length) { wrap.innerHTML = '<div style="padding:16px;color:var(--tx-d)">Sin conjuntos.</div>'; return; }
   var variosModelos = ((_catData && _catData.modelos) || []).length > 1;
@@ -5536,7 +5575,7 @@ function _catAgregar(btn, sku) {
   if (!sku) return;
   var qty = 1;
   try { var inp = btn.parentNode.querySelector('.cat-qty'); if (inp) qty = parseInt(inp.value) || 1; } catch(e) {}
-  var qEl = document.getElementById('ped-qty'); if (qEl) qEl.value = qty; // el carrito lee la cantidad de #ped-qty
+  var qEl = document.getElementById(_repIds().qtyId); if (qEl) qEl.value = qty; // el carrito lee la cantidad del qty activo (ped u ot)
 
   // Buscar el SKU en el índice (mismo que "Buscar SKU") → precio/estado/kits/sustitución reales
   var found = null;
@@ -5679,10 +5718,11 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
 function _pedBuscar(immediate) {
   clearTimeout(_pedBusTimer);
   clearTimeout(_pedDemandaTimer);
-  var q = (document.getElementById('ped-q').value || '').trim();
+  var ids = _repIds();
+  var q = (document.getElementById(ids.qId).value || '').trim();
   if (q.length < 2) {
-    document.getElementById('ped-results').style.display   = 'none';
-    document.getElementById('ped-no-result').style.display = 'none';
+    document.getElementById(ids.resultsId).style.display = 'none';
+    document.getElementById(ids.noResId).style.display   = 'none';
     return;
   }
 
@@ -5693,7 +5733,7 @@ function _pedBuscar(immediate) {
   }
 
   // Fallback servidor: mostrar "buscando" inmediato para que el reseller sepa que está procesando
-  var resDiv = document.getElementById('ped-results');
+  var resDiv = document.getElementById(ids.resultsId);
   resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d);display:flex;align-items:center;gap:8px"><i class="fa fa-circle-notch fa-spin" style="color:var(--blue)"></i> Buscando...</div>';
   resDiv.style.display = 'block';
 
@@ -5755,11 +5795,12 @@ function _pedBuscarLocal(q) {
 }
 
 function _pedRenderResultados(r) {
-  var resDiv   = document.getElementById('ped-results');
-  var noResDiv = document.getElementById('ped-no-result');
+  var ids      = _repIds();
+  var resDiv   = document.getElementById(ids.resultsId);
+  var noResDiv = document.getElementById(ids.noResId);
   if (!r || !r.ok || !r.items || !r.items.length) {
     resDiv.style.display   = 'none';
-    var q = (document.getElementById('ped-q').value || '').trim();
+    var q = (document.getElementById(ids.qId).value || '').trim();
     noResDiv.style.display = q.length >= 2 ? 'flex' : 'none';
     // Log demanda: búsqueda sin resultado después de 3 seg de inactividad
     if (q.length >= 3 && resellerActual) {
@@ -5859,7 +5900,9 @@ function _pedProgressBar(estado) {
 }
 
 function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reemplazadoPor) {
-  var qty    = parseInt(document.getElementById('ped-qty').value) || 1;
+  var ids  = _repIds();
+  var cart = _repCartActivo();
+  var qty    = parseInt(document.getElementById(ids.qtyId).value) || 1;
   var stkVal = (stockActual !== undefined && !isNaN(stockActual) && stockActual >= 0) ? stockActual : null;
   var remplz = String(reemplazadoPor || '').trim();
   var skuViejo = '';
@@ -5910,58 +5953,60 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
         }
       }
       var mergedC = false;
-      for (var mi = 0; mi < _pedCart.length; mi++) {
-        if (_pedCart[mi].sku === compSku) { _pedCart[mi].cantidad += compQty; mergedC = true; break; }
+      for (var mi = 0; mi < cart.length; mi++) {
+        if (cart[mi].sku === compSku) { cart[mi].cantidad += compQty; mergedC = true; break; }
       }
       if (!mergedC) {
-        _pedCart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem });
+        cart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem });
       }
       agregados.push(compSku);
     }
-    _pedRenderCarrito();
+    _repRender();
     _pedLimpiarBusqueda();
     toast(sku + ' → ' + agregados.join(' + ') + ' (kit)', 'inf');
-    document.getElementById('ped-q').focus();
+    document.getElementById(ids.focusId).focus();
     return;
   }
 
-  for (var i = 0; i < _pedCart.length; i++) {
-    if (_pedCart[i].sku === sku) {
-      _pedCart[i].cantidad += qty;
-      _pedRenderCarrito();
+  for (var i = 0; i < cart.length; i++) {
+    if (cart[i].sku === sku) {
+      cart[i].cantidad += qty;
+      _repRender();
       _pedLimpiarBusqueda();
       toast('Cantidad actualizada', 'inf');
-      document.getElementById('ped-q').focus();
+      document.getElementById(ids.focusId).focus();
       return;
     }
   }
-  _pedCart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz });
-  _pedRenderCarrito();
+  cart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz });
+  _repRender();
   _pedLimpiarBusqueda();
   if (skuViejo) {
     toast(skuViejo + ' → ' + sku + ' (reemplazado automaticamente)', 'inf');
   } else {
     toast('✓ Agregado al carrito', 'ok');
   }
-  document.getElementById('ped-q').focus();
+  document.getElementById(ids.focusId).focus();
 }
 
 function _pedAgregarDesconocido() {
-  var q   = (document.getElementById('ped-q').value || '').trim();
-  var qty = parseInt(document.getElementById('ped-qty').value) || 1;
+  var ids = _repIds();
+  var q   = (document.getElementById(ids.qId).value || '').trim();
+  var qty = parseInt(document.getElementById(ids.qtyId).value) || 1;
   if (!q) return;
-  _pedCart.push({ sku: '', descripcion: q, estado: 'sin_catalogo', cantidad: qty, precio: 0, modelos: '' });
-  _pedRenderCarrito();
+  _repCartActivo().push({ sku: '', descripcion: q, estado: 'sin_catalogo', cantidad: qty, precio: 0, modelos: '' });
+  _repRender();
   _pedLimpiarBusqueda();
   toast('Ítem agregado como pedido especial', 'inf');
 }
 
 function _pedLimpiarBusqueda() {
   clearTimeout(_pedDemandaTimer);
-  document.getElementById('ped-q').value                 = '';
-  document.getElementById('ped-qty').value               = '1';
-  document.getElementById('ped-results').style.display   = 'none';
-  document.getElementById('ped-no-result').style.display = 'none';
+  var ids = _repIds();
+  document.getElementById(ids.qId).value               = '';
+  document.getElementById(ids.qtyId).value             = '1';
+  document.getElementById(ids.resultsId).style.display = 'none';
+  document.getElementById(ids.noResId).style.display   = 'none';
 }
 
 function _pedRemover(idx) {
