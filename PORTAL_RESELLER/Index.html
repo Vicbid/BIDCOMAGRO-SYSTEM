@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.58 -->
+<!-- @version 1.59 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4364,17 +4364,39 @@ function _renderRepNueva() {
   tbody.innerHTML = '';
   _repNueva.forEach(function(r, idx) {
     tbody.innerHTML += '<tr>' +
-      '<td style="padding:7px 11px;font-weight:700;color:var(--blue)">' + r.sku + '</td>' +
-      '<td style="padding:7px 11px;color:var(--tx)">' + r.descripcion + '</td>' +
-      '<td style="padding:7px 11px;text-align:center">' + r.cantidad + '</td>' +
+      '<td style="padding:7px 11px;font-weight:700;color:var(--blue)">' + _escHtml(r.sku || '—') + '</td>' +
+      '<td style="padding:7px 11px;color:var(--tx)">' + _escHtml(r.descripcion || '') + '</td>' +
+      '<td style="padding:5px 8px;text-align:center;white-space:nowrap">' +
+        '<button onclick="_repNuevaQty(' + idx + ',-1)" style="width:22px;height:22px;border:1px solid var(--brd);background:var(--surf);border-radius:4px;cursor:pointer;font-size:14px;line-height:1;color:var(--tx-m)">−</button>' +
+        '<input type="text" id="repnueva-qty-' + idx + '" value="' + r.cantidad + '" onchange="_repNuevaQtyInput(' + idx + ',this.value)" onfocus="this.select()" style="width:36px;text-align:center;font-weight:700;font-size:13px;border:1px solid var(--brd);border-radius:4px;padding:2px 0;background:#fff;color:var(--tx);outline:none;margin:0 3px">' +
+        '<button onclick="_repNuevaQty(' + idx + ',1)" style="width:22px;height:22px;border:1px solid var(--brd);background:var(--surf);border-radius:4px;cursor:pointer;font-size:14px;line-height:1;color:var(--tx-m)">+</button>' +
+      '</td>' +
       '<td style="padding:7px 11px"><button onclick="_quitarRepNueva(' + idx + ')" ' +
-        'style="background:none;border:none;color:var(--tx-d);cursor:pointer;font-size:13px">' +
+        'style="background:none;border:none;color:var(--tx-d);cursor:pointer;font-size:13px" title="Quitar">' +
         '<i class="fa fa-times"></i></button></td></tr>';
   });
   carrito.style.display = _repNueva.length ? 'block' : 'none';
   badge.style.display   = _repNueva.length ? 'inline' : 'none';
   badge.textContent     = _repNueva.length;
   count.textContent     = _repNueva.length;
+}
+
+// Modificar la cantidad de un repuesto del carrito de la OT (mismo patrón que _pedQty en Pedidos).
+function _repNuevaQty(idx, delta) {
+  if (!_repNueva[idx]) return;
+  _repNueva[idx].cantidad = Math.max(1, (parseInt(_repNueva[idx].cantidad) || 1) + delta);
+  _renderRepNueva();
+}
+function _repNuevaQtyInput(idx, val) {
+  if (!_repNueva[idx]) return;
+  var n = parseInt(String(val).replace(/\D/g, ''), 10);
+  if (!n || n < 1) {   // valor inválido → restaurar sin re-render (no perder el foco)
+    var inp = document.getElementById('repnueva-qty-' + idx);
+    if (inp) inp.value = _repNueva[idx].cantidad;
+    return;
+  }
+  _repNueva[idx].cantidad = n;
+  _renderRepNueva();
 }
 
 // ── Excel para repuestos inline ────────────────────────────────
