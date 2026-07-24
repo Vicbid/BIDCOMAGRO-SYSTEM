@@ -1,4 +1,4 @@
-// @version 3.13
+// @version 3.14
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -269,12 +269,15 @@ function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
       orden.push(num);
     }
 
-    var cantSol  = Number(r[COL.CANT_SOL])  || 0;
-    var cantDesp = Number(r[COL.CANT_DESP]) || 0;
+    var cantSol    = Number(r[COL.CANT_SOL])    || 0;
+    var cantDesp   = Number(r[COL.CANT_DESP])   || 0;
+    var cantCancel = Number(r[COL.CANT_CANCEL]) || 0;
     var cantPendRaw = r[COL.CANT_PEND];
+    // Primario: col G (fórmula =E−F−Z). Fallback (G vacía): E−F−Z, NO E−F, para no inflar el
+    // pendiente con lo cancelado por el reseller (Opción B).
     var cantPend = (cantPendRaw !== '' && cantPendRaw !== null && cantPendRaw !== undefined)
-                   ? Number(cantPendRaw) : (cantSol - cantDesp);
-    if (isNaN(cantPend)) cantPend = cantSol - cantDesp;
+                   ? Number(cantPendRaw) : (cantSol - cantDesp - cantCancel);
+    if (isNaN(cantPend)) cantPend = cantSol - cantDesp - cantCancel;
 
     var skuKey = String(r[COL.SKU] || '').trim().toUpperCase();
     mapaP[num].items.push({
@@ -288,7 +291,7 @@ function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
       stockOri:    (r[COL.STOCK_ORI] !== '' && r[COL.STOCK_ORI] !== null && !isNaN(Number(r[COL.STOCK_ORI])))
                    ? Number(r[COL.STOCK_ORI]) : -1,
       stockActual:  (skuKey && stockMap[skuKey] !== undefined) ? stockMap[skuKey] : null,
-      cantCancel:   Number(r[COL.CANT_CANCEL] || 0),
+      cantCancel:   cantCancel,
       seriales:     String(r[COL.SERIALES] || '').trim(),
       estado:       String(r[COL.ESTADO] || '')
     });
@@ -416,6 +419,14 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
       hoja.getRange(i + 1, COL.ESTADO      + 1).setValue(nuevoEstado);
       hoja.getRange(i + 1, COL.FECHA_ESTADO + 1).setValue(ahora);
       if (operario) hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(operario);
+      // Al CANCELAR, registrar en CANT_CANCEL (Z) lo que quedaba sin despachar (E−F) → CANT_PEND
+      // (=E−F−Z) baja a 0. Sin esto la línea Cancelada seguía mostrando pendiente fantasma > 0 y
+      // había que correr WOS_aplicarCanceladosSinCancel a mano. (Z=E−F absorbe cancelaciones parciales
+      // previas; las unidades ya despachadas F quedan como entregadas, no se cancelan.)
+      if (nuevoEstado === EST.CANCELADO) {
+        var _cZ = Math.max(0, (Number(datos[i][COL.CANT_SOL]) || 0) - (Number(datos[i][COL.CANT_DESP]) || 0));
+        hoja.getRange(i + 1, COL.CANT_CANCEL + 1).setValue(_cZ > 0 ? _cZ : '');
+      }
       if (!canReseller) {
         canReseller = String(datos[i][COL.RESELLER]  || '');
         canObs      = String(datos[i][COL.OBS]       || '');
@@ -736,9 +747,11 @@ function WOS_buscarBackorderPorSKU(sku) {
         var rowSku = String(datos[i][COL.SKU]      || '').trim().toUpperCase();
         if (!num || estado !== EST.BACKORDER || rowSku !== skuUp) continue;
 
-        var cantSol  = Number(datos[i][COL.CANT_SOL])  || 0;
-        var cantDesp = Number(datos[i][COL.CANT_DESP]) || 0;
-        var cantPend = Math.max(0, cantSol - cantDesp);
+        var cantSol    = Number(datos[i][COL.CANT_SOL])    || 0;
+        var cantDesp   = Number(datos[i][COL.CANT_DESP])   || 0;
+        var cantCancel = Number(datos[i][COL.CANT_CANCEL]) || 0;
+        // Pendiente real = E−F−Z: descontar lo cancelado por el reseller para no inflar la lista de compras.
+        var cantPend = Math.max(0, cantSol - cantDesp - cantCancel);
         if (cantPend <= 0) continue;
 
         if (!mapa[num]) {
@@ -792,7 +805,22 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
       }
       if (!reseller) continue;
 
-      _wosSetEstado(hoja, datos, numero, EST.PREPARADO);
+      // Reactivar SOLO las líneas en Backorder de ESTE SKU (es el stock que llegó). Nunca tocar
+      // líneas ya Entregadas/Canceladas ni backorders de otros SKUs sin stock. Antes usaba
+      // _wosSetEstado (sin filtro) → pisaba TODAS las filas del pedido a Preparado y revivía
+      // entregados/cancelados (riesgo de doble despacho / descancelar).
+      var _rmAhora = new Date(), _rmFlip = 0;
+      for (var rm = 1; rm < datos.length; rm++) {
+        if (String(datos[rm][COL.NUMERO] || '').trim() !== numero) continue;
+        if (String(datos[rm][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+        if (String(datos[rm][COL.SKU]    || '').trim().toUpperCase() !== skuUp) continue;
+        var _rmR = hoja.getRange(rm + 1, COL.ESTADO + 1);
+        _rmR.clearDataValidations();
+        _rmR.setValue(EST.PREPARADO);
+        hoja.getRange(rm + 1, COL.FECHA_ESTADO + 1).setValue(_rmAhora);
+        _rmFlip++;
+      }
+      if (!_rmFlip) continue;   // este pedido no tenía backorder de ese SKU → no reactivar/notificar
 
       if (threadId) {
         try {
@@ -1382,7 +1410,8 @@ function WOS_reporteBackorder() {
       var desc     = String(wosData[i][COL.DESC]     || '').trim();
       var numero   = String(wosData[i][COL.NUMERO]   || '').trim();
       var reseller = String(wosData[i][COL.RESELLER] || '').trim();
-      var nec      = (Number(wosData[i][COL.CANT_SOL]  || 0) - Number(wosData[i][COL.CANT_DESP] || 0));
+      // Necesidad real = E−F−Z: descontar lo cancelado por el reseller para no reportar de más a logística.
+      var nec      = (Number(wosData[i][COL.CANT_SOL]  || 0) - Number(wosData[i][COL.CANT_DESP] || 0) - Number(wosData[i][COL.CANT_CANCEL] || 0));
       if (nec <= 0) continue;
       if (!backMap[sku]) backMap[sku] = { desc: desc, nec: 0, pedidos: [] };
       backMap[sku].nec += nec;
