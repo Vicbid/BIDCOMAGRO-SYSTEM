@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.20
+// @version 2.21
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1227,9 +1227,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       if (oldDespBk > 0) { hayDespPrevio = true; }
       var dispNowBk  = (despMap[bk + 1] !== undefined) ? (Number(despMap[bk + 1]) || 0) : 0;
       if (dispNowBk > 0) {
-        var cantSolBk   = Number(ped.datos[bk][COL.CANT_SOL]) || 0;
-        var cantFinalBk = oldDespBk + dispNowBk;
-        if (cantFinalBk < cantSolBk) { hayBackorderPostDesp = true; }
+        var cantSolBk    = Number(ped.datos[bk][COL.CANT_SOL])    || 0;
+        var cantCancelBk = Number(ped.datos[bk][COL.CANT_CANCEL]) || 0;
+        var cantFinalBk  = oldDespBk + dispNowBk;
+        // Sólo hay backorder si falta despachar algo NO cancelado (cantSol − Z). Lo cancelado por el
+        // reseller (Opción B) no es backorder → no dispara 2º envío ni el aviso de "quedan ítems".
+        if (cantFinalBk < (cantSolBk - cantCancelBk)) { hayBackorderPostDesp = true; }
       } else {
         var estBk = String(ped.datos[bk][COL.ESTADO] || '').trim();
         if (estBk === EST.BACKORDER) { hayBackorderPostDesp = true; }
@@ -1397,17 +1400,21 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       if (String(ped.datos[sf][COL.NUMERO] || '').trim() !== numero) continue;
       var dispNowSf  = (despMap[sf + 1] !== undefined) ? (Number(despMap[sf + 1]) || 0) : 0;
       if (dispNowSf > 0) {
-        var cantSolSf   = Number(ped.datos[sf][COL.CANT_SOL])  || 0;
-        var oldDespSf   = Number(ped.datos[sf][COL.CANT_DESP]) || 0;
-        var cantFinalSf = oldDespSf + dispNowSf;
-        var estPrevSf   = String(ped.datos[sf][COL.ESTADO] || '').trim();
+        var cantSolSf    = Number(ped.datos[sf][COL.CANT_SOL])    || 0;
+        var oldDespSf    = Number(ped.datos[sf][COL.CANT_DESP])   || 0;
+        var cantCancelSf = Number(ped.datos[sf][COL.CANT_CANCEL]) || 0;
+        var cantFinalSf  = oldDespSf + dispNowSf;
+        var estPrevSf    = String(ped.datos[sf][COL.ESTADO] || '').trim();
         var rSf = ped.hoja.getRange(sf + 1, COL.ESTADO + 1);
         rSf.clearDataValidations();
-        // Si queda pendiente y la línea estaba En_Espera_Reseller (faltante esperando la decisión del
-        // reseller), se MANTIENE En_Espera aunque despachemos lo disponible ahora — así la respuesta
-        // A/B (que filtra por En_Espera) todavía la resuelve. Antes pasaba a Backorder y la Opción B
-        // (cancelar) ya no la alcanzaba → el faltante quedaba en backorder en vez de cancelarse.
-        var _estFinalSf = (cantFinalSf >= cantSolSf) ? estadoDesp
+        // La línea se da por CERRADA cuando se despachó todo lo que NO fue cancelado (cantSol − Z),
+        // no cuando se llega a cantSol: si el reseller canceló el faltante (Opción B), despachar lo
+        // disponible completa el ítem → Entregado (antes exigía llegar a cantSol y lo devolvía a
+        // Backorder pese a estar cancelado el resto).
+        // Si aún queda pendiente y la línea estaba En_Espera_Reseller (faltante esperando la decisión
+        // del reseller), se MANTIENE En_Espera aunque despachemos lo disponible ahora — así la
+        // respuesta A/B (que filtra por En_Espera) todavía la resuelve.
+        var _estFinalSf = (cantFinalSf >= (cantSolSf - cantCancelSf)) ? estadoDesp
                         : (estPrevSf === EST.EN_ESPERA ? EST.EN_ESPERA : EST.BACKORDER);
         rSf.setValue(_estFinalSf);
         ped.hoja.getRange(sf + 1, COL.FECHA_ESTADO + 1).setValue(ahora2);
@@ -1764,24 +1771,32 @@ function WOS_detectarRespuestasResellers() {
           var ahoraB = new Date();
           for (var ri = 0; ri < info.rows.length; ri++) {
             var row = info.rows[ri];
-            if (String(datos[row.rowNum - 1][COL.ESTADO] || '').trim() !== EST.EN_ESPERA) continue;
+            // IDÉNTICO a WOS_procesarRespuestaManual: aplica al faltante pendiente esté En_Espera_Reseller
+            // O ya aparcado en Backorder (en pedidos mixtos el 2º no se cancelaba y quedaba en backorder).
+            var _estFilaBe = String(datos[row.rowNum - 1][COL.ESTADO] || '').trim();
+            if (_estFilaBe !== EST.EN_ESPERA && _estFilaBe !== EST.BACKORDER) continue;
+            // Sobre lo REALMENTE pendiente (E−F−Z) y acumulando CANT_CANCEL → no cancela de más una
+            // línea con despacho/cancelación parcial previa.
+            var _solBe   = Number(datos[row.rowNum - 1][COL.CANT_SOL])    || 0;
+            var _despBe  = Number(datos[row.rowNum - 1][COL.CANT_DESP])   || 0;
+            var _cancBe0 = Number(datos[row.rowNum - 1][COL.CANT_CANCEL]) || 0;
+            var _pendBe  = _solBe - _despBe - _cancBe0;
+            if (_pendBe <= 0) continue;
             var cantDisp = (faltantesMap[row.sku] !== undefined) ? faltantesMap[row.sku] : 0;
-            var cantSolOrig = Number(datos[row.rowNum - 1][COL.CANT_SOL]) || 0;
+            if (cantDisp > _pendBe) cantDisp = _pendBe;
             var rEstB = hoja.getRange(row.rowNum, COL.ESTADO + 1);
             rEstB.clearDataValidations();
-            if (cantDisp >= cantSolOrig && cantSolOrig > 0) {
+            if (cantDisp >= _pendBe) {
+              // Hay stock para todo lo pendiente → se despacha completo, no se cancela nada
               rEstB.setValue(EST.PREPARADO);
             } else if (cantDisp > 0) {
-              // Parcial: se cancela el faltante (solicitado − disponible). Se PRESERVA CANT_SOL y se
-              // registra en CANT_CANCEL (col Z) → CANT_PEND (=E−F−Z) queda en lo disponible. IDÉNTICO a
-              // WOS_procesarRespuestaManual (los otros 2 caminos: link del mail y respuesta manual).
-              // Antes acá se PISABA CANT_SOL con el disponible (10→5) → se perdía el pedido original y no
-              // se registraba la cancelación; los dos caminos guardaban datos distintos para lo mismo.
-              hoja.getRange(row.rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrig - cantDisp);
+              // Parcial: se despacha lo disponible y se CANCELA el resto pendiente (acumula sobre Z).
+              // Se PRESERVA CANT_SOL → CANT_PEND (=E−F−Z) queda en lo disponible.
+              hoja.getRange(row.rowNum, COL.CANT_CANCEL + 1).setValue(_cancBe0 + (_pendBe - cantDisp));
               rEstB.setValue(EST.PREP_PARCIAL);
             } else {
-              // Faltante total: se cancela todo lo solicitado (col Z) → CANT_PEND = 0. Igual que el manual.
-              hoja.getRange(row.rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrig);
+              // Faltante total: se cancela todo lo pendiente (col Z) → CANT_PEND = 0.
+              hoja.getRange(row.rowNum, COL.CANT_CANCEL + 1).setValue(_cancBe0 + _pendBe);
               rEstB.setValue(EST.CANCELADO);
             }
             hoja.getRange(row.rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraB);
