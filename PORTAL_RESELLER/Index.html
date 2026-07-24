@@ -5163,7 +5163,7 @@ function _superOnDatos() {
     _pedRenderCarrito();
     _pedCargarIndice();                 // recarga catálogo con los precios del nuevo descuento
     var q = (document.getElementById('ped-q').value || '').trim();
-    if (q.length >= 2) _pedBuscar(true);
+    if (q.length >= 2) _repBuscar('ped', true);
   }
 }
 
