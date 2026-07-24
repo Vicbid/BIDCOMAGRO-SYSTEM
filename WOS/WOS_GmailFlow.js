@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.19
+// @version 2.20
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -2022,18 +2022,33 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
         "Estamos preparando el despacho de lo disponible. Recibir\xe1s la Nota de Entrega cuando sea despachado. Los \xedtems faltantes quedan cancelados.";
       var ahoraM = new Date();
       for (var r = 0; r < rows.length; r++) {
-        if (String(datos[rows[r].rowNum - 1][COL.ESTADO] || '').trim() !== EST.EN_ESPERA) continue;
+        var _estFilaB = String(datos[rows[r].rowNum - 1][COL.ESTADO] || '').trim();
+        // "Cancelar el faltante" aplica a TODA la línea pendiente del faltante: tanto la que aún espera
+        // respuesta (En_Espera_Reseller) COMO la que ya quedó aparcada en Backorder. Antes el filtro era
+        // sólo En_Espera → en un pedido mixto la línea en Backorder no se cancelaba y "quedaba en
+        // backorder" aunque el operario eligiera la Opción B (bug reportado).
+        if (_estFilaB !== EST.EN_ESPERA && _estFilaB !== EST.BACKORDER) continue;
+        // Trabajar sobre lo REALMENTE pendiente (E - F - Z), no sobre lo solicitado: una línea de
+        // Backorder puede tener unidades ya despachadas (F>0) o canceladas (Z>0) → así no se cancela de más.
+        var _solB   = Number(datos[rows[r].rowNum - 1][COL.CANT_SOL])    || 0;
+        var _despB  = Number(datos[rows[r].rowNum - 1][COL.CANT_DESP])   || 0;
+        var _cancB0 = Number(datos[rows[r].rowNum - 1][COL.CANT_CANCEL]) || 0;
+        var _pendB  = _solB - _despB - _cancB0;
+        if (_pendB <= 0) continue;   // nada pendiente en esta línea
         var cantDispM = (cantMap[rows[r].sku] !== undefined) ? cantMap[rows[r].sku] : 0;
-        var cantSolOrigM = Number(datos[rows[r].rowNum - 1][COL.CANT_SOL]) || 0;
+        if (cantDispM > _pendB) cantDispM = _pendB;   // no preparar más de lo pendiente
         var rEstM = hoja.getRange(rows[r].rowNum, COL.ESTADO + 1);
         rEstM.clearDataValidations();
-        if (cantDispM >= cantSolOrigM && cantSolOrigM > 0) {
+        if (cantDispM >= _pendB) {
+          // Hay stock para cubrir todo lo pendiente → se despacha completo, no se cancela nada
           rEstM.setValue(EST.PREPARADO);
         } else if (cantDispM > 0) {
-          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrigM - cantDispM);
+          // Se despacha lo disponible y se CANCELA el resto pendiente (acumula sobre lo ya cancelado)
+          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + (_pendB - cantDispM));
           rEstM.setValue(EST.PREP_PARCIAL);
         } else {
-          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(cantSolOrigM);
+          // Sin stock → se CANCELA todo lo pendiente
+          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + _pendB);
           rEstM.setValue(EST.CANCELADO);
         }
         hoja.getRange(rows[r].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraM);
