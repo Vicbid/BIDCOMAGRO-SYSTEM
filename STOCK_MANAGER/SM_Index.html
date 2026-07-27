@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.23 -->
+<!-- @version 5.24 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4452,7 +4452,7 @@ function _renderDetalleCAS(d) {
     }
     h += '<div style="margin-bottom:16px">';
     h += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fa fa-clipboard-list" style="color:var(--blue);margin-right:5px"></i>Manifiesto del pedido</div>';
-    h += '<div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Pedido</th><th style="text-align:center">Recibido</th><th style="text-align:center">Estado</th><th>Cobertura pedidos</th><th style="text-align:center">🏷 Etiqueta</th></tr></thead><tbody>';
+    h += '<div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Pedido</th><th style="text-align:center">Recibido</th><th style="text-align:center">Estado</th><th>Cobertura pedidos</th></tr></thead><tbody>';
     for (var mi = 0; mi < d.manifest.length; mi++) {
       var m = d.manifest[mi];
       var isPend = m.cantPedida > m.cantRecibida;
@@ -4466,15 +4466,12 @@ function _renderDetalleCAS(d) {
                 : '<span style="color:var(--orange);font-size:11px"><i class="fa fa-exclamation-triangle"></i> Insuf. ('+cov.pedido+' pend.)</span>')
             : '<span style="font-size:11px;color:var(--tx-d)">Sin pedidos</span>')
         : '';
-      var etiqCell = isPend
-        ? '<td style="text-align:center;white-space:nowrap">' + _etiqCellInline(m.sku, m.cantPedida - m.cantRecibida) + '</td>'
-        : '<td style="text-align:center;color:var(--tx-d)">—</td>';
-      h += '<tr' + (isPend ? ' data-etiq-sku="' + String(m.sku).toUpperCase() + '"' : '') + '>' +
+      h += '<tr>' +
         '<td><span class="b-info">'+m.sku+'</span></td><td>'+m.descripcion+'</td>' +
         '<td style="text-align:center;font-weight:700">'+m.cantPedida+'</td>' +
         '<td style="text-align:center;font-weight:700">'+m.cantRecibida+'</td>' +
         '<td style="text-align:center"><span class="'+estCls+'">'+m.estado+'</span></td>' +
-        '<td>'+covCell+'</td>' + etiqCell + '</tr>';
+        '<td>'+covCell+'</td></tr>';
     }
     h += '</tbody></table></div></div>';
     document.getElementById('btn-recibir-todo').style.display    = hasPending ? '' : 'none';
@@ -4567,42 +4564,19 @@ function exportarPackingListCAS() {
   toast('Packing list exportado', 'ok');
 }
 
-function recibirCASCompleto() {
+// Pantalla ÚNICA de selección de recepción: por ítem, cuánto recibir + etiqueta (una sola vez).
+// La usan "Recibir todo" y "Recibir parcial"; el manifiesto de arriba es solo lectura para no
+// duplicar la elección de etiqueta. Ambas confirman con confirmarReciboParcial().
+function _recepMostrarFilas(titulo) {
   if (!_detalleCasData || !_detalleCasData.manifest || !_detalleCasData.manifest.length) return toast('Sin manifiesto cargado','err');
-  var loc   = ((document.getElementById('recep-ubic-cas') || {}).value || '').trim().toUpperCase();
-  var items = [];
-  for (var i = 0; i < _detalleCasData.manifest.length; i++) {
-    var m = _detalleCasData.manifest[i];
-    var delta = m.cantPedida - m.cantRecibida;
-    if (delta > 0) items.push({ codigo: m.sku, descripcion: m.descripcion, cantRecibida: delta, ubicacion: loc });
-  }
-  if (!items.length) return toast('Todo ya fue recibido', 'ok');
-  var op = document.getElementById('est-cas-op') ? document.getElementById('est-cas-op').value : 'Sistema';
-  var etiqItems = _recepColectarEtiquetas('#detalle-cas-body');
-  var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(res) {
-      sp(false);
-      if (res.ok) {
-        toast('Mercadería recibida y stock actualizado', 'ok');
-        bootstrap.Modal.getInstance(document.getElementById('modal-detalle-cas')).hide();
-        cargarComprasTab(); load();
-        _recepPostImprimirEtiq(etiqWin, etiqItems, op);
-      } else { if (etiqWin) etiqWin.close(); toast(res.msg, 'err'); }
-    })
-    .withFailureHandler(function(e) { sp(false); if (etiqWin) etiqWin.close(); toast('Error: '+e.message,'err'); })
-    .recibirMercaderia(_detalleCasActual, items, op);
-}
-
-function recibirCASParcial() {
-  if (!_detalleCasData || !_detalleCasData.manifest || !_detalleCasData.manifest.length) return toast('Sin manifiesto cargado','err');
-  var h = '<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--tx-m)"><i class="fa fa-box" style="margin-right:6px;color:var(--orange)"></i>Ingresá las cantidades a recibir ahora:</div>';
+  var h = '<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--tx-m)"><i class="fa fa-box" style="margin-right:6px;color:var(--orange)"></i>' + titulo + '</div>';
   h += '<div id="recep-parcial-items">';
+  var hay = false;
   for (var i = 0; i < _detalleCasData.manifest.length; i++) {
     var m = _detalleCasData.manifest[i];
     var delta = m.cantPedida - m.cantRecibida;
     if (delta <= 0) continue;
+    hay = true;
     h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" data-etiq-sku="'+String(m.sku).toUpperCase()+'" ' +
          'style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
       '<div style="flex:1;min-width:0">' +
@@ -4624,6 +4598,7 @@ function recibirCASParcial() {
     '</div>';
   }
   h += '</div>';
+  if (!hay) return toast('Todo ya fue recibido', 'ok');
   h += '<div style="margin-top:12px"><label class="flbl">Operador</label>' +
     '<select id="recep-parcial-op" class="form-select op-select">' +
     '<option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option>' +
@@ -4634,6 +4609,14 @@ function recibirCASParcial() {
   document.getElementById('btn-recibir-parcial').style.display = 'none';
   document.getElementById('btn-confirmar-recibo').style.display = '';
   document.getElementById('btn-cancelar-recibo').style.display  = '';
+}
+
+function recibirCASCompleto() {
+  _recepMostrarFilas('Revisá lo que llegó y las etiquetas; ajustá si hace falta y confirmá:');
+}
+
+function recibirCASParcial() {
+  _recepMostrarFilas('Ingresá las cantidades a recibir ahora:');
 }
 
 function confirmarReciboParcial() {
