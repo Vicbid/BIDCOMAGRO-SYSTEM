@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.5 -->
+<!-- @version 1.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -355,6 +355,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     <span id="camp-resellers-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCurso()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-graduation-cap"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Curso / Eventos · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="curso-card-sub">Inscripción de resellers</div>
+    </div>
+    <span id="curso-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+    <span id="curso-card-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
   <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalPin()">
     <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
       <i class="fa fa-key"></i>
@@ -529,6 +541,79 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         <span style="color:#c0c8d4;font-style:italic">Ningún reseller cargó su estimado aún.</span>
       </div>
       <div id="camp-recordatorio-result" style="display:none;margin-top:10px;padding:8px 12px;border-radius:7px;font-size:11px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CURSO / EVENTOS -->
+<div class="modal-bg" id="modal-curso">
+  <div class="modal-box" style="width:600px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-graduation-cap"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Curso / Eventos · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Creá y editá eventos; los resellers se inscriben desde el portal</div>
+      </div>
+      <button onclick="cerrarModalCurso()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="curso-ev-id">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Evento</label>
+          <select id="curso-ev-sel" onchange="cursoCargarEvento()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+            <option value="__new">➕ Nuevo evento</option>
+          </select>
+        </div>
+        <button onclick="cursoNuevo()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-plus"></i> Nuevo</button>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Título</label>
+        <input id="curso-titulo" type="text" placeholder="Ej: Curso presencial DJI Agras" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Fecha</label>
+          <input id="curso-fecha" type="text" placeholder="Ej: 15/08/2026, 10 a 17 h" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Fecha límite inscripción</label>
+          <input id="curso-limite" type="text" placeholder="Ej: 10/08/2026" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Lugar</label>
+        <input id="curso-lugar" type="text" placeholder="Ej: BIDCOMAGRO — Carmen de Areco" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Descripción</label>
+        <textarea id="curso-desc" rows="3" placeholder="Detalle del curso…" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;resize:vertical"></textarea>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1a1f2e;cursor:pointer;width:fit-content">
+        <input type="checkbox" id="curso-activo" style="width:16px;height:16px;cursor:pointer;accent-color:var(--blue)">
+        Visible para los resellers (activo)
+      </label>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="curso-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="cursoGuardar()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar evento
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em">
+          <i class="fa fa-users" style="margin-right:5px;color:#9ba5b4"></i>Inscriptos — <span id="curso-stats-personas">0</span> personas · <span id="curso-stats-resellers">0</span> resellers
+        </div>
+        <button onclick="cursoCargarStats()" style="font-size:11px;color:#9ba5b4;background:none;border:1px solid #e0e3e8;border-radius:6px;padding:4px 10px;cursor:pointer">
+          <i class="fa fa-sync-alt"></i> Actualizar
+        </button>
+      </div>
+      <div id="curso-stats-lista" style="font-size:12px;color:#5e6778;line-height:1.8">
+        <span style="color:#c0c8d4;font-style:italic">Todavía nadie se anotó.</span>
+      </div>
     </div>
   </div>
 </div>
@@ -809,6 +894,7 @@ google.script.run
   })
   .LAUNCH_getCampana();
 campanaCargarStats();
+cursoCargarLista();   // badge de la tarjeta Curso/Eventos
 
 var _resellerEstados = {}; // nombre → activo (bool)
 google.script.run
@@ -1027,6 +1113,138 @@ function campanaCargarStats() {
     })
     .withFailureHandler(function() {})
     .LAUNCH_getCampanaStats();
+}
+
+// ── Curso / Eventos ──────────────────────────────────────────
+var _cursoEventos = [];
+function _cursoEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function abrirModalCurso() {
+  document.getElementById('modal-curso').classList.add('show');
+  cursoCargarLista();
+}
+function cerrarModalCurso() {
+  document.getElementById('modal-curso').classList.remove('show');
+}
+function _cursoBuscar(id) {
+  for (var i = 0; i < _cursoEventos.length; i++) if (_cursoEventos[i].id === id) return _cursoEventos[i];
+  return null;
+}
+function _cursoActualizarCard() {
+  var activos = 0, personas = 0;
+  for (var i = 0; i < _cursoEventos.length; i++) {
+    if (_cursoEventos[i].activo) { activos++; personas += _cursoEventos[i].personas || 0; }
+  }
+  var badge = document.getElementById('curso-card-badge');
+  var mini  = document.getElementById('curso-card-mini');
+  var sub   = document.getElementById('curso-card-sub');
+  if (badge) {
+    badge.textContent = activos > 0 ? (activos + ' ACTIVO' + (activos === 1 ? '' : 'S')) : 'SIN EVENTOS';
+    badge.style.background = activos > 0 ? 'rgba(0,120,220,.12)' : '#f0f2f5';
+    badge.style.color      = activos > 0 ? 'var(--blue)'        : '#9ba5b4';
+  }
+  if (mini) mini.innerHTML = '<i class="fa fa-users" style="margin-right:4px"></i>' + personas;
+  if (sub)  sub.textContent = activos > 0 ? (personas + ' persona' + (personas === 1 ? '' : 's') + ' anotada' + (personas === 1 ? '' : 's')) : 'Inscripción de resellers';
+}
+function cursoCargarLista(selId) {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _cursoEventos = (r && r.ok && r.eventos) ? r.eventos : [];
+      var sel  = document.getElementById('curso-ev-sel');
+      var keep = selId || (document.getElementById('curso-ev-id') || {}).value || '';
+      var opts = '<option value="__new">➕ Nuevo evento</option>';
+      for (var i = 0; i < _cursoEventos.length; i++) {
+        var e = _cursoEventos[i];
+        opts += '<option value="' + _cursoEsc(e.id) + '">' + _cursoEsc(e.titulo) + (e.activo ? '' : ' (oculto)') + '</option>';
+      }
+      if (sel) sel.innerHTML = opts;
+      _cursoActualizarCard();
+      if (keep && _cursoBuscar(keep)) { sel.value = keep; cursoCargarEvento(); }
+      else if (_cursoEventos.length)  { sel.value = _cursoEventos[0].id; cursoCargarEvento(); }
+      else if (sel) { cursoNuevo(); }
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getEventos();
+}
+function cursoNuevo() {
+  var sel = document.getElementById('curso-ev-sel'); if (sel) sel.value = '__new';
+  document.getElementById('curso-ev-id').value  = '';
+  document.getElementById('curso-titulo').value = '';
+  document.getElementById('curso-fecha').value  = '';
+  document.getElementById('curso-limite').value = '';
+  document.getElementById('curso-lugar').value  = '';
+  document.getElementById('curso-desc').value   = '';
+  document.getElementById('curso-activo').checked = true;
+  _cursoRenderStats(null);
+}
+function cursoCargarEvento() {
+  var v = document.getElementById('curso-ev-sel').value;
+  if (v === '__new') { cursoNuevo(); return; }
+  var e = _cursoBuscar(v);
+  if (!e) { cursoNuevo(); return; }
+  document.getElementById('curso-ev-id').value  = e.id;
+  document.getElementById('curso-titulo').value = e.titulo;
+  document.getElementById('curso-fecha').value  = e.fecha;
+  document.getElementById('curso-limite').value = e.limite;
+  document.getElementById('curso-lugar').value  = e.lugar;
+  document.getElementById('curso-desc').value   = e.descripcion;
+  document.getElementById('curso-activo').checked = !!e.activo;
+  cursoCargarStats();
+}
+function cursoGuardar() {
+  var st = document.getElementById('curso-status');
+  var titulo = document.getElementById('curso-titulo').value.trim();
+  if (!titulo) { st.textContent = '✗ Falta el título'; st.style.color = 'var(--red)'; return; }
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var data = {
+    id:          document.getElementById('curso-ev-id').value.trim(),
+    titulo:      titulo,
+    fecha:       document.getElementById('curso-fecha').value.trim(),
+    lugar:       document.getElementById('curso-lugar').value.trim(),
+    descripcion: document.getElementById('curso-desc').value.trim(),
+    limite:      document.getElementById('curso-limite').value.trim(),
+    activo:      document.getElementById('curso-activo').checked
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) { document.getElementById('curso-ev-id').value = res.id; cursoCargarLista(res.id); }
+      setTimeout(function() { st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_saveEvento(data);
+}
+function cursoCargarStats() {
+  var id = document.getElementById('curso-ev-id').value.trim();
+  if (!id) { _cursoRenderStats(null); return; }
+  google.script.run
+    .withSuccessHandler(function(r) { _cursoRenderStats(r); })
+    .withFailureHandler(function() { _cursoRenderStats(null); })
+    .LAUNCH_getEventoStats(id);
+}
+function _cursoRenderStats(r) {
+  var per = document.getElementById('curso-stats-personas');
+  var res = document.getElementById('curso-stats-resellers');
+  var lst = document.getElementById('curso-stats-lista');
+  if (!r || !r.ok || !r.lista || !r.lista.length) {
+    per.textContent = (r && r.totalPersonas) || 0;
+    res.textContent = (r && r.totalResellers) || 0;
+    lst.innerHTML = '<span style="color:#c0c8d4;font-style:italic">Todavía nadie se anotó.</span>';
+    return;
+  }
+  per.textContent = r.totalPersonas;
+  res.textContent = r.totalResellers;
+  lst.innerHTML = r.lista.map(function(x) {
+    if (!x.asiste) {
+      return '<div style="opacity:.65"><i class="fa fa-circle-xmark" style="color:#d63031;margin-right:6px"></i><strong>' + _cursoEsc(x.reseller) + '</strong> <span style="color:#9ba5b4;font-size:10px">no asiste</span></div>';
+    }
+    var nombres = x.asistentes.map(function(a) {
+      return _cursoEsc(a.nombre) + (a.email ? ' <span style="color:#9ba5b4;font-size:10px">&lt;' + _cursoEsc(a.email) + '&gt;</span>' : '');
+    }).join(', ');
+    return '<div><i class="fa fa-circle-check" style="color:var(--green);margin-right:6px"></i><strong>' + _cursoEsc(x.reseller) + '</strong> <span style="color:#9ba5b4;font-size:10px">(' + x.personas + ')</span>' +
+           '<div style="margin-left:20px;color:#5e6778;font-size:11px">' + nombres + '</div></div>';
+  }).join('');
 }
 
 function abrirModalAviso() {

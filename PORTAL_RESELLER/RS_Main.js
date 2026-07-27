@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -80,6 +80,11 @@ function doGet(e) {
   // Aprobación de presupuestos OT (flujo preexistente)
   if (action === 'aprobar' || action === 'rechazar') {
     return _paginaAprobacion(params.ot, action, params.token);
+  }
+
+  // Panel interno de inscripciones a cursos/eventos (link con token; correr urlResumenCurso() en el editor)
+  if (action === 'resumen-curso') {
+    return _paginaResumenCurso(params.t, params.ev);
   }
   var tmpl = HtmlService.createTemplateFromFile('Index');
   tmpl.DEPLOY_URL = ScriptApp.getService().getUrl();

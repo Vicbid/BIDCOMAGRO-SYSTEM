@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 
@@ -565,6 +565,119 @@ function LAUNCH_setAviso(data) {
     ]);
     return { ok: true };
   } catch(e) { return { ok: false, error: e.toString() }; }
+}
+
+// ── Curso / Eventos · Portal Reseller ────────────────────────
+// Gestión de eventos desde el Launcher. Las hojas EVENTOS e INSCRIPCIONES_EVENTOS viven en el
+// MASTER (mismas que usa RS_Eventos.js del Portal); el scope 'spreadsheets' ya permite leerlas/escribirlas.
+//   EVENTOS:  A=ID B=Título C=Fecha D=Lugar E=Descripción F=Fecha límite G=Activo (vacío/SI visible)
+//   INSCRIPCIONES_EVENTOS: A=Fecha B=EventoID C=Evento D=Reseller E=Email reseller F=Asiste(SI/NO) G=Nombre H=Email I=Comentario
+var _LAUNCH_EVENTOS_TAB = 'EVENTOS';
+var _LAUNCH_INSCRIP_TAB = 'INSCRIPCIONES_EVENTOS';
+
+// eventoId → { totalPersonas, resellers: { nombre: { asiste, asistentes:[{nombre,email}] } } }
+function _launchAgruparInscripciones(ss) {
+  var out  = {};
+  var hoja = ss.getSheetByName(_LAUNCH_INSCRIP_TAB);
+  if (!hoja) return out;
+  var d = hoja.getDataRange().getValues();
+  for (var i = 1; i < d.length; i++) {
+    var eid = String(d[i][1] || '').trim();
+    var rs  = String(d[i][3] || '').trim();
+    if (!eid || !rs) continue;
+    if (!out[eid]) out[eid] = { totalPersonas: 0, resellers: {} };
+    if (!out[eid].resellers[rs]) out[eid].resellers[rs] = { asiste: false, asistentes: [] };
+    if (String(d[i][5] || '').toUpperCase() === 'SI') {
+      out[eid].resellers[rs].asiste = true;
+      var nom = String(d[i][6] || '').trim();
+      if (nom) { out[eid].resellers[rs].asistentes.push({ nombre: nom, email: String(d[i][7] || '') }); out[eid].totalPersonas++; }
+    }
+  }
+  return out;
+}
+
+function _launchEvActivo(v) {
+  var s = String(v == null ? '' : v).trim().toLowerCase();
+  if (s === '') return true;
+  return !(s === 'no' || s === 'false' || s === '0' || s === 'oculto' || s === 'inactivo');
+}
+
+function LAUNCH_getEventos() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_EVENTOS_TAB);
+    var tz   = Session.getScriptTimeZone();
+    var agr  = _launchAgruparInscripciones(ss);
+    var out  = [];
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var id     = String(d[i][0] || '').trim();
+        var titulo = String(d[i][1] || '').trim();
+        if (!id && !titulo) continue;
+        var fecha  = (d[i][2] instanceof Date) ? Utilities.formatDate(d[i][2], tz, 'dd/MM/yyyy') : String(d[i][2] || '');
+        var limite = (d[i][5] instanceof Date) ? Utilities.formatDate(d[i][5], tz, 'dd/MM/yyyy') : String(d[i][5] || '');
+        var a = agr[id] || { totalPersonas: 0, resellers: {} };
+        var van = 0, rk = Object.keys(a.resellers);
+        for (var r = 0; r < rk.length; r++) if (a.resellers[rk[r]].asiste) van++;
+        out.push({
+          id: id, titulo: titulo, fecha: fecha, lugar: String(d[i][3] || ''),
+          descripcion: String(d[i][4] || ''), limite: limite, activo: _launchEvActivo(d[i][6]),
+          personas: a.totalPersonas, resellers: van
+        });
+      }
+    }
+    return { ok: true, eventos: out };
+  } catch(e) { Logger.log('LAUNCH_getEventos: ' + e); return { ok: false, error: e.toString(), eventos: [] }; }
+}
+
+function LAUNCH_saveEvento(data) {
+  try {
+    data = data || {};
+    var titulo = String(data.titulo || '').trim();
+    if (!titulo) return { ok: false, error: 'Falta el título del evento.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_EVENTOS_TAB);
+    if (!hoja) {
+      hoja = ss.insertSheet(_LAUNCH_EVENTOS_TAB);
+      hoja.appendRow(['ID', 'Título', 'Fecha', 'Lugar', 'Descripción', 'Fecha límite inscripción', 'Activo']);
+      hoja.setFrozenRows(1);
+      hoja.getRange(1, 1, 1, 7).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    }
+    var id = String(data.id || '').trim();
+    if (!id) id = 'CURSO-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
+    var fila = [
+      id, titulo, String(data.fecha || '').trim(), String(data.lugar || '').trim(),
+      String(data.descripcion || '').trim(), String(data.limite || '').trim(),
+      data.activo ? 'SI' : 'NO'
+    ];
+    var d = hoja.getDataRange().getValues();
+    var filaIdx = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim() === id) { filaIdx = i + 1; break; }
+    }
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 7).setValues([fila]);
+    else             hoja.appendRow(fila);
+    SpreadsheetApp.flush();
+    return { ok: true, id: id };
+  } catch(e) { Logger.log('LAUNCH_saveEvento: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+function LAUNCH_getEventoStats(eventoId) {
+  try {
+    eventoId = String(eventoId || '').trim();
+    var ss  = SpreadsheetApp.openById(MASTER_SS_ID);
+    var agr = _launchAgruparInscripciones(ss);
+    var a   = agr[eventoId] || { totalPersonas: 0, resellers: {} };
+    var rk  = Object.keys(a.resellers).sort();
+    var lista = [], van = 0;
+    for (var i = 0; i < rk.length; i++) {
+      var g = a.resellers[rk[i]];
+      if (g.asiste) van++;
+      lista.push({ reseller: rk[i], asiste: g.asiste, personas: g.asistentes.length, asistentes: g.asistentes });
+    }
+    return { ok: true, totalPersonas: a.totalPersonas, totalResellers: van, lista: lista };
+  } catch(e) { return { ok: false, error: e.toString(), totalPersonas: 0, totalResellers: 0, lista: [] }; }
 }
 
 function LAUNCH_getResellersLista() {
