@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.25 -->
+<!-- @version 5.26 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -121,6 +121,12 @@ tr:last-child td{border-bottom:none}
 .recep-card .recep-recibido .lbl{font-size:10px;color:var(--green);font-weight:700;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
 .recep-card .recep-qty{width:78px;text-align:center;font-size:17px;font-weight:800;padding:8px 6px;border:1.5px solid var(--green);border-radius:8px;background:var(--surf);color:var(--tx);font-family:var(--f);-moz-appearance:textfield}
 .recep-card .recep-qty::-webkit-outer-spin-button,.recep-card .recep-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.recep-card .recep-etq{display:inline-flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none;margin:0}
+.recep-card .recep-etq .lbl{font-size:10px;color:var(--tx-d);font-weight:700;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.recep-card .recep-etq input{width:22px;height:22px;accent-color:var(--blue);cursor:pointer}
+.recep-card .recep-etq.on .lbl{color:var(--blue)}
+.recep-card .recep-sn-tag{font-size:10px;color:var(--tx-d);text-align:center;white-space:nowrap;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.recep-card .recep-sn-tag b{display:block;font-size:11px;color:var(--tx);font-weight:800;text-transform:none;letter-spacing:0;margin-top:1px}
 .recep-print-lbl{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;user-select:none}
 .recep-print-lbl input{width:18px;height:18px;accent-color:var(--blue);cursor:pointer}
 
@@ -1911,7 +1917,7 @@ tr:last-child td{border-bottom:none}
               style="max-width:150px;text-transform:uppercase">
           </div>
           <div id="recepcion-items"></div>
-          <label class="recep-print-lbl" style="margin-top:12px"><input type="checkbox" id="recep-print-toggle-est" checked>🏷 Imprimir etiquetas de lo recibido</label>
+          <div style="margin-top:10px;font-size:11px;color:var(--tx-d)">🏷 Tildá <b>Etiqueta</b> solo en los códigos que necesiten etiqueta individual. Las bolsas se etiquetan aparte.</div>
         </div>
       </div>
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
@@ -4584,11 +4590,19 @@ function exportarPackingListCAS() {
 
 // ── CHECKLIST DE RECEPCIÓN (simple: tildar lo que llegó OK contra el PL) ──────────
 // Una fila por ítem con un tilde grande "Llegó". Al tildar, se recibe la cantidad pedida
-// (editable solo si vino menos). Las etiquetas se deciden solas (serie=sin SO, bolsa=por bulto,
-// resto=por unidad) con un único interruptor global "Imprimir etiquetas". Sin dropdowns por fila.
+// (editable solo si vino menos). Además, por fila, el operador decide si quiere ETIQUETA
+// individual (1 por unidad recibida) tildando "🏷 Etiqueta" — arranca destildado. Los códigos
+// con N° de serie no ofrecen etiqueta (llevan su serie real, no SO). Las bolsas se etiquetan
+// aparte después. Sin lógica automática de bultos en la recepción.
 function _recepRowHTML(sku, desc, delta, checked) {
-  var on = checked ? ' on' : '';
-  return '<div class="recep-item recep-card' + on + '" data-codigo="' + escH(sku) + '" data-desc="' + escH(desc) + '" data-etiq-sku="' + escH(String(sku).toUpperCase()) + '" data-delta="' + delta + '">' +
+  var on   = checked ? ' on' : '';
+  var su   = String(sku).toUpperCase();
+  var isSN = !!(_reqSNMap && _reqSNMap[su]);
+  var hide = checked ? '' : ' style="display:none"';
+  var etiqCtrl = isSN
+    ? '<div class="recep-sn-tag"' + hide + '>🔢 N° serie<b>sin etiqueta</b></div>'
+    : '<label class="recep-etq"' + hide + ' title="Imprimir etiqueta individual de este código"><span class="lbl">🏷 Etiqueta</span><input type="checkbox" class="recep-etq-ck" onchange="_recepToggleEtq(this)"></label>';
+  return '<div class="recep-item recep-card' + on + '" data-codigo="' + escH(sku) + '" data-desc="' + escH(desc) + '" data-etiq-sku="' + escH(su) + '" data-delta="' + delta + '">' +
     '<label class="recep-check">' +
       '<input type="checkbox" class="recep-ok"' + (checked ? ' checked' : '') + ' onchange="_recepToggleRow(this)">' +
       '<div style="min-width:0">' +
@@ -4598,21 +4612,31 @@ function _recepRowHTML(sku, desc, delta, checked) {
     '</label>' +
     '<div class="recep-right">' +
       '<div class="recep-ped">Pedido<b>' + delta + '</b></div>' +
-      '<div class="recep-recibido"' + (checked ? '' : ' style="display:none"') + '>' +
+      '<div class="recep-recibido"' + hide + '>' +
         '<span class="lbl">Recibí</span>' +
         '<input type="number" class="recep-qty" value="' + delta + '" min="0" max="' + delta + '">' +
       '</div>' +
+      etiqCtrl +
     '</div>' +
   '</div>';
 }
 
-// Tilda/destilda una fila: la pinta de verde y muestra/oculta la cantidad recibida.
+// Tilda/destilda una fila: la pinta de verde y muestra/oculta la cantidad recibida + la etiqueta.
 function _recepToggleRow(chk) {
   var row = chk.closest('.recep-item');
   if (!row) return;
-  row.classList.toggle('on', chk.checked);
-  var rec = row.querySelector('.recep-recibido');
-  if (rec) rec.style.display = chk.checked ? '' : 'none';
+  var on = chk.checked;
+  row.classList.toggle('on', on);
+  ['.recep-recibido', '.recep-etq', '.recep-sn-tag'].forEach(function(s) {
+    var el = row.querySelector(s);
+    if (el) el.style.display = on ? '' : 'none';
+  });
+}
+
+// Resalta el rótulo "🏷 Etiqueta" cuando el operador lo tilda.
+function _recepToggleEtq(ck) {
+  var l = ck.closest('.recep-etq');
+  if (l) l.classList.toggle('on', ck.checked);
 }
 
 // Marca o limpia todas las filas de un contenedor.
@@ -4636,22 +4660,23 @@ function _recepColectarItems(sel, loc) {
   return items;
 }
 
-// Etiquetas automáticas de lo recibido: serie→no imprime; bolsa→por bulto (round); resto→por unidad.
-function _recepEtiquetasAuto(sel) {
+// Etiquetas que el operador eligió imprimir (por fila): solo filas tildadas "Llegó" + "🏷 Etiqueta",
+// una etiqueta por unidad recibida. Serializados nunca (llevan SN real). Las bolsas se hacen aparte.
+function _recepEtiquetasElegidas(sel) {
   var out = [], cont = document.querySelector(sel);
   if (!cont) return out;
   cont.querySelectorAll('.recep-item').forEach(function(row) {
     var chk = row.querySelector('.recep-ok');
-    if (chk && !chk.checked) return;
+    if (chk && !chk.checked) return;                          // no llegó
+    var etq = row.querySelector('.recep-etq-ck');
+    if (!etq || !etq.checked) return;                         // el operador no pidió etiqueta
     var qi  = row.querySelector('.recep-qty');
     var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
     if (qty <= 0) return;
     var sku = String(row.getAttribute('data-etiq-sku') || '').toUpperCase();
     if (!sku) return;
-    if (_reqSNMap && _reqSNMap[sku]) return;                 // serializados: llevan SN real, no SO
-    var uxb = (_bolsasMap && _bolsasMap[sku]) || 0;
-    if (uxb > 0) out.push({ sku: sku, cantidad: Math.max(1, Math.round(qty / uxb)), modo: 'bolsa', unidadesPorBolsa: uxb });
-    else         out.push({ sku: sku, cantidad: qty, modo: 'unidad' });
+    if (_reqSNMap && _reqSNMap[sku]) return;                  // serializados: llevan SN real, no SO
+    out.push({ sku: sku, cantidad: qty, modo: 'unidad' });
   });
   return out;
 }
@@ -4679,7 +4704,7 @@ function _recepMostrarFilas(titulo, preCheck) {
     '</div>' +
     '<div id="recep-parcial-items">' + rows + '</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)">' +
-      '<label class="recep-print-lbl"><input type="checkbox" id="recep-print-toggle" checked>🏷 Imprimir etiquetas de lo recibido</label>' +
+      '<div style="font-size:11px;color:var(--tx-d);max-width:420px">🏷 Tildá <b>Etiqueta</b> solo en los códigos que necesiten etiqueta individual. Las bolsas se etiquetan aparte.</div>' +
       '<div style="display:flex;align-items:center;gap:8px"><label class="flbl" style="margin:0">Operador</label>' +
         '<select id="recep-parcial-op" class="form-select op-select" style="width:auto;min-width:150px"><option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option></select>' +
       '</div>' +
@@ -4705,8 +4730,7 @@ function confirmarReciboParcial() {
   var items = _recepColectarItems('#recep-parcial-items', loc);
   if (!items.length) return toast('Tildá al menos un ítem que haya llegado','err');
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
-  var printOn   = document.getElementById('recep-print-toggle');
-  var etiqItems = (printOn && printOn.checked) ? _recepEtiquetasAuto('#recep-parcial-items') : [];
+  var etiqItems = _recepEtiquetasElegidas('#recep-parcial-items');
   var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
@@ -4767,6 +4791,7 @@ function agregarItemRecepcionManual() {
     '</label>' +
     '<div class="recep-right">' +
       '<div class="recep-recibido"><span class="lbl">Recibí</span><input type="number" class="recep-qty" value="1" min="0"></div>' +
+      '<label class="recep-etq" title="Imprimir etiqueta individual de este código"><span class="lbl">🏷 Etiqueta</span><input type="checkbox" class="recep-etq-ck" onchange="_recepToggleEtq(this)"></label>' +
       '<button type="button" onclick="this.closest(\'.recep-item\').remove()" style="background:none;border:none;cursor:pointer;color:var(--tx-d);font-size:18px;padding:0 4px;line-height:1">×</button>' +
     '</div>' +
   '</div>';
@@ -4887,8 +4912,7 @@ function confirmarEstadoCAS() {
     if (!items.length) { sp(false); return toast('Tildá al menos un ítem que haya llegado','err'); }
     var depSel = document.getElementById('recepcion-deposito');
     var deposito = depSel ? (depSel.value || 'BA') : 'BA';
-    var printOn   = document.getElementById('recep-print-toggle-est');
-    var etiqItems = (printOn && printOn.checked) ? _recepEtiquetasAuto('#recepcion-items') : [];
+    var etiqItems = _recepEtiquetasElegidas('#recepcion-items');
     var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
     google.script.run
       .withSuccessHandler(function(res) {
