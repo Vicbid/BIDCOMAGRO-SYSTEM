@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.18 -->
+<!-- @version 5.21 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2703,6 +2703,7 @@ window.onload = function() {
       sel.appendChild(o);
     });
   }).obtenerResellers();
+  _cargarEtiquetaMeta();  // mapas de bolsa + requiere-SN para la recepción
 };
 
 function load() {
@@ -3666,6 +3667,181 @@ function _imprimirEtiquetasSO(win, labels) {
   win.document.close();
 }
 
+// ── ETIQUETAS EN LA RECEPCIÓN (impresión automática al ingresar la compra) ──────
+// Mapas que decide el modo por defecto de cada código (se cargan con getEtiquetaMetaRecepcion):
+//  · _bolsasMap: SKU→unidades por bolsa → arranca en modo BOLSA (1 etiqueta = N u.).
+//  · _reqSNMap:  SKU con N° de serie real → arranca DESTILDADO (lleva SN, no SO; el operador puede tildar).
+var _bolsasMap = {};
+var _reqSNMap  = {};
+
+// Carga/actualiza los mapas de etiqueta (bolsa + requiere-SN). Se llama en onload y al abrir un CAS,
+// así siempre están frescos (mata la carrera de la carga inicial).
+function _cargarEtiquetaMeta(cb) {
+  google.script.run
+    .withSuccessHandler(function(m) { if (m) { _bolsasMap = m.bolsas || {}; _reqSNMap = m.sn || {}; } if (cb) cb(); })
+    .withFailureHandler(function() { if (cb) cb(); })
+    .getEtiquetaMetaRecepcion();
+}
+
+// Celda: tilde "🏷" + toggle unidad/bolsa/mixto + cantidad editable + (bolsa/mixto) unidades por bolsa
+// + (mixto) sueltas. `sku` decide el modo/tilde por defecto; `defaultUnidades` = unidades que se reciben.
+//  · Requiere SN → tilde DESTILDADO.        · Marcado por bolsa → modo bolsa.
+//  · Mixto: N bolsas (× u.) + M sueltas por unidad; prellena floor(u/uxb) bolsas + (u mód uxb) sueltas.
+function _etiqCellInline(sku, defaultUnidades) {
+  var u     = parseInt(defaultUnidades, 10) || 0;
+  var su    = String(sku || '').toUpperCase();
+  var uxb   = (_bolsasMap && _bolsasMap[su]) || 0;
+  var reqSN = !!(_reqSNMap && _reqSNMap[su]);
+  var modoDef = uxb > 0 ? 'bolsa' : 'unidad';
+  var cantIni = (modoDef === 'bolsa') ? Math.max(1, Math.round(u / uxb)) : u;
+  var uxbVal  = uxb || 50;
+  return '<div class="etiq-wrap" data-base-units="' + u + '" style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">' +
+      '<div style="display:inline-flex;align-items:center;gap:4px">' +
+        '<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;user-select:none" title="' + (reqSN ? 'Requiere N° de serie: normalmente NO lleva SO' : 'Imprimir etiqueta SO') + '">' +
+          '<input type="checkbox" class="recep-etiq"' + (reqSN ? '' : ' checked') + ' style="cursor:pointer">' + (reqSN ? '<span style="color:var(--tx-d)">SN</span>' : '🏷') + '</label>' +
+        '<select class="recep-etiq-modo form-select" onchange="_recepModoEtiq(this)" style="width:74px;font-size:10px;padding:1px 3px;height:auto;display:inline-block" title="Etiqueta por unidad, por bolsa o mixto (bolsas + sueltas)">' +
+          '<option value="unidad"' + (modoDef === 'unidad' ? ' selected' : '') + '>u.</option>' +
+          '<option value="bolsa"'  + (modoDef === 'bolsa'  ? ' selected' : '') + '>bolsa</option>' +
+          '<option value="mixto">mixto</option>' +
+        '</select>' +
+      '</div>' +
+      '<div style="display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:center">' +
+        '<input type="number" class="recep-etiq-cant form-control" value="' + cantIni + '" min="0" ' +
+          'oninput="this.setAttribute(\'data-touched\',\'1\')" ' +
+          'style="width:50px;text-align:center;padding:2px 3px;height:auto" title="Etiquetas (unidad) / bolsas (bolsa/mixto)">' +
+        '<span class="recep-etiq-uxb-wrap" style="' + (modoDef === 'unidad' ? 'display:none;' : '') + 'font-size:10px;color:var(--tx-d);white-space:nowrap">' +
+          '×<input type="number" class="recep-etiq-uxb form-control" value="' + uxbVal + '" min="1" ' +
+          'oninput="_recepRecalcEtiq(this.closest(\'[data-etiq-sku]\'))" ' +
+          'style="width:44px;text-align:center;padding:2px 3px;height:auto;display:inline-block"> u.</span>' +
+        '<span class="recep-etiq-sueltas-wrap" style="display:none;font-size:10px;color:var(--tx-d);white-space:nowrap">' +
+          '+<input type="number" class="recep-etiq-sueltas form-control" value="0" min="0" ' +
+          'oninput="this.setAttribute(\'data-touched\',\'1\')" ' +
+          'style="width:44px;text-align:center;padding:2px 3px;height:auto;display:inline-block"> sueltas</span>' +
+      '</div>' +
+  '</div>';
+}
+
+// Recalcula cantidad de etiquetas (y sueltas) según el modo + bulto, base = unidades a recibir.
+// No pisa un campo que el operador editó a mano (data-touched).
+function _recepRecalcEtiq(row) {
+  if (!row) return;
+  var wrap = row.querySelector('.etiq-wrap');
+  if (!wrap) return;
+  var ei   = wrap.querySelector('.recep-etiq-cant');
+  var si   = wrap.querySelector('.recep-etiq-sueltas');
+  var base = parseInt(wrap.getAttribute('data-base-units'), 10) || 0;
+  var modo = wrap.querySelector('.recep-etiq-modo');
+  var val  = modo ? modo.value : 'unidad';
+  var uxbEl = wrap.querySelector('.recep-etiq-uxb');
+  var uxb   = uxbEl ? (parseInt(uxbEl.value, 10) || 0) : 0;
+  var setCant = ei && ei.getAttribute('data-touched') !== '1';
+  var setSuel = si && si.getAttribute('data-touched') !== '1';
+  if (val === 'unidad') {
+    if (setCant) ei.value = base;
+  } else if (val === 'bolsa') {
+    if (setCant) ei.value = uxb > 0 ? Math.max(1, Math.round(base / uxb)) : base;
+  } else { // mixto: floor(base/uxb) bolsas + resto sueltas
+    var nb  = uxb > 0 ? Math.floor(base / uxb) : 0;
+    var rem = uxb > 0 ? (base - nb * uxb) : base;
+    if (setCant) ei.value = nb;
+    if (setSuel) si.value = rem;
+  }
+}
+
+// Toggle unidad/bolsa/mixto de una fila: muestra/oculta "× N u." y "+ sueltas", y recalcula.
+function _recepModoEtiq(sel) {
+  var wrap = sel.closest('.etiq-wrap');
+  if (!wrap) return;
+  var esUnidad = sel.value === 'unidad';
+  var esMixto  = sel.value === 'mixto';
+  var uxbWrap = wrap.querySelector('.recep-etiq-uxb-wrap');
+  var suWrap  = wrap.querySelector('.recep-etiq-sueltas-wrap');
+  if (uxbWrap) uxbWrap.style.display = esUnidad ? 'none' : '';
+  if (suWrap)  suWrap.style.display  = esMixto ? '' : 'none';
+  _recepRecalcEtiq(sel.closest('[data-etiq-sku]'));
+}
+
+// Fila manual: al tipear el SKU, aplica el default correcto (destildar si requiere SN; modo bolsa si es de bulto).
+function _recepAutoBolsaManual(row) {
+  if (!row) return;
+  var su  = String(row.getAttribute('data-etiq-sku') || '').toUpperCase();
+  var chk = row.querySelector('.recep-etiq');
+  if (chk) chk.checked = !(_reqSNMap && _reqSNMap[su]);
+  var modo = row.querySelector('.recep-etiq-modo');
+  if (!modo) return;
+  var cant = row.querySelector('.recep-etiq-cant');
+  if (cant && cant.getAttribute('data-touched') === '1') return;  // no molestar si ya lo editó
+  var uxb = (_bolsasMap && _bolsasMap[su]) || 0;
+  if (uxb > 0 && modo.value !== 'bolsa') {
+    modo.value = 'bolsa';
+    var uxbEl = row.querySelector('.recep-etiq-uxb');
+    if (uxbEl) uxbEl.value = uxb;
+    _recepModoEtiq(modo);
+  }
+}
+
+// Refleja la cantidad recibida (input .recep-qty) en la base de la etiqueta y recalcula.
+function _recepSyncEtiqQty(inp) {
+  var row = inp.closest('[data-etiq-sku]');
+  if (!row) return;
+  var wrap = row.querySelector('.etiq-wrap');
+  if (wrap) wrap.setAttribute('data-base-units', String(parseInt(inp.value, 10) || 0));
+  _recepRecalcEtiq(row);
+}
+
+// Junta [{sku, cantidad, modo, unidadesPorBolsa}] de las filas con etiqueta tildada. En modo mixto
+// devuelve DOS ítems del mismo SKU (bolsas + sueltas); el backend los procesa por separado.
+function _recepColectarEtiquetas(sel) {
+  var out  = [];
+  var cont = (typeof sel === 'string') ? document.querySelector(sel) : sel;
+  if (!cont) return out;
+  cont.querySelectorAll('[data-etiq-sku]').forEach(function(row) {
+    var chk = row.querySelector('.recep-etiq');
+    if (!chk || !chk.checked) return;
+    // En las vistas editables, no etiquetar un código que no se está recibiendo ahora (recibir = 0).
+    var rq = row.querySelector('.recep-qty');
+    if (rq && (parseInt(rq.value, 10) || 0) <= 0) return;
+    var sku    = row.getAttribute('data-etiq-sku');
+    var modoEl = row.querySelector('.recep-etiq-modo');
+    var modo   = modoEl ? modoEl.value : 'unidad';
+    var cant   = parseInt((row.querySelector('.recep-etiq-cant') || {}).value, 10) || 0;
+    var uxb    = parseInt((row.querySelector('.recep-etiq-uxb')  || {}).value, 10) || 0;
+    if (modo === 'unidad') {
+      if (cant > 0) out.push({ sku: sku, cantidad: cant, modo: 'unidad' });
+    } else if (modo === 'bolsa') {
+      if (cant > 0) out.push({ sku: sku, cantidad: cant, modo: 'bolsa', unidadesPorBolsa: uxb });
+    } else { // mixto
+      var sueltas = parseInt((row.querySelector('.recep-etiq-sueltas') || {}).value, 10) || 0;
+      if (cant > 0)    out.push({ sku: sku, cantidad: cant,    modo: 'bolsa',  unidadesPorBolsa: uxb });
+      if (sueltas > 0) out.push({ sku: sku, cantidad: sueltas, modo: 'unidad' });
+    }
+  });
+  return out;
+}
+
+// Abre la ventana de impresión (si hay algo que etiquetar) preservando el gesto del usuario.
+// Se llama ANTES del google.script.run de la recepción para que el navegador no la bloquee.
+function _recepAbrirVentanaEtiq(etiqItems) {
+  if (!etiqItems || !etiqItems.length) return null;
+  var win = window.open('', '_blank', 'width=480,height=640');
+  if (win) win.document.write('<html><body style="font-family:sans-serif;padding:24px;color:#333">Registrando recepción y generando etiquetas SO…</body></html>');
+  return win;
+}
+
+// Tras recibir OK: genera las etiquetas en lote y las vuelca en la ventana ya abierta.
+function _recepPostImprimirEtiq(win, etiqItems, op) {
+  if (!etiqItems || !etiqItems.length) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) { if (win) win.close(); toast((r && r.error) || 'No se pudieron generar las etiquetas', 'err'); return; }
+      _imprimirEtiquetasSO(win, r.labels);
+      var n = r.labels.length;
+      toast(n + ' etiqueta' + (n === 1 ? '' : 's') + ' SO de la recepción', 'ok');
+    })
+    .withFailureHandler(function(e) { if (win) win.close(); toast('Etiquetas: ' + (e && e.message ? e.message : e), 'err'); })
+    .generarSOLote(etiqItems, op);
+}
+
 function _wmsTipoBadge(tipo) {
   var t = String(tipo || '').toLowerCase();
   if (t.indexOf('picking') !== -1) return '<span class="wms-tipo-picking">PICKING</span>';
@@ -4243,6 +4419,7 @@ var _detalleCasData   = null;
 function verDetalleCAS(idCas) {
   _detalleCasActual = idCas;
   _detalleCasData   = null;
+  _cargarEtiquetaMeta();  // refresca bolsa/SN antes de renderizar el manifiesto
   document.getElementById('detalle-cas-title').innerHTML = '<i class="fa fa-boxes" style="color:var(--blue);margin-right:6px"></i>Contenido del Pedido: <strong>' + idCas + '</strong>';
   document.getElementById('detalle-cas-body').innerHTML  = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
   document.getElementById('btn-recibir-todo').style.display    = 'none';
@@ -4272,10 +4449,11 @@ function _renderDetalleCAS(d) {
     }
     h += '<div style="margin-bottom:16px">';
     h += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px"><i class="fa fa-clipboard-list" style="color:var(--blue);margin-right:5px"></i>Manifiesto del pedido</div>';
-    h += '<div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Pedido</th><th style="text-align:center">Recibido</th><th style="text-align:center">Estado</th><th>Cobertura pedidos</th></tr></thead><tbody>';
+    h += '<div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Pedido</th><th style="text-align:center">Recibido</th><th style="text-align:center">Estado</th><th>Cobertura pedidos</th><th style="text-align:center">🏷 Etiqueta</th></tr></thead><tbody>';
     for (var mi = 0; mi < d.manifest.length; mi++) {
       var m = d.manifest[mi];
-      if (m.cantPedida > m.cantRecibida) hasPending = true;
+      var isPend = m.cantPedida > m.cantRecibida;
+      if (isPend) hasPending = true;
       var estCls = m.estado === 'Completo' ? 'b-ok' : (m.estado === 'Parcial' ? 'b-warn' : 'b-crit');
       var cov = covMap[m.sku.trim().toUpperCase()];
       var covCell = cov
@@ -4285,11 +4463,15 @@ function _renderDetalleCAS(d) {
                 : '<span style="color:var(--orange);font-size:11px"><i class="fa fa-exclamation-triangle"></i> Insuf. ('+cov.pedido+' pend.)</span>')
             : '<span style="font-size:11px;color:var(--tx-d)">Sin pedidos</span>')
         : '';
-      h += '<tr><td><span class="b-info">'+m.sku+'</span></td><td>'+m.descripcion+'</td>' +
+      var etiqCell = isPend
+        ? '<td style="text-align:center;white-space:nowrap">' + _etiqCellInline(m.sku, m.cantPedida - m.cantRecibida) + '</td>'
+        : '<td style="text-align:center;color:var(--tx-d)">—</td>';
+      h += '<tr' + (isPend ? ' data-etiq-sku="' + String(m.sku).toUpperCase() + '"' : '') + '>' +
+        '<td><span class="b-info">'+m.sku+'</span></td><td>'+m.descripcion+'</td>' +
         '<td style="text-align:center;font-weight:700">'+m.cantPedida+'</td>' +
         '<td style="text-align:center;font-weight:700">'+m.cantRecibida+'</td>' +
         '<td style="text-align:center"><span class="'+estCls+'">'+m.estado+'</span></td>' +
-        '<td>'+covCell+'</td></tr>';
+        '<td>'+covCell+'</td>' + etiqCell + '</tr>';
     }
     h += '</tbody></table></div></div>';
     document.getElementById('btn-recibir-todo').style.display    = hasPending ? '' : 'none';
@@ -4393,6 +4575,8 @@ function recibirCASCompleto() {
   }
   if (!items.length) return toast('Todo ya fue recibido', 'ok');
   var op = document.getElementById('est-cas-op') ? document.getElementById('est-cas-op').value : 'Sistema';
+  var etiqItems = _recepColectarEtiquetas('#detalle-cas-body');
+  var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
     .withSuccessHandler(function(res) {
@@ -4401,9 +4585,10 @@ function recibirCASCompleto() {
         toast('Mercadería recibida y stock actualizado', 'ok');
         bootstrap.Modal.getInstance(document.getElementById('modal-detalle-cas')).hide();
         cargarComprasTab(); load();
-      } else toast(res.msg, 'err');
+        _recepPostImprimirEtiq(etiqWin, etiqItems, op);
+      } else { if (etiqWin) etiqWin.close(); toast(res.msg, 'err'); }
     })
-    .withFailureHandler(function(e) { sp(false); toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e) { sp(false); if (etiqWin) etiqWin.close(); toast('Error: '+e.message,'err'); })
     .recibirMercaderia(_detalleCasActual, items, op);
 }
 
@@ -4415,7 +4600,7 @@ function recibirCASParcial() {
     var m = _detalleCasData.manifest[i];
     var delta = m.cantPedida - m.cantRecibida;
     if (delta <= 0) continue;
-    h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" ' +
+    h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" data-etiq-sku="'+String(m.sku).toUpperCase()+'" ' +
          'style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:12px;font-weight:600;color:var(--blue)">'+m.sku+'</div>' +
@@ -4427,7 +4612,11 @@ function recibirCASParcial() {
       '</div>' +
       '<div style="text-align:center;min-width:72px">' +
         '<div style="font-size:10px;color:var(--tx-d)">Recibir</div>' +
-        '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" style="width:66px;text-align:center">' +
+        '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" oninput="_recepSyncEtiqQty(this)" style="width:66px;text-align:center">' +
+      '</div>' +
+      '<div style="text-align:center;min-width:150px">' +
+        '<div style="font-size:10px;color:var(--tx-d)">Etiqueta</div>' +
+        '<div style="margin-top:4px">' + _etiqCellInline(m.sku, delta) + '</div>' +
       '</div>' +
     '</div>';
   }
@@ -4453,6 +4642,8 @@ function confirmarReciboParcial() {
   });
   if (!items.length) return toast('Ingresá al menos una cantidad para recibir','err');
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
+  var etiqItems = _recepColectarEtiquetas('#recep-parcial-items');
+  var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
     .withSuccessHandler(function(res) {
@@ -4461,9 +4652,10 @@ function confirmarReciboParcial() {
         toast('Recepción parcial registrada','ok');
         bootstrap.Modal.getInstance(document.getElementById('modal-detalle-cas')).hide();
         cargarComprasTab(); load();
-      } else toast(res.msg,'err');
+        _recepPostImprimirEtiq(etiqWin, etiqItems, op);
+      } else { if (etiqWin) etiqWin.close(); toast(res.msg,'err'); }
     })
-    .withFailureHandler(function(e) { sp(false); toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e) { sp(false); if (etiqWin) etiqWin.close(); toast('Error: '+e.message,'err'); })
     .recibirMercaderia(_detalleCasActual, items, op);
 }
 
@@ -4481,7 +4673,7 @@ function _cargarManifiestoEnRecepcion(cas) {
         for (var i = 0; i < pendientes.length; i++) {
           var m = pendientes[i];
           var delta = m.cantPedida - m.cantRecibida;
-          h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" ' +
+          h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" data-etiq-sku="'+String(m.sku).toUpperCase()+'" ' +
                'style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
             '<div style="flex:1;min-width:0">' +
               '<div style="font-size:12px;font-weight:600;color:var(--blue)">'+m.sku+'</div>' +
@@ -4493,7 +4685,11 @@ function _cargarManifiestoEnRecepcion(cas) {
             '</div>' +
             '<div style="text-align:center;min-width:70px">' +
               '<div style="font-size:10px;color:var(--tx-d)">Recibir</div>' +
-              '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" style="width:65px;text-align:center">' +
+              '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" oninput="_recepSyncEtiqQty(this)" style="width:65px;text-align:center">' +
+            '</div>' +
+            '<div style="text-align:center;min-width:150px">' +
+              '<div style="font-size:10px;color:var(--tx-d)">Etiqueta</div>' +
+              '<div style="margin-top:4px">' + _etiqCellInline(m.sku, delta) + '</div>' +
             '</div>' +
           '</div>';
         }
@@ -4507,10 +4703,11 @@ function _cargarManifiestoEnRecepcion(cas) {
 }
 
 function agregarItemRecepcionManual() {
-  var h = '<div class="recep-item" data-codigo="" data-desc="" style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
-    '<input type="text" class="form-control" placeholder="SKU" oninput="this.value=this.value.toUpperCase();this.closest(\'.recep-item\').dataset.codigo=this.value" style="width:110px;font-size:12px">' +
+  var h = '<div class="recep-item" data-codigo="" data-desc="" data-etiq-sku="" style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
+    '<input type="text" class="form-control" placeholder="SKU" oninput="this.value=this.value.toUpperCase();var r=this.closest(\'.recep-item\');r.dataset.codigo=this.value;r.setAttribute(\'data-etiq-sku\',this.value);_recepAutoBolsaManual(r)" style="width:110px;font-size:12px">' +
     '<input type="text" class="form-control" placeholder="Descripción" oninput="this.closest(\'.recep-item\').dataset.desc=this.value" style="flex:1;font-size:12px">' +
-    '<input type="number" class="recep-qty form-control" value="0" min="0" style="width:65px;text-align:center">' +
+    '<input type="number" class="recep-qty form-control" value="0" min="0" oninput="_recepSyncEtiqQty(this)" style="width:65px;text-align:center">' +
+    '<div style="text-align:center;white-space:nowrap">' + _etiqCellInline('', 0) + '</div>' +
     '<button type="button" onclick="this.closest(\'.recep-item\').remove()" style="background:none;border:none;cursor:pointer;color:var(--tx-d);font-size:16px;padding:0 4px">×</button>' +
   '</div>';
   document.getElementById('recepcion-items').insertAdjacentHTML('beforeend', h);
@@ -4600,6 +4797,7 @@ function confirmarCAS() {
 }
 
 function abrirEstadoCAS(cas, estadoActual, etaISO) {
+  _cargarEtiquetaMeta();  // refresca bolsa/SN antes de una eventual recepción
   document.getElementById('est-cas-num').value = cas;
   document.getElementById('est-cas-info').textContent = cas;
   document.getElementById('est-cas-nuevo').value = estadoActual;
@@ -4636,6 +4834,8 @@ function confirmarEstadoCAS() {
     });
     var depSel = document.getElementById('recepcion-deposito');
     var deposito = depSel ? (depSel.value || 'BA') : 'BA';
+    var etiqItems = _recepColectarEtiquetas('#recepcion-items');
+    var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
     google.script.run
       .withSuccessHandler(function(res) {
         sp(false);
@@ -4643,9 +4843,10 @@ function confirmarEstadoCAS() {
           toast('Mercadería recibida y stock actualizado','ok');
           bootstrap.Modal.getInstance(document.getElementById('modal-estado-cas')).hide();
           cargarComprasTab(); load();
-        } else toast(res.msg,'err');
+          _recepPostImprimirEtiq(etiqWin, etiqItems, op);
+        } else { if (etiqWin) etiqWin.close(); toast(res.msg,'err'); }
       })
-      .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
+      .withFailureHandler(function(e){ sp(false); if (etiqWin) etiqWin.close(); toast('Error: '+e.message,'err'); })
       .recibirMercaderia(cas, items, op, deposito);
   } else {
     var eta = document.getElementById('est-cas-eta').value; // 'yyyy-MM-dd' o ''

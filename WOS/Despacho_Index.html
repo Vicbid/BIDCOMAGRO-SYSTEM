@@ -1,4 +1,4 @@
-<!-- @version 3.35 -->
+<!-- @version 3.37 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -737,6 +737,24 @@ body{overflow:hidden}
         </div>
       </div>
 
+      <!-- Panel de Precisión de armado (proceso + confirmación del reseller) -->
+      <div id="prec-panel" style="margin-bottom:12px;border:1px solid var(--brd);border-radius:10px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--surf);cursor:pointer" onclick="_wzTogglePrecision()">
+          <div style="font-size:13px;font-weight:800;color:var(--tx)">🎯 Precisión de armado
+            <span id="prec-headline" style="font-weight:800;margin-left:8px">—</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="prec-rango" onclick="event.stopPropagation()" onchange="_wzCargarPrecision()" style="font-size:11px;padding:3px 6px;border:1px solid var(--brd);border-radius:6px;background:var(--bg,#fff);color:var(--tx)">
+              <option value="30">Últimos 30 días</option>
+              <option value="90">Últimos 90 días</option>
+              <option value="0">Todo</option>
+            </select>
+            <span id="prec-caret" style="font-size:11px;color:var(--tx-d)">▼</span>
+          </div>
+        </div>
+        <div id="prec-body" style="display:none;padding:12px 14px"></div>
+      </div>
+
       <!-- Aviso: backorders con stock listos para despachar -->
       <div id="bo-ready-banner" class="bo-ready-banner" style="display:none"></div>
 
@@ -760,7 +778,7 @@ body{overflow:hidden}
     <div class="modal-foot">
       <span class="email-notice">📧 Responde en el hilo original · Notifica a facturación</span>
       <button class="btn btn-ghost" onclick="cerrarModal('desp')">Cancelar</button>
-      <button class="btn btn-success" id="btn-confirmar-desp" onclick="confirmarDespacho()">🚚 Confirmar despacho y generar nota</button>
+      <button class="btn btn-success" id="btn-confirmar-desp" onclick="_wzRevisarCerrar()">🚚 Revisar y cerrar la caja</button>
     </div>
   </div>
 </div>
@@ -1618,6 +1636,7 @@ function cargar() {
       _ultimoLoadMs = new Date().getTime();
       actualizarStats();
       actualizarKPI();
+      _wzCargarPrecision();   // refresca el % de precisión (headline siempre; detalle si está abierto)
       renderPedidos();
       _cargarWmsSnapshot();
       var now = new Date();
@@ -2207,6 +2226,12 @@ function renderCard(p) {
 // ── Botones según estado ──────────────────────────────────────
 function renderAcciones(p) {
   var n = escH(p.numero), est = p.estado, btns = '';
+
+  // Lanzador del armado guiado (paso a paso + checklist antes de cerrar). Primero, prominente.
+  if (est === 'Pendiente_Revision' || est === 'Confirmado' || est === 'En_Espera_Reseller' ||
+      est === 'Backorder' || est === 'Preparado' || est === 'Preparado Parcial') {
+    btns += '<button class="btn btn-primary" style="font-weight:800" onclick="_wzGuia(\'' + n + '\')">▶ Armar pedido guiado</button>';
+  }
 
   if (est === 'Pendiente_Revision' || est === 'Confirmado') {
     btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Listo para despachar</button>';
@@ -3221,7 +3246,7 @@ function abrirModalDespacho(numero) {
     var esEnEspera  = it.estado === 'En_Espera_Reseller';   // faltante esperando la decisión del reseller
 
     if (!esCancelado) {
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, desc: it.desc, seriales: it.seriales });
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, cantPend: it.cantPend, estado: it.estado, sku: it.sku, desc: it.desc, seriales: it.seriales });
     }
 
     if (esCancelado) {
@@ -3545,7 +3570,16 @@ function _toggleSeriales(row) {
   var chk = document.getElementById('mdi-chk-' + row);
   if (chk && chk.checked) {
     var inp = document.getElementById('mdi-' + row);
-    _syncSeriales(row, inp ? (parseInt(inp.value) || 0) : 0);
+    var q = inp ? (parseInt(inp.value) || 0) : 0;
+    // Los ítems En_Espera_Reseller / Backorder arrancan con cantidad 0 (no se despachan por defecto).
+    // Si el operador marca "Requiere N° de serie" con la cantidad todavía en 0, _syncSeriales no dibujaba
+    // ningún campo → "aparece pero no deja cargar SN". Al activar SN con cantidad 0 la subimos al
+    // pendiente (máx del input) para que aparezcan los campos; el operador puede ajustarla después.
+    if (q <= 0 && inp) {
+      var mx = parseInt(inp.max, 10) || 0;
+      if (mx > 0) { inp.value = mx; q = mx; }
+    }
+    _syncSeriales(row, q);
   } else {
     var wrap = document.getElementById('mdi-ser-wrap-' + row);
     var cnt  = document.getElementById('mdi-ser-cnt-' + row);
@@ -3785,6 +3819,7 @@ function confirmarDespacho() {
       if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
       toast('Despacho registrado · ' + numero, 'ok');
       toast('Email enviado en el hilo del pedido · Facturaci\xF3n notificada', 'email', '📧');
+      _wzRegistrarQA(numero);   // registra la fila de precisión (si el cierre pasó por el checklist)
       try { localStorage.removeItem('wos_pick_' + numero); delete _pickState[numero]; } catch(e) {}
       cargar();
     })
@@ -3795,6 +3830,326 @@ function confirmarDespacho() {
       cargar();
     })
     .WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, _usuario.email, _despToken);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CERRAR LA CAJA — checklist guiado + gates (0 errores) + QA
+// ══════════════════════════════════════════════════════════════
+var _wzQA = null;      // resumen QA del cierre en curso (se registra al despachar OK)
+var _wzStartMs = 0;    // arranque del armado guiado (para medir el tiempo)
+var _wzState = null;   // estado del checklist en pantalla
+
+// Registra la fila de precisión en WOS_QA (best-effort; no bloquea el flujo).
+function _wzRegistrarQA(numero) {
+  if (!_wzQA) return;
+  var qa = _wzQA; _wzQA = null; _wzStartMs = 0;
+  try { google.script.run.WOS_registrarQA(numero, qa); } catch(e) {}
+}
+
+// Junta lo cargado en el modal de despacho para validar y para el resumen QA.
+function _wzColectarDespacho() {
+  if (!_modalDesp) return null;
+  var items = _modalDesp.items || [];
+  var totalDesp = 0, totalPend = 0, lineasDesp = 0, conSN = 0, allSers = [];
+  for (var i = 0; i < items.length; i++) {
+    var it  = items[i];
+    var inp = document.getElementById('mdi-' + it.row);
+    var cnt = inp ? (parseInt(inp.value) || 0) : 0;
+    totalPend += Number(it.cantPend) || 0;
+    if (cnt > 0) {
+      totalDesp += cnt; lineasDesp++;
+      var lineaSN = 0;
+      for (var s = 0; s < cnt; s++) {
+        var sEl = document.getElementById('mdi-ser-' + it.row + '-' + s);
+        if (sEl && sEl.value.trim()) { allSers.push(sEl.value.trim()); lineaSN++; }
+      }
+      if (it.seriales) { var pr = String(it.seriales).split(','); for (var p = 0; p < pr.length; p++) { var v = pr[p].trim(); if (v) { allSers.push(v); lineaSN++; } } }
+      conSN += Math.min(lineaSN, cnt);
+    }
+  }
+  var esRetiro = !!_modalDesp.esRetiro;
+  var pesoTot = 0, tracks = 0, bultos = 0;
+  var brs = document.querySelectorAll('#bultos-list .bulto-row');
+  for (var b = 0; b < brs.length; b++) {
+    bultos++;
+    var rid = brs[b].id.replace('br-', '');
+    var pI  = document.getElementById('bt-peso-'  + rid);
+    var tI  = document.getElementById('bt-track-' + rid);
+    pesoTot += pI ? (parseFloat(String(pI.value).replace(',', '.')) || 0) : 0;
+    if (tI && tI.value.trim()) tracks++;
+  }
+  return { totalDesp: totalDesp, totalPend: totalPend, lineasDesp: lineasDesp, conSN: conSN,
+           allSers: allSers, esRetiro: esRetiro, pesoTot: pesoTot, tracks: tracks, bultos: bultos,
+           transportista: _modalDesp.transportista || '' };
+}
+
+// Abre el checklist "Revisá antes de cerrar la caja".
+function _wzRevisarCerrar() {
+  if (!_modalDesp) return;
+  if (_modalDesp.bloqueoBackorder && !_modalDesp.backorderOverride) {
+    toast('Este reseller tiene backorder con stock — resolvelo antes de cerrar', 'err'); return;
+  }
+  var d = _wzColectarDespacho();
+  if (!d) return;
+  if (d.totalDesp <= 0) { toast('Ingresá al menos una unidad a despachar', 'err'); return; }
+
+  var reseller = '';
+  var _pd = _buscarPedido(_modalDesp.numero); if (_pd) reseller = _pd.reseller || '';
+
+  // Chequeo de datos de envío (peso ya viene gateado por el botón; se re-verifica igual)
+  var envioMsgs = [];
+  if (!d.esRetiro) {
+    if (!(d.pesoTot > 0))                    envioMsgs.push('Falta el peso del paquete');
+    if (!d.transportista || d.transportista === 'Retiro') envioMsgs.push('Falta elegir transportista');
+    if (d.bultos === 0 || d.tracks < d.bultos) envioMsgs.push('Falta el N° de seguimiento en algún bulto');
+  }
+  var destinatarioOk = !!reseller || !!_modalDesp.batchNumeros;
+
+  _wzState = {
+    d: d, reseller: reseller,
+    cantParcial: (d.totalDesp < d.totalPend),
+    parcialOk: false,
+    envioMsgs: envioMsgs, envioOverride: false, envioMotivo: '',
+    destinatarioOk: destinatarioOk,
+    snDupOk: null, snDups: [], snDupErr: false   // null = verificando
+  };
+  _wzRenderChecklist();
+  // En modo lote no se puede excluir un solo pedido del chequeo (son varios) → se saltea para no
+  // falsear duplicados contra los propios SN ya preparados del lote. El dup se valida en individual.
+  if (_modalDesp.batchNumeros) {
+    _wzState.snDupOk = true; _wzState.snDups = [];
+    _wzRenderChecklist();
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _wzState.snDupOk = (r && r.ok) ? !r.hayDuplicados : true;
+      _wzState.snDups  = (r && r.ok && r.duplicados) ? r.duplicados : [];
+      _wzState.snDupErr = !(r && r.ok);
+      _wzRenderChecklist();
+    })
+    .withFailureHandler(function() { _wzState.snDupOk = true; _wzState.snDupErr = true; _wzRenderChecklist(); })
+    .WOS_verificarSnDuplicados(_modalDesp.numero || '', d.allSers);
+}
+
+function _wzChkRow(estado, titulo, detalle) {
+  // estado: 'ok' | 'warn' | 'bad' | 'wait' | 'info'
+  var col = { ok:'#00875a', warn:'#b7791f', bad:'#c0392b', wait:'#5a6b7b', info:'#5a6b7b' }[estado] || '#5a6b7b';
+  var ic  = { ok:'✓', warn:'!', bad:'✕', wait:'⏳', info:'•' }[estado] || '•';
+  return '<div style="display:flex;gap:10px;padding:11px 12px;border:1px solid ' + col + '33;background:' + col + '0d;border-radius:8px;margin-bottom:8px">' +
+    '<div style="width:22px;height:22px;border-radius:50%;background:' + col + ';color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + ic + '</div>' +
+    '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--tx)">' + titulo + '</div>' +
+      (detalle ? '<div style="font-size:11px;color:var(--tx-m);margin-top:2px;line-height:1.5">' + detalle + '</div>' : '') +
+    '</div></div>';
+}
+
+function _wzRenderChecklist() {
+  var st = _wzState; if (!st) return;
+  var d = st.d;
+  var ov = document.getElementById('wz-cerrar');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'wz-cerrar';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(20,28,38,.55);display:flex;align-items:center;justify-content:center;padding:18px';
+    document.body.appendChild(ov);
+  }
+  var rows = '';
+  // 1. Cantidades
+  if (st.cantParcial) {
+    rows += _wzChkRow(st.parcialOk ? 'ok' : 'warn', 'Despacho parcial',
+      'Despachás <strong>' + d.totalDesp + '</strong> de <strong>' + d.totalPend + '</strong> u. pendientes. El resto (' + (d.totalPend - d.totalDesp) + ' u.) queda en <strong>backorder</strong> para un 2º envío.' +
+      '<label style="display:flex;align-items:center;gap:7px;margin-top:7px;cursor:pointer;font-weight:700;color:var(--tx)"><input type="checkbox" ' + (st.parcialOk ? 'checked' : '') + ' onchange="_wzState.parcialOk=this.checked;_wzRenderChecklist()"> Es correcto, el resto va en 2º envío</label>');
+  } else {
+    rows += _wzChkRow('ok', 'Cantidades', 'Despachás las <strong>' + d.totalDesp + '</strong> u. pendientes. Nada queda pendiente.');
+  }
+  // 2. SN duplicados
+  if (st.snDupOk === null)        rows += _wzChkRow('wait', 'N° de serie sin duplicados', 'Verificando…');
+  else if (st.snDups.length)      rows += _wzChkRow('bad', 'N° de serie DUPLICADOS', 'Estos códigos ya están usados (en este pedido o en otro): <strong style="font-family:var(--f-mono)">' + st.snDups.map(escH).join(', ') + '</strong>. Corregilos antes de cerrar.');
+  else if (st.snDupErr)           rows += _wzChkRow('warn', 'N° de serie', 'No se pudo verificar duplicados (seguí con cuidado).');
+  else                            rows += _wzChkRow('ok', 'N° de serie sin duplicados', 'Ningún código repetido.');
+  // 3. Datos de envío
+  if (st.envioMsgs.length && !st.envioOverride) {
+    rows += _wzChkRow('bad', 'Datos de envío incompletos', st.envioMsgs.join(' · ') +
+      '<div style="margin-top:7px"><button type="button" onclick="_wzOverrideEnvio()" style="font-size:11px;font-weight:700;color:#b7791f;background:#fff;border:1px solid #b7791f;border-radius:6px;padding:4px 10px;cursor:pointer">Cerrar igual (justificar)</button></div>');
+  } else if (st.envioOverride) {
+    rows += _wzChkRow('warn', 'Datos de envío (con salvedad)', 'Justificación: <em>' + escH(st.envioMotivo) + '</em>');
+  } else {
+    rows += _wzChkRow('ok', 'Datos de envío', (d.esRetiro ? 'Retiro en local.' : d.transportista + ' · peso ' + (Math.round(d.pesoTot * 1000) / 1000) + ' kg · tracking OK'));
+  }
+  // 4. Destinatario
+  rows += _wzChkRow(st.destinatarioOk ? 'ok' : 'bad', 'Destinatario', st.destinatarioOk ? ('Reseller: <strong>' + escH(st.reseller || '(lote)') + '</strong>') : 'Falta el reseller destinatario');
+  // 5. Info: SN cargados (opcional)
+  rows += _wzChkRow('info', 'N° de serie cargados (opcional)', d.conSN + ' de ' + d.totalDesp + ' unidades con SN/SO. No es obligatorio.');
+
+  var snDupBloquea = (st.snDups.length > 0);
+  var envioBloquea = (st.envioMsgs.length > 0 && !st.envioOverride);
+  var listo = !snDupBloquea && !envioBloquea && st.destinatarioOk && (!st.cantParcial || st.parcialOk) && st.snDupOk !== null;
+
+  ov.innerHTML =
+    '<div style="background:var(--bg,#fff);border-radius:14px;max-width:560px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 18px 60px rgba(0,0,0,.3)">' +
+      '<div style="padding:16px 18px;border-bottom:1px solid var(--brd)">' +
+        '<div style="font-size:16px;font-weight:800;color:var(--tx)">📦 Revisá antes de cerrar la caja</div>' +
+        '<div style="font-size:12px;color:var(--tx-m);margin-top:2px">' + escH(_modalDesp ? (_modalDesp.numero || '') : '') + '</div>' +
+      '</div>' +
+      '<div style="padding:16px 18px">' + rows + '</div>' +
+      '<div style="padding:14px 18px;border-top:1px solid var(--brd);display:flex;gap:10px;justify-content:flex-end">' +
+        '<button type="button" onclick="_wzCerrarChecklist()" style="padding:9px 16px;border:1px solid var(--brd);background:var(--surf);color:var(--tx);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Volver</button>' +
+        '<button type="button" id="wz-cerrar-btn" ' + (listo ? '' : 'disabled') + ' onclick="_wzEjecutarCierre()" ' +
+          'style="padding:9px 18px;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:' + (listo ? 'pointer' : 'not-allowed') + ';color:#fff;background:' + (listo ? '#00875a' : '#9fb0be') + '">🚚 Cerrar caja y despachar</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function _wzOverrideEnvio() {
+  var m = prompt('¿Por qué cerrás sin los datos de envío completos? (queda registrado y baja la precisión)');
+  if (m === null) return;
+  _wzState.envioOverride = true;
+  _wzState.envioMotivo   = String(m || '').trim() || '(sin motivo)';
+  _wzRenderChecklist();
+}
+
+function _wzCerrarChecklist() {
+  var ov = document.getElementById('wz-cerrar');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  _wzState = null;
+}
+
+function _wzEjecutarCierre() {
+  var st = _wzState; if (!st || !_modalDesp) return;
+  var d = st.d;
+  var overrides = [];
+  if (st.envioOverride) overrides.push({ check: 'envio', motivo: st.envioMotivo });
+  var limpio = overrides.length === 0;   // parcial reconocido NO es error; SN faltante NO es error
+  // Solo se mide QA en despacho individual (no batch)
+  _wzQA = _modalDesp.batchNumeros ? null : {
+    reseller:  st.reseller,
+    operario:  (_usuario && _usuario.email) || '',
+    items:     d.lineasDesp,
+    unidades:  d.totalDesp,
+    cantOk:    (!st.cantParcial || st.parcialOk),
+    snDupOk:   (st.snDups.length === 0),
+    envioOk:   (st.envioMsgs.length === 0),
+    overrides: overrides,
+    tiempoSeg: _wzStartMs ? Math.round((Date.now() - _wzStartMs) / 1000) : 0,
+    resultado: limpio ? 'limpio' : 'flag'
+  };
+  _wzCerrarChecklist();
+  confirmarDespacho();   // ejecuta el despacho real (individual o batch)
+}
+
+// ── Lanzador "Armar pedido guiado": guía en orden y abre cada paso ──
+function _wzGuia(numero) {
+  _wzStartMs = Date.now();
+  var ped = _buscarPedido(numero);
+  var reseller = ped ? (ped.reseller || '') : '';
+  var ov = document.getElementById('wz-guia');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  ov = document.createElement('div');
+  ov.id = 'wz-guia';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9985;background:rgba(20,28,38,.55);display:flex;align-items:center;justify-content:center;padding:18px';
+  function paso(n, tit, desc, btnLbl, btnOnclick, color) {
+    return '<div style="display:flex;gap:12px;padding:13px 14px;border:1px solid var(--brd);border-radius:10px;margin-bottom:10px;align-items:center">' +
+      '<div style="width:28px;height:28px;border-radius:50%;background:' + color + ';color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + n + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--tx)">' + tit + '</div>' +
+        '<div style="font-size:11px;color:var(--tx-m);margin-top:1px">' + desc + '</div></div>' +
+      '<button type="button" onclick="' + btnOnclick + '" style="padding:8px 14px;border:none;border-radius:8px;background:' + color + ';color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">' + btnLbl + '</button>' +
+    '</div>';
+  }
+  ov.innerHTML =
+    '<div style="background:var(--bg,#fff);border-radius:14px;max-width:520px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.3)">' +
+      '<div style="padding:16px 18px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center">' +
+        '<div><div style="font-size:16px;font-weight:800;color:var(--tx)">▶ Armar pedido ' + escH(numero) + '</div>' +
+          '<div style="font-size:12px;color:var(--tx-m);margin-top:2px">' + escH(reseller) + ' — seguí los pasos en orden</div></div>' +
+        '<button type="button" onclick="_wzCerrarGuia()" style="background:none;border:none;font-size:20px;color:var(--tx-d);cursor:pointer;line-height:1">✕</button>' +
+      '</div>' +
+      '<div style="padding:16px 18px">' +
+        paso('1', 'Revisá el pedido', 'Confirmá SKUs, cantidades y el reseller.', 'Ver detalle', 'document.getElementById(\'card-' + numero + '\')&&document.getElementById(\'card-' + numero + '\').scrollIntoView({behavior:\'smooth\',block:\'center\'});_wzCerrarGuia()', '#0052cc') +
+        paso('2', 'Prepará', 'Escaneá el N° de serie de cada unidad y elegí la ubicación WMS.', 'Preparar', '_wzCerrarGuia();abrirModalPreparar(\'' + numero + '\')', '#00857a') +
+        paso('3', 'Pesá y cerrá la caja', 'WOS valida todo antes de despachar (0 errores).', 'Cerrar la caja', '_wzCerrarGuia();abrirModalDespacho(\'' + numero + '\')', '#00875a') +
+        '<div style="font-size:11px;color:var(--tx-m);background:var(--surf);border-radius:8px;padding:9px 11px;margin-top:4px;line-height:1.5">💡 En el paso 3, antes de despachar, WOS te muestra un <strong>checklist</strong>: cantidades, N° de serie sin duplicados y datos de envío. No podés cerrar con errores.</div>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+}
+function _wzCerrarGuia() {
+  var ov = document.getElementById('wz-guia');
+  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+
+// ── Panel de Precisión (proceso + confirmación del reseller) ──
+var _precAbierto = false;
+function _wzTogglePrecision() {
+  _precAbierto = !_precAbierto;
+  var body = document.getElementById('prec-body');
+  if (body) body.style.display = _precAbierto ? 'block' : 'none';
+  var c = document.getElementById('prec-caret'); if (c) c.textContent = _precAbierto ? '▲' : '▼';
+  _wzCargarPrecision();
+}
+function _wzCargarPrecision() {
+  var body = document.getElementById('prec-body');
+  var sel  = document.getElementById('prec-rango');
+  var dias = sel ? (parseInt(sel.value, 10) || 0) : 0;
+  var desde = dias > 0 ? new Date(Date.now() - dias * 86400000).toISOString() : null;
+  if (body && _precAbierto) body.innerHTML = '<div style="text-align:center;color:var(--tx-d);font-size:12px;padding:16px">Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(_wzRenderPrecision)
+    .withFailureHandler(function() { if (body && _precAbierto) body.innerHTML = '<div style="color:var(--red-m);font-size:12px">No se pudo cargar la precisión.</div>'; })
+    .WOS_getPrecisionMetrics(desde, null);
+}
+function _wzPctColor(p) { return (p === null || p === undefined) ? 'var(--tx-d)' : (p >= 99 ? 'var(--green-m)' : (p >= 95 ? 'var(--yellow-m)' : 'var(--red-m)')); }
+function _wzPctTxt(p) { return (p === null || p === undefined) ? '—' : (p + '%'); }
+function _wzRenderPrecision(r) {
+  var head = document.getElementById('prec-headline');
+  if (head) {
+    if (r && r.ok) { head.textContent = _wzPctTxt(r.totalPct); head.style.color = _wzPctColor(r.totalPct); }
+    else { head.textContent = '—'; head.style.color = 'var(--tx-d)'; }
+  }
+  var body = document.getElementById('prec-body');
+  if (!body || !_precAbierto) return;
+  if (!r || !r.ok) { body.innerHTML = '<div style="color:var(--tx-d);font-size:12px">Sin datos de precisión todavía.</div>'; return; }
+  var kpi = function(lbl, val, col, sub) {
+    return '<div style="flex:1;min-width:120px;border:1px solid var(--brd);border-radius:8px;padding:9px 11px;text-align:center">' +
+      '<div style="font-size:22px;font-weight:800;color:' + col + ';line-height:1">' + val + '</div>' +
+      '<div style="font-size:9px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.06em;margin-top:3px">' + lbl + '</div>' +
+      (sub ? '<div style="font-size:10px;color:var(--tx-m);margin-top:1px">' + sub + '</div>' : '') + '</div>';
+  };
+  var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
+    kpi('Precisión total', _wzPctTxt(r.totalPct), _wzPctColor(r.totalPct), (r.totalCierres || 0) + ' cierres') +
+    kpi('Proceso (interno)', _wzPctTxt(r.procesoPct), _wzPctColor(r.procesoPct), 'sin flags') +
+    kpi('Resultado (reseller)', _wzPctTxt(r.resultadoPct), _wzPctColor(r.resultadoPct), (r.confRespondidos || 0) + ' confirmados') +
+  '</div>';
+  if (r.ranking && r.ranking.length) {
+    h += '<div style="font-size:11px;font-weight:800;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 6px">Por operador</div>';
+    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="color:var(--tx-d);text-align:left"><th style="padding:4px 6px">Operador</th><th style="padding:4px 6px;text-align:center">Cierres</th><th style="padding:4px 6px;text-align:center">Proceso</th><th style="padding:4px 6px;text-align:center">Reseller</th><th style="padding:4px 6px;text-align:center">Total</th></tr></thead><tbody>';
+    for (var i = 0; i < r.ranking.length; i++) {
+      var o = r.ranking[i];
+      h += '<tr style="border-top:1px solid var(--brd)">' +
+        '<td style="padding:5px 6px;font-weight:600">' + escH(o.operario) + '</td>' +
+        '<td style="padding:5px 6px;text-align:center">' + o.cierres + '</td>' +
+        '<td style="padding:5px 6px;text-align:center">' + _wzPctTxt(o.procesoPct) + '</td>' +
+        '<td style="padding:5px 6px;text-align:center">' + _wzPctTxt(o.resultadoPct) + '</td>' +
+        '<td style="padding:5px 6px;text-align:center;font-weight:800;color:' + _wzPctColor(o.totalPct) + '">' + _wzPctTxt(o.totalPct) + '</td>' +
+      '</tr>';
+    }
+    h += '</tbody></table></div>';
+  }
+  if (r.flags && r.flags.length) {
+    h += '<div style="font-size:11px;font-weight:800;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px">Para revisar (' + r.flags.length + ')</div>';
+    for (var f = 0; f < r.flags.length; f++) {
+      var fl = r.flags[f];
+      var motivo = fl.confirmacion === 'problema' ? 'Reseller reportó problema' : (fl.overrides ? ('Override: ' + fl.overrides) : 'Flag de proceso');
+      h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 8px;border:1px solid #c0392b22;background:#c0392b0d;border-radius:6px;margin-bottom:5px;font-size:11px">' +
+        '<span style="font-weight:800;color:#c0392b">' + escH(fl.pedido) + '</span>' +
+        '<span style="color:var(--tx-m)">' + escH(fl.operario) + '</span>' +
+        '<span style="color:var(--tx-d);margin-left:auto">' + escH(fl.fecha) + '</span>' +
+        '<span style="color:var(--tx-m);flex-basis:100%">· ' + escH(motivo) + (fl.nota ? ' — ' + escH(fl.nota) : '') + '</span>' +
+      '</div>';
+    }
+  } else {
+    h += '<div style="font-size:12px;color:var(--green-m);font-weight:600;margin-top:8px">✓ Sin pedidos para revisar en el período.</div>';
+  }
+  body.innerHTML = h;
 }
 
 // ── MODAL: Notificar Faltante ─────────────────────────────────

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.21
+// @version 2.22
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1208,13 +1208,27 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         "</div>"
       : '';
 
-    var confirmEntregaHtml =
-      "<div style='margin-top:18px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px'>" +
-        "<p style='margin:0;font-size:12px;color:#0369a1;line-height:1.6'>" +
-          "Cuando recibas el paquete, <strong>respondé este correo con la palabra \"Recibido\"</strong> " +
-          "para confirmar la entrega. Gracias!" +
-        "</p>" +
-      "</div>";
+    // Confirmación de recepción con botones (mide la "precisión de resultado"). Los links van al
+    // webapp ?page=confirma_entrega → _doGetConfirmaEntrega registra ok/problema en WOS_QA.
+    var _confUrl = '';
+    try { _confUrl = ScriptApp.getService().getUrl(); } catch(eCU) { Logger.log('WOS confirmar URL: ' + eCU); }
+    var _urlOk   = _confUrl ? _confUrl + '?page=confirma_entrega&num=' + encodeURIComponent(numero) + '&r=ok'   : '';
+    var _urlProb = _confUrl ? _confUrl + '?page=confirma_entrega&num=' + encodeURIComponent(numero) + '&r=prob' : '';
+    var confirmEntregaHtml = _confUrl
+      ? "<div style='margin-top:18px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;text-align:center'>" +
+          "<p style='margin:0 0 12px;font-size:13px;color:#0369a1;line-height:1.6;font-weight:600'>Cuando recibas el paquete, avisanos c\xf3mo lleg\xf3:</p>" +
+          "<div style='display:inline-block'>" +
+            "<a href='" + _urlOk + "' target='_blank' style='display:inline-block;padding:11px 20px;margin:4px;background:#00875a;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700'>&#x2705; Recib\xed todo bien</a>" +
+            "<a href='" + _urlProb + "' target='_blank' style='display:inline-block;padding:11px 20px;margin:4px;background:#ffffff;border:1px solid #e0b400;color:#7a5800;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700'>&#x26A0;&#xFE0F; Reportar un problema</a>" +
+          "</div>" +
+          "<p style='margin:12px 0 0;font-size:11px;color:#7a8794'>O respond\xe9 este correo con \"Recibido\". \xa1Gracias!</p>" +
+        "</div>"
+      : "<div style='margin-top:18px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px'>" +
+          "<p style='margin:0;font-size:12px;color:#0369a1;line-height:1.6'>" +
+            "Cuando recibas el paquete, <strong>respond\xe9 este correo con la palabra \"Recibido\"</strong> " +
+            "para confirmar la entrega. Gracias!" +
+          "</p>" +
+        "</div>";
 
     // Detectar tipo de envío:
     // hayDespPrevio      = algún ítem ya tenía CANT_DESP > 0 antes de este despacho → 2º envío

@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.5
 // ══════════════════════════════════════════════════════════════
 //  ETIQUETAS SO — códigos internos para productos SIN N° de serie
 //  El SO funciona como un SN (uno único por unidad). Formato POR SKU:
@@ -186,6 +186,138 @@ function generarBolsasSO(sku, unidadesPorBolsa, cantBolsas, operador) {
     _smUpsertMaestro(sku, desc, unidadesPorBolsa, op);
 
     return { ok: true, labels: labels, desde: maxN + 1, hasta: maxN + cantBolsas, unidadesPorBolsa: unidadesPorBolsa };
+  } catch(e) {
+    return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
+  }
+}
+
+// Mapa de SKUs marcados "por bolsa" en el maestro compartido con WOS (MAESTRO_ARTICULOS):
+// { SKU: unidadesPorBolsa }. Lo usa la recepción para saber qué códigos etiquetar como bulto.
+function getMaestroBolsas() {
+  var out = {};
+  try {
+    var ss   = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+    var hoja = ss.getSheetByName(_SM_MAESTRO_HOJA);
+    if (!hoja) return out;
+    var d = hoja.getDataRange().getValues();
+    var C = _SM_MAESTRO_COL;
+    for (var i = 1; i < d.length; i++) {
+      var sku = String(d[i][C.SKU] || '').trim().toUpperCase();
+      if (!sku) continue;
+      var pb  = d[i][C.POR_BOLSA];
+      var esBolsa = (pb === true) ||
+        String(pb).trim().toLowerCase() === 'true' ||
+        String(pb).trim().toUpperCase() === 'SI' ||
+        String(pb).trim().toUpperCase() === 'S\xcd';
+      if (esBolsa) out[sku] = parseInt(d[i][C.BULTO], 10) || 0;
+    }
+  } catch(e) { Logger.log('getMaestroBolsas: ' + e); }
+  return out;
+}
+
+// SKUs marcados "requiere N° de serie" en STOCK_REPUESTOS → { SKU: true }. La recepción los deja
+// DESTILDADOS por defecto (llevan SN real, no SO), aunque el operador puede tildarlos igual.
+function getReqSNMap() {
+  var out = {};
+  try {
+    var d = getSheetValues(SCHEMA.SHEETS.STOCK);
+    var S = SCHEMA.STOCK_REPUESTOS;
+    for (var i = 1; i < d.length; i++) {
+      var sku = String(d[i][S.CODIGO] || '').trim().toUpperCase();
+      if (sku && d[i][S.REQUIERE_SN] === true) out[sku] = true;
+    }
+  } catch(e) { Logger.log('getReqSNMap: ' + e); }
+  return out;
+}
+
+// Metadata que la recepción necesita para etiquetar bien, en una sola llamada:
+// { bolsas: {SKU:unidadesPorBolsa}, sn: {SKU:true} }.
+function getEtiquetaMetaRecepcion() {
+  return { bolsas: getMaestroBolsas(), sn: getReqSNMap() };
+}
+
+// Genera etiquetas SO para varios SKUs en una sola pasada (una sola escritura, un solo lock).
+// Lo usa la recepción de compras para imprimir en automático las etiquetas de los códigos que
+// el operador tildó, respetando bulto vs unidad:
+//   items = [{ sku, cantidad, modo, unidadesPorBolsa }]
+//     · modo 'unidad' (default): `cantidad` = etiquetas, 1 por unidad.
+//     · modo 'bolsa': `cantidad` = cantidad de bolsas, cada etiqueta = `unidadesPorBolsa` unidades
+//       (badge "BOLSA xN u." al imprimir) y el SKU queda marcado por bolsa en el maestro.
+// Todas las filas se escriben con 6 columnas (F=CANTIDAD; vacía en modo unidad). Cachea en 200.
+// Devuelve { ok, labels:[{so,sku,descripcion,cantidad?}] }.
+function generarSOLote(items, operador) {
+  items = items || [];
+  var limpio = [];
+  for (var a = 0; a < items.length; a++) {
+    var sk = String(items[a].sku || '').trim().toUpperCase();
+    var cn = parseInt(items[a].cantidad, 10) || 0;
+    if (!sk || cn <= 0) continue;
+    var esBolsa = String(items[a].modo || '') === 'bolsa';
+    var uxb = esBolsa ? (parseInt(items[a].unidadesPorBolsa, 10) || 0) : 0;
+    if (esBolsa && uxb <= 0) { esBolsa = false; }  // sin tamaño de bolsa válido → tratar por unidad
+    limpio.push({ sku: sk, cantidad: Math.min(cn, 200), esBolsa: esBolsa, uxb: uxb });
+  }
+  if (!limpio.length) return { ok: false, error: 'No hay códigos tildados para etiquetar.' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var hoja  = _getHojaSO();
+    var datos = hoja.getDataRange().getValues();
+    var op    = String(operador || '');
+    var ahora = new Date();
+
+    // maxN por SKU: arranca de lo ya registrado y se incrementa dentro del lote (soporta el mismo
+    // SKU más de una vez sin repetir NNN).
+    var maxPorSku = {};
+    function _maxNPara(prefijo) {
+      var mx = 0;
+      for (var i = 1; i < datos.length; i++) {
+        var val = String(datos[i][SO_COL.SO] || '').trim().toUpperCase();
+        if (val.indexOf(prefijo) === 0) {
+          var n = parseInt(val.substring(prefijo.length), 10);
+          if (!isNaN(n) && n > mx) mx = n;
+        }
+      }
+      return mx;
+    }
+
+    var labels = [], filas = [], bolsasMarcadas = {};
+    for (var t = 0; t < limpio.length; t++) {
+      var it      = limpio[t];
+      var prefijo = 'SO-' + it.sku + '-';
+      if (maxPorSku[it.sku] === undefined) maxPorSku[it.sku] = _maxNPara(prefijo);
+      var desc = _descDeSku(it.sku);
+      for (var k = 1; k <= it.cantidad; k++) {
+        var num  = maxPorSku[it.sku] + 1; maxPorSku[it.sku] = num;
+        var sNum = String(num);
+        var pad  = (sNum.length >= 6) ? sNum : ('000000' + sNum).slice(-6);
+        var so   = prefijo + pad;
+        if (it.esBolsa) {
+          labels.push({ so: so, sku: it.sku, descripcion: desc, cantidad: it.uxb });
+          filas.push([so, it.sku, desc, ahora, op, it.uxb]);
+        } else {
+          labels.push({ so: so, sku: it.sku, descripcion: desc });
+          filas.push([so, it.sku, desc, ahora, op, '']);
+        }
+      }
+      if (it.esBolsa && bolsasMarcadas[it.sku] === undefined) bolsasMarcadas[it.sku] = it.uxb;
+    }
+
+    if (filas.length) {
+      hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 6).setValues(filas);
+      SpreadsheetApp.flush();
+    }
+
+    // Aprender en el maestro (por bolsa + bulto) los SKU bagueados en este lote, igual que generarBolsasSO.
+    var bk = Object.keys(bolsasMarcadas);
+    for (var b = 0; b < bk.length; b++) {
+      _smUpsertMaestro(bk[b], _descDeSku(bk[b]), bolsasMarcadas[bk[b]], op);
+    }
+
+    return { ok: true, labels: labels };
   } catch(e) {
     return { ok: false, error: e.toString() };
   } finally {
