@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.24 -->
+<!-- @version 5.25 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -106,6 +106,23 @@ tr:last-child td{border-bottom:none}
 .recep-etiq-cant,.recep-etiq-uxb,.recep-etiq-sueltas{width:62px;text-align:center;font-size:13px;font-weight:600;padding:6px 4px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--tx);font-family:var(--f);vertical-align:middle;-moz-appearance:textfield}
 .recep-etiq-cant:focus,.recep-etiq-uxb:focus,.recep-etiq-sueltas:focus,.recep-etiq-modo:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
 .recep-etiq-cant::-webkit-outer-spin-button,.recep-etiq-cant::-webkit-inner-spin-button,.recep-etiq-uxb::-webkit-outer-spin-button,.recep-etiq-uxb::-webkit-inner-spin-button,.recep-etiq-sueltas::-webkit-outer-spin-button,.recep-etiq-sueltas::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+/* Checklist de recepción (simple: tildar lo que llegó contra el PL) */
+.recep-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.recep-card{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1.5px solid var(--brd);border-radius:10px;margin-bottom:8px;background:var(--surf);transition:background .12s,border-color .12s}
+.recep-card.on{background:rgba(46,160,90,.10);border-color:var(--green)}
+.recep-card .recep-check{display:flex;align-items:center;gap:13px;flex:1;min-width:0;cursor:pointer;user-select:none;margin:0}
+.recep-card .recep-ok{width:26px;height:26px;flex-shrink:0;cursor:pointer;accent-color:var(--green)}
+.recep-card .recep-sku{font-weight:700;font-size:13px;color:var(--blue)}
+.recep-card .recep-desc{font-size:14px;color:var(--tx);margin-top:1px;line-height:1.25}
+.recep-card .recep-right{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.recep-card .recep-ped{font-size:11px;color:var(--tx-d);white-space:nowrap;text-align:center}
+.recep-card .recep-ped b{display:block;font-size:18px;color:var(--tx);font-weight:800;margin-top:1px}
+.recep-card .recep-recibido{text-align:center}
+.recep-card .recep-recibido .lbl{font-size:10px;color:var(--green);font-weight:700;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.recep-card .recep-qty{width:78px;text-align:center;font-size:17px;font-weight:800;padding:8px 6px;border:1.5px solid var(--green);border-radius:8px;background:var(--surf);color:var(--tx);font-family:var(--f);-moz-appearance:textfield}
+.recep-card .recep-qty::-webkit-outer-spin-button,.recep-card .recep-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.recep-print-lbl{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;user-select:none}
+.recep-print-lbl input{width:18px;height:18px;accent-color:var(--blue);cursor:pointer}
 
 /* ── BOTONES ────────────────────────────── */
 .btn-p{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
@@ -1894,6 +1911,7 @@ tr:last-child td{border-bottom:none}
               style="max-width:150px;text-transform:uppercase">
           </div>
           <div id="recepcion-items"></div>
+          <label class="recep-print-lbl" style="margin-top:12px"><input type="checkbox" id="recep-print-toggle-est" checked>🏷 Imprimir etiquetas de lo recibido</label>
         </div>
       </div>
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
@@ -4564,47 +4582,110 @@ function exportarPackingListCAS() {
   toast('Packing list exportado', 'ok');
 }
 
-// Pantalla ÚNICA de selección de recepción: por ítem, cuánto recibir + etiqueta (una sola vez).
-// La usan "Recibir todo" y "Recibir parcial"; el manifiesto de arriba es solo lectura para no
-// duplicar la elección de etiqueta. Ambas confirman con confirmarReciboParcial().
-function _recepMostrarFilas(titulo) {
+// ── CHECKLIST DE RECEPCIÓN (simple: tildar lo que llegó OK contra el PL) ──────────
+// Una fila por ítem con un tilde grande "Llegó". Al tildar, se recibe la cantidad pedida
+// (editable solo si vino menos). Las etiquetas se deciden solas (serie=sin SO, bolsa=por bulto,
+// resto=por unidad) con un único interruptor global "Imprimir etiquetas". Sin dropdowns por fila.
+function _recepRowHTML(sku, desc, delta, checked) {
+  var on = checked ? ' on' : '';
+  return '<div class="recep-item recep-card' + on + '" data-codigo="' + escH(sku) + '" data-desc="' + escH(desc) + '" data-etiq-sku="' + escH(String(sku).toUpperCase()) + '" data-delta="' + delta + '">' +
+    '<label class="recep-check">' +
+      '<input type="checkbox" class="recep-ok"' + (checked ? ' checked' : '') + ' onchange="_recepToggleRow(this)">' +
+      '<div style="min-width:0">' +
+        '<div class="recep-sku">' + escH(sku) + '</div>' +
+        '<div class="recep-desc">' + escH(desc) + '</div>' +
+      '</div>' +
+    '</label>' +
+    '<div class="recep-right">' +
+      '<div class="recep-ped">Pedido<b>' + delta + '</b></div>' +
+      '<div class="recep-recibido"' + (checked ? '' : ' style="display:none"') + '>' +
+        '<span class="lbl">Recibí</span>' +
+        '<input type="number" class="recep-qty" value="' + delta + '" min="0" max="' + delta + '">' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// Tilda/destilda una fila: la pinta de verde y muestra/oculta la cantidad recibida.
+function _recepToggleRow(chk) {
+  var row = chk.closest('.recep-item');
+  if (!row) return;
+  row.classList.toggle('on', chk.checked);
+  var rec = row.querySelector('.recep-recibido');
+  if (rec) rec.style.display = chk.checked ? '' : 'none';
+}
+
+// Marca o limpia todas las filas de un contenedor.
+function _recepMarcarTodo(sel, val) {
+  var cont = document.querySelector(sel);
+  if (!cont) return;
+  cont.querySelectorAll('.recep-ok').forEach(function(chk) { chk.checked = val; _recepToggleRow(chk); });
+}
+
+// Junta lo recibido (solo filas tildadas con cantidad > 0).
+function _recepColectarItems(sel, loc) {
+  var items = [], cont = document.querySelector(sel);
+  if (!cont) return items;
+  cont.querySelectorAll('.recep-item').forEach(function(row) {
+    var chk = row.querySelector('.recep-ok');
+    if (chk && !chk.checked) return;
+    var qi  = row.querySelector('.recep-qty');
+    var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
+    if (qty > 0) items.push({ codigo: row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty, ubicacion: loc });
+  });
+  return items;
+}
+
+// Etiquetas automáticas de lo recibido: serie→no imprime; bolsa→por bulto (round); resto→por unidad.
+function _recepEtiquetasAuto(sel) {
+  var out = [], cont = document.querySelector(sel);
+  if (!cont) return out;
+  cont.querySelectorAll('.recep-item').forEach(function(row) {
+    var chk = row.querySelector('.recep-ok');
+    if (chk && !chk.checked) return;
+    var qi  = row.querySelector('.recep-qty');
+    var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
+    if (qty <= 0) return;
+    var sku = String(row.getAttribute('data-etiq-sku') || '').toUpperCase();
+    if (!sku) return;
+    if (_reqSNMap && _reqSNMap[sku]) return;                 // serializados: llevan SN real, no SO
+    var uxb = (_bolsasMap && _bolsasMap[sku]) || 0;
+    if (uxb > 0) out.push({ sku: sku, cantidad: Math.max(1, Math.round(qty / uxb)), modo: 'bolsa', unidadesPorBolsa: uxb });
+    else         out.push({ sku: sku, cantidad: qty, modo: 'unidad' });
+  });
+  return out;
+}
+
+// Pantalla de recepción (checklist). preCheck=true → arranca todo tildado ("Recibir todo");
+// preCheck=false → arranca vacío para ir tildando ("Recibir parcial").
+function _recepMostrarFilas(titulo, preCheck) {
   if (!_detalleCasData || !_detalleCasData.manifest || !_detalleCasData.manifest.length) return toast('Sin manifiesto cargado','err');
-  var h = '<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--tx-m)"><i class="fa fa-box" style="margin-right:6px;color:var(--orange)"></i>' + titulo + '</div>';
-  h += '<div id="recep-parcial-items">';
-  var hay = false;
+  var rows = '', hay = false;
   for (var i = 0; i < _detalleCasData.manifest.length; i++) {
     var m = _detalleCasData.manifest[i];
     var delta = m.cantPedida - m.cantRecibida;
     if (delta <= 0) continue;
     hay = true;
-    h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" data-etiq-sku="'+String(m.sku).toUpperCase()+'" ' +
-         'style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:12px;font-weight:600;color:var(--blue)">'+m.sku+'</div>' +
-        '<div style="font-size:11px;color:var(--tx-m)">'+m.descripcion+'</div>' +
+    rows += _recepRowHTML(m.sku, m.descripcion, delta, !!preCheck);
+  }
+  if (!hay) return toast('Todo ya fue recibido', 'ok');
+  var h =
+    '<div class="recep-toolbar">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--tx)"><i class="fa fa-clipboard-check" style="color:var(--blue);margin-right:7px"></i>' + titulo + '</div>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button type="button" class="btn-s" onclick="_recepMarcarTodo(\'#recep-parcial-items\',true)"><i class="fa fa-check-double" style="margin-right:4px"></i>Marcar todo</button>' +
+        '<button type="button" class="btn-s" onclick="_recepMarcarTodo(\'#recep-parcial-items\',false)">Limpiar</button>' +
       '</div>' +
-      '<div style="text-align:center;min-width:64px">' +
-        '<div style="font-size:10px;color:var(--tx-d)">Pendiente</div>' +
-        '<div style="font-size:14px;font-weight:700">'+delta+'</div>' +
-      '</div>' +
-      '<div style="text-align:center;min-width:72px">' +
-        '<div style="font-size:10px;color:var(--tx-d)">Recibir</div>' +
-        '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" oninput="_recepSyncEtiqQty(this)" style="width:66px;text-align:center">' +
-      '</div>' +
-      '<div style="text-align:center;min-width:150px">' +
-        '<div style="font-size:10px;color:var(--tx-d)">Etiqueta</div>' +
-        '<div style="margin-top:4px">' + _etiqCellInline(m.sku, delta) + '</div>' +
+    '</div>' +
+    '<div id="recep-parcial-items">' + rows + '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)">' +
+      '<label class="recep-print-lbl"><input type="checkbox" id="recep-print-toggle" checked>🏷 Imprimir etiquetas de lo recibido</label>' +
+      '<div style="display:flex;align-items:center;gap:8px"><label class="flbl" style="margin:0">Operador</label>' +
+        '<select id="recep-parcial-op" class="form-select op-select" style="width:auto;min-width:150px"><option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option></select>' +
       '</div>' +
     '</div>';
-  }
-  h += '</div>';
-  if (!hay) return toast('Todo ya fue recibido', 'ok');
-  h += '<div style="margin-top:12px"><label class="flbl">Operador</label>' +
-    '<select id="recep-parcial-op" class="form-select op-select">' +
-    '<option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option>' +
-    '</select></div>';
   document.getElementById('detalle-cas-body').innerHTML = h;
-  _llenarOperadores();   // llena el select recién creado con la lista de Usuarios_Internos
+  _llenarOperadores();
   document.getElementById('btn-recibir-todo').style.display    = 'none';
   document.getElementById('btn-recibir-parcial').style.display = 'none';
   document.getElementById('btn-confirmar-recibo').style.display = '';
@@ -4612,30 +4693,27 @@ function _recepMostrarFilas(titulo) {
 }
 
 function recibirCASCompleto() {
-  _recepMostrarFilas('Revisá lo que llegó y las etiquetas; ajustá si hace falta y confirmá:');
+  _recepMostrarFilas('Todo llegó — destildá lo que falte', true);
 }
 
 function recibirCASParcial() {
-  _recepMostrarFilas('Ingresá las cantidades a recibir ahora:');
+  _recepMostrarFilas('Tildá lo que llegó OK', false);
 }
 
 function confirmarReciboParcial() {
   var loc   = ((document.getElementById('recep-ubic-cas') || {}).value || '').trim().toUpperCase();
-  var items = [];
-  document.querySelectorAll('#recep-parcial-items .recep-item').forEach(function(row) {
-    var qty = parseInt(row.querySelector('.recep-qty').value)||0;
-    if (qty > 0) items.push({ codigo: row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty, ubicacion: loc });
-  });
-  if (!items.length) return toast('Ingresá al menos una cantidad para recibir','err');
+  var items = _recepColectarItems('#recep-parcial-items', loc);
+  if (!items.length) return toast('Tildá al menos un ítem que haya llegado','err');
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
-  var etiqItems = _recepColectarEtiquetas('#recep-parcial-items');
+  var printOn   = document.getElementById('recep-print-toggle');
+  var etiqItems = (printOn && printOn.checked) ? _recepEtiquetasAuto('#recep-parcial-items') : [];
   var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
     .withSuccessHandler(function(res) {
       sp(false);
       if (res.ok) {
-        toast('Recepción parcial registrada','ok');
+        toast('Recepción registrada','ok');
         bootstrap.Modal.getInstance(document.getElementById('modal-detalle-cas')).hide();
         cargarComprasTab(); load();
         _recepPostImprimirEtiq(etiqWin, etiqItems, op);
@@ -4653,31 +4731,20 @@ function _cargarManifiestoEnRecepcion(cas) {
       var h = '';
       var pendientes = (d.manifest || []).filter(function(m) { return m.cantPedida - m.cantRecibida > 0; });
       if (!pendientes.length) {
-        h = '<div style="font-size:12px;color:var(--tx-d);font-style:italic">Sin manifiesto cargado. Ingresá los ítems a recibir con el botón +</div>';
-        h += '<button type="button" class="btn-s" style="margin-top:8px;font-size:11px" onclick="agregarItemRecepcionManual()"><i class="fa fa-plus"></i> Agregar ítem</button>';
+        h = '<div style="font-size:12px;color:var(--tx-d);font-style:italic">Sin manifiesto cargado. Agregá los ítems a recibir con el botón +.</div>';
+        h += '<button type="button" class="btn-s" style="margin-top:8px" onclick="agregarItemRecepcionManual()"><i class="fa fa-plus" style="margin-right:4px"></i>Agregar ítem</button>';
       } else {
+        h += '<div class="recep-toolbar">' +
+               '<div style="font-size:13px;font-weight:700;color:var(--tx)"><i class="fa fa-clipboard-check" style="color:var(--blue);margin-right:6px"></i>Tildá lo que llegó</div>' +
+               '<div style="display:flex;gap:6px">' +
+                 '<button type="button" class="btn-s" onclick="_recepMarcarTodo(\'#recepcion-items\',true)"><i class="fa fa-check-double" style="margin-right:4px"></i>Marcar todo</button>' +
+                 '<button type="button" class="btn-s" onclick="_recepMarcarTodo(\'#recepcion-items\',false)">Limpiar</button>' +
+                 '<button type="button" class="btn-s" onclick="agregarItemRecepcionManual()"><i class="fa fa-plus"></i></button>' +
+               '</div>' +
+             '</div>';
         for (var i = 0; i < pendientes.length; i++) {
           var m = pendientes[i];
-          var delta = m.cantPedida - m.cantRecibida;
-          h += '<div class="recep-item" data-codigo="'+m.sku+'" data-desc="'+m.descripcion.replace(/"/g,'')+'" data-etiq-sku="'+String(m.sku).toUpperCase()+'" ' +
-               'style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
-            '<div style="flex:1;min-width:0">' +
-              '<div style="font-size:12px;font-weight:600;color:var(--blue)">'+m.sku+'</div>' +
-              '<div style="font-size:11px;color:var(--tx-m)">'+m.descripcion+'</div>' +
-            '</div>' +
-            '<div style="text-align:center;min-width:60px">' +
-              '<div style="font-size:10px;color:var(--tx-d)">Pedido</div>' +
-              '<div style="font-size:13px;font-weight:700">'+m.cantPedida+'</div>' +
-            '</div>' +
-            '<div style="text-align:center;min-width:70px">' +
-              '<div style="font-size:10px;color:var(--tx-d)">Recibir</div>' +
-              '<input type="number" class="recep-qty form-control" value="'+delta+'" min="0" max="'+delta+'" oninput="_recepSyncEtiqQty(this)" style="width:65px;text-align:center">' +
-            '</div>' +
-            '<div style="text-align:center;min-width:150px">' +
-              '<div style="font-size:10px;color:var(--tx-d)">Etiqueta</div>' +
-              '<div style="margin-top:4px">' + _etiqCellInline(m.sku, delta) + '</div>' +
-            '</div>' +
-          '</div>';
+          h += _recepRowHTML(m.sku, m.descripcion, m.cantPedida - m.cantRecibida, true);
         }
       }
       el.innerHTML = h;
@@ -4689,12 +4756,19 @@ function _cargarManifiestoEnRecepcion(cas) {
 }
 
 function agregarItemRecepcionManual() {
-  var h = '<div class="recep-item" data-codigo="" data-desc="" data-etiq-sku="" style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--brd)">' +
-    '<input type="text" class="form-control" placeholder="SKU" oninput="this.value=this.value.toUpperCase();var r=this.closest(\'.recep-item\');r.dataset.codigo=this.value;r.setAttribute(\'data-etiq-sku\',this.value);_recepAutoBolsaManual(r)" style="width:110px;font-size:12px">' +
-    '<input type="text" class="form-control" placeholder="Descripción" oninput="this.closest(\'.recep-item\').dataset.desc=this.value" style="flex:1;font-size:12px">' +
-    '<input type="number" class="recep-qty form-control" value="0" min="0" oninput="_recepSyncEtiqQty(this)" style="width:65px;text-align:center">' +
-    '<div style="text-align:center;white-space:nowrap">' + _etiqCellInline('', 0) + '</div>' +
-    '<button type="button" onclick="this.closest(\'.recep-item\').remove()" style="background:none;border:none;cursor:pointer;color:var(--tx-d);font-size:16px;padding:0 4px">×</button>' +
+  var inpCss = 'font-size:13px;padding:7px 9px;border:1px solid var(--brd);border-radius:8px;background:var(--surf);color:var(--tx);font-family:var(--f)';
+  var h = '<div class="recep-item recep-card on" data-codigo="" data-desc="" data-etiq-sku="" data-delta="0">' +
+    '<label class="recep-check">' +
+      '<input type="checkbox" class="recep-ok" checked onchange="_recepToggleRow(this)">' +
+      '<div style="display:flex;gap:6px;flex:1;min-width:0">' +
+        '<input type="text" placeholder="SKU" oninput="this.value=this.value.toUpperCase();var r=this.closest(\'.recep-item\');r.dataset.codigo=this.value;r.setAttribute(\'data-etiq-sku\',this.value)" style="width:120px;' + inpCss + '">' +
+        '<input type="text" placeholder="Descripción" oninput="this.closest(\'.recep-item\').dataset.desc=this.value" style="flex:1;min-width:0;' + inpCss + '">' +
+      '</div>' +
+    '</label>' +
+    '<div class="recep-right">' +
+      '<div class="recep-recibido"><span class="lbl">Recibí</span><input type="number" class="recep-qty" value="1" min="0"></div>' +
+      '<button type="button" onclick="this.closest(\'.recep-item\').remove()" style="background:none;border:none;cursor:pointer;color:var(--tx-d);font-size:18px;padding:0 4px;line-height:1">×</button>' +
+    '</div>' +
   '</div>';
   document.getElementById('recepcion-items').insertAdjacentHTML('beforeend', h);
 }
@@ -4807,20 +4881,14 @@ function confirmarEstadoCAS() {
   sp(true);
 
   if (estado === 'En depósito') {
-    // Recopilar cantidades recibidas y depósito destino
+    // Recopilar cantidades recibidas y depósito destino (solo lo tildado)
     var loc   = ((document.getElementById('recepcion-ubicacion') || {}).value || '').trim().toUpperCase();
-    var items = [];
-    document.querySelectorAll('.recep-item').forEach(function(row) {
-      items.push({
-        codigo:       row.dataset.codigo,
-        descripcion:  row.dataset.desc,
-        cantRecibida: parseInt(row.querySelector('.recep-qty').value)||0,
-        ubicacion:    loc
-      });
-    });
+    var items = _recepColectarItems('#recepcion-items', loc);
+    if (!items.length) { sp(false); return toast('Tildá al menos un ítem que haya llegado','err'); }
     var depSel = document.getElementById('recepcion-deposito');
     var deposito = depSel ? (depSel.value || 'BA') : 'BA';
-    var etiqItems = _recepColectarEtiquetas('#recepcion-items');
+    var printOn   = document.getElementById('recep-print-toggle-est');
+    var etiqItems = (printOn && printOn.checked) ? _recepEtiquetasAuto('#recepcion-items') : [];
     var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
     google.script.run
       .withSuccessHandler(function(res) {
