@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.22 -->
+<!-- @version 5.23 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -101,6 +101,11 @@ tr:last-child td{border-bottom:none}
 .form-control,.form-select{background:var(--surf)!important;border:1px solid var(--brd)!important;color:var(--tx)!important;border-radius:var(--rm)!important;padding:8px 12px!important;font-family:var(--f)!important;font-size:12px!important;width:100%}
 .form-control:focus,.form-select:focus{outline:none!important;border-color:var(--blue)!important;box-shadow:0 0 0 3px var(--blue-a)!important;background:#fff!important}
 .form-control::placeholder{color:var(--tx-d)!important}
+/* Controles de etiqueta en la recepción (no usan form-control para no heredar el padding grande que corta los números) */
+.recep-etiq-modo{width:88px;font-size:12px;padding:5px 8px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--tx);font-family:var(--f);cursor:pointer}
+.recep-etiq-cant,.recep-etiq-uxb,.recep-etiq-sueltas{width:62px;text-align:center;font-size:13px;font-weight:600;padding:6px 4px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--tx);font-family:var(--f);vertical-align:middle;-moz-appearance:textfield}
+.recep-etiq-cant:focus,.recep-etiq-uxb:focus,.recep-etiq-sueltas:focus,.recep-etiq-modo:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
+.recep-etiq-cant::-webkit-outer-spin-button,.recep-etiq-cant::-webkit-inner-spin-button,.recep-etiq-uxb::-webkit-outer-spin-button,.recep-etiq-uxb::-webkit-inner-spin-button,.recep-etiq-sueltas::-webkit-outer-spin-button,.recep-etiq-sueltas::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
 /* ── BOTONES ────────────────────────────── */
 .btn-p{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
@@ -1274,7 +1279,7 @@ tr:last-child td{border-bottom:none}
 
 <!-- Modal: Picking List -->
 <div class="modal fade" id="modal-detalle-cas" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:680px">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:min(960px,95vw)">
     <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
       <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
         <h6 class="modal-title" style="font-size:13px;font-weight:600" id="detalle-cas-title"><i class="fa fa-boxes" style="color:var(--blue);margin-right:6px"></i>Detalle CAS</h6>
@@ -3696,28 +3701,25 @@ function _etiqCellInline(sku, defaultUnidades) {
   var modoDef = uxb > 0 ? 'bolsa' : 'unidad';
   var cantIni = (modoDef === 'bolsa') ? Math.max(1, Math.round(u / uxb)) : u;
   var uxbVal  = uxb || 50;
-  return '<div class="etiq-wrap" data-base-units="' + u + '" style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">' +
-      '<div style="display:inline-flex;align-items:center;gap:4px">' +
-        '<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;user-select:none" title="' + (reqSN ? 'Requiere N° de serie: normalmente NO lleva SO' : 'Imprimir etiqueta SO') + '">' +
-          '<input type="checkbox" class="recep-etiq"' + (reqSN ? '' : ' checked') + ' style="cursor:pointer">' + (reqSN ? '<span style="color:var(--tx-d)">SN</span>' : '🏷') + '</label>' +
-        '<select class="recep-etiq-modo form-select" onchange="_recepModoEtiq(this)" style="width:74px;font-size:10px;padding:1px 3px;height:auto;display:inline-block" title="Etiqueta por unidad, por bolsa o mixto (bolsas + sueltas)">' +
+  return '<div class="etiq-wrap" data-base-units="' + u + '" style="display:inline-flex;flex-direction:column;align-items:center;gap:6px">' +
+      '<div style="display:inline-flex;align-items:center;gap:7px">' +
+        '<label style="display:inline-flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;user-select:none" title="' + (reqSN ? 'Requiere N° de serie: normalmente NO lleva SO' : 'Imprimir etiqueta SO') + '">' +
+          '<input type="checkbox" class="recep-etiq"' + (reqSN ? '' : ' checked') + ' style="cursor:pointer;width:16px;height:16px">' + (reqSN ? '<span style="color:var(--tx-d);font-size:11px;font-weight:600">SN</span>' : '🏷') + '</label>' +
+        '<select class="recep-etiq-modo" onchange="_recepModoEtiq(this)" title="Etiqueta por unidad, por bolsa o mixto (bolsas + sueltas)">' +
           '<option value="unidad"' + (modoDef === 'unidad' ? ' selected' : '') + '>u.</option>' +
           '<option value="bolsa"'  + (modoDef === 'bolsa'  ? ' selected' : '') + '>bolsa</option>' +
           '<option value="mixto">mixto</option>' +
         '</select>' +
       '</div>' +
-      '<div style="display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:center">' +
-        '<input type="number" class="recep-etiq-cant form-control" value="' + cantIni + '" min="0" ' +
-          'oninput="this.setAttribute(\'data-touched\',\'1\')" ' +
-          'style="width:50px;text-align:center;padding:2px 3px;height:auto" title="Etiquetas (unidad) / bolsas (bolsa/mixto)">' +
-        '<span class="recep-etiq-uxb-wrap" style="' + (modoDef === 'unidad' ? 'display:none;' : '') + 'font-size:10px;color:var(--tx-d);white-space:nowrap">' +
-          '×<input type="number" class="recep-etiq-uxb form-control" value="' + uxbVal + '" min="1" ' +
-          'oninput="_recepRecalcEtiq(this.closest(\'[data-etiq-sku]\'))" ' +
-          'style="width:44px;text-align:center;padding:2px 3px;height:auto;display:inline-block"> u.</span>' +
-        '<span class="recep-etiq-sueltas-wrap" style="display:none;font-size:10px;color:var(--tx-d);white-space:nowrap">' +
-          '+<input type="number" class="recep-etiq-sueltas form-control" value="0" min="0" ' +
-          'oninput="this.setAttribute(\'data-touched\',\'1\')" ' +
-          'style="width:44px;text-align:center;padding:2px 3px;height:auto;display:inline-block"> sueltas</span>' +
+      '<div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center">' +
+        '<input type="number" class="recep-etiq-cant" value="' + cantIni + '" min="0" ' +
+          'oninput="this.setAttribute(\'data-touched\',\'1\')" title="Etiquetas (unidad) / bolsas (bolsa/mixto)">' +
+        '<span class="recep-etiq-uxb-wrap" style="' + (modoDef === 'unidad' ? 'display:none;' : '') + 'font-size:12px;color:var(--tx-d);white-space:nowrap">' +
+          '× <input type="number" class="recep-etiq-uxb" value="' + uxbVal + '" min="1" ' +
+          'oninput="_recepRecalcEtiq(this.closest(\'[data-etiq-sku]\'))"> u.</span>' +
+        '<span class="recep-etiq-sueltas-wrap" style="display:none;font-size:12px;color:var(--tx-d);white-space:nowrap">' +
+          '+ <input type="number" class="recep-etiq-sueltas" value="0" min="0" ' +
+          'oninput="this.setAttribute(\'data-touched\',\'1\')"> sueltas</span>' +
       '</div>' +
   '</div>';
 }
