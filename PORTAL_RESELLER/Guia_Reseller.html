@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.2 -->
+<!-- @version 1.3 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -100,6 +100,18 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
 .tbl tr:last-child td{border-bottom:none}
 .tbl td:first-child{font-weight:600;color:var(--tx);white-space:nowrap}
 
+/* ── LISTA DRIVE ── */
+.drive-list{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:10px}
+.drive-list li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:8px 12px}
+.drive-list li i{color:var(--yellow);width:16px;text-align:center;flex-shrink:0}
+
+/* ── DIRECCIÓN ── */
+.addr{display:grid;grid-template-columns:24px 1fr;gap:8px 10px;align-items:start;font-size:13px;color:var(--tx-m);line-height:1.6}
+.addr .ico{font-size:16px;text-align:center}
+.addr strong{color:var(--tx)}
+.addr a{color:var(--blue);text-decoration:none}
+.ot-chip{display:inline-block;background:var(--tx);color:#fff;font-family:monospace;font-weight:700;font-size:15px;letter-spacing:.04em;padding:6px 14px;border-radius:var(--rm)}
+
 /* ── FAQ ── */
 .faq-item{margin-bottom:12px}
 .faq-q{font-weight:700;color:var(--tx);margin-bottom:4px;display:flex;align-items:flex-start;gap:8px}
@@ -124,6 +136,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
 @media(max-width:600px){
   .toc-list{grid-template-columns:1fr}
   .tipo-grid{grid-template-columns:1fr}
+  .drive-list{grid-template-columns:1fr}
   .header-title{font-size:18px}
   .sec-title{font-size:16px}
 }
@@ -150,10 +163,14 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     <div class="toc-title">Contenido de esta guía</div>
     <ul class="toc-list">
       <li><a href="#acceso"><i class="fa fa-globe"></i> Acceso al portal</a></li>
+      <li><a href="#secciones"><i class="fa fa-compass"></i> Recorrido por el portal</a></li>
       <li><a href="#nuevo-caso"><i class="fa fa-plus-circle"></i> Cargar un caso nuevo</a></li>
       <li><a href="#tipos"><i class="fa fa-sitemap"></i> Tipos de gestión</a></li>
+      <li><a href="#envio"><i class="fa fa-box"></i> Envío de repuestos dañados</a></li>
       <li><a href="#seguimiento"><i class="fa fa-search"></i> Seguimiento de casos</a></li>
       <li><a href="#pedidos"><i class="fa fa-shopping-cart"></i> Pedido de repuestos</a></li>
+      <li><a href="#cotizador"><i class="fa fa-file-invoice-dollar"></i> Cotizador</a></li>
+      <li><a href="#curso"><i class="fa fa-graduation-cap"></i> Curso y eventos</a></li>
       <li><a href="#mensajes"><i class="fa fa-comments"></i> Mensajes con el taller</a></li>
       <li><a href="#faq"><i class="fa fa-question-circle"></i> Preguntas frecuentes</a></li>
     </ul>
@@ -167,19 +184,18 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
 
     <div class="card">
-      <div class="card-head"><i class="fa fa-globe"></i> URL del portal</div>
+      <div class="card-head"><i class="fa fa-globe"></i> URL e identificación</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:10px">
-          El portal está disponible desde cualquier navegador, tanto en computadora como en celular.
-          Pedile el link a tu contacto en BIDCOMAGRO.
+          El portal funciona desde cualquier navegador, en computadora o celular. Pedile el link a tu contacto en BIDCOMAGRO.
         </p>
         <div class="box-info">
           <i class="fa fa-lock"></i>
-          Al ingresar al portal se te pide identificación: seleccionás tu empresa de la lista y escribís tu PIN de 4 dígitos. Todas las funciones del portal requieren este login.
+          Para identificarte elegís tu empresa de la lista y escribís tu <strong>PIN de 4 dígitos</strong>. Las secciones con datos (Mis Reparaciones, Carrito, Cotizador, Curso y Mensajes) piden ese PIN.
         </div>
         <div class="box-ok" style="margin-top:0">
           <i class="fa fa-lightbulb"></i>
-          Tu PIN te lo asignamos cuando te damos de alta como reseller. Si aún no lo tenés, usá el botón <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en la pantalla de ingreso.
+          Tu PIN te lo asignamos al darte de alta y te llega por email. Si aún no tenés cuenta, usá <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en la pantalla de ingreso.
         </div>
       </div>
     </div>
@@ -187,29 +203,26 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     <div class="card">
       <div class="card-head"><i class="fa fa-user-plus"></i> Primera vez — solicitá tu acceso</div>
       <div class="card-body">
-        <p style="font-size:13px;color:var(--tx-m);margin-bottom:14px">
-          Si tu empresa aún no está registrada, podés solicitarlo directamente desde la pantalla de login del portal.
-        </p>
         <div class="steps">
           <div class="step">
             <div class="step-num">1</div>
             <div class="step-content">
-              <div class="step-title">Ingresar al portal</div>
-              <div class="step-body">Al abrir el portal aparece la pantalla de identificación. Hacé clic en <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> debajo del botón Ingresar.</div>
+              <div class="step-title">Abrí el portal</div>
+              <div class="step-body">En la pantalla de identificación, hacé clic en <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> debajo del botón Ingresar.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">2</div>
             <div class="step-content">
-              <div class="step-title">Completar el formulario</div>
-              <div class="step-body">Ingresá el nombre de tu empresa, email, teléfono y CUIT. Podés dejarnos una nota adicional si querés.</div>
+              <div class="step-title">Completá el formulario</div>
+              <div class="step-body">Ingresá el nombre de tu empresa, email, teléfono y CUIT. Podés dejar una nota adicional si querés.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">3</div>
             <div class="step-content">
-              <div class="step-title">Esperar la aprobación</div>
-              <div class="step-body">Te avisamos por email cuando tu cuenta esté activa. En el mismo email recibís tu PIN de acceso.</div>
+              <div class="step-title">Esperá la aprobación</div>
+              <div class="step-body">Te avisamos por email cuando tu cuenta esté activa. En ese mismo email recibís tu PIN de acceso.</div>
             </div>
           </div>
         </div>
@@ -217,16 +230,46 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
   </div>
 
-  <!-- ══ 2. NUEVO CASO ══ -->
-  <div class="sec" id="nuevo-caso">
+  <!-- ══ 2. RECORRIDO POR EL PORTAL ══ -->
+  <div class="sec" id="secciones">
     <div class="sec-title">
       <div class="sec-num">2</div>
+      Recorrido por el portal
+    </div>
+
+    <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
+      El portal se organiza en pestañas en la parte superior. Al ingresar se abre la pestaña <strong>Recursos</strong> (inicio). Estas son las secciones:
+    </p>
+
+    <div class="card">
+      <div class="card-body" style="padding:8px 18px">
+        <table class="tbl">
+          <thead><tr><th>Sección</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><i class="fa fa-plus-circle" style="color:var(--blue);margin-right:6px"></i>Nueva Reparación</td><td>Cargar un caso de servicio (individual o por Excel)</td></tr>
+            <tr><td><i class="fa fa-clipboard-list" style="color:var(--blue);margin-right:6px"></i>Mis Reparaciones</td><td>Ver el estado y el detalle de todos tus casos <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-book" style="color:var(--blue);margin-right:6px"></i>Recursos</td><td>Pantalla de inicio con accesos y material útil</td></tr>
+            <tr><td><i class="fa fa-bullhorn" style="color:var(--blue);margin-right:6px"></i>Novedades</td><td>Comunicados y anuncios. Un globo rojo marca las no leídas</td></tr>
+            <tr><td><i class="fa fa-graduation-cap" style="color:var(--blue);margin-right:6px"></i>Curso</td><td>Inscripción a cursos y eventos presenciales <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-shopping-cart" style="color:var(--blue);margin-right:6px"></i>Carrito de Repuestos</td><td>Pedir repuestos con precio distribuidor <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-file-invoice-dollar" style="color:var(--blue);margin-right:6px"></i>Cotizador</td><td>Armar presupuestos para tu cliente final <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-comments" style="color:var(--blue);margin-right:6px"></i>Mensajes</td><td>Hablar con el taller sobre un caso <span class="ui-tag">PIN</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3. NUEVO CASO ══ -->
+  <div class="sec" id="nuevo-caso">
+    <div class="sec-title">
+      <div class="sec-num">3</div>
       Cargar un caso nuevo
     </div>
 
     <div class="box-ok">
       <i class="fa fa-check-circle"></i>
-      Al ingresar al portal se abre la pestaña <strong>Recursos</strong>. Para cargar un caso nuevo, hacé clic en <span class="ui-tag blue"><i class="fa fa-plus-circle"></i> Nueva Reparación</span> y seguí estos pasos de arriba hacia abajo. Al final hacé clic en <strong>Registrar solicitud</strong>.
+      En la pestaña <span class="ui-tag blue"><i class="fa fa-plus-circle"></i> Nueva Reparación</span> completá el formulario de arriba hacia abajo y al final hacé clic en <strong>Registrar solicitud</strong>. Según el <strong>tipo de gestión</strong> que elijas, aparecen campos adicionales (ver <a href="#tipos" style="color:var(--blue)">Sección 4</a>).
     </div>
 
     <div class="card">
@@ -237,26 +280,21 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
             <div class="step-num">A</div>
             <div class="step-content">
               <div class="step-title">Seleccioná tu empresa (Reseller)</div>
-              <div class="step-body">
-                Elegí tu razón social en el desplegable. Si no aparece, contactanos para darte de alta.
-              </div>
+              <div class="step-body">Elegí tu razón social en el desplegable. Si no aparece, contactanos para darte de alta.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">B</div>
             <div class="step-content">
-              <div class="step-title">Indicá el estado de garantía</div>
-              <div class="step-body">
-                <strong>IW (In Warranty)</strong> — el equipo está dentro del período de garantía.<br>
-                <strong>OOW (Out of Warranty)</strong> — el equipo está fuera de garantía.
-              </div>
+              <div class="step-title">Indicá la garantía</div>
+              <div class="step-body"><strong>IW (In Warranty)</strong> — dentro de garantía.<br><strong>OOW (Out of Warranty)</strong> — fuera de garantía.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">C</div>
             <div class="step-content">
               <div class="step-title">Elegí el tipo de gestión</div>
-              <div class="step-body">Ver detalle en la <a href="#tipos" style="color:var(--blue)">Sección 3</a>.</div>
+              <div class="step-body">Taller Central, Reparación en mi taller o Aftersales propio. Ver el detalle en la <a href="#tipos" style="color:var(--blue)">Sección 4</a>.</div>
             </div>
           </div>
         </div>
@@ -271,7 +309,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
             <div class="step-num">A</div>
             <div class="step-content">
               <div class="step-title">Modelo del equipo</div>
-              <div class="step-body">Seleccioná el modelo en el desplegable (ej: Agras T50, T30, etc.).</div>
+              <div class="step-body">Seleccioná el modelo en el desplegable (ej: Agras T50, T40, T30).</div>
             </div>
           </div>
           <div class="step">
@@ -279,12 +317,12 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
             <div class="step-content">
               <div class="step-title">Número de Serie (S/N) <span style="color:var(--red)">*</span></div>
               <div class="step-body">
-                Ingresá el S/N exacto del equipo en mayúsculas. El portal lo valida automáticamente contra el modelo seleccionado.
+                Ingresá el S/N exacto en mayúsculas. El portal lo valida automáticamente contra el modelo elegido (algunos modelos aceptan más de un prefijo de S/N).
                 <div class="box-warn" style="margin-top:8px">
                   <i class="fa fa-exclamation-triangle"></i>
-                  El S/N <strong>no puede estar repetido</strong> en un caso activo. Si ya existe un caso abierto para ese S/N, el sistema te lo indicará.
+                  El S/N <strong>no puede estar repetido</strong> en un caso activo. Si ya hay una OT abierta para ese S/N, el portal te lo avisa.
                 </div>
-                <span style="font-size:11px;color:var(--tx-d)">El S/N se encuentra en la etiqueta del equipo o en la app DJI Agras.</span>
+                <span style="font-size:11px;color:var(--tx-d)">El S/N está en la etiqueta del equipo o en la app DJI Agras.</span>
               </div>
             </div>
           </div>
@@ -293,7 +331,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
 
     <div class="card">
-      <div class="card-head"><i class="fa fa-file-alt"></i> Paso 3 — Descripción del problema</div>
+      <div class="card-head"><i class="fa fa-file-alt"></i> Paso 3 — Problema y datos según el flujo</div>
       <div class="card-body">
         <div class="steps">
           <div class="step">
@@ -301,23 +339,24 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
             <div class="step-content">
               <div class="step-title">Descripción de la falla <span style="color:var(--red)">*</span></div>
               <div class="step-body">
-                Describí el problema con la mayor precisión posible: síntomas, cuándo ocurre, qué error muestra la app, condiciones de operación, etc.
-                <div class="field-demo">
-                  Ej: "El motor 3 produce un ruido inusual durante el despegue. La app muestra error ESC-03. El equipo fue usado normalmente, sin golpes ni humedad."
-                </div>
-                <div class="box-info" style="margin-top:10px">
-                  <i class="fa fa-lightbulb"></i>
-                  Cuanto más detallada sea la descripción, más rápido puede el técnico diagnosticar el problema y preparar los repuestos necesarios.
-                </div>
+                Describí el problema con el mayor detalle posible: síntomas, cuándo ocurre, qué error muestra la app, condiciones de uso.
+                <div class="field-demo">Ej: "El motor 3 hace un ruido inusual en el despegue. La app muestra error ESC-03. Uso normal, sin golpes ni humedad."</div>
               </div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">B</div>
             <div class="step-content">
-              <div class="step-title">Referencia / Cliente Final <span style="color:var(--tx-d);font-size:12px;font-weight:400">(opcional)</span></div>
+              <div class="step-title">Cliente final <span style="color:var(--tx-d);font-size:12px;font-weight:400">(opcional)</span></div>
+              <div class="step-body">Si el equipo es de un cliente tuyo, podés poner su nombre como referencia interna. No es visible públicamente.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">C</div>
+            <div class="step-content">
+              <div class="step-title">Campos según el tipo de gestión</div>
               <div class="step-body">
-                Si el equipo pertenece a un cliente tuyo, podés poner su nombre acá. Sirve solo como referencia interna y no es visible públicamente.
+                Si elegís <strong>Reparación en mi taller</strong> o <strong>Aftersales propio</strong>, se agregan el <strong>estado de la reparación</strong> ("Ya reparé" / "Pendiente"), la <strong>lista de repuestos usados</strong> y el <strong>link de la carpeta de Drive</strong> con la evidencia. En <strong>Aftersales propio</strong> también es obligatorio el <strong>N° CAS / FWRC</strong> de DJI.
               </div>
             </div>
           </div>
@@ -328,65 +367,49 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     <div class="card">
       <div class="card-head"><i class="fa fa-calendar-check"></i> Paso 4 — Fecha de activación <span style="font-size:10px;font-weight:400;color:var(--tx-d);margin-left:6px">(opcional)</span></div>
       <div class="card-body">
-        <p style="font-size:13px;color:var(--tx-m)">
-          Si conocés la fecha de compra o activación del equipo, ingresala. Se utiliza para calcular el vencimiento de garantía.
-        </p>
+        <p style="font-size:13px;color:var(--tx-m)">Si conocés la fecha de compra o activación, ingresala. Se usa para calcular el vencimiento de garantía.</p>
         <div class="box-warn">
           <i class="fa fa-exclamation-triangle"></i>
-          Una vez guardada, <strong>esta fecha no puede modificarse desde el Portal</strong>. Si cometés un error, contactate con nosotros.
+          Una vez guardada, <strong>esta fecha no se puede modificar desde el portal</strong>. Si te equivocás, contactanos.
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><i class="fa fa-paper-plane"></i> Paso 5 — Enviar la solicitud</div>
+      <div class="card-head"><i class="fa fa-paper-plane"></i> Paso 5 — Registrar la solicitud</div>
       <div class="card-body">
-        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
-          Hacé clic en el botón azul <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Registrar solicitud</span> al pie del formulario.
-        </p>
+        <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">Hacé clic en <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Registrar solicitud</span> al pie del formulario.</p>
         <div class="box-ok">
           <i class="fa fa-check-circle"></i>
-          Al registrarse correctamente, el sistema muestra tu número de caso <strong>WH/REP/XXXXX</strong>.
-          Guardalo para hacer seguimiento. También recibís un email de confirmación automático.
+          Al registrarse, el portal te muestra tu número de caso <strong>WH/REP/XXXXX</strong>. Guardalo para el seguimiento. También recibís un email de confirmación.
         </div>
       </div>
     </div>
 
     <div class="card" style="border-color:rgba(0,163,224,.3)">
-      <div class="card-head" style="background:var(--blue-a)"><i class="fa fa-file-excel"></i> Carga masiva — múltiples equipos</div>
+      <div class="card-head" style="background:var(--blue-a)"><i class="fa fa-file-excel"></i> Carga masiva — varios equipos</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:10px">
-          Si necesitás ingresar varios equipos de una vez, usá la opción
-          <span class="ui-tag blue"><i class="fa fa-file-excel"></i> Carga Masiva de Reparaciones (Excel)</span>
-          disponible en la parte superior de la pestaña Nueva Reparacion.
+          Para ingresar varios equipos de una vez, usá <span class="ui-tag blue"><i class="fa fa-file-excel"></i> Carga Masiva de Reparaciones (Excel)</span> arriba en la pestaña Nueva Reparación.
         </p>
         <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-content"><div class="step-body">Descargá la plantilla Excel desde el portal.</div></div>
-          </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-content"><div class="step-body">Completá una fila por equipo: <strong>Modelo, S/N, Falla, Garantía, Tipo de gestión</strong>.</div></div>
-          </div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-content"><div class="step-body">Subí el archivo al portal. Se registran todos los casos de una vez.</div></div>
-          </div>
+          <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-body">Descargá la plantilla Excel desde el portal.</div></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-content"><div class="step-body">Completá una fila por equipo: <strong>Modelo, S/N, Falla, Garantía, Tipo de gestión</strong>.</div></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-content"><div class="step-body">Subí el archivo. Se registran todos los casos juntos.</div></div></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ 3. TIPOS DE GESTIÓN ══ -->
+  <!-- ══ 4. TIPOS DE GESTIÓN ══ -->
   <div class="sec" id="tipos">
     <div class="sec-title">
-      <div class="sec-num">3</div>
+      <div class="sec-num">4</div>
       Tipos de gestión
     </div>
 
     <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
-      Al cargar un caso tenés que indicar cómo se va a gestionar la reparación. Elegí según corresponda:
+      Al cargar un caso indicás cómo se va a gestionar la reparación. Elegí según corresponda:
     </p>
 
     <div class="tipo-grid">
@@ -398,7 +421,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="tipo-c">
         <i class="fa fa-box-open"></i>
         <div class="tipo-name">Reparación en mi taller</div>
-        <div class="tipo-desc">Reparación propia</div>
+        <div class="tipo-desc">Reparás vos</div>
       </div>
       <div class="tipo-c">
         <i class="fa fa-cog"></i>
@@ -407,92 +430,172 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       </div>
     </div>
 
+    <!-- Taller Central -->
     <div class="card">
       <div class="card-head"><i class="fa fa-tools"></i> Taller Central — Envío a Carmen de Areco</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
-          El equipo <strong>se envía físicamente</strong> al taller de BIDCOMAGRO en Carmen de Areco.
-          Nuestro equipo técnico realiza el diagnóstico y la reparación completa.
-          Es el circuito más común para reparaciones bajo garantía o fuera de garantía que requieren mano de obra especializada.
+          El equipo <strong>se envía físicamente</strong> a nuestro taller en Carmen de Areco. Nuestro equipo técnico hace el diagnóstico y la reparación completa. Es el circuito para reparaciones que requieren mano de obra especializada.
         </p>
         <div class="box-info" style="margin-top:12px">
           <i class="fa fa-truck"></i>
-          Coordiná el envío con nuestro equipo. Una vez que el equipo llega al taller, creamos la Orden de Trabajo y comenzamos el diagnóstico.
+          Coordiná el envío con nosotros. Cuando el equipo llega al taller creamos la Orden de Trabajo y empezamos el diagnóstico. En casos <strong>OOW</strong> te enviamos un presupuesto que aprobás o rechazás desde el portal.
         </div>
         <table class="tbl" style="margin-top:14px">
           <thead><tr><th>Etapa</th><th>¿Qué pasa?</th></tr></thead>
           <tbody>
-            <tr><td>Pendiente de Aprobación</td><td>Solicitud recibida, validando datos y cobertura de garantía</td></tr>
-            <tr><td>Abierto</td><td>Caso aprobado, equipo en camino al taller</td></tr>
-            <tr><td>En Revisión</td><td>Técnico realizando diagnóstico</td></tr>
-            <tr><td>Presupuesto enviado</td><td>Te llega el detalle por email (solo OOW)</td></tr>
+            <tr><td>Pendiente de Aprobación</td><td>Solicitud recibida, validando datos y garantía</td></tr>
+            <tr><td>Abierto / En Revisión</td><td>Equipo en el taller, técnico diagnosticando</td></tr>
+            <tr><td>Presupuesto enviado</td><td>Te llega el detalle para aprobar (solo OOW)</td></tr>
             <tr><td>En reparación</td><td>Reparación en curso</td></tr>
-            <tr><td>Finalizado</td><td>Listo para retirar / despachar</td></tr>
+            <tr><td>Finalizado / Entregado</td><td>Listo y devuelto al reseller</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-head"><i class="fa fa-box-open"></i> Reparación en mi taller</div>
+    <!-- Reparación en mi taller -->
+    <div class="card" style="border-color:rgba(26,158,74,.35)">
+      <div class="card-head" style="background:rgba(26,158,74,.06);color:var(--green)"><i class="fa fa-box-open" style="color:var(--green)"></i> Reparación en mi taller</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
-          Vos realizás la reparación en tu propio taller. Registrás el caso para solicitar repuestos o para dejar constancia de la gestión.
-          El equipo <strong>no se envía</strong> a Carmen de Areco.
+          <strong>Vos reparás el equipo</strong> en tu propio taller con repuestos de tu stock. El equipo <strong>no viaja</strong> a Carmen de Areco; sí nos enviás la <strong>evidencia por Drive</strong> y las <strong>piezas dañadas</strong>. Es el flujo más común de reseller.
         </p>
-        <div class="box-info">
-          <i class="fa fa-shopping-cart"></i>
-          Podés solicitar los repuestos necesarios desde la pestaña <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> del portal.
+
+        <div class="box-info" style="margin-top:12px">
+          <i class="fa fa-folder-open"></i>
+          <strong>Antes de cargar el caso</strong>, armá una carpeta en Google Drive con la evidencia de la reparación:
+        </div>
+        <ul class="drive-list">
+          <li><i class="fa fa-file-invoice"></i> Factura de venta al cliente</li>
+          <li><i class="fa fa-camera"></i> Fotos de recepción del equipo</li>
+          <li><i class="fa fa-wrench"></i> Piezas dañadas (con N° de serie)</li>
+          <li><i class="fa fa-gear"></i> Piezas nuevas (con N° de serie)</li>
+          <li><i class="fa fa-video"></i> Video del equipo reparado y funcionando</li>
+          <li><i class="fa fa-list-check"></i> Lista de repuestos cambiados</li>
+        </ul>
+
+        <div style="font-size:13px;color:var(--tx-m);margin-top:14px;margin-bottom:6px;font-weight:700;color:var(--tx)">Cómo lo cargás</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-body">En <strong>Nueva Reparación</strong> elegí el tipo <strong>"Reparación en mi taller"</strong> y completá modelo, S/N y falla.</div></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-content"><div class="step-body">Elegí el <strong>estado de la reparación</strong>: <span class="ui-tag green">Ya reparé</span> (repuestos para reposición de tu stock) o <span class="ui-tag">Pendiente</span> (necesitás que te enviemos repuestos para poder reparar).</div></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-content"><div class="step-body">Agregá la <strong>lista de repuestos usados</strong> (buscá cada SKU o cargá el Excel). Debe coincidir con tu carpeta de Drive.</div></div></div>
+          <div class="step"><div class="step-num">4</div><div class="step-content"><div class="step-body">Pegá el <strong>link de la carpeta de Drive</strong> (debe ser una URL de drive.google.com) y hacé clic en <strong>Registrar solicitud</strong>.</div></div></div>
+          <div class="step"><div class="step-num">5</div><div class="step-content"><div class="step-body"><strong>Enviá las piezas dañadas</strong> a Carmen de Areco siguiendo la <a href="#envio" style="color:var(--blue)">Sección 5</a>.</div></div></div>
+        </div>
+
+        <div class="box-ok" style="margin-top:14px">
+          <i class="fa fa-check-circle"></i>
+          Cuando recibimos las piezas dañadas y está todo OK, presentamos el caso ante DJI y te enviamos los <strong>repuestos de reemplazo</strong> o la <strong>nota de crédito</strong>, según corresponda.
         </div>
       </div>
     </div>
 
+    <!-- Aftersales propio -->
     <div class="card">
       <div class="card-head"><i class="fa fa-cog"></i> Aftersales propio — Gestión local DJI</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
-          Para resellers con autorización de Aftersales DJI. Gestionás la garantía directamente con DJI a través del portal de aftersales.
-          Al cargar el caso necesitás tener el número <strong>CAS/FWRC</strong> de DJI.
+          Para resellers con autorización de <strong>Aftersales DJI</strong>. Gestionás la garantía directamente con DJI desde su portal de aftersales, y usás el nuestro para pedir la <strong>reposición de repuestos</strong>.
         </p>
         <div class="box-warn">
           <i class="fa fa-exclamation-triangle"></i>
-          Este tipo requiere campos adicionales obligatorios: <strong>N° CAS o FWRC</strong> y el <strong>estado de la reparación</strong>
-          ("Ya reparé" para reposición de stock / "Pendiente" para solicitar repuestos antes de reparar).
+          Requiere campos obligatorios: <strong>N° CAS / FWRC</strong> de DJI y el <strong>estado de la reparación</strong> — <span class="ui-tag green">Ya reparé</span> (reposición de stock) o <span class="ui-tag">Pendiente</span> (necesitás un adelanto de repuesto para reparar).
         </div>
         <div class="box-info" style="margin-top:0">
           <i class="fa fa-search"></i>
-          El N° CAS se encuentra en el portal de Aftersales de DJI, en el detalle del caso aprobado.
+          El N° CAS lo encontrás en el portal de Aftersales de DJI, en el detalle del caso aprobado. Una vez que DJI aprueba, avisanos por la mensajería de la orden y preparamos la reposición.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ 4. SEGUIMIENTO ══ -->
+  <!-- ══ 5. ENVÍO DE REPUESTOS DAÑADOS ══ -->
+  <div class="sec" id="envio">
+    <div class="sec-title">
+      <div class="sec-num">5</div>
+      Envío de repuestos dañados
+    </div>
+
+    <div class="box-warn">
+      <i class="fa fa-exclamation-triangle"></i>
+      <strong>IMPORTANTE.</strong> En el flujo <strong>Reparación en mi taller</strong>, los repuestos dañados tienen que llegar a nuestras oficinas para continuar el proceso correctamente. Sin ellos no podemos cerrar el caso ni enviarte el reemplazo o la nota de crédito.
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-box"></i> Cómo preparar el envío o la entrega</div>
+      <div class="card-body">
+        <div class="steps" style="margin-bottom:16px">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Escribí el N° de orden en el paquete</div>
+              <div class="step-body">
+                El número <strong>WH/REP/00XXX</strong> tiene que estar <strong>claramente escrito en el exterior del paquete</strong> al momento del envío o la entrega.
+                <div style="margin-top:8px"><span class="ot-chip">WH/REP/00XXX</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Enviá o entregá en esta dirección</div>
+              <div class="step-body">
+                <div class="addr" style="margin-top:6px">
+                  <span class="ico">📍</span>
+                  <span><strong>EUCAWOODS – Maderas Sustentables SRL</strong><br>Sector Industrial Planificado (SIPCA)<br>Carmen de Areco, Buenos Aires · CP 6725<br><a href="https://maps.app.goo.gl/agnbG2Y2Krn8NS146" target="_blank">Ver en el mapa <i class="fa fa-external-link-alt" style="font-size:9px"></i></a></span>
+                  <span class="ico">⏰</span>
+                  <span><strong>Horario de entrega en persona</strong><br>Lunes a Viernes · 8:00 a 12:00 y 13:00 a 17:00</span>
+                  <span class="ico">👤</span>
+                  <span><strong>Contacto en planta</strong><br>Mariano Castronuevo · <a href="tel:+5492325656826">+54 9 2325 65-6826</a></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Adjuntá el comprobante</div>
+              <div class="step-body">
+                Cargá el <strong>comprobante de envío / número de seguimiento o remito</strong> por la <strong>mensajería de la orden</strong> (en el detalle de la OT, dentro de Mis Reparaciones), para que registremos correctamente el ingreso.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="box-info">
+          <i class="fa fa-print"></i>
+          En el detalle de la OT dentro de <strong>Mis Reparaciones</strong> tenés un botón <strong>"Etiqueta de envío"</strong> que imprime una etiqueta con el N° de orden lista para pegar en el paquete, y un botón para <strong>cargar el tracking / remito</strong> directo en la mensajería.
+        </div>
+        <div class="box-ok" style="margin-top:0">
+          <i class="fa fa-check-circle"></i>
+          Cuando recibimos los repuestos y está todo OK, te enviamos los <strong>repuestos de reemplazo</strong> o la <strong>nota de crédito</strong> según corresponda.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6. SEGUIMIENTO ══ -->
   <div class="sec" id="seguimiento">
     <div class="sec-title">
-      <div class="sec-num">4</div>
+      <div class="sec-num">6</div>
       Seguimiento de casos
     </div>
 
     <div class="card">
-      <div class="card-head"><i class="fa fa-clipboard-list"></i> Mis Reparaciones — panel completo</div>
+      <div class="card-head"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
-          Para ver todos tus casos con estado actualizado, hacé clic en <span class="ui-tag blue"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</span>. Esta sección requiere tu <strong>PIN</strong>.
+          En <span class="ui-tag blue"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</span> (requiere PIN) ves todos tus casos con su estado. Al abrir un caso ves una <strong>línea de pasos</strong> con la etapa actual, el detalle del equipo, los mensajes y las acciones disponibles.
         </p>
         <div class="steps">
-          <div class="step">
-            <div class="step-num">1</div>
-            <div class="step-content"><div class="step-body">Clic en <span class="ui-tag blue">Mis Reparaciones</span> → ingresá tu PIN de 4 dígitos.</div></div>
-          </div>
-          <div class="step">
-            <div class="step-num">2</div>
-            <div class="step-content"><div class="step-body">Ves el listado de todos tus casos con estado, modelo, S/N y fecha de ingreso.</div></div>
-          </div>
-          <div class="step">
-            <div class="step-num">3</div>
-            <div class="step-content"><div class="step-body">Hacé clic en un caso para ver el detalle completo e historial de estados.</div></div>
-          </div>
+          <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-body">Clic en <span class="ui-tag blue">Mis Reparaciones</span> → ingresá tu PIN de 4 dígitos.</div></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-content"><div class="step-body">Ves el listado con estado, modelo, S/N y fecha de ingreso.</div></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-content"><div class="step-body">Abrís un caso para ver el detalle, el historial y qué hacer en cada etapa.</div></div></div>
+        </div>
+        <div class="box-info" style="margin-top:14px">
+          <i class="fa fa-hand-point-right"></i>
+          Cuando el detalle pide una acción tuya la vas a ver destacada: <strong>aprobar/rechazar un presupuesto</strong> (Taller OOW), <strong>confirmar la recepción</strong> de repuestos que te enviamos, o el panel de <strong>envío de repuestos dañados</strong> con toda la dirección (flujo Reparación en mi taller).
         </div>
       </div>
     </div>
@@ -500,34 +603,35 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     <div class="card">
       <div class="card-head"><i class="fa fa-list-alt"></i> Significado de los estados</div>
       <div class="card-body">
+        <p style="font-size:12px;color:var(--tx-d);margin-bottom:10px">Los estados varían según el tipo de gestión. Los más comunes:</p>
         <table class="tbl">
           <thead><tr><th>Estado</th><th>¿Qué significa?</th></tr></thead>
           <tbody>
-            <tr><td>Pendiente de Aprobación</td><td>Solicitud recibida. Se están validando los datos y la cobertura de garantía</td></tr>
-            <tr><td>Abierto</td><td>Caso aprobado, pendiente de revisión técnica</td></tr>
-            <tr><td>En Revisión</td><td>El técnico está diagnosticando el equipo</td></tr>
-            <tr><td>Presupuesto enviado</td><td>Te enviamos el presupuesto por email (casos OOW)</td></tr>
-            <tr><td>Presupuesto aceptado</td><td>Aprobaste el presupuesto, comenzamos la reparación</td></tr>
-            <tr><td>Espera de repuestos</td><td>Esperamos llegada de piezas para continuar</td></tr>
+            <tr><td>Pendiente de Aprobación</td><td>Solicitud recibida. Validando datos y cobertura de garantía</td></tr>
+            <tr><td>Abierto</td><td>Caso aprobado. Ya podés avanzar (reparar / enviar el equipo)</td></tr>
+            <tr><td>En Revisión</td><td>El técnico está diagnosticando el equipo (Taller)</td></tr>
+            <tr><td>Presupuesto enviado</td><td>Te enviamos el presupuesto para aprobar (Taller OOW)</td></tr>
+            <tr><td>Espera de repuestos</td><td>Esperando piezas para continuar</td></tr>
+            <tr><td>Repuestos enviados</td><td>Te despachamos repuestos. Confirmá la recepción cuando lleguen</td></tr>
             <tr><td>En reparación</td><td>Reparación en curso</td></tr>
-            <tr><td>Finalizado</td><td>Reparación completada, listo para entrega</td></tr>
-            <tr><td>Entregado</td><td>Equipo devuelto al reseller</td></tr>
-            <tr><td>CANCELADO</td><td>Caso cerrado / anulado</td></tr>
+            <tr><td>Informe / Piezas dañadas recibidas</td><td>Recibimos tu informe / las piezas y gestionamos ante DJI</td></tr>
+            <tr><td>Finalizado / Entregado</td><td>Caso cerrado</td></tr>
+            <tr><td>Cancelado / Rechazado DJI</td><td>Caso anulado o rechazado por DJI</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- ══ 5. PEDIDOS ══ -->
+  <!-- ══ 7. PEDIDOS ══ -->
   <div class="sec" id="pedidos">
     <div class="sec-title">
-      <div class="sec-num">5</div>
+      <div class="sec-num">7</div>
       Pedido de repuestos
     </div>
 
     <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
-      Podés solicitar repuestos directamente desde el portal con precio reseller. La sección <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> requiere tu <strong>PIN</strong>.
+      Desde <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> (requiere PIN) pedís repuestos con <strong>precio distribuidor</strong>.
     </p>
 
     <div class="card">
@@ -537,57 +641,98 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
           <div class="step">
             <div class="step-num">1</div>
             <div class="step-content">
-              <div class="step-title">Acceder a Pedidos</div>
-              <div class="step-body">Clic en <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> e ingresá tu PIN.</div>
+              <div class="step-title">Buscá los repuestos</div>
+              <div class="step-body">Por <strong>SKU o nombre</strong> en el buscador. También podés pegar un bloque en formato <strong>SKU,Cantidad</strong> (una línea por ítem) o usar el <strong>catálogo/despiece DJI</strong>. El sistema acepta los sufijos largos de importación de DJI — no hace falta normalizar los códigos.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">2</div>
             <div class="step-content">
-              <div class="step-title">Buscar repuestos</div>
-              <div class="step-body">
-                Usá el buscador por código SKU o por nombre del repuesto.
-                Cada ítem muestra el <strong>precio PVP</strong> (tachado) y tu <strong>precio reseller con tu descuento asignado</strong>.
-              </div>
+              <div class="step-title">Precios y cantidades</div>
+              <div class="step-body">Los precios están en <strong>USD netos</strong>, con el <strong>40% de descuento distribuidor ya aplicado</strong> (ej: $1.250,50 USD). Editás la cantidad haciendo clic en el número entre los botones <strong>−</strong> y <strong>+</strong>.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">3</div>
             <div class="step-content">
-              <div class="step-title">Agregar al carrito</div>
-              <div class="step-body">Seleccioná los repuestos y las cantidades. Podés seguir buscando y acumulando ítems en el carrito.</div>
+              <div class="step-title">Entrega y forma de pago</div>
+              <div class="step-body">Al cerrar el carrito elegís <strong>Retiro en Carmen de Areco</strong> o <strong>Envío a domicilio</strong>, y la modalidad de pago. Las opciones de financiación requieren un monto mínimo pactado con el área comercial.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">4</div>
             <div class="step-content">
-              <div class="step-title">Revisar y confirmar</div>
-              <div class="step-body">
-                Revisá el resumen con precios y cantidades. Podés agregar una nota al pedido.
-                Hacé clic en <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Confirmar pedido</span>.
-              </div>
+              <div class="step-title">Confirmá el pedido</div>
+              <div class="step-body">Hacé clic en <span class="ui-tag blue"><i class="fa fa-paper-plane"></i> Confirmar pedido</span>. Recibís un email con el detalle y los precios.</div>
             </div>
           </div>
           <div class="step">
             <div class="step-num">5</div>
             <div class="step-content">
-              <div class="step-title">Confirmación</div>
-              <div class="step-body">Recibís un email con el detalle del pedido y los precios. El equipo de BIDCOMAGRO lo procesa y te avisa sobre disponibilidad y despacho.</div>
+              <div class="step-title">Seguimiento y recepción</div>
+              <div class="step-body">Seguís el estado en el <strong>historial de pedidos</strong>. Cuando te llegue la mercadería, <strong>confirmás la recepción</strong> desde el portal.</div>
             </div>
           </div>
         </div>
+
         <div class="box-warn" style="margin-top:14px">
+          <i class="fa fa-clock"></i>
+          <strong>Backorder — SLA 48 hs.</strong> Si pedís un ítem con stock parcial o en backorder, la orden avanza igual y un operador de BIDCOMAGRO te contacta por el hilo de correo en un máximo de 48 horas para coordinar facturación y plazo de entrega.
+        </div>
+        <div class="box-info" style="margin-top:0">
           <i class="fa fa-info-circle"></i>
-          Los precios mostrados <strong>no incluyen impuestos</strong>. El total final puede variar según la condición impositiva de tu empresa.
+          El pedido es un documento <strong>provisorio</strong>: los precios son orientativos y pueden variar según el tipo de cambio al momento de la facturación, y no incluyen impuestos.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ 6. MENSAJES ══ -->
+  <!-- ══ 8. COTIZADOR ══ -->
+  <div class="sec" id="cotizador">
+    <div class="sec-title">
+      <div class="sec-num">8</div>
+      Cotizador
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-file-invoice-dollar"></i> Presupuestos para tu cliente final</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
+          En <span class="ui-tag blue"><i class="fa fa-file-invoice-dollar"></i> Cotizador</span> (requiere PIN) armás un <strong>presupuesto para tu cliente final</strong>. Buscás los repuestos igual que en el carrito y cada ítem arranca con un <strong>25% de descuento sobre el PVP de lista</strong>, que podés editar por ítem.
+        </p>
+        <div class="box-info">
+          <i class="fa fa-file-pdf"></i>
+          Al generar el presupuesto, el portal crea un <strong>PDF</strong> y lo envía por email. Es una herramienta comercial tuya hacia el cliente final; no genera un pedido a BIDCOMAGRO.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 9. CURSO Y EVENTOS ══ -->
+  <div class="sec" id="curso">
+    <div class="sec-title">
+      <div class="sec-num">9</div>
+      Curso y eventos
+    </div>
+
+    <div class="card">
+      <div class="card-head"><i class="fa fa-graduation-cap"></i> Inscripción a cursos y eventos</div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
+          Cuando organizamos un curso o evento presencial, aparece en la pestaña <span class="ui-tag blue"><i class="fa fa-graduation-cap"></i> Curso</span> (requiere PIN). Ahí indicás <strong>si vas a asistir y cuántas personas</strong>, con el <strong>nombre</strong> de cada asistente y su <strong>email</strong> (opcional).
+        </p>
+        <div class="box-info">
+          <i class="fa fa-bell"></i>
+          Cuando hay un evento abierto que todavía no respondiste, la pestaña <strong>Curso</strong> muestra un aviso. Podés cambiar tu inscripción mientras el evento siga abierto.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 10. MENSAJES ══ -->
   <div class="sec" id="mensajes">
     <div class="sec-title">
-      <div class="sec-num">6</div>
+      <div class="sec-num">10</div>
       Mensajes con el taller
     </div>
 
@@ -595,25 +740,24 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-head"><i class="fa fa-comments"></i> Canal de mensajes</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
-          Desde la pestaña <span class="ui-tag blue"><i class="fa fa-comments"></i> Mensajes</span> podés comunicarte directamente con nuestro equipo técnico sobre cualquier caso.
-          También podés enviar mensajes desde el detalle de cada OT en <strong>Mis Reparaciones</strong>.
+          Desde <span class="ui-tag blue"><i class="fa fa-comments"></i> Mensajes</span> (requiere PIN) te comunicás con nuestro equipo sobre cualquier caso. También podés escribir desde el detalle de cada OT en <strong>Mis Reparaciones</strong> — ahí es donde cargás el <strong>tracking / remito</strong> del envío de repuestos dañados.
         </p>
         <div class="box-info">
           <i class="fa fa-bell"></i>
-          Cuando recibís un mensaje nuevo, aparece un indicador en la pestaña Mensajes. También podés recibir notificaciones por email según la configuración de tu cuenta.
+          Cuando hay un mensaje nuevo aparece un indicador en la pestaña Mensajes. Según la configuración de tu cuenta, también podés recibir avisos por email.
         </div>
         <div class="box-warn" style="margin-top:0">
           <i class="fa fa-exclamation-triangle"></i>
-          Los mensajes son de uso interno entre vos y el taller. <strong>No son públicos</strong> y no los ve el cliente final del equipo.
+          Los mensajes son de uso interno entre vos y el taller. <strong>No son públicos</strong> ni los ve el cliente final del equipo.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ 7. FAQ ══ -->
+  <!-- ══ 11. FAQ ══ -->
   <div class="sec" id="faq">
     <div class="sec-title">
-      <div class="sec-num">7</div>
+      <div class="sec-num">11</div>
       Preguntas frecuentes
     </div>
 
@@ -621,38 +765,48 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
 
         <div class="faq-item">
-          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Puedo cargar un caso sin saber si está en garantía?</div>
-          <div class="faq-a">Sí. Podés seleccionar IW como opción por defecto y aclarar la situación en la descripción del problema. El técnico lo evaluará al recibirlo.</div>
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Cómo obtengo o recupero mi PIN?</div>
+          <div class="faq-a">El PIN te llega por email al darte de alta. Si aún no tenés cuenta, usá <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en el login. Si lo olvidaste, contactanos por email o WhatsApp y te lo reenviamos.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> En "Reparación en mi taller", ¿qué elijo: "Ya reparé" o "Pendiente"?</div>
+          <div class="faq-a"><strong>"Ya reparé"</strong> si la reparación está terminada y los repuestos usados van como reposición de tu stock. <strong>"Pendiente"</strong> si todavía necesitás que te enviemos repuestos para poder reparar.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Adónde envío los repuestos dañados y qué pongo en el paquete?</div>
+          <div class="faq-a">A EUCAWOODS – SIPCA, Carmen de Areco (CP 6725), con el <strong>N° de orden WH/REP/00XXX escrito en el exterior</strong> del paquete. Después cargá el comprobante/tracking por la mensajería de la orden. Ver la <a href="#envio" style="color:var(--blue)">Sección 5</a>.</div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué pasa después de que reciben las piezas dañadas?</div>
+          <div class="faq-a">Verificamos que esté todo OK, presentamos el caso ante DJI y te enviamos los <strong>repuestos de reemplazo</strong> o la <strong>nota de crédito</strong>, según corresponda.</div>
         </div>
 
         <div class="faq-item">
           <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué pasa si el S/N no pasa la validación?</div>
-          <div class="faq-a">Verificá que el modelo seleccionado coincida con el equipo. Si el S/N sigue dando error, contactanos: puede ser que el modelo tenga variantes o que el S/N esté mal impreso en la etiqueta.</div>
+          <div class="faq-a">Verificá que el modelo elegido coincida con el equipo. Si sigue el error, contactanos: puede ser que el modelo tenga variantes de prefijo o que el S/N esté mal impreso en la etiqueta.</div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Con qué frecuencia se actualiza el estado de mi caso?</div>
-          <div class="faq-a">Los estados se actualizan en tiempo real cuando el técnico registra un cambio en el sistema. También recibís emails automáticos en los cambios más importantes (diagnóstico, presupuesto, finalización).</div>
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué diferencia hay entre el Carrito y el Cotizador?</div>
+          <div class="faq-a">El <strong>Carrito de Repuestos</strong> es tu pedido a BIDCOMAGRO, con precio distribuidor (40% off). El <strong>Cotizador</strong> arma un presupuesto para tu cliente final (25% off editable) y genera un PDF; no genera un pedido.</div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Puedo modificar o cancelar un caso una vez enviado?</div>
-          <div class="faq-a">No podés modificar el caso desde el portal una vez enviado. Si necesitás hacer algún cambio o cancelarlo, envianos un mensaje desde la sección Mensajes o contactate directamente.</div>
-        </div>
-
-        <div class="faq-item">
-          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Cómo obtengo mi PIN?</div>
-          <div class="faq-a">El PIN te lo enviamos por email al darte de alta. Si aún no tenés acceso, usá el botón <strong>"¿Sos nuevo? Solicitá tu acceso"</strong> en la pantalla de login del portal. Si ya tenés cuenta pero olvidaste el PIN, contactanos por email o WhatsApp.</div>
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Puedo modificar o cancelar un caso ya enviado?</div>
+          <div class="faq-a">No desde el portal. Si necesitás un cambio o cancelarlo, escribinos por la sección Mensajes o contactanos directamente.</div>
         </div>
 
         <div class="faq-item">
           <div class="faq-q"><i class="fa fa-question-circle"></i> ¿El portal funciona en celular?</div>
-          <div class="faq-a">Sí, está optimizado para mobile. Podés cargar casos, consultar estados y enviar mensajes desde tu teléfono sin ningún problema.</div>
+          <div class="faq-a">Sí, está optimizado para mobile. Podés cargar casos, consultar estados, pedir repuestos y enviar mensajes desde el teléfono.</div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Qué incluyen los impuestos en los precios de repuestos?</div>
-          <div class="faq-a">Los precios mostrados en el portal son <strong>sin impuestos</strong>. El precio final con impuestos se detalla en la factura según la condición impositiva de tu empresa.</div>
+          <div class="faq-q"><i class="fa fa-question-circle"></i> ¿Los precios incluyen impuestos?</div>
+          <div class="faq-a">No. Los precios del portal son <strong>sin impuestos</strong> y orientativos (pueden variar según el tipo de cambio). El total final se detalla en la factura según la condición impositiva de tu empresa.</div>
         </div>
 
       </div>
