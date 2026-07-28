@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.11
+// @version 1.12
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -261,7 +261,7 @@ function consultarEstado(ot, sn) {
           accion = "Cuando los recibas, confirmá la recepción y realizá la reparación.";
         } else if (estKey === "INFORME DE REPARACION") {
           paso = 3; quePasa = "Recibimos tu informe de reparación. Lo estamos presentando ante DJI para su aprobación.";
-          accion = "Envianos las piezas dañadas a Carmen de Areco.\n" + DIR_CARMEN;
+          accion = "Envianos las piezas dañadas siguiendo las instrucciones de más abajo.";
         } else if (estKey === "PIEZAS DAÑADAS RECIBIDAS") {
           paso = 3; quePasa = "Recibimos las piezas dañadas. Estamos gestionando la aprobación ante DJI.";
         } else if (estKey === "APROBACION DJI") {

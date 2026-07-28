@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.62 -->
+<!-- @version 1.63 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1148,6 +1148,30 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <div class="accion-box" id="r-accion" style="display:none">
             <div class="accion-box-lbl"><i class="fa fa-hand-point-right" style="margin-right:5px"></i>Acción requerida</div>
             <span id="r-accion-txt"></span>
+          </div>
+          <!-- Envío de repuestos dañados (solo flujo Reseller común) -->
+          <div id="r-envio-danados" style="display:none;margin:0 0 14px;border:1px solid rgba(212,137,10,.35);border-radius:var(--rm);overflow:hidden">
+            <div style="background:rgba(212,137,10,.1);padding:9px 13px;font-size:12px;font-weight:700;color:var(--yellow);display:flex;align-items:center;gap:7px">
+              <i class="fa fa-exclamation-triangle"></i> Enviá los repuestos dañados para continuar
+            </div>
+            <div style="padding:12px 14px;font-size:12px;color:var(--tx-m);line-height:1.55">
+              <p style="margin:0 0 10px">Para avanzar con el caso tenés que <strong>enviarnos o entregar los repuestos dañados</strong> en nuestras oficinas.</p>
+              <div style="background:rgba(0,0,0,.03);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+                <div style="font-size:11px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Escribí bien visible en el exterior del paquete</div>
+                <div style="font-size:15px;font-weight:700;color:var(--tx);font-family:monospace" id="r-envio-ot">WH/REP/00000</div>
+              </div>
+              <div style="display:grid;grid-template-columns:18px 1fr;gap:5px 8px;align-items:start">
+                <span>📍</span><span><strong>EUCAWOODS – Maderas Sustentables SRL</strong><br>Sector Industrial Planificado (SIPCA)<br>Carmen de Areco, Buenos Aires · CP 6725<br><a href="https://maps.app.goo.gl/agnbG2Y2Krn8NS146" target="_blank" style="color:var(--blue);text-decoration:none">Ver en el mapa <i class="fa fa-external-link-alt" style="font-size:9px"></i></a></span>
+                <span>⏰</span><span>Lunes a Viernes · 8:00 a 12:00 y 13:00 a 17:00</span>
+                <span>👤</span><span>Mariano Castronuevo · <a href="tel:+5492325656826" style="color:var(--blue);text-decoration:none">+54 9 2325 65-6826</a></span>
+              </div>
+              <p style="margin:10px 0 0;padding-top:10px;border-top:1px solid var(--brd)">📎 <strong>Adjuntá el comprobante de envío</strong> (N° de seguimiento o remito) por la mensajería de abajo, así registramos el ingreso del equipo.</p>
+              <p style="margin:8px 0 0;color:var(--tx-d)">Cuando recibamos los repuestos y esté todo OK, te enviamos los <strong>repuestos de reemplazo</strong> o la <strong>nota de crédito</strong> según corresponda.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+                <button class="btn-out" onclick="imprimirEtiqueta()"><i class="fa fa-print"></i> Etiqueta de envío</button>
+                <button class="btn-out blue" onclick="_envioAdjuntarComprobante()"><i class="fa fa-paperclip"></i> Cargar tracking / remito</button>
+              </div>
+            </div>
           </div>
           <div class="ficha">
             <div class="ficha-row"><span class="ficha-lbl">Estado</span><span class="ficha-val"><span class="b-est" id="r-estado"></span></span></div>
@@ -3471,6 +3495,18 @@ function mostrarResultado(r) {
   document.getElementById('btn-etiqueta').style.display  = (r.flujo==='Taller' && paso===2) ? 'inline-flex' : 'none';
   document.getElementById('btn-repuestos').style.display = (!esBat && r.flujo && r.flujo.indexOf('Reseller')!==-1 && paso<4) ? 'inline-flex' : 'none';
 
+  // Panel "enviá los repuestos dañados" — solo flujo Reseller común (no Propio), mientras el caso está activo (paso 2-3)
+  var envPanel = document.getElementById('r-envio-danados');
+  if (envPanel) {
+    if (r.flujo === 'Reseller' && paso >= 2 && paso <= 3) {
+      var otEnv = document.getElementById('r-envio-ot');
+      if (otEnv) otEnv.textContent = r.ot || otActual || '';
+      envPanel.style.display = 'block';
+    } else {
+      envPanel.style.display = 'none';
+    }
+  }
+
   // ── Bloque de garantía ──
   var garBlock  = document.getElementById('r-gar-block');
   var fechaWrap = document.getElementById('r-fecha-act-wrap');
@@ -3706,6 +3742,15 @@ function imprimirEtiqueta() {
 function abrirWS() {
   var msg = otActual ? 'Hola, tengo una consulta sobre la Orden ' + otActual : 'Hola, necesito soporte técnico BIDCOMAGRO';
   window.open('https://wa.me/5491130641898?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// Lleva al reseller a la mensajería de la OT con un texto pre-cargado para pegar el tracking/remito.
+function _envioAdjuntarComprobante() {
+  var i = document.getElementById('inp-comment');
+  if (!i) return;
+  if (!i.value) i.value = 'Comprobante de envío de repuestos dañados — Tracking / Remito: ';
+  i.focus();
+  i.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function pedirPinMensajes() {
