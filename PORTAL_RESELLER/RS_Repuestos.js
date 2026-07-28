@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.7
+// @version 1.8
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -93,7 +93,7 @@ function registrarPedidoRepuestos(ot, lista) {
       var repActual = String(ref.datos[i][SCHEMA.OT.REPUESTOS] || "").trim();
       var mapaRep   = {};
       if (repActual && repActual !== 'Sin consumo de repuestos') {
-        var lineas = repActual.split('\n');
+        var lineas = repActual.split(/ ; |\r?\n/);   // tolera separador canónico ' ; ' (Hub) y '\n' legacy
         for (var li = 0; li < lineas.length; li++) {
           var partes = lineas[li].split(' | ');
           if (partes.length >= 3) {
@@ -116,7 +116,7 @@ function registrarPedidoRepuestos(ot, lista) {
       }
       var lineasFin = [];
       for (var key in mapaRep) { lineasFin.push(mapaRep[key].sku + ' | ' + mapaRep[key].desc + ' | ' + mapaRep[key].raw); }
-      ref.hoja.getRange(i + 1, SCHEMA.OT.REPUESTOS + 1).setValue(lineasFin.join('\n'));
+      ref.hoja.getRange(i + 1, SCHEMA.OT.REPUESTOS + 1).setValue(lineasFin.join(' ; '));   // separador canónico del HUB (lo lee con split(' ; '))
 
       if (String(ref.datos[i][SCHEMA.OT.PRIORIDAD]).toUpperCase() !== "URGENTE")
         ref.hoja.getRange(i + 1, SCHEMA.OT.PRIORIDAD + 1).setValue("ALERTA REPUESTOS");

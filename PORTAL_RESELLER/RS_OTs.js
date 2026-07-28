@@ -1,7 +1,6 @@
 // ============================================================
-// @version 1.0
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.10
+// @version 1.11
 // ============================================================
 
 function enviarCasoAlHub(data) {
@@ -48,7 +47,7 @@ function enviarCasoAlHub(data) {
         if (reps && reps.length) {
           repuestosStr = reps.map(function(r) {
             return r.sku + ' | ' + (r.descripcion || '') + ' | P:' + r.cantidad + ' E:0';
-          }).join('\n');
+          }).join(' ; ');   // separador canónico del HUB (lo lee con split(' ; ')); NO usar '\n' o el Hub toma solo el primero
         }
       } catch(eRep) {}
     }
