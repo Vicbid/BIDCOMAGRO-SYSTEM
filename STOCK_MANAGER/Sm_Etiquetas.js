@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ══════════════════════════════════════════════════════════════
 //  ETIQUETAS SO — códigos internos para productos SIN N° de serie
 //  El SO funciona como un SN (uno único por unidad). Formato POR SKU:
@@ -15,8 +15,49 @@
 var SO_COL = { SO: 0, SKU: 1, DESC: 2, FECHA: 3, OPERADOR: 4, CANTIDAD: 5 };
 
 // Layout del maestro compartido con WOS (hoja MAESTRO_ARTICULOS en WOS_NOTAS_SS_ID).
+// Col G (ETIQUETA) = "este SKU lleva etiqueta individual": lo aprende la recepción para
+// pre-tildar "🏷 Etiqueta" la próxima vez que llegue ese código.
 var _SM_MAESTRO_HOJA = 'MAESTRO_ARTICULOS';
-var _SM_MAESTRO_COL  = { SKU: 0, DESC: 1, POR_BOLSA: 2, BULTO: 3, FECHA: 4, OPERADOR: 5 };
+var _SM_MAESTRO_COL  = { SKU: 0, DESC: 1, POR_BOLSA: 2, BULTO: 3, FECHA: 4, OPERADOR: 5, ETIQUETA: 6 };
+
+// Abre (o crea) el maestro compartido con WOS asegurando las 7 columnas (incl. "Lleva etiqueta").
+function _smMaestroHoja() {
+  var ss = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+  var hoja = ss.getSheetByName(_SM_MAESTRO_HOJA);
+  if (!hoja) {
+    hoja = ss.insertSheet(_SM_MAESTRO_HOJA);
+    hoja.appendRow(['SKU', 'Descripción', 'Por bolsa', 'Bulto x defecto', 'Última actualización', 'Operador', 'Lleva etiqueta']);
+    hoja.getRange(1, 1, 1, 7).setFontWeight('bold');
+    hoja.setFrozenRows(1);
+  }
+  if (hoja.getMaxColumns() < 7) hoja.insertColumnsAfter(hoja.getMaxColumns(), 7 - hoja.getMaxColumns());
+  if (!String(hoja.getRange(1, 7).getValue() || '').trim()) hoja.getRange(1, 7).setValue('Lleva etiqueta').setFontWeight('bold');
+  return hoja;
+}
+
+// Aprende que un SKU "lleva etiqueta individual" (col ETIQUETA=true) sin tocar POR_BOLSA.
+// Se llama al generar etiquetas por unidad, para pre-tildar el código en la próxima recepción.
+function _smMarcarEtiquetar(sku, desc, op) {
+  try {
+    sku = String(sku || '').trim();
+    if (!sku) return;
+    var hoja = _smMaestroHoja();
+    var data = hoja.getDataRange().getValues();
+    var su = sku.toUpperCase(), fila = 0;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][_SM_MAESTRO_COL.SKU] || '').trim().toUpperCase() === su) { fila = i + 1; break; }
+    }
+    if (!fila) { hoja.appendRow([sku, desc || '', '', '', '', '', '']); fila = hoja.getLastRow(); }
+    hoja.getRange(fila, _SM_MAESTRO_COL.SKU + 1).setValue(sku);
+    if (desc) hoja.getRange(fila, _SM_MAESTRO_COL.DESC + 1).setValue(desc);
+    hoja.getRange(fila, _SM_MAESTRO_COL.ETIQUETA + 1).setValue(true);
+    hoja.getRange(fila, _SM_MAESTRO_COL.FECHA + 1).setValue(new Date());
+    if (op) hoja.getRange(fila, _SM_MAESTRO_COL.OPERADOR + 1).setValue(op);
+    SpreadsheetApp.flush();
+  } catch(e) {
+    Logger.log('_smMarcarEtiquetar: ' + e);
+  }
+}
 
 // Crea (si falta) la hoja SO_ETIQUETAS y la devuelve. Asegura la col CANTIDAD (F).
 function _getHojaSO() {
@@ -129,6 +170,9 @@ function generarSO(sku, cantidad, operador) {
     hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 5).setValues(filas);
     SpreadsheetApp.flush();
 
+    // Aprender: este SKU lleva etiqueta individual → se pre-tilda en la próxima recepción.
+    _smMarcarEtiquetar(sku, desc, op);
+
     return { ok: true, labels: labels, desde: maxN + 1, hasta: maxN + cantidad };
   } catch(e) {
     return { ok: false, error: e.toString() };
@@ -232,10 +276,75 @@ function getReqSNMap() {
   return out;
 }
 
+// SKUs marcados "lleva etiqueta" en el maestro (col ETIQUETA) → { SKU: true }. La recepción los
+// pre-tilda automáticamente (el operador ya los etiquetó antes; se aprendió). Ver _smMarcarEtiquetar.
+function getMaestroEtiquetar() {
+  var out = {};
+  try {
+    var ss   = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+    var hoja = ss.getSheetByName(_SM_MAESTRO_HOJA);
+    if (!hoja) return out;
+    var d = hoja.getDataRange().getValues();
+    var C = _SM_MAESTRO_COL;
+    if (!d.length || d[0].length <= C.ETIQUETA) return out;  // col aún no existe en hojas viejas
+    for (var i = 1; i < d.length; i++) {
+      var sku = String(d[i][C.SKU] || '').trim().toUpperCase();
+      if (!sku) continue;
+      var e = d[i][C.ETIQUETA];
+      var lleva = (e === true) ||
+        String(e).trim().toLowerCase() === 'true' ||
+        String(e).trim().toUpperCase() === 'SI' ||
+        String(e).trim().toUpperCase() === 'S\xcd';
+      if (lleva) out[sku] = true;
+    }
+  } catch(e) { Logger.log('getMaestroEtiquetar: ' + e); }
+  return out;
+}
+
 // Metadata que la recepción necesita para etiquetar bien, en una sola llamada:
-// { bolsas: {SKU:unidadesPorBolsa}, sn: {SKU:true} }.
+// { bolsas: {SKU:unidadesPorBolsa}, sn: {SKU:true}, etiquetar: {SKU:true} }.
 function getEtiquetaMetaRecepcion() {
-  return { bolsas: getMaestroBolsas(), sn: getReqSNMap() };
+  return { bolsas: getMaestroBolsas(), sn: getReqSNMap(), etiquetar: getMaestroEtiquetar() };
+}
+
+// Reimprime etiquetas SO ya existentes: recibe uno o varios códigos SO (escaneados/pegados,
+// separados por espacio/coma/salto) y devuelve sus labels desde SO_ETIQUETAS para reimprimir tal cual.
+// Devuelve { ok, labels:[{so,sku,descripcion,cantidad?}], faltan:[codigos no encontrados] }.
+function reimprimirSOs(texto) {
+  try {
+    var toks = String(texto || '').toUpperCase().split(/[\s,;]+/);
+    var seen = {}, want = [];
+    for (var a = 0; a < toks.length; a++) {
+      var t = toks[a].trim();
+      if (t && !seen[t]) { seen[t] = true; want.push(t); }
+    }
+    if (!want.length) return { ok: false, error: 'Escaneá o pegá al menos un código SO.' };
+
+    var hoja = _getHojaSO();
+    var d = hoja.getDataRange().getValues();
+    var bySo = {};
+    for (var i = 1; i < d.length; i++) {
+      var soRaw = String(d[i][SO_COL.SO] || '').trim();
+      if (!soRaw) continue;
+      bySo[soRaw.toUpperCase()] = {
+        so: soRaw,
+        sku: String(d[i][SO_COL.SKU] || '').trim(),
+        descripcion: String(d[i][SO_COL.DESC] || ''),
+        cantidad: parseInt(d[i][SO_COL.CANTIDAD], 10) || 0
+      };
+    }
+    var labels = [], faltan = [];
+    for (var w = 0; w < want.length; w++) {
+      var f = bySo[want[w]];
+      if (!f) { faltan.push(want[w]); continue; }
+      var o = { so: f.so, sku: f.sku, descripcion: f.descripcion };
+      if (f.cantidad > 1) o.cantidad = f.cantidad;
+      labels.push(o);
+    }
+    return { ok: labels.length > 0, labels: labels, faltan: faltan, error: labels.length ? '' : 'No se encontró ninguno de esos códigos SO.' };
+  } catch(e) {
+    return { ok: false, error: e.toString() };
+  }
 }
 
 // Genera etiquetas SO para varios SKUs en una sola pasada (una sola escritura, un solo lock).
@@ -284,7 +393,7 @@ function generarSOLote(items, operador) {
       return mx;
     }
 
-    var labels = [], filas = [], bolsasMarcadas = {};
+    var labels = [], filas = [], bolsasMarcadas = {}, etqMarcadas = {};
     for (var t = 0; t < limpio.length; t++) {
       var it      = limpio[t];
       var prefijo = 'SO-' + it.sku + '-';
@@ -303,7 +412,8 @@ function generarSOLote(items, operador) {
           filas.push([so, it.sku, desc, ahora, op, '']);
         }
       }
-      if (it.esBolsa && bolsasMarcadas[it.sku] === undefined) bolsasMarcadas[it.sku] = it.uxb;
+      if (it.esBolsa) { if (bolsasMarcadas[it.sku] === undefined) bolsasMarcadas[it.sku] = it.uxb; }
+      else            { if (etqMarcadas[it.sku]    === undefined) etqMarcadas[it.sku]    = desc; }
     }
 
     if (filas.length) {
@@ -315,6 +425,11 @@ function generarSOLote(items, operador) {
     var bk = Object.keys(bolsasMarcadas);
     for (var b = 0; b < bk.length; b++) {
       _smUpsertMaestro(bk[b], _descDeSku(bk[b]), bolsasMarcadas[bk[b]], op);
+    }
+    // Aprender "lleva etiqueta" los SKU etiquetados por unidad → se pre-tildan en la próxima recepción.
+    var ek = Object.keys(etqMarcadas);
+    for (var e = 0; e < ek.length; e++) {
+      _smMarcarEtiquetar(ek[e], etqMarcadas[ek[e]], op);
     }
 
     return { ok: true, labels: labels };

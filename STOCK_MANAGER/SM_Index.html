@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.27 -->
+<!-- @version 5.28 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1585,6 +1585,11 @@ tr:last-child td{border-bottom:none}
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px">
+        <div style="display:flex;gap:6px;margin-bottom:14px">
+          <button type="button" id="so-tab-generar" class="btn-p" style="flex:1" onclick="_soModoVista('generar')"><i class="fa fa-plus" style="margin-right:4px"></i>Generar nuevas</button>
+          <button type="button" id="so-tab-reimprimir" class="btn-s" style="flex:1" onclick="_soModoVista('reimp')"><i class="fa fa-redo" style="margin-right:4px"></i>Reimprimir</button>
+        </div>
+        <div id="so-pane-generar">
         <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código QR para escanear en el picking.</div>
         <div class="mb-3">
           <label class="flbl">Repuesto <span style="font-weight:400;color:var(--tx-d)">(buscá por código o nombre)</span></label>
@@ -1628,10 +1633,18 @@ tr:last-child td{border-bottom:none}
             <option>Jeremías Silvestre</option>
           </select>
         </div>
+        </div><!-- /so-pane-generar -->
+        <div id="so-pane-reimprimir" style="display:none">
+          <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">¿Se rompió o perdió una etiqueta? Escaneá o pegá los <strong>códigos SO</strong> a reimprimir (uno por línea; sale igual que el original).</div>
+          <label class="flbl">Códigos SO</label>
+          <textarea id="so-reimp-codigos" class="form-control" rows="4" placeholder="SO-BC.AG.SS001094-000020&#10;SO-BC.AG.SS001094-000021" autocomplete="off" style="font-family:monospace;font-size:12px;text-transform:uppercase"></textarea>
+          <div style="font-size:11px;color:var(--tx-d);margin-top:6px">Tip: podés escanear varias etiquetas seguidas; cada una entra en una línea.</div>
+        </div>
       </div>
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
         <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
         <button id="so-print-btn" class="btn-p" onclick="confirmarImprimirSO()"><i class="fa fa-print"></i> Generar e imprimir</button>
+        <button id="so-reimp-btn" class="btn-p" style="display:none" onclick="reimprimirSO()"><i class="fa fa-print"></i> Reimprimir</button>
       </div>
     </div>
   </div>
@@ -3497,6 +3510,8 @@ function abrirImprimirSO(cod, desc) {
   document.getElementById('so-sel').style.display = 'none';
   document.getElementById('so-desc').textContent = '';
   document.getElementById('so-print-btn').disabled = true;   // se habilita al elegir un repuesto
+  var rc = document.getElementById('so-reimp-codigos'); if (rc) rc.value = '';
+  _soModoVista('generar');
   modal('modal-so').show();
   // Asegurar que el buscador tenga el stock cargado (el modal se abre desde el botón general o desde una fila)
   _soAsegurarStock(function() {
@@ -3516,6 +3531,55 @@ function _soSetMode(mode) {
   var wb = document.getElementById('so-modo-bolsa');
   if (wu) wu.style.display = (mode === 'unidad') ? 'block' : 'none';
   if (wb) wb.style.display = (mode === 'bolsa')  ? 'block' : 'none';
+}
+
+// Alterna la vista del modal SO entre "Generar nuevas" y "Reimprimir" (etiquetas ya existentes).
+function _soModoVista(v) {
+  var esGen = (v !== 'reimp');
+  var paneG = document.getElementById('so-pane-generar');
+  var paneR = document.getElementById('so-pane-reimprimir');
+  if (paneG) paneG.style.display = esGen ? '' : 'none';
+  if (paneR) paneR.style.display = esGen ? 'none' : '';
+  var btnP = document.getElementById('so-print-btn');
+  var btnR = document.getElementById('so-reimp-btn');
+  if (btnP) btnP.style.display = esGen ? '' : 'none';
+  if (btnR) btnR.style.display = esGen ? 'none' : '';
+  var tabG = document.getElementById('so-tab-generar');
+  var tabR = document.getElementById('so-tab-reimprimir');
+  if (tabG) tabG.className = esGen ? 'btn-p' : 'btn-s';
+  if (tabR) tabR.className = esGen ? 'btn-s' : 'btn-p';
+  if (!esGen) setTimeout(function() { var t = document.getElementById('so-reimp-codigos'); if (t) t.focus(); }, 150);
+}
+
+// Reimprime etiquetas SO ya existentes a partir de los códigos escaneados/pegados (una por línea).
+function reimprimirSO() {
+  var txt = (document.getElementById('so-reimp-codigos').value || '').trim();
+  if (!txt) { toast('Escaneá o pegá al menos un código SO', 'err'); return; }
+  var toks = txt.toUpperCase().split(/[\s,;]+/).filter(function(s) { return s.trim(); });
+  if (!_confirmarTandaEtq(toks.length, 'reimpresión')) return;
+
+  // Abrir la ventana YA (gesto del usuario) para que no la bloquee el navegador
+  var win = window.open('', '_blank', 'width=480,height=640');
+  if (win) win.document.write('<html><body style="font-family:sans-serif;padding:24px;color:#333">Buscando etiquetas SO…</body></html>');
+
+  var btn = document.getElementById('so-reimp-btn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Buscando…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Reimprimir';
+      if (!r || !r.ok) { if (win) win.close(); toast((r && r.error) || 'No se encontraron esos códigos SO', 'err'); return; }
+      _imprimirEtiquetasSO(win, r.labels);
+      var n = r.labels.length, f = (r.faltan || []).length;
+      toast(n + ' etiqueta' + (n === 1 ? '' : 's') + ' reimpresa' + (n === 1 ? '' : 's') +
+        (f ? (' — ' + f + ' código' + (f === 1 ? '' : 's') + ' no encontrado' + (f === 1 ? '' : 's')) : ''), f ? 'err' : 'ok');
+      if (!f) modal('modal-so').hide();
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-print"></i> Reimprimir';
+      if (win) win.close();
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+    })
+    .reimprimirSOs(txt);
 }
 
 // ── Buscador de repuesto (SKU / nombre / modelo) para etiquetas SO ────
@@ -3625,6 +3689,9 @@ function confirmarImprimirSO() {
     if (cant <= 0) { toast('La cantidad debe ser mayor a 0', 'err'); return; }
   }
 
+  // Confirmar antes de una tanda grande (red de seguridad contra impresiones enormes por error)
+  if (!_confirmarTandaEtq(esBolsa ? nbolsas : cant, sku)) return;
+
   // Abrir la ventana YA (gesto del usuario) para que no la bloquee el navegador
   var win = window.open('', '_blank', 'width=480,height=640');
   if (win) win.document.write('<html><body style="font-family:sans-serif;padding:24px;color:#333">Generando etiquetas SO…</body></html>');
@@ -3702,19 +3769,37 @@ function _imprimirEtiquetasSO(win, labels) {
 }
 
 // ── ETIQUETAS EN LA RECEPCIÓN (impresión automática al ingresar la compra) ──────
-// Mapas que decide el modo por defecto de cada código (se cargan con getEtiquetaMetaRecepcion):
-//  · _bolsasMap: SKU→unidades por bolsa → arranca en modo BOLSA (1 etiqueta = N u.).
-//  · _reqSNMap:  SKU con N° de serie real → arranca DESTILDADO (lleva SN, no SO; el operador puede tildar).
+// Mapas que deciden el estado por defecto de cada código (se cargan con getEtiquetaMetaRecepcion):
+//  · _bolsasMap: SKU→unidades por bolsa (esos NO se pre-tildan: las bolsas se etiquetan aparte).
+//  · _reqSNMap:  SKU con N° de serie real → sin control de etiqueta (llevan SN, no SO).
+//  · _etqMap:    SKU aprendido "lleva etiqueta" → arranca con "🏷 Etiqueta" PRE-TILDADO.
 var _bolsasMap = {};
 var _reqSNMap  = {};
+var _etqMap    = {};
 
-// Carga/actualiza los mapas de etiqueta (bolsa + requiere-SN). Se llama en onload y al abrir un CAS,
-// así siempre están frescos (mata la carrera de la carga inicial).
+// Umbral a partir del cual se pide confirmar antes de mandar una tanda grande a la impresora.
+var _ETQ_CONFIRM_UMBRAL = 20;
+
+// Carga/actualiza los mapas de etiqueta (bolsa + requiere-SN + lleva-etiqueta). Se llama en onload y
+// al abrir un CAS, así siempre están frescos (mata la carrera de la carga inicial).
 function _cargarEtiquetaMeta(cb) {
   google.script.run
-    .withSuccessHandler(function(m) { if (m) { _bolsasMap = m.bolsas || {}; _reqSNMap = m.sn || {}; } if (cb) cb(); })
+    .withSuccessHandler(function(m) { if (m) { _bolsasMap = m.bolsas || {}; _reqSNMap = m.sn || {}; _etqMap = m.etiquetar || {}; } if (cb) cb(); })
     .withFailureHandler(function() { if (cb) cb(); })
     .getEtiquetaMetaRecepcion();
+}
+
+// Confirma antes de imprimir una tanda grande (> umbral). true = seguir. Para tandas chicas no molesta.
+function _confirmarTandaEtq(total, contexto) {
+  if (!total || total <= _ETQ_CONFIRM_UMBRAL) return true;
+  return confirm('🏷 Vas a imprimir ' + total + ' etiquetas' + (contexto ? ' (' + contexto + ')' : '') + '.\n\n¿Confirmás la impresión?');
+}
+
+// Suma cuántas etiquetas físicas saldrían de una lista de etiqItems ({sku,cantidad,...}).
+function _recepTotalEtq(etiqItems) {
+  var t = 0;
+  (etiqItems || []).forEach(function(it) { t += (parseInt(it.cantidad, 10) || 1); });
+  return t;
 }
 
 // Celda: tilde "🏷" + toggle unidad/bolsa/mixto + cantidad editable + (bolsa/mixto) unidades por bolsa
@@ -4599,13 +4684,15 @@ function exportarPackingListCAS() {
 // con N° de serie no ofrecen etiqueta (llevan su serie real, no SO). Las bolsas se etiquetan
 // aparte después. Sin lógica automática de bultos en la recepción.
 function _recepRowHTML(sku, desc, delta, checked) {
-  var on   = checked ? ' on' : '';
-  var su   = String(sku).toUpperCase();
-  var isSN = !!(_reqSNMap && _reqSNMap[su]);
-  var hide = checked ? '' : ' style="display:none"';
+  var on    = checked ? ' on' : '';
+  var su    = String(sku).toUpperCase();
+  var isSN  = !!(_reqSNMap && _reqSNMap[su]);
+  var esBolsa = !!(_bolsasMap && _bolsasMap[su]);
+  var etqOn = !isSN && !esBolsa && !!(_etqMap && _etqMap[su]);   // aprendido "lleva etiqueta" → pre-tildado
+  var hide  = checked ? '' : ' style="display:none"';
   var etiqCtrl = isSN
     ? '<div class="recep-sn-tag"' + hide + '>🔢 N° serie<b>sin etiqueta</b></div>'
-    : '<label class="recep-etq"' + hide + ' title="Imprimir etiqueta individual de este código"><span class="lbl">🏷 Etiqueta</span><input type="checkbox" class="recep-etq-ck" onchange="_recepToggleEtq(this)"></label>';
+    : '<label class="recep-etq' + (etqOn ? ' on' : '') + '"' + hide + ' title="Imprimir etiqueta individual de este código"><span class="lbl">🏷 Etiqueta</span><input type="checkbox" class="recep-etq-ck"' + (etqOn ? ' checked' : '') + ' onchange="_recepToggleEtq(this)"></label>';
   return '<div class="recep-item recep-card' + on + '" data-codigo="' + escH(sku) + '" data-desc="' + escH(desc) + '" data-etiq-sku="' + escH(su) + '" data-delta="' + delta + '">' +
     '<label class="recep-check">' +
       '<input type="checkbox" class="recep-ok"' + (checked ? ' checked' : '') + ' onchange="_recepToggleRow(this)">' +
@@ -4735,6 +4822,7 @@ function confirmarReciboParcial() {
   if (!items.length) return toast('Tildá al menos un ítem que haya llegado','err');
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
   var etiqItems = _recepEtiquetasElegidas('#recep-parcial-items');
+  if (etiqItems.length && !_confirmarTandaEtq(_recepTotalEtq(etiqItems))) etiqItems = [];  // recibe igual, sin imprimir
   var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
@@ -4917,6 +5005,7 @@ function confirmarEstadoCAS() {
     var depSel = document.getElementById('recepcion-deposito');
     var deposito = depSel ? (depSel.value || 'BA') : 'BA';
     var etiqItems = _recepEtiquetasElegidas('#recepcion-items');
+    if (etiqItems.length && !_confirmarTandaEtq(_recepTotalEtq(etiqItems))) etiqItems = [];  // recibe igual, sin imprimir
     var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
     google.script.run
       .withSuccessHandler(function(res) {
