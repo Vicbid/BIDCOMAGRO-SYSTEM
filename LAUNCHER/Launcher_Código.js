@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 
@@ -820,6 +820,41 @@ function LAUNCH_resetPin(nombre) {
     return { ok: false, error: 'Reseller no encontrado.' };
   } catch(e) {
     Logger.log('LAUNCH_resetPin: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// ── Migración: normaliza el separador de repuestos en 'Ordenes de trabajo' ─────────
+// Versiones viejas del Portal unían los repuestos de la col Q con '\n', pero el HUB los lee con
+// split(' ; ') → tomaba solo el primero. Esto recorre la columna y reescribe las celdas que tengan
+// salto de línea al separador canónico ' ; '. aplicar=false → solo cuenta/preview (no escribe nada).
+function LAUNCH_migrarRepuestosSeparador(aplicar) {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Ordenes de trabajo');
+    if (!hoja) return { ok: false, error: "No se encontró la hoja 'Ordenes de trabajo'." };
+    var COL_REP = 17, COL_OT = 3;  // Q = REPUESTOS, C = N° de OT
+    var last = hoja.getLastRow();
+    if (last < 2) return { ok: true, revisadas: 0, corregidas: 0, ejemplos: [], aplicado: false };
+    var rng  = hoja.getRange(2, COL_REP, last - 1, 1);
+    var vals = rng.getValues();
+    var ots  = hoja.getRange(2, COL_OT, last - 1, 1).getValues();
+    var corregidas = 0, ejemplos = [];
+    for (var i = 0; i < vals.length; i++) {
+      var v = String(vals[i][0] == null ? '' : vals[i][0]);
+      if (v.indexOf('\n') === -1 && v.indexOf('\r') === -1) continue;   // sin salto de línea → nada que migrar
+      var partes = v.split(/ ; |\r?\n/), limpio = [];
+      for (var p = 0; p < partes.length; p++) { var t = partes[p].trim(); if (t) limpio.push(t); }
+      var nuevo = limpio.join(' ; ');
+      if (nuevo !== v) {
+        corregidas++;
+        if (ejemplos.length < 6) ejemplos.push({ ot: String(ots[i][0] || ''), antes: v, despues: nuevo });
+        if (aplicar) vals[i][0] = nuevo;
+      }
+    }
+    if (aplicar && corregidas) rng.setValues(vals);
+    return { ok: true, revisadas: vals.length, corregidas: corregidas, ejemplos: ejemplos, aplicado: !!aplicar };
+  } catch(e) {
+    Logger.log('LAUNCH_migrarRepuestosSeparador: ' + e);
     return { ok: false, error: e.toString() };
   }
 }

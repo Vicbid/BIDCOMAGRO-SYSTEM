@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.6 -->
+<!-- @version 1.7 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -367,13 +367,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     <span id="curso-card-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalPin()">
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalPin()">
     <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
       <i class="fa fa-key"></i>
     </div>
     <div style="flex:1">
       <div style="font-size:13px;font-weight:700;color:#1a1f2e">PIN · Portal Reseller</div>
       <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Recordar o resetear credenciales de acceso</div>
+    </div>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalRepFix()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-wrench"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Reparar repuestos Portal ↔ HUB</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Normaliza OTs viejas donde el HUB lee solo el primer repuesto</div>
     </div>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
@@ -659,6 +669,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     </div>
     <div style="padding:10px 18px;border-top:1px solid #f0f2f5;display:flex;justify-content:flex-end">
       <button onclick="cerrarModalPin()" class="btn-cancel-m">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPARAR REPUESTOS PORTAL↔HUB -->
+<div class="modal-bg" id="modal-repfix">
+  <div class="modal-box" style="width:600px;max-height:85vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-wrench"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Reparar repuestos Portal ↔ HUB</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Normaliza el separador de la columna Repuestos en 'Ordenes de trabajo'</div>
+      </div>
+      <button onclick="cerrarModalRepFix()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:12px;color:#5e6778;line-height:1.55;background:#f7f9fc;border:1px solid #eef1f5;border-radius:8px;padding:11px 13px">
+        Las OTs cargadas con versiones viejas del Portal separan los repuestos con salto de línea y el HUB lee solo el primero. Esto reescribe esas celdas al separador correcto <b>' ; '</b>. <b>Primero revisá</b> cuántas se van a tocar; recién después aplicá.
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="repfix-btn-rev" onclick="repfixRevisar()" style="flex:1;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+          <i class="fa fa-search"></i> Revisar
+        </button>
+        <button id="repfix-btn-apl" onclick="repfixAplicar()" disabled style="flex:1;background:#c0c8d4;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:not-allowed;display:flex;align-items:center;justify-content:center;gap:7px">
+          <i class="fa fa-check"></i> Aplicar corrección
+        </button>
+      </div>
+      <div id="repfix-status" style="font-size:12px;min-height:16px;color:#9ba5b4"></div>
+      <div id="repfix-ejemplos" style="display:none;flex-direction:column;gap:8px"></div>
+    </div>
+    <div style="padding:10px 18px;border-top:1px solid #f0f2f5;display:flex;justify-content:flex-end">
+      <button onclick="cerrarModalRepFix()" class="btn-cancel-m">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1349,6 +1393,78 @@ function pinRecordar() {
       st.style.color = 'var(--red)';
     })
     .LAUNCH_recordarPin(nombre);
+}
+
+// ── Reparar repuestos Portal↔HUB (normaliza el separador '\n' → ' ; ' en la col Q) ──
+function abrirModalRepFix() {
+  document.getElementById('modal-repfix').classList.add('show');
+  repfixRevisar();  // preview automático al abrir
+}
+function cerrarModalRepFix() {
+  document.getElementById('modal-repfix').classList.remove('show');
+}
+function _repfixSetApl(on) {
+  var b = document.getElementById('repfix-btn-apl');
+  b.disabled = !on;
+  b.style.background = on ? 'var(--green)' : '#c0c8d4';
+  b.style.cursor     = on ? 'pointer' : 'not-allowed';
+}
+function _repfixEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _repfixRender(res) {
+  var st = document.getElementById('repfix-status');
+  var ej = document.getElementById('repfix-ejemplos');
+  if (!res || !res.ok) {
+    st.textContent = '✗ ' + ((res && res.error) || 'Error');
+    st.style.color = 'var(--red)';
+    ej.style.display = 'none';
+    _repfixSetApl(false);
+    return;
+  }
+  if (res.aplicado) {
+    st.textContent = '✓ Listo: ' + res.corregidas + ' OT' + (res.corregidas === 1 ? '' : 's') + ' corregida' + (res.corregidas === 1 ? '' : 's') + '.';
+    st.style.color = 'var(--green)';
+  } else if (res.corregidas > 0) {
+    st.textContent = res.corregidas + ' OT' + (res.corregidas === 1 ? '' : 's') + ' con formato viejo (de ' + res.revisadas + ' revisadas). Mirá los ejemplos y aplicá.';
+    st.style.color = '#5e6778';
+  } else {
+    st.textContent = '✓ No hay nada que corregir (' + res.revisadas + ' revisadas).';
+    st.style.color = 'var(--green)';
+  }
+  _repfixSetApl(!res.aplicado && res.corregidas > 0);
+  var ejs = res.ejemplos || [];
+  if (ejs.length) {
+    var h = '';
+    for (var i = 0; i < ejs.length; i++) {
+      h += '<div style="border:1px solid #eef1f5;border-radius:8px;padding:9px 11px;font-size:11px">' +
+             '<div style="font-weight:700;color:var(--blue);margin-bottom:4px">' + _repfixEsc(ejs[i].ot || '(sin OT)') + '</div>' +
+             '<div style="color:#c0392b;font-family:monospace;white-space:pre-wrap;word-break:break-word">− ' + _repfixEsc(ejs[i].antes) + '</div>' +
+             '<div style="color:#1a9e4a;font-family:monospace;white-space:pre-wrap;word-break:break-word;margin-top:2px">+ ' + _repfixEsc(ejs[i].despues) + '</div>' +
+           '</div>';
+    }
+    ej.innerHTML = h;
+    ej.style.display = 'flex';
+  } else {
+    ej.style.display = 'none';
+  }
+}
+function repfixRevisar() {
+  var st = document.getElementById('repfix-status');
+  st.textContent = 'Revisando…'; st.style.color = '#9ba5b4';
+  _repfixSetApl(false);
+  google.script.run
+    .withSuccessHandler(_repfixRender)
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + (e && (e.message || e)); st.style.color = 'var(--red)'; })
+    .LAUNCH_migrarRepuestosSeparador(false);
+}
+function repfixAplicar() {
+  if (!confirm('Se van a reescribir las celdas de repuestos con formato viejo al separador correcto. ¿Aplicar ahora?')) return;
+  var st = document.getElementById('repfix-status');
+  st.textContent = 'Aplicando…'; st.style.color = '#9ba5b4';
+  _repfixSetApl(false);
+  google.script.run
+    .withSuccessHandler(_repfixRender)
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + (e && (e.message || e)); st.style.color = 'var(--red)'; })
+    .LAUNCH_migrarRepuestosSeparador(true);
 }
 
 // ── Estado de la cuenta (baja / reactivar) ──
