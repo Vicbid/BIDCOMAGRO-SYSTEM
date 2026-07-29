@@ -1,4 +1,4 @@
-// @version 3.16
+// @version 3.17
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -951,6 +951,8 @@ function WOS_reactivarBackorder(numero, operario) {
     var datos = hoja.getDataRange().getValues();
     _wosSetEstadoFiltrado(hoja, datos, numero, EST.BACKORDER, EST.PREPARADO);
     SpreadsheetApp.flush();
+    // El backorder reactivado ya tiene su stock → cerrar las reservas del pedido (Cumplida)
+    try { _wosCerrarReservas(numero, '', 'Cumplida'); } catch(eCR) { Logger.log('reactivarBackorder cerrarReservas: ' + eCR); }
     var reseller = '';
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() === numero) {
@@ -1009,10 +1011,20 @@ function WOS_buscarBackorderPorSKU(sku) {
       }
     }
 
+    var _resv = _wosReservasActivas();
     var lista = [];
     var keys  = Object.keys(mapa);
-    for (var k = 0; k < keys.length; k++) lista.push(mapa[keys[k]]);
-    lista.sort(function(a, b) { return a.fechaMs - b.fechaMs; }); // FIFO
+    for (var k = 0; k < keys.length; k++) {
+      var _p = mapa[keys[k]];
+      _p.reservado = (_resv.byPedidoSku[_p.numero] && _resv.byPedidoSku[_p.numero][skuUp]) ? _resv.byPedidoSku[_p.numero][skuUp] : 0;
+      lista.push(_p);
+    }
+    // Reservados primero (unidades ya comprometidas a ese reseller), luego FIFO por fecha
+    lista.sort(function(a, b) {
+      var ar = a.reservado > 0 ? 0 : 1, br = b.reservado > 0 ? 0 : 1;
+      if (ar !== br) return ar - br;
+      return a.fechaMs - b.fechaMs;
+    });
 
     return { ok: true, sku: skuUp, pedidos: lista };
   } catch(e) {
@@ -1063,6 +1075,9 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
         _rmFlip++;
       }
       if (!_rmFlip) continue;   // este pedido no tenía backorder de ese SKU → no reactivar/notificar
+
+      // La unidad reservada de este SKU llegó y se reactivó → cerrar la reserva (Cumplida)
+      try { _wosCerrarReservas(numero, skuUp, 'Cumplida'); } catch(eCR) { Logger.log('recibirMercaderia cerrarReservas: ' + eCR); }
 
       if (threadId) {
         try {
@@ -1158,7 +1173,11 @@ function WOS_getEnCaminoMap() {
       }
     }
 
-    // Consolidar lotes por SKU: ordenar por fecha (sin fecha al final) + etaMin
+    // Reservas activas (unidades ya prometidas a un reseller que aceptó esperar)
+    var _resv = _wosReservasActivas();
+
+    // Consolidar lotes por SKU: ordenar por fecha (sin fecha al final) + etaMin,
+    // y calcular disponibilidad restando las reservas activas por CAS.
     for (var _sk in enCaminoMap) {
       var _em  = enCaminoMap[_sk];
       var _arr = [];
@@ -1172,6 +1191,26 @@ function WOS_getEnCaminoMap() {
       });
       _em.batches = _arr;
       _em.etaMin  = (_arr.length && _arr[0].eta) ? _arr[0].eta : '';
+
+      // Disponible = lotes menos reservas activas (repartidas por CAS, lote más próximo primero)
+      var _rc = _resv.byCasSku[_sk] || {};
+      var _rem = {}; for (var _c in _rc) _rem[_c] = _rc[_c];
+      var _bDisp = [], _disp = 0, _etaMinDisp = '';
+      for (var _bi3 = 0; _bi3 < _arr.length; _bi3++) {
+        var _b3   = _arr[_bi3];
+        var _take = Math.min(_rem[_b3.cas] || 0, _b3.qty);
+        _rem[_b3.cas] = (_rem[_b3.cas] || 0) - _take;
+        var _av = _b3.qty - _take;
+        if (_av > 0) {
+          _bDisp.push({ cas: _b3.cas, air: _b3.air, eta: _b3.eta, qty: _av });
+          _disp += _av;
+          if (!_etaMinDisp && _b3.eta) _etaMinDisp = _b3.eta;
+        }
+      }
+      _em.batchesDisp = _bDisp;
+      _em.disponible  = _disp;
+      _em.reservado   = _em.total - _disp;
+      _em.etaMinDisp  = _etaMinDisp;
       delete _em._bmap;
     }
 
@@ -1198,6 +1237,123 @@ function WOS_getEnCaminoMap() {
     Logger.log('WOS_getEnCaminoMap ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+}
+
+// ═══ RESERVAS DE UNIDADES EN CAMINO (compras DJI) ═══════════════════════
+// Cuando un reseller acepta "Esperar" (Opción A) se reservan las unidades del/los
+// lote(s) DJI más próximos, para no prometer las mismas unidades a dos resellers.
+// Hoja RESERVAS_EN_CAMINO (MASTER): FECHA·PEDIDO·RESELLER·SKU·CAS·N_AIR·ETA·CANTIDAD·ESTADO
+//   ESTADO: Activa (comprometida) · Cumplida (llegó y se reactivó) · Cancelada (Opción B / liberada)
+var _WOS_RES_SHEET  = 'RESERVAS_EN_CAMINO';
+var _WOS_RES        = { FECHA:0, PEDIDO:1, RESELLER:2, SKU:3, CAS:4, AIR:5, ETA:6, CANTIDAD:7, ESTADO:8 };
+var _WOS_RES_HEADER = ['FECHA','PEDIDO','RESELLER','SKU','CAS','N_AIR','ETA','CANTIDAD','ESTADO'];
+
+function _wosResSheet() {
+  var ss = SpreadsheetApp.openById(MASTER_SS_ID);
+  var h  = ss.getSheetByName(_WOS_RES_SHEET);
+  if (!h) {
+    h = ss.insertSheet(_WOS_RES_SHEET);
+    h.appendRow(_WOS_RES_HEADER);
+    h.setFrozenRows(1);
+  }
+  return h;
+}
+
+// Lee reservas activas. Devuelve { byCasSku:{SKU:{CAS:qty}}, byPedidoSku:{PEDIDO:{SKU:qty}}, total }
+function _wosReservasActivas() {
+  var out = { byCasSku: {}, byPedidoSku: {}, total: 0 };
+  try {
+    var h = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_RES_SHEET);
+    if (!h) return out;
+    var d = h.getDataRange().getValues();
+    var R = _WOS_RES;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][R.ESTADO] || '').trim() !== 'Activa') continue;
+      var sku = String(d[i][R.SKU]    || '').trim().toUpperCase();
+      var cas = String(d[i][R.CAS]    || '').trim().toUpperCase();
+      var ped = String(d[i][R.PEDIDO] || '').trim();
+      var q   = Number(d[i][R.CANTIDAD]) || 0;
+      if (!sku || q <= 0) continue;
+      if (!out.byCasSku[sku])    out.byCasSku[sku]    = {};
+      if (!out.byPedidoSku[ped]) out.byPedidoSku[ped] = {};
+      out.byCasSku[sku][cas]    = (out.byCasSku[sku][cas]    || 0) + q;
+      out.byPedidoSku[ped][sku] = (out.byPedidoSku[ped][sku] || 0) + q;
+      out.total += q;
+    }
+  } catch(e) { Logger.log('_wosReservasActivas: ' + e); }
+  return out;
+}
+
+// Reserva, para un pedido que aceptó esperar, las unidades pendientes (E−F−Z de sus líneas
+// en Backorder) contra los lotes DJI disponibles más próximos. Idempotente: no re-reserva lo ya
+// reservado para ese pedido. Debe llamarse DESPUÉS de que las líneas queden en Backorder.
+function _wosReservarEnCamino(numero, reseller) {
+  try {
+    numero = String(numero || '').trim();
+    if (!numero) return { ok: false };
+    var ec    = WOS_getEnCaminoMap();
+    var ecMap = (ec && ec.ok) ? ec.map : {};
+    var resv  = _wosReservasActivas();
+    var yaRes = resv.byPedidoSku[numero] || {};
+
+    var hoja = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false };
+    var datos = hoja.getDataRange().getValues();
+    var needBySku = {};
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+      if (String(datos[i][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+      var sku = String(datos[i][COL.SKU] || '').trim().toUpperCase();
+      if (!sku) continue;
+      var pend = (Number(datos[i][COL.CANT_SOL]) || 0) - (Number(datos[i][COL.CANT_DESP]) || 0) - (Number(datos[i][COL.CANT_CANCEL]) || 0);
+      if (pend > 0) needBySku[sku] = (needBySku[sku] || 0) + pend;
+    }
+
+    var nuevas = [];
+    var ahora  = new Date();
+    for (var s in needBySku) {
+      var need = needBySku[s] - (yaRes[s] || 0);   // descuenta lo ya reservado para este pedido
+      if (need <= 0) continue;
+      var em = ecMap[s];
+      if (!em || !em.batchesDisp) continue;         // sin lotes disponibles → no se reserva (queda "a confirmar")
+      for (var b = 0; b < em.batchesDisp.length && need > 0; b++) {
+        var bt   = em.batchesDisp[b];
+        var take = Math.min(need, bt.qty);
+        if (take <= 0) continue;
+        nuevas.push([ahora, numero, reseller || '', s, bt.cas, bt.air || '', bt.eta || '', take, 'Activa']);
+        need -= take;
+      }
+    }
+    if (nuevas.length) {
+      var h = _wosResSheet();
+      h.getRange(h.getLastRow() + 1, 1, nuevas.length, nuevas[0].length).setValues(nuevas);
+      SpreadsheetApp.flush();
+    }
+    return { ok: true, reservas: nuevas.length };
+  } catch(e) { Logger.log('_wosReservarEnCamino: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// Cambia el estado de las reservas ACTIVAS de un pedido (opcionalmente filtrando por SKU).
+// estadoNuevo: 'Cancelada' (Opción B / liberar) | 'Cumplida' (llegó y se reactivó).
+function _wosCerrarReservas(numero, skuOpt, estadoNuevo) {
+  try {
+    numero = String(numero || '').trim();
+    if (!numero) return { ok: false };
+    var skuF = skuOpt ? String(skuOpt).trim().toUpperCase() : '';
+    var h = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_RES_SHEET);
+    if (!h) return { ok: true, cambiadas: 0 };
+    var d = h.getDataRange().getValues();
+    var R = _WOS_RES, chg = 0;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][R.ESTADO] || '').trim() !== 'Activa') continue;
+      if (String(d[i][R.PEDIDO] || '').trim() !== numero) continue;
+      if (skuF && String(d[i][R.SKU] || '').trim().toUpperCase() !== skuF) continue;
+      h.getRange(i + 1, R.ESTADO + 1).setValue(estadoNuevo);
+      chg++;
+    }
+    if (chg) SpreadsheetApp.flush();
+    return { ok: true, cambiadas: chg };
+  } catch(e) { Logger.log('_wosCerrarReservas: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 // Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.

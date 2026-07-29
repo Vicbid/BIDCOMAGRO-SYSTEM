@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.22
+// @version 2.24
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1524,6 +1524,26 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
     // (threadId ya garantizado arriba); el email directo es solo fallback (abajo). No se aborta.
     var email = _wosGetEmailReseller(ped.reseller);
 
+    // ── ETA de reposición por SKU (compras DJI en camino) ──────
+    // Para que el reseller sepa CUÁNDO llegaría el faltante si elige "Esperar".
+    var _ecMap = {};
+    try {
+      var _ec = WOS_getEnCaminoMap();
+      if (_ec && _ec.ok) _ecMap = _ec.map || {};
+    } catch(eEc) { Logger.log('WOS_notificarFaltante enCamino: ' + eEc); }
+    function _faltEta(sku) {
+      // ETA DISPONIBLE (resta lo ya reservado a otros resellers) → no re-promete un lote comprometido
+      var e = _ecMap[String(sku || '').trim().toUpperCase()];
+      return (e && e.etaMinDisp) ? e.etaMinDisp : '';
+    }
+    // ETA más próxima entre todos los faltantes (para el bloque OPCIÓN A)
+    var _etaProx = '', _etaProxDt = null;
+    for (var fe = 0; fe < faltantes.length; fe++) {
+      var _feStr = _faltEta(faltantes[fe].sku);
+      var _feDt  = _wosEtaToDate(_feStr);
+      if (_feDt && (!_etaProxDt || _feDt < _etaProxDt)) { _etaProxDt = _feDt; _etaProx = _feStr; }
+    }
+
     // ── Tabla de faltantes ────────────────────────────────────
     var tablaFalt =
       "<table style='width:100%;border-collapse:collapse;font-size:12px;margin:16px 0'>" +
@@ -1532,9 +1552,11 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         "<th style='padding:7px 10px;text-align:left;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Descripción</th>" +
         "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Solicitado</th>" +
         "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Disponible</th>" +
+        "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Reposici\xf3n estim.</th>" +
       "</tr></thead><tbody>";
     for (var i = 0; i < faltantes.length; i++) {
       var f = faltantes[i];
+      var _fEta = _faltEta(f.sku);
       tablaFalt +=
         "<tr style='border-bottom:1px solid #f0f2f5'>" +
           "<td style='padding:8px 10px;font-family:monospace;font-weight:700;color:#e74c3c'>" + (f.sku  || '') + "</td>" +
@@ -1542,6 +1564,8 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
           "<td style='padding:8px 10px;text-align:center;font-weight:700'>"                  + (f.cantSol  || 0) + "</td>" +
           "<td style='padding:8px 10px;text-align:center;font-weight:700;color:" +
             (f.cantDisp > 0 ? '#1a9e4a' : '#e74c3c') + "'>"                                 + (f.cantDisp || 0) + "</td>" +
+          "<td style='padding:8px 10px;text-align:center;font-size:12px;color:" +
+            (_fEta ? '#1a56db;font-weight:700' : '#94a3b8') + "'>"                          + (_fEta ? 'llega ~' + _fEta : 'a confirmar') + "</td>" +
         "</tr>";
     }
     tablaFalt += "</tbody></table>";
@@ -1588,6 +1612,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
         "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar el faltante (segundo env\xedo)</p>" +
         "<p style='margin:0;font-size:12px;color:#4a5568'>Los \xedtems faltantes quedan pendientes. Cuando ingresen al stock los despachamos en un segundo env\xedo.</p>" +
+        (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
       "</div>" +
       "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
         "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Cancelar el faltante</p>" +
@@ -1613,7 +1638,8 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       'Al procesar tu pedido ' + numero + ' detectamos un faltante de stock.\n' +
       (hayDisponible ? 'Vamos a despachar lo disponible. ' : '') +
       'Por favor indicanos qué hacer con los ítems faltantes:\n\n' +
-      'OPCI\xd3N A: Esperar el faltante y recibirlo en un segundo env\xedo cuando el stock est\xe9 disponible.\n' +
+      'OPCI\xd3N A: Esperar el faltante y recibirlo en un segundo env\xedo cuando el stock est\xe9 disponible.' +
+      (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
       'OPCI\xd3N B: Cancelar definitivamente los \xedtems faltantes.\n\n' +
       'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
       '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===';
@@ -1817,6 +1843,11 @@ function WOS_detectarRespuestasResellers() {
           }
           Logger.log('WOS_detectarRespuestasResellers: ' + numero + ' → OPCI\xd3N B → faltantes ajustados por item');
         }
+
+        // ── Reservar (A) o liberar (B) las unidades en camino comprometidas ──
+        SpreadsheetApp.flush();
+        if (esA)      { try { _wosReservarEnCamino(numero, info.reseller); } catch(eRs) { Logger.log('detector reservar [' + numero + ']: ' + eRs); } }
+        else if (esB) { try { _wosCerrarReservas(numero, '', 'Cancelada'); }  catch(eRl) { Logger.log('detector liberar [' + numero + ']: ' + eRl); } }
 
         // ── Confirmación al reseller en el mismo hilo ─────────
         try {
@@ -2085,6 +2116,10 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
     }
 
     SpreadsheetApp.flush();
+
+    // Reservar (Opción A) o liberar (Opción B) las unidades en camino comprometidas al reseller
+    if (op === 'A') { try { _wosReservarEnCamino(numero, reseller); } catch(eRs) { Logger.log('procesarRespuestaManual reservar [' + numero + ']: ' + eRs); } }
+    else            { try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('procesarRespuestaManual liberar [' + numero + ']: ' + eRl); } }
 
     if (threadId) {
       try {
