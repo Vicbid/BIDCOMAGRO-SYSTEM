@@ -1,4 +1,4 @@
-<!-- @version 3.40 -->
+<!-- @version 3.41 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4623,7 +4623,7 @@ function _computeDespachable() {
     var _bySku = _dpEnCamino.bySku || {};
     for (var sk in _bySku) {
       var bs = _bySku[sk].batchesDisp || [], cp = [];
-      for (var bi = 0; bi < bs.length; bi++) cp.push({ eta: bs[bi].eta || '', qty: Number(bs[bi].qty) || 0 });
+      for (var bi = 0; bi < bs.length; bi++) cp.push({ eta: bs[bi].eta || '', qty: Number(bs[bi].qty) || 0, cas: bs[bi].cas || '', air: bs[bi].air || '' });
       ecPool[sk] = cp;   // ya vienen ordenados por fecha asc (sin fecha al final)
     }
     var resPool = {};
@@ -4631,7 +4631,7 @@ function _computeDespachable() {
     for (var ri = 0; ri < rsv.length; ri++) {
       var rKey = rsv[ri].pedido + '|' + rsv[ri].sku;
       if (!resPool[rKey]) resPool[rKey] = [];
-      resPool[rKey].push({ eta: rsv[ri].eta || '', qty: Number(rsv[ri].qty) || 0 });
+      resPool[rKey].push({ eta: rsv[ri].eta || '', qty: Number(rsv[ri].qty) || 0, cas: rsv[ri].cas || '', air: rsv[ri].air || '' });
     }
     for (var rp in resPool) resPool[rp].sort(function(a, b) { return _dpEtaOrd(a.eta) - _dpEtaOrd(b.eta); });
     for (var l2 = 0; l2 < lineas.length; l2++) {
@@ -4644,14 +4644,14 @@ function _computeDespachable() {
         if (own[oi].qty <= 0) continue;
         var tk = Math.min(need, own[oi].qty);
         own[oi].qty -= tk; need -= tk;
-        ln2.rep.push({ qty: tk, eta: own[oi].eta, bloq: true });
+        ln2.rep.push({ qty: tk, eta: own[oi].eta, bloq: true, cas: own[oi].cas, air: own[oi].air });
       }
       var pl = ecPool[ln2.sku] || [];
       for (var pi = 0; pi < pl.length && need > 0; pi++) {
         if (pl[pi].qty <= 0) continue;
         var tk2 = Math.min(need, pl[pi].qty);
         pl[pi].qty -= tk2; need -= tk2;
-        ln2.rep.push({ qty: tk2, eta: pl[pi].eta, bloq: false });
+        ln2.rep.push({ qty: tk2, eta: pl[pi].eta, bloq: false, cas: pl[pi].cas, air: pl[pi].air });
       }
       ln2.sinEta = need;   // sin lote en camino asignable → fecha a confirmar
     }
@@ -4686,23 +4686,25 @@ function _computeDespachable() {
 function _fmtUSD(n) { return (Math.round(n * 100) / 100).toLocaleString('es-AR'); }
 
 // Chip "cuándo cumplimos la ENTREGA COMPLETA del pedido" = la ETA más lejana de sus faltas.
+// Distingue: sin compra que cubra (a confirmar) ≠ compra en camino pero sin ETA cargada (cruce SM).
 function _dpChipPedido(P, ecReady) {
   if (!ecReady) return '';
-  var faltaTot = 0, sinF = 0, maxMs = 0, maxEta = '';
+  var faltaTot = 0, sinLote = 0, sinFecha = 0, maxMs = 0, maxEta = '';
   for (var i = 0; i < P.lineas.length; i++) {
     var L = P.lineas[i];
     faltaTot += L.falta;
-    sinF += L.sinEta || 0;
+    sinLote += L.sinEta || 0;
     if (L.rep) for (var j = 0; j < L.rep.length; j++) {
       var r = L.rep[j];
-      if (!r.eta) { sinF += r.qty; continue; }
+      if (!r.eta) { sinFecha += r.qty; continue; }
       var ms = _dpEtaMs(r.eta);
       if (ms > maxMs) { maxMs = ms; maxEta = r.eta; }
     }
   }
   var st = 'font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;';
   if (faltaTot <= 0) return '<span style="' + st + 'background:var(--green-l);color:var(--green)">✅ completo con stock actual</span>';
-  if (sinF > 0)      return '<span style="' + st + 'background:#FFF4E5;color:#B54708">⏳ ' + sinF + ' u. sin fecha aún</span>';
+  if (sinLote > 0)   return '<span style="' + st + 'background:#FFF4E5;color:#B54708" title="No hay compra DJI en camino que cubra estas unidades">⏳ ' + sinLote + ' u. sin compra que las cubra</span>';
+  if (sinFecha > 0)  return '<span style="' + st + 'background:#FFF4E5;color:#B54708" title="La compra existe pero su ETA no está cargada — corré el cruce en Stock Manager">🚚 ' + sinFecha + ' u. en camino · falta cargar ETA</span>';
   if (maxEta)        return '<span style="' + st + 'background:var(--blue-l);color:var(--blue)">📦 entrega completa ~' + escH(maxEta) + '</span>';
   return '';
 }
@@ -4715,7 +4717,7 @@ function _renderDespachable() {
     cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes de despacho (nada que debamos). ¡Todo al día!</div>';
     return;
   }
-  var totUAhora = 0, totUFalta = 0, totUBloq = 0, totUPlan = 0, totUSin = 0;
+  var totUAhora = 0, totUFalta = 0, totUBloq = 0, totUPlan = 0, totUSin = 0, totSinFecha = 0;
   var ecReady = !!(_dpEnCamino && _dpEnCamino.ok);
   for (var t = 0; t < data.length; t++) {
     totUAhora += data[t].uAhora; totUFalta += data[t].uFalta;
@@ -4726,6 +4728,7 @@ function _renderDespachable() {
         var _L = _ls[_li];
         if (_L.rep) for (var _ri = 0; _ri < _L.rep.length; _ri++) {
           if (_L.rep[_ri].bloq) totUBloq += _L.rep[_ri].qty; else totUPlan += _L.rep[_ri].qty;
+          if (!_L.rep[_ri].eta) totSinFecha += _L.rep[_ri].qty;
         }
         totUSin += _L.sinEta || 0;
       }
@@ -4742,6 +4745,11 @@ function _renderDespachable() {
   document.getElementById('dp-sub').textContent = subTxt;
 
   var html = '';
+  if (ecReady && totSinFecha > 0) {
+    html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 14px;border-radius:var(--rm);background:#FFF4E5;border:1px solid rgba(181,71,8,.25);color:#B54708;font-size:11px;font-weight:600;margin-bottom:12px">' +
+      '<span>🚚</span><span>' + totSinFecha + ' u. están en compras DJI en camino pero <strong>sin ETA cargada</strong>. ' +
+      'La fecha se importa del planner DRP con el cruce de compras en <strong>Stock Manager → Compras → Cruce con sheet externo</strong> (también avisa si una fecha cambió). Corré el cruce y aplicá para completar/actualizar las ETAs.</span></div>';
+  }
   for (var i = 0; i < data.length; i++) {
     var R = data[i];
     html += '<div style="background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);box-shadow:var(--shd);margin-bottom:12px;overflow:hidden">';
@@ -4769,16 +4777,22 @@ function _renderDespachable() {
         var faltaCell = L.falta > 0
           ? '<span style="color:#B54708;font-weight:700">' + L.falta + '</span>'
           : '<span style="color:var(--tx-d)">—</span>';
-        // Desglose de reposición: con qué lote DJI (y qué fecha) cumplimos la falta de la línea
+        // Desglose de reposición: con qué lote DJI (y qué fecha) cumplimos la falta de la línea.
+        // Tooltip con CAS/AIR del lote asignado para auditar el reparto FIFO.
         var repCell = '';
         if (L.falta > 0 && ecReady) {
           var parts = [];
           if (L.rep) for (var rj = 0; rj < L.rep.length; rj++) {
             var rr = L.rep[rj];
-            parts.push((rr.bloq ? '🔒 ' : '') + rr.qty + ' u ' + (rr.eta ? '~' + escH(rr.eta) : 'sin fecha'));
+            var pLbl = (rr.bloq ? '🔒 ' : '') + rr.qty + ' u ' +
+              (rr.eta ? '~' + escH(rr.eta) : '<span style="color:#B54708">en camino · sin ETA cargada</span>');
+            var pTit = 'Lote ' + (rr.cas || '?') + (rr.air ? ' · AIR ' + rr.air : '') +
+              (rr.bloq ? ' · BLOQUEADO para este pedido' : ' · propuesta (se fija con el botón Bloquear)') +
+              (rr.eta ? '' : ' · la compra existe pero no tiene ETA en COMPRAS_DETALLE: corré el cruce en Stock Manager');
+            parts.push('<span title="' + escH(pTit) + '">' + pLbl + '</span>');
           }
-          if (L.sinEta > 0) parts.push('<span style="color:#B54708">' + L.sinEta + ' u a confirmar</span>');
-          if (parts.length) repCell = '<div style="font-size:10px;color:var(--tx-m);white-space:nowrap;margin-top:2px" title="🔒 = ya bloqueado para este pedido · sin candado = propuesta (se fija con el botón Bloquear)">🚚 ' + parts.join(' · ') + '</div>';
+          if (L.sinEta > 0) parts.push('<span style="color:#B54708" title="No hay compra DJI en camino que cubra estas unidades">' + L.sinEta + ' u sin compra · a confirmar</span>');
+          if (parts.length) repCell = '<div style="font-size:10px;color:var(--tx-m);white-space:nowrap;margin-top:2px">🚚 ' + parts.join(' · ') + '</div>';
         }
         html += '<tr style="border-bottom:1px solid var(--brd)">' +
           '<td style="padding:4px 6px;font-family:monospace;white-space:nowrap">' + escH(L.skuRaw || L.sku) + '</td>' +
@@ -4812,7 +4826,7 @@ function _copiarDespachable(idx) {
           var pz = [];
           for (var rj = 0; rj < L.rep.length; rj++) {
             var rr = L.rep[rj];
-            pz.push(rr.qty + ' u ' + (rr.eta ? 'llega ~' + rr.eta : 'fecha a confirmar'));
+            pz.push(rr.qty + ' u ' + (rr.eta ? 'llega ~' + rr.eta : 'en camino, fecha a confirmar'));
             if (rr.eta) hayEtas = true;
           }
           if (L.sinEta > 0) pz.push(L.sinEta + ' u fecha a confirmar');

@@ -1,4 +1,4 @@
-// @version 3.20
+// @version 3.21
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1472,7 +1472,9 @@ function WOS_despachoParcialData() {
           pedido: String(d[i][R.PEDIDO] || '').trim(),
           sku:    String(d[i][R.SKU]    || '').trim().toUpperCase(),
           eta:    _wosEtaFmt(d[i][R.ETA]),
-          qty:    q
+          qty:    q,
+          cas:    String(d[i][R.CAS] || '').trim(),
+          air:    String(d[i][R.AIR] || '').trim()
         });
       }
     }
