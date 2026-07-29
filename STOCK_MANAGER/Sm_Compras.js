@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.2
+// @version 1.3
 
 // ============================================================
 //  COMPRAS DJI
@@ -413,6 +413,18 @@ function _escribirEnRecibidos(cas, items, observaciones) {
 // ============================================================
 var _PEDIDOS_EXT_SS_ID = '15Y4tri7Egpa2Tjvq1kPXuuR7OUIsQVXgjPFUwthr7Sw';
 
+// Normaliza el valor de "FECHA ESTIMADA EN PLANTA" del planner externo.
+// Date → dd/MM/yyyy ; '0' o vacío → '' (sin ETA) ; texto → trim.
+function _normEtaVal(v) {
+  if (v instanceof Date) {
+    try { return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy'); }
+    catch(e) { return ''; }
+  }
+  var s = String(v == null ? '' : v).trim();
+  if (!s || s === '0') return '';
+  return s;
+}
+
 function cruzarComprasExternas() {
   try {
     var extSS    = SpreadsheetApp.openById(_PEDIDOS_EXT_SS_ID);
@@ -429,13 +441,14 @@ function cruzarComprasExternas() {
     var ext = pedSheet.getDataRange().getValues();
 
     // Encontrar fila de encabezados (primeras 10 filas)
-    var hdrIdx = -1, cCas = -1, cAir = -1, cIng = -1;
+    var hdrIdx = -1, cCas = -1, cAir = -1, cIng = -1, cEta = -1;
     for (var ri = 0; ri < Math.min(ext.length, 10) && hdrIdx < 0; ri++) {
       var foundCas = false, foundIng = false;
       for (var ci = 0; ci < ext[ri].length; ci++) {
         var v = String(ext[ri][ci] || '').trim().toLowerCase();
         if (v.indexOf('invoice') >= 0)                              { cCas = ci; foundCas = true; }
         if ((v.indexOf('n') === 0 && v.indexOf('air') >= 0) || v === 'air') cAir = ci;
+        if (v.indexOf('estimada') >= 0 || v.indexOf('planta') >= 0) cEta = ci;
         if (v.indexOf('ingreso') >= 0 && v.indexOf('stock') >= 0)  { cIng = ci; foundIng = true; }
       }
       if (foundCas && foundIng) hdrIdx = ri;
@@ -457,7 +470,8 @@ function cruzarComprasExternas() {
       var cod  = String(ext[di][3] || '').trim();
       var desc = String(ext[di][4] || '').trim();
       var qty  = parseInt(ext[di][5], 10) || 0;
-      if (cod && qty > 0) casMap[casNum].items.push({ codigo: cod, descripcion: desc, cantidad: qty });
+      var eta  = cEta >= 0 ? _normEtaVal(ext[di][cEta]) : '';
+      if (cod && qty > 0) casMap[casNum].items.push({ codigo: cod, descripcion: desc, cantidad: qty, eta: eta, air: airNum });
     }
 
     // Estado actual de cada CAS en COMPRAS_DJI de SM
@@ -482,7 +496,8 @@ function cruzarComprasExternas() {
           if (!smDetailByCas[dCas]) smDetailByCas[dCas] = {};
           smDetailByCas[dCas][dSku] = {
             pedida:   parseInt(dDet[di][CD.CANTIDAD_PEDIDA])   || 0,
-            recibida: parseInt(dDet[di][CD.CANTIDAD_RECIBIDA]) || 0
+            recibida: parseInt(dDet[di][CD.CANTIDAD_RECIBIDA]) || 0,
+            eta:      _normEtaVal(dDet[di][CD.FECHA_ETA])
           };
         }
       }
@@ -509,7 +524,7 @@ function cruzarComprasExternas() {
       var extMap = {};
       for (var ei = 0; ei < e.items.length; ei++) {
         var eSku = String(e.items[ei].codigo || '').trim().toUpperCase();
-        if (eSku) extMap[eSku] = { cantidad: e.items[ei].cantidad, desc: e.items[ei].descripcion };
+        if (eSku) extMap[eSku] = { cantidad: e.items[ei].cantidad, desc: e.items[ei].descripcion, eta: e.items[ei].eta || '' };
       }
 
       var diffs = [];
@@ -523,7 +538,14 @@ function cruzarComprasExternas() {
         var extQty  = extMap[sk]  ? extMap[sk].cantidad      : null;
         var smQty   = smDet[sk]   ? smDet[sk].pedida         : null;
         var extDesc = extMap[sk]  ? extMap[sk].desc           : '';
-        if (extQty !== smQty) diffs.push({ sku: sk, desc: extDesc, ext: extQty, sm: smQty });
+        var extEta  = extMap[sk]  ? (extMap[sk].eta || '')    : '';
+        var smEta   = smDet[sk]   ? (smDet[sk].eta || '')     : '';
+        var qtyChg  = extQty !== smQty;
+        // Cambio de ETA: solo cuando el SKU existe en ambos lados y hay al menos una fecha
+        var etaChg  = !!(extMap[sk] && smDet[sk] && extEta !== smEta && (extEta || smEta));
+        if (qtyChg || etaChg) {
+          diffs.push({ sku: sk, desc: extDesc, ext: extQty, sm: smQty, etaExt: extEta, etaSm: smEta, qtyChg: !!qtyChg, etaChg: etaChg });
+        }
       }
       if (diffs.length) diferencias.push({ cas: e.cas, estadoSM: estadoSM, air: e.air, diffs: diffs, extItems: e.items });
     }
@@ -554,12 +576,14 @@ function sincronizarItemsCAS(cas) {
     if (!pedSheet) return { ok: false, error: 'Hoja Pedidos no encontrada en sheet externo' };
 
     var ext    = pedSheet.getDataRange().getValues();
-    var hdrIdx = -1, cCas = -1;
+    var hdrIdx = -1, cCas = -1, cAir = -1, cEta = -1;
     for (var ri = 0; ri < Math.min(ext.length, 10) && hdrIdx < 0; ri++) {
       var hasInv = false, hasIng = false;
       for (var ci = 0; ci < ext[ri].length; ci++) {
         var v = String(ext[ri][ci] || '').trim().toLowerCase();
         if (v.indexOf('invoice') >= 0) { cCas = ci; hasInv = true; }
+        if ((v.indexOf('n') === 0 && v.indexOf('air') >= 0) || v === 'air') cAir = ci;
+        if (v.indexOf('estimada') >= 0 || v.indexOf('planta') >= 0) cEta = ci;
         if (v.indexOf('ingreso') >= 0 && v.indexOf('stock') >= 0) hasIng = true;
       }
       if (hasInv && hasIng) hdrIdx = ri;
@@ -573,7 +597,9 @@ function sincronizarItemsCAS(cas) {
       var cod  = String(ext[di][3] || '').trim().toUpperCase();
       var desc = String(ext[di][4] || '').trim();
       var qty  = parseInt(ext[di][5], 10) || 0;
-      if (cod && qty > 0) extItems.push({ sku: cod, desc: desc, cantidad: qty });
+      var eta  = cEta >= 0 ? _normEtaVal(ext[di][cEta]) : '';
+      var air  = cAir >= 0 ? String(ext[di][cAir] || '').trim() : '';
+      if (cod && qty > 0) extItems.push({ sku: cod, desc: desc, cantidad: qty, eta: eta, air: air });
     }
     if (!extItems.length) return { ok: false, error: 'No se encontraron ítems para ' + casKey + ' en el sheet externo' };
 
@@ -581,9 +607,13 @@ function sincronizarItemsCAS(cas) {
     var hojaCD = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
     if (!hojaCD) return { ok: false, error: 'Hoja COMPRAS_DETALLE no encontrada' };
     var CD      = SCHEMA.COMPRAS_DETALLE;
+    var WIDTH   = 8; // ID_CAS, SKU, DESC, PEDIDA, RECIBIDA, ESTADO, FECHA_ETA, N_AIR
+    var HEADER  = ['ID_CAS','SKU','DESCRIPCION','CANTIDAD_PEDIDA','CANTIDAD_RECIBIDA','ESTADO','FECHA_ETA','N_AIR'];
     var dCD     = hojaCD.getDataRange().getValues();
+    // Normaliza cualquier fila a WIDTH columnas (rellena filas viejas de 6 col con '')
+    function _padRow(r) { r = r.slice(0, WIDTH); while (r.length < WIDTH) r.push(''); return r; }
     var recibMap = {};
-    var rowsKeep = [dCD[0]]; // encabezado
+    var rowsKeep = [HEADER]; // encabezado canónico de 8 columnas
     for (var ri2 = 1; ri2 < dCD.length; ri2++) {
       var rCas = String(dCD[ri2][CD.ID_CAS] || '').trim().toUpperCase();
       if (rCas === casKey) {
@@ -591,20 +621,20 @@ function sincronizarItemsCAS(cas) {
         var rSku = String(dCD[ri2][CD.SKU] || '').trim().toUpperCase();
         recibMap[rSku] = parseInt(dCD[ri2][CD.CANTIDAD_RECIBIDA]) || 0;
       } else {
-        rowsKeep.push(dCD[ri2]);
+        rowsKeep.push(_padRow(dCD[ri2])); // otras CAS: conservar, normalizadas a 8 col
       }
     }
 
-    // Agregar nuevas filas con datos del sheet externo
+    // Agregar nuevas filas con datos del sheet externo (incluye ETA + N° AIR por línea)
     for (var xi = 0; xi < extItems.length; xi++) {
       var xIt  = extItems[xi];
       var xRec = recibMap[xIt.sku] || 0;
       var xEst = xRec >= xIt.cantidad ? 'Recibido' : (xRec > 0 ? 'Parcial' : 'Pendiente');
-      rowsKeep.push([casKey, xIt.sku, xIt.desc, xIt.cantidad, xRec, xEst]);
+      rowsKeep.push([casKey, xIt.sku, xIt.desc, xIt.cantidad, xRec, xEst, xIt.eta || '', xIt.air || '']);
     }
 
     hojaCD.clearContents();
-    hojaCD.getRange(1, 1, rowsKeep.length, rowsKeep[0].length).setValues(rowsKeep);
+    hojaCD.getRange(1, 1, rowsKeep.length, WIDTH).setValues(rowsKeep);
     invalidateSheetValues(SCHEMA.SHEETS.COMPRAS_DETALLE);
     SpreadsheetApp.flush();
     return { ok: true, cas: casKey, items: extItems.length };
@@ -674,7 +704,7 @@ function crearHojaComprasDetalle() {
     var existing = db.getSheetByName(SCHEMA.SHEETS.COMPRAS_DETALLE);
     if (existing) return { ok: false, msg: 'La hoja ya existe' };
     var hoja = db.insertSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
-    hoja.appendRow(['ID_CAS','SKU','DESCRIPCION','CANTIDAD_PEDIDA','CANTIDAD_RECIBIDA','ESTADO']);
+    hoja.appendRow(['ID_CAS','SKU','DESCRIPCION','CANTIDAD_PEDIDA','CANTIDAD_RECIBIDA','ESTADO','FECHA_ETA','N_AIR']);
     hoja.setFrozenRows(1);
     return { ok: true };
   } catch(e) { return { ok: false, msg: e.toString() }; }

@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 var MASTER_SHEET_ID        = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var WOS_NOTAS_SS_ID        = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw'; // WOS — contiene Pedidos_resellers y Pedidos_OTs
 var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
@@ -147,7 +147,9 @@ var SCHEMA = {
     DESCRIPCION:       2,
     CANTIDAD_PEDIDA:   3,
     CANTIDAD_RECIBIDA: 4,
-    ESTADO:            5
+    ESTADO:            5,
+    FECHA_ETA:         6,  // ETA por línea (dd/MM/yyyy) importada del planner externo — FECHA ESTIMADA EN PLANTA
+    N_AIR:             7   // N° de envío (AIR) de esa línea
   },
   USUARIOS_CONFIG: {
     EMAIL: 0,

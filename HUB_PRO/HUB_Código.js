@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.23
+// @version 2.24
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -662,9 +662,8 @@ function actualizarOrden(data) {
 
     if (data.estado === "Finalizado") {
       hoja.getRange(fila, SCHEMA.OT.FECHA_CIERRE + 1).setValue(new Date());
-      if (data.repuestosItems && data.repuestosItems.length) {
-        procesarSalidaRepuestos(data.ot, data.repuestosItems, Session.getActiveUser().getEmail());
-      }
+      // HUB ya no descuenta stock al finalizar: la baja de repuestos se registra fuera de HUB.
+      // (Antes: procesarSalidaRepuestos escribía STOCK_REPUESTOS + MOVIMIENTOS_STOCK — removido.)
       _cerrarSolicitudesPendientes(data.ot, Session.getActiveUser().getEmail());
     } else if (data.estado === "Entregado") {
       // Taller central: el equipo fue retirado o despachado — cierra la OT
@@ -787,85 +786,6 @@ function cancelarCaso(idOT) {
     return { ok: false, msg: e.toString() };
   } finally {
     try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
-  }
-}
-
-// ============================================================
-//  SALIDA DE REPUESTOS — descuento atómico al cerrar OT
-//  items: [{ sku, cantidad }]
-//  Escribe directo en STOCK_REPUESTOS y MOVIMIENTOS_STOCK usando
-//  las funciones de Env.js de este mismo contenedor GAS.
-//  generarValeMovimiento() vive en SM; el operario lo emite desde allí.
-// ============================================================
-function procesarSalidaRepuestos(otId, items, operador) {
-  var S  = SCHEMA.STOCK_REPUESTOS;
-  var SM = SCHEMA.MOVIMIENTOS_STOCK;
-  var errores = [];
-
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-
-    var hojaStock = getSheet(SCHEMA.SHEETS.STOCK);
-    var dStock    = hojaStock.getDataRange().getValues();
-    var hojaMov   = getSheet(SCHEMA.SHEETS.MOVIMIENTOS);
-    var hoy       = new Date();
-    var stockChanged = false;
-
-    for (var i = 0; i < items.length; i++) {
-      var item    = items[i];
-      var codBusc = String(item.sku).trim().toUpperCase();
-      var cant    = parseInt(item.cantidad) || 0;
-      if (!codBusc || cant <= 0) continue;
-
-      var hallado = false;
-      for (var j = 1; j < dStock.length; j++) {
-        if (String(dStock[j][S.CODIGO]).trim().toUpperCase() !== codBusc) continue;
-
-        var stockActual = parseInt(dStock[j][S.STOCK_ACTUAL]) || 0;
-        if (stockActual < cant) {
-          errores.push(codBusc + ': stock insuficiente (' + stockActual + ' disponible)');
-          hallado = true;
-          break;
-        }
-
-        var nuevoStock = stockActual - cant;
-        dStock[j][S.STOCK_ACTUAL]  = nuevoStock;
-        dStock[j][S.ULTIMA_SALIDA] = hoy;
-        stockChanged = true;
-
-        hojaMov.appendRow([
-          hoy,
-          'EGRESO',
-          codBusc,
-          String(dStock[j][S.DESCRIPCION] || ''),
-          -cant,
-          nuevoStock,
-          'OT #' + otId,
-          operador || '',
-          ''
-        ]);
-
-        hallado = true;
-        break;
-      }
-      if (!hallado) errores.push(codBusc + ': SKU no encontrado en stock');
-    }
-
-    if (stockChanged) hojaStock.getDataRange().setValues(dStock);
-    SpreadsheetApp.flush();
-    invalidateSheetValues(SCHEMA.SHEETS.STOCK);
-    invalidateSheetValues(SCHEMA.SHEETS.MOVIMIENTOS);
-
-    return errores.length
-      ? { success: false, errores: errores }
-      : { success: true };
-
-  } catch(e) {
-    Logger.log('procesarSalidaRepuestos [OT=' + otId + ']: ' + e);
-    return { success: false, error: e.message };
-  } finally {
-    if (lock.hasLock()) lock.releaseLock();
   }
 }
 

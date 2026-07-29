@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.28 -->
+<!-- @version 5.29 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4341,7 +4341,7 @@ function _cargarCruceExterno() {
         }
         var h = '<div class="cruce-ext-panel">';
         if (df.length) {
-          h += '<div class="cruce-sect" style="border-left:3px solid var(--orange)"><div class="cruce-sect-hdr" style="color:var(--orange)"><i class="fa fa-not-equal"></i> Diferencias de ítems vs sheet externo (' + df.length + ')</div><div class="cruce-list">';
+          h += '<div class="cruce-sect" style="border-left:3px solid var(--orange)"><div class="cruce-sect-hdr" style="color:var(--orange)"><i class="fa fa-not-equal"></i> Diferencias de cantidad / ETA vs sheet externo (' + df.length + ')</div><div class="cruce-list">';
           for (var dfi = 0; dfi < df.length; dfi++) {
             var edf = df[dfi];
             var tbl = '<table style="font-size:10px;border-collapse:collapse;margin-top:4px;width:100%">' +
@@ -4352,7 +4352,10 @@ function _cargarCruceExterno() {
               var dd = edf.diffs[dfd];
               var smVal  = dd.sm  !== null ? dd.sm  : '<span style="color:var(--tx-d)">—</span>';
               var extVal = dd.ext !== null ? dd.ext : '<span style="color:var(--tx-d)">—</span>';
-              tbl += '<tr><td style="padding:1px 6px 1px 0">' + escH(dd.sku) + (dd.desc ? ' <span style="color:var(--tx-d)">'+escH(dd.desc)+'</span>' : '') + '</td>' +
+              var etaNote = dd.etaChg
+                ? '<div style="font-size:9px;color:var(--blue);margin-top:1px"><i class="fa fa-truck" style="margin-right:3px"></i>ETA: ' + escH(dd.etaSm || '—') + ' → <strong>' + escH(dd.etaExt || '—') + '</strong></div>'
+                : '';
+              tbl += '<tr><td style="padding:1px 6px 1px 0">' + escH(dd.sku) + (dd.desc ? ' <span style="color:var(--tx-d)">'+escH(dd.desc)+'</span>' : '') + etaNote + '</td>' +
                 '<td style="text-align:right;padding:1px 6px">' + smVal + '</td>' +
                 '<td style="text-align:right;padding:1px 6px;font-weight:600;color:var(--orange)">' + extVal + '</td></tr>';
             }
