@@ -1,4 +1,4 @@
-<!-- @version 3.41 -->
+<!-- @version 3.42 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4437,7 +4437,9 @@ function _renderStock() {
     if (it.enCamino > 0) {
       var _ocList = (it.enCaminoOcs && it.enCaminoOcs.length) ? it.enCaminoOcs.join(' · ') : '';
       var _tipTxt = it.enCamino + ' u. en camino' + (_ocList ? ' · ' + _ocList : '');
-      var _etaTag = it.enCaminoETA ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(it.enCaminoETA) + '</span>' : '';
+      var _etaTag = it.enCaminoETA
+        ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(it.enCaminoETA) + '</span>'
+        : '<span style="color:#B54708;font-size:10px;font-weight:600;margin-left:4px" title="Hay unidades en camino pero la compra no tiene ETA cargada — corré el cruce con el sheet externo en Stock Manager → Compras">sin ETA</span>';
       var _resTag = (it.enCaminoReservado > 0) ? '<span style="color:#7c3c00;font-size:10px;margin-left:4px" title="Unidades ya reservadas a un reseller que aceptó esperar">(' + it.enCaminoReservado + ' reserv.)</span>' : '';
       enCaminoCell = '<span title="' + escH(_tipTxt) + '" ' +
         'style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:var(--r);' +
