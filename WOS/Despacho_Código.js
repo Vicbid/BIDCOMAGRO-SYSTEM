@@ -1,4 +1,4 @@
-// @version 3.15
+// @version 3.16
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1100,7 +1100,23 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
 }
 
 // ── Consulta de stock para operarios ─────────────────────────
-// Retorna solo el mapa de unidades en camino { SKU: { total, ocs } }.
+// Parsea "dd/MM/yyyy" o "dd/MM" (año actual) → Date; cualquier otra cosa → null.
+function _wosEtaToDate(s) {
+  s = String(s || '').trim();
+  if (!s) return null;
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (!m) return null;
+  var dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1;
+  var yy = m[3] ? parseInt(m[3], 10) : (new Date()).getFullYear();
+  if (yy < 100) yy += 2000;
+  var dt = new Date(yy, mm, dd);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Retorna el mapa de unidades en camino { SKU: { total, ocs, batches, etaMin } }.
+//   ocs     = { CAS: qty }               (compat con consumidores previos)
+//   batches = [{ cas, air, eta, qty }]   ordenados por fecha asc (sin fecha al final)
+//   etaMin  = fecha (string) del lote más próximo con ETA
 // Versión ligera usada por Lista de Compras (evita cargar todo el stock).
 function WOS_getEnCaminoMap() {
   try {
@@ -1130,10 +1146,33 @@ function WOS_getEnCaminoMap() {
       if (!dSku || !casActivos[dCas]) continue;
       var pend = Math.max(0, dPed - dRec);
       if (pend > 0) {
-        if (!enCaminoMap[dSku]) enCaminoMap[dSku] = { total: 0, ocs: {} };
+        var dEta = String(detData[d][6] || '').trim();   // FECHA_ETA (col G)
+        var dAir = String(detData[d][7] || '').trim();   // N_AIR    (col H)
+        if (!enCaminoMap[dSku]) enCaminoMap[dSku] = { total: 0, ocs: {}, _bmap: {} };
         enCaminoMap[dSku].total += pend;
         enCaminoMap[dSku].ocs[dCas] = (enCaminoMap[dSku].ocs[dCas] || 0) + pend;
+        var _bKey = dCas + '|' + dEta + '|' + dAir;
+        var _bm   = enCaminoMap[dSku]._bmap;
+        if (!_bm[_bKey]) _bm[_bKey] = { cas: dCas, air: dAir, eta: dEta, qty: 0 };
+        _bm[_bKey].qty += pend;
       }
+    }
+
+    // Consolidar lotes por SKU: ordenar por fecha (sin fecha al final) + etaMin
+    for (var _sk in enCaminoMap) {
+      var _em  = enCaminoMap[_sk];
+      var _arr = [];
+      for (var _bk in _em._bmap) _arr.push(_em._bmap[_bk]);
+      _arr.sort(function(a, b) {
+        var da = _wosEtaToDate(a.eta), db = _wosEtaToDate(b.eta);
+        if (da && db) return da - db;
+        if (da) return -1;
+        if (db) return 1;
+        return 0;
+      });
+      _em.batches = _arr;
+      _em.etaMin  = (_arr.length && _arr[0].eta) ? _arr[0].eta : '';
+      delete _em._bmap;
     }
 
     // Stock actual desde CARMEN — cache 5 min, clave compartida con WOS_cargarPedidos
@@ -1290,7 +1329,12 @@ function WOS_cargarStock(q) {
       var ecData  = enCaminoMap[codKey];
       var ecTotal = ecData ? ecData.total : 0;
       var ecOcs   = [];
-      if (ecData) {
+      if (ecData && ecData.batches) {
+        for (var _bi = 0; _bi < ecData.batches.length; _bi++) {
+          var _bt = ecData.batches[_bi];
+          ecOcs.push(_bt.cas + ' (' + _bt.qty + 'u.)' + (_bt.eta ? ' · llega ~' + _bt.eta : ''));
+        }
+      } else if (ecData) {
         for (var ocId in ecData.ocs) ecOcs.push(ocId + ' (' + ecData.ocs[ocId] + 'u.)');
       }
 
@@ -1311,7 +1355,8 @@ function WOS_cargarStock(q) {
         })(),
         modelos:     String(datos[i][4] || '').trim(),
         enCamino:    ecTotal,
-        enCaminoOcs: ecOcs
+        enCaminoOcs: ecOcs,
+        enCaminoETA: ecData ? (ecData.etaMin || '') : ''
       });
     }
 
@@ -1673,6 +1718,7 @@ function WOS_reporteBackorder() {
       }
     }
     var enCamino = {};
+    var enCaminoEta = {}; // SKU → ETA más cercana (string) entre los lotes en camino
     var hojaDetalle = masterSS.getSheetByName('COMPRAS_DETALLE');
     if (hojaDetalle) {
       var detData = hojaDetalle.getDataRange().getValues();
@@ -1680,7 +1726,14 @@ function WOS_reporteBackorder() {
         if (!casActivos[String(detData[d][0] || '').trim()]) continue;
         var dSku  = String(detData[d][1] || '').trim().toUpperCase();
         var dPend = (Number(detData[d][3] || 0) - Number(detData[d][4] || 0));
-        if (dSku && dPend > 0) enCamino[dSku] = (enCamino[dSku] || 0) + dPend;
+        if (dSku && dPend > 0) {
+          enCamino[dSku] = (enCamino[dSku] || 0) + dPend;
+          var dEtaDt = _wosEtaToDate(detData[d][6]);
+          if (dEtaDt) {
+            var prevDt = enCaminoEta[dSku] ? _wosEtaToDate(enCaminoEta[dSku]) : null;
+            if (!prevDt || dEtaDt < prevDt) enCaminoEta[dSku] = String(detData[d][6] || '').trim();
+          }
+        }
       }
     }
 
@@ -1691,7 +1744,7 @@ function WOS_reporteBackorder() {
       var item    = backMap[sku];
       var camino  = enCamino[sku] || 0;
       var gap     = item.nec - camino;
-      var entrada = { sku: sku, desc: item.desc, nec: item.nec, camino: camino, gap: gap > 0 ? gap : 0, pedidos: item.pedidos };
+      var entrada = { sku: sku, desc: item.desc, nec: item.nec, camino: camino, eta: enCaminoEta[sku] || '', gap: gap > 0 ? gap : 0, pedidos: item.pedidos };
       if (gap > 0) sinCubrir.push(entrada);
       else         cubiertos.push(entrada);
     }
@@ -1754,7 +1807,7 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
       '<td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1a56db;white-space:nowrap">' + it.sku + '</td>' +
       '<td style="padding:8px 12px;font-size:12px;color:#111">' + it.desc + '</td>' +
       '<td style="padding:8px 12px;text-align:center;font-weight:700;color:#7f1d1d">' + it.nec + '</td>' +
-      '<td style="padding:8px 12px;text-align:center;color:#1e40af">' + it.camino + '</td>' +
+      '<td style="padding:8px 12px;text-align:center;color:#1e40af">' + it.camino + (it.eta ? '<br><span style="font-size:10px;color:#3b82f6;font-weight:600">llega ~' + it.eta + '</span>' : '') + '</td>' +
       '<td style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:#dc2626;background:#fef2f2">' + it.gap + '</td>' +
       '<td style="padding:8px 12px;font-size:11px;color:#555;line-height:1.6">' + it.pedidos.join('<br>') + '</td>' +
       '</tr>';
@@ -1767,7 +1820,7 @@ function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
       '<td style="padding:6px 12px;font-family:monospace;font-size:11px;color:#374151">' + cov.sku + '</td>' +
       '<td style="padding:6px 12px;font-size:11px;color:#374151">' + cov.desc + '</td>' +
       '<td style="padding:6px 12px;text-align:center;font-size:12px">' + cov.nec + '</td>' +
-      '<td style="padding:6px 12px;text-align:center;font-size:12px;color:#166534;font-weight:700">' + cov.camino + '</td>' +
+      '<td style="padding:6px 12px;text-align:center;font-size:12px;color:#166534;font-weight:700">' + cov.camino + (cov.eta ? '<br><span style="font-size:10px;color:#3b82f6;font-weight:600">~' + cov.eta + '</span>' : '') + '</td>' +
       '<td style="padding:6px 12px;text-align:center" colspan="2"><span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700">✓ Cubierto</span></td>' +
       '</tr>';
   }

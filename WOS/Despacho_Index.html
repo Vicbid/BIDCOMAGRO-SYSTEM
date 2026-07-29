@@ -1,4 +1,4 @@
-<!-- @version 3.37 -->
+<!-- @version 3.38 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4436,9 +4436,10 @@ function _renderStock() {
     if (it.enCamino > 0) {
       var _ocList = (it.enCaminoOcs && it.enCaminoOcs.length) ? it.enCaminoOcs.join(' · ') : '';
       var _tipTxt = it.enCamino + ' u. en camino' + (_ocList ? ' · ' + _ocList : '');
+      var _etaTag = it.enCaminoETA ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(it.enCaminoETA) + '</span>' : '';
       enCaminoCell = '<span title="' + escH(_tipTxt) + '" ' +
         'style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:var(--r);' +
-        'background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + it.enCamino + '</span>';
+        'background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + it.enCamino + '</span>' + _etaTag;
     } else {
       enCaminoCell = '<span style="color:var(--tx-d)">—</span>';
     }
@@ -4718,11 +4719,21 @@ function _renderListaCompras(ecMap, stockMap, loading) {
   for (var s = 0; s < skus.length; s++) {
     var sku = skus[s];
     var bo  = bySkuMap[sku].cantBO;
-    var ec  = (ecMap && ecMap[sku]) ? ecMap[sku].total : 0;
-    var ecOcs = (ecMap && ecMap[sku] && ecMap[sku].ocs) ? Object.keys(ecMap[sku].ocs) : [];
+    var _ecEntry = (ecMap && ecMap[sku]) ? ecMap[sku] : null;
+    var ec  = _ecEntry ? _ecEntry.total : 0;
+    var ecOcs = [];
+    if (_ecEntry && _ecEntry.batches) {
+      for (var _bi = 0; _bi < _ecEntry.batches.length; _bi++) {
+        var _bt = _ecEntry.batches[_bi];
+        ecOcs.push(_bt.cas + ' (' + _bt.qty + 'u.)' + (_bt.eta ? ' · ~' + _bt.eta : ''));
+      }
+    } else if (_ecEntry && _ecEntry.ocs) {
+      ecOcs = Object.keys(_ecEntry.ocs);
+    }
+    var ecEta = _ecEntry ? (_ecEntry.etaMin || '') : '';
     var stk      = (stockMap[sku] !== undefined) ? stockMap[sku] : null;
     var aComprar = Math.max(0, bo - ec - Math.max(0, stk || 0));
-    rows.push({ sku: sku, desc: bySkuMap[sku].desc, cantBO: bo, enCamino: ec, ecOcs: ecOcs, aComprar: aComprar, resellers: bySkuMap[sku].resellers, stockActual: stk });
+    rows.push({ sku: sku, desc: bySkuMap[sku].desc, cantBO: bo, enCamino: ec, ecOcs: ecOcs, ecEta: ecEta, aComprar: aComprar, resellers: bySkuMap[sku].resellers, stockActual: stk });
   }
   // Ordenar: primero los que más hay que comprar, luego los cubiertos por en-camino
   rows.sort(function(a, b) { return b.aComprar - a.aComprar || b.cantBO - a.cantBO; });
@@ -4740,7 +4751,7 @@ function _renderListaCompras(ecMap, stockMap, loading) {
     var loadingDot = '<span style="color:var(--tx-d);font-size:10px">···</span>';
     var ecCell = loading ? loadingDot
       : (row.enCamino > 0
-        ? '<span title="' + escH(ecTip) + '" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r);background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + row.enCamino + '</span>'
+        ? '<span title="' + escH(ecTip) + '" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:var(--r);background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + row.enCamino + '</span>' + (row.ecEta ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(row.ecEta) + '</span>' : '')
         : '<span style="color:var(--tx-d)">—</span>');
     var buyCell = loading ? loadingDot
       : (row.aComprar > 0
