@@ -1,4 +1,4 @@
-// @version 3.19
+// @version 3.20
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1393,9 +1393,16 @@ function _wosCerrarReservas(numero, skuOpt, estadoNuevo) {
   } catch(e) { Logger.log('_wosCerrarReservas: ' + e); return { ok: false, error: e.toString() }; }
 }
 
-// Libera/cierra las reservas ACTIVAS cuyo pedido ya NO tiene backorder pendiente de ese SKU
-// (se despachó por otro camino, se canceló, o el reseller nunca volvió). Evita que retengan
-// unidades fantasma. Idempotente y segura de correr seguido (la llama el detector cada 10 min).
+// Estados de línea "cerrados" (ya no se le debe nada al reseller) — mismo criterio que el
+// overlay Despacho parcial del front (DP_ESTADOS_CERRADOS). Cualquier otro estado con pend>0
+// es deuda viva y justifica mantener una reserva de unidades en camino.
+var _WOS_DP_CERRADOS = { 'Entregado_Cerrado':1, 'Entregado_Confirmado':1, 'Listo_Retiro':1, 'Cancelado':1 };
+
+// Libera/cierra las reservas ACTIVAS cuyo pedido ya NO debe unidades de ese SKU (se despachó,
+// se canceló, o el reseller nunca volvió). Evita que retengan unidades fantasma. Cuenta como
+// deuda viva cualquier línea con pendiente>0 en estado no cerrado (no solo Backorder: el bloqueo
+// global del overlay Despacho parcial reserva también para líneas En_Espera/Confirmado/Parcial).
+// Idempotente y segura de correr seguido (la llama el detector cada 10 min).
 // Cumplida si ese SKU tuvo despacho en el pedido; si no, Cancelada.
 function WOS_reconciliarReservas() {
   try {
@@ -1414,9 +1421,8 @@ function WOS_reconciliarReservas() {
         var sku = String(pd[i][COL.SKU]    || '').trim().toUpperCase();
         if (!num || !sku) continue;
         var est  = String(pd[i][COL.ESTADO] || '').trim();
-        var pend = (est === EST.BACKORDER)
-          ? Math.max(0, (Number(pd[i][COL.CANT_SOL]) || 0) - (Number(pd[i][COL.CANT_DESP]) || 0) - (Number(pd[i][COL.CANT_CANCEL]) || 0))
-          : 0;
+        var pend = _WOS_DP_CERRADOS[est] ? 0
+          : Math.max(0, (Number(pd[i][COL.CANT_SOL]) || 0) - (Number(pd[i][COL.CANT_DESP]) || 0) - (Number(pd[i][COL.CANT_CANCEL]) || 0));
         if (!need[num]) need[num] = {};
         if (!need[num][sku]) need[num][sku] = { pend: 0, desp: 0 };
         need[num][sku].pend += pend;
@@ -1439,6 +1445,114 @@ function WOS_reconciliarReservas() {
     if (cerradas) Logger.log('WOS_reconciliarReservas: ' + cerradas + ' cerrada(s) de ' + revisadas + ' activas');
     return { ok: true, revisadas: revisadas, cerradas: cerradas };
   } catch(e) { Logger.log('WOS_reconciliarReservas: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// Datos para el overlay "Despacho parcial": lotes DJI en camino disponibles por SKU (netos de
+// reservas activas) + reservas activas con su ETA, para proyectar con qué lote y qué fecha se
+// cumple cada línea pendiente y mostrar lo ya bloqueado 🔒.
+function WOS_despachoParcialData() {
+  try {
+    var ec = WOS_getEnCaminoMap();
+    if (!ec || !ec.ok) return { ok: false, error: (ec && ec.error) || 'en camino' };
+    var bySku = {};
+    for (var s in ec.map) {
+      var em = ec.map[s];
+      bySku[s] = { batchesDisp: em.batchesDisp || [], disponible: em.disponible || 0, reservado: em.reservado || 0 };
+    }
+    var reservas = [];
+    var h = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_RES_SHEET);
+    if (h) {
+      var d = h.getDataRange().getValues();
+      var R = _WOS_RES;
+      for (var i = 1; i < d.length; i++) {
+        if (String(d[i][R.ESTADO] || '').trim() !== 'Activa') continue;
+        var q = Number(d[i][R.CANTIDAD]) || 0;
+        if (q <= 0) continue;
+        reservas.push({
+          pedido: String(d[i][R.PEDIDO] || '').trim(),
+          sku:    String(d[i][R.SKU]    || '').trim().toUpperCase(),
+          eta:    _wosEtaFmt(d[i][R.ETA]),
+          qty:    q
+        });
+      }
+    }
+    return { ok: true, bySku: bySku, reservas: reservas };
+  } catch(e) { Logger.log('WOS_despachoParcialData: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// Bloquea (reserva) las unidades DJI en camino para TODOS los pedidos con deuda, en orden FIFO
+// global (pedido más viejo primero) — la misma asignación que muestra el overlay Despacho parcial.
+// Solo reserva la parte NO cubierta por stock actual (la "falta"); lo cubierto por depósito no
+// necesita reserva. Idempotente: descuenta lo ya reservado por (pedido, SKU) antes de asignar,
+// así el botón se puede tocar las veces que haga falta sin duplicar.
+function WOS_bloquearEnCaminoParciales() {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(eL) { Logger.log('WOS_bloquearEnCaminoParciales lock: ' + eL); }
+  try {
+    _wosInvalidarReservasCache();                 // asignar siempre con datos frescos
+    var ec = WOS_getEnCaminoMap();                // batchesDisp ya descuenta reservas activas
+    if (!ec || !ec.ok) return { ok: false, error: (ec && ec.error) || 'en camino' };
+    var ecMap    = ec.map || {};
+    var stockMap = ec.stockMap || {};
+    var resv     = _wosReservasActivas(true);
+
+    // Líneas con deuda de ambas hojas (pend>0, estado no cerrado), FIFO por fecha de pedido
+    var lineas = [];
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
+    for (var hh = 0; hh < hojas.length; hh++) {
+      var pd = hojas[hh].getDataRange().getValues();
+      for (var i = 1; i < pd.length; i++) {
+        var num = String(pd[i][COL.NUMERO] || '').trim();
+        var sku = String(pd[i][COL.SKU]    || '').trim().toUpperCase();
+        if (!num || !sku) continue;
+        if (_WOS_DP_CERRADOS[String(pd[i][COL.ESTADO] || '').trim()]) continue;
+        var pend = (Number(pd[i][COL.CANT_SOL]) || 0) - (Number(pd[i][COL.CANT_DESP]) || 0) - (Number(pd[i][COL.CANT_CANCEL]) || 0);
+        if (pend <= 0) continue;
+        var fR = pd[i][COL.FECHA];
+        lineas.push({ num: num, res: String(pd[i][COL.RESELLER] || '').trim(), sku: sku,
+                      pend: pend, f: (fR instanceof Date) ? fR.getTime() : 0 });
+      }
+    }
+    lineas.sort(function(a, b) { return a.f - b.f; });
+
+    // 1º el stock del depósito cubre lo que puede (sin reserva), 2º la falta toma lotes en camino
+    var pool = {};
+    var nuevas = [], ahora = new Date(), totalRes = 0, pedSet = {};
+    for (var l = 0; l < lineas.length; l++) {
+      var ln = lineas[l];
+      if (pool[ln.sku] === undefined) pool[ln.sku] = Math.max(0, Number(stockMap[ln.sku]) || 0);
+      var deStock = Math.min(ln.pend, pool[ln.sku]);
+      pool[ln.sku] -= deStock;
+      var falta = ln.pend - deStock;
+      if (falta <= 0) continue;
+      var yaPed = resv.byPedidoSku[ln.num];
+      if (yaPed && yaPed[ln.sku] > 0) {          // ya bloqueado para este pedido → no duplicar
+        var usa = Math.min(yaPed[ln.sku], falta);
+        yaPed[ln.sku] -= usa;
+        falta -= usa;
+      }
+      if (falta <= 0) continue;
+      var em = ecMap[ln.sku];
+      if (!em || !em.batchesDisp) continue;       // sin lotes en camino → queda "a confirmar"
+      for (var b = 0; b < em.batchesDisp.length && falta > 0; b++) {
+        var bt = em.batchesDisp[b];
+        if (bt.qty <= 0) continue;
+        var take = Math.min(falta, bt.qty);
+        bt.qty -= take;                           // consumir el lote para las líneas siguientes
+        nuevas.push([ahora, ln.num, ln.res, ln.sku, bt.cas, bt.air || '', bt.eta || '', take, 'Activa']);
+        falta -= take; totalRes += take; pedSet[ln.num] = true;
+      }
+    }
+    if (nuevas.length) {
+      var h = _wosResSheet();
+      h.getRange(h.getLastRow() + 1, 1, nuevas.length, nuevas[0].length).setValues(nuevas);
+      SpreadsheetApp.flush();
+      _wosInvalidarReservasCache();
+    }
+    var nPed = 0; for (var k in pedSet) nPed++;
+    return { ok: true, reservas: nuevas.length, cantidad: totalRes, pedidos: nPed };
+  } catch(e) { Logger.log('WOS_bloquearEnCaminoParciales: ' + e); return { ok: false, error: e.toString() }; }
+  finally { try { lock.releaseLock(); } catch(eR) {} }
 }
 
 // Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.

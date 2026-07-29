@@ -1,4 +1,4 @@
-<!-- @version 3.39 -->
+<!-- @version 3.40 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -994,7 +994,8 @@ body{overflow:hidden}
       <div class="stk-title">Despacho parcial · qué puedo enviar ahora por reseller</div>
       <div class="stk-sub" id="dp-sub">—</div>
     </div>
-    <button class="btn btn-ghost" onclick="cerrarDespachable()" style="flex-shrink:0;margin-left:auto">✕ Cerrar</button>
+    <button class="btn btn-primary" id="dp-btn-bloq" onclick="bloquearEnCaminoDP()" style="flex-shrink:0;margin-left:auto" title="Reserva las unidades DJI en camino para estos pedidos (FIFO) — no se prometen a nadie más">🔒 Bloquear compras DJI</button>
+    <button class="btn btn-ghost" onclick="cerrarDespachable()" style="flex-shrink:0">✕ Cerrar</button>
   </div>
   <div class="stk-body">
     <div class="stk-wrap">
@@ -4524,9 +4525,59 @@ function abrirDespachable() {
   document.getElementById('dp-overlay').style.display = 'flex';
   _despachableData = _computeDespachable();
   _renderDespachable();
+  _dpFetchEnCamino();   // trae lotes DJI + reservas y re-renderiza con las ETAs
 }
 function cerrarDespachable() {
   document.getElementById('dp-overlay').style.display = 'none';
+}
+
+// ── Lotes DJI en camino + reservas activas (para proyectar CUÁNDO cumplimos cada falta) ──
+var _dpEnCamino = null;          // { ok, bySku:{SKU:{batchesDisp:[{cas,air,eta,qty}]}}, reservas:[{pedido,sku,eta,qty}] }
+var _dpEnCaminoLoading = false;
+
+function _dpFetchEnCamino() {
+  _dpEnCaminoLoading = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      _dpEnCaminoLoading = false;
+      _dpEnCamino = (res && res.ok) ? res : null;
+      if (document.getElementById('dp-overlay').style.display !== 'none') {
+        _despachableData = _computeDespachable();
+        _renderDespachable();
+      }
+    })
+    .withFailureHandler(function() { _dpEnCaminoLoading = false; _renderDespachable(); })
+    .WOS_despachoParcialData();
+}
+
+function _dpEtaMs(s) {
+  var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s || '').trim());
+  return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0;
+}
+function _dpEtaOrd(s) { var v = _dpEtaMs(s); return v > 0 ? v : 8640000000000000; }
+
+// Bloquea en el server las unidades en camino para TODOS los pedidos con falta (FIFO global,
+// misma asignación que muestra el overlay). Idempotente — se puede tocar las veces que sea.
+function bloquearEnCaminoDP() {
+  var btn = document.getElementById('dp-btn-bloq');
+  var lbl = '🔒 Bloquear compras DJI';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Bloqueando…'; }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (btn) { btn.disabled = false; btn.textContent = lbl; }
+      if (!res || !res.ok) { toast('No se pudo bloquear: ' + ((res && res.error) || 'error'), 'err'); return; }
+      if (res.cantidad > 0) {
+        toast('🔒 ' + res.cantidad + ' u. bloqueadas para ' + res.pedidos + ' pedido' + (res.pedidos === 1 ? '' : 's'), 'ok');
+      } else {
+        toast('Nada nuevo para bloquear: ya estaba todo reservado o no hay lotes en camino', 'ok');
+      }
+      _dpFetchEnCamino();
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = lbl; }
+      toast('Error al bloquear: ' + err, 'err');
+    })
+    .WOS_bloquearEnCaminoParciales();
 }
 
 function _computeDespachable() {
@@ -4564,6 +4615,47 @@ function _computeDespachable() {
     pool[ln.sku] = disp - ln.ahora;
     ln.falta = ln.cantPend - ln.ahora;
   }
+  // 3b. Proyección de cumplimiento de la FALTA con los lotes DJI en camino (mismo FIFO global):
+  //     primero lo YA bloqueado 🔒 para ese pedido+SKU, después los lotes disponibles (propuesta
+  //     que el botón "Bloquear compras DJI" convierte en reserva real, con la misma asignación).
+  if (_dpEnCamino && _dpEnCamino.ok) {
+    var ecPool = {};
+    var _bySku = _dpEnCamino.bySku || {};
+    for (var sk in _bySku) {
+      var bs = _bySku[sk].batchesDisp || [], cp = [];
+      for (var bi = 0; bi < bs.length; bi++) cp.push({ eta: bs[bi].eta || '', qty: Number(bs[bi].qty) || 0 });
+      ecPool[sk] = cp;   // ya vienen ordenados por fecha asc (sin fecha al final)
+    }
+    var resPool = {};
+    var rsv = _dpEnCamino.reservas || [];
+    for (var ri = 0; ri < rsv.length; ri++) {
+      var rKey = rsv[ri].pedido + '|' + rsv[ri].sku;
+      if (!resPool[rKey]) resPool[rKey] = [];
+      resPool[rKey].push({ eta: rsv[ri].eta || '', qty: Number(rsv[ri].qty) || 0 });
+    }
+    for (var rp in resPool) resPool[rp].sort(function(a, b) { return _dpEtaOrd(a.eta) - _dpEtaOrd(b.eta); });
+    for (var l2 = 0; l2 < lineas.length; l2++) {
+      var ln2 = lineas[l2];
+      ln2.rep = []; ln2.sinEta = 0;   // rep = [{qty, eta, bloq}] cómo cumplimos la falta
+      var need = ln2.falta;
+      if (need <= 0) continue;
+      var own = resPool[ln2.numero + '|' + ln2.sku] || [];
+      for (var oi = 0; oi < own.length && need > 0; oi++) {
+        if (own[oi].qty <= 0) continue;
+        var tk = Math.min(need, own[oi].qty);
+        own[oi].qty -= tk; need -= tk;
+        ln2.rep.push({ qty: tk, eta: own[oi].eta, bloq: true });
+      }
+      var pl = ecPool[ln2.sku] || [];
+      for (var pi = 0; pi < pl.length && need > 0; pi++) {
+        if (pl[pi].qty <= 0) continue;
+        var tk2 = Math.min(need, pl[pi].qty);
+        pl[pi].qty -= tk2; need -= tk2;
+        ln2.rep.push({ qty: tk2, eta: pl[pi].eta, bloq: false });
+      }
+      ln2.sinEta = need;   // sin lote en camino asignable → fecha a confirmar
+    }
+  }
   // 4. Agrupar por reseller → pedidos
   var byRes = {};
   for (var m = 0; m < lineas.length; m++) {
@@ -4593,6 +4685,28 @@ function _computeDespachable() {
 
 function _fmtUSD(n) { return (Math.round(n * 100) / 100).toLocaleString('es-AR'); }
 
+// Chip "cuándo cumplimos la ENTREGA COMPLETA del pedido" = la ETA más lejana de sus faltas.
+function _dpChipPedido(P, ecReady) {
+  if (!ecReady) return '';
+  var faltaTot = 0, sinF = 0, maxMs = 0, maxEta = '';
+  for (var i = 0; i < P.lineas.length; i++) {
+    var L = P.lineas[i];
+    faltaTot += L.falta;
+    sinF += L.sinEta || 0;
+    if (L.rep) for (var j = 0; j < L.rep.length; j++) {
+      var r = L.rep[j];
+      if (!r.eta) { sinF += r.qty; continue; }
+      var ms = _dpEtaMs(r.eta);
+      if (ms > maxMs) { maxMs = ms; maxEta = r.eta; }
+    }
+  }
+  var st = 'font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;';
+  if (faltaTot <= 0) return '<span style="' + st + 'background:var(--green-l);color:var(--green)">✅ completo con stock actual</span>';
+  if (sinF > 0)      return '<span style="' + st + 'background:#FFF4E5;color:#B54708">⏳ ' + sinF + ' u. sin fecha aún</span>';
+  if (maxEta)        return '<span style="' + st + 'background:var(--blue-l);color:var(--blue)">📦 entrega completa ~' + escH(maxEta) + '</span>';
+  return '';
+}
+
 function _renderDespachable() {
   var data = _despachableData || [];
   var cont = document.getElementById('dp-content');
@@ -4601,11 +4715,31 @@ function _renderDespachable() {
     cont.innerHTML = '<div class="stk-empty">No hay líneas pendientes de despacho (nada que debamos). ¡Todo al día!</div>';
     return;
   }
-  var totUAhora = 0, totUFalta = 0;
-  for (var t = 0; t < data.length; t++) { totUAhora += data[t].uAhora; totUFalta += data[t].uFalta; }
-  document.getElementById('dp-sub').textContent =
-    data.length + ' reseller' + (data.length === 1 ? '' : 's') + ' con pendientes · ' +
+  var totUAhora = 0, totUFalta = 0, totUBloq = 0, totUPlan = 0, totUSin = 0;
+  var ecReady = !!(_dpEnCamino && _dpEnCamino.ok);
+  for (var t = 0; t < data.length; t++) {
+    totUAhora += data[t].uAhora; totUFalta += data[t].uFalta;
+    var _ps = data[t].pedidosArr || [];
+    for (var _pi = 0; _pi < _ps.length; _pi++) {
+      var _ls = _ps[_pi].lineas || [];
+      for (var _li = 0; _li < _ls.length; _li++) {
+        var _L = _ls[_li];
+        if (_L.rep) for (var _ri = 0; _ri < _L.rep.length; _ri++) {
+          if (_L.rep[_ri].bloq) totUBloq += _L.rep[_ri].qty; else totUPlan += _L.rep[_ri].qty;
+        }
+        totUSin += _L.sinEta || 0;
+      }
+    }
+  }
+  var subTxt = data.length + ' reseller' + (data.length === 1 ? '' : 's') + ' con pendientes · ' +
     totUAhora + ' u. despachables ahora · ' + totUFalta + ' u. quedan para próximo envío';
+  if (ecReady) {
+    subTxt += ' — 🔒 ' + totUBloq + ' u. bloqueadas · 🚚 ' + totUPlan + ' u. llegan en compras DJI (sin bloquear)' +
+              (totUSin > 0 ? ' · ⏳ ' + totUSin + ' u. a confirmar' : '');
+  } else if (_dpEnCaminoLoading) {
+    subTxt += ' · calculando llegadas DJI…';
+  }
+  document.getElementById('dp-sub').textContent = subTxt;
 
   var html = '';
   for (var i = 0; i < data.length; i++) {
@@ -4624,7 +4758,8 @@ function _renderDespachable() {
     for (var pp = 0; pp < R.pedidosArr.length; pp++) {
       var P = R.pedidosArr[pp];
       html += '<div style="margin-top:8px">';
-      html += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);font-family:monospace;margin-bottom:3px">' + escH(P.numero) + '</div>';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--tx-m);font-family:monospace;margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        escH(P.numero) + _dpChipPedido(P, ecReady) + '</div>';
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
       for (var li = 0; li < P.lineas.length; li++) {
         var L = P.lineas[li];
@@ -4634,12 +4769,23 @@ function _renderDespachable() {
         var faltaCell = L.falta > 0
           ? '<span style="color:#B54708;font-weight:700">' + L.falta + '</span>'
           : '<span style="color:var(--tx-d)">—</span>';
+        // Desglose de reposición: con qué lote DJI (y qué fecha) cumplimos la falta de la línea
+        var repCell = '';
+        if (L.falta > 0 && ecReady) {
+          var parts = [];
+          if (L.rep) for (var rj = 0; rj < L.rep.length; rj++) {
+            var rr = L.rep[rj];
+            parts.push((rr.bloq ? '🔒 ' : '') + rr.qty + ' u ' + (rr.eta ? '~' + escH(rr.eta) : 'sin fecha'));
+          }
+          if (L.sinEta > 0) parts.push('<span style="color:#B54708">' + L.sinEta + ' u a confirmar</span>');
+          if (parts.length) repCell = '<div style="font-size:10px;color:var(--tx-m);white-space:nowrap;margin-top:2px" title="🔒 = ya bloqueado para este pedido · sin candado = propuesta (se fija con el botón Bloquear)">🚚 ' + parts.join(' · ') + '</div>';
+        }
         html += '<tr style="border-bottom:1px solid var(--brd)">' +
           '<td style="padding:4px 6px;font-family:monospace;white-space:nowrap">' + escH(L.skuRaw || L.sku) + '</td>' +
           '<td style="padding:4px 6px;color:var(--tx-m)">' + escH(L.desc) + '</td>' +
           '<td style="padding:4px 6px;text-align:center;white-space:nowrap;color:var(--tx-d)" title="Pendiente total de la línea">pend ' + L.cantPend + '</td>' +
           '<td style="padding:4px 6px;text-align:center;white-space:nowrap">ahora ' + ahoraCell + '</td>' +
-          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">falta ' + faltaCell + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;white-space:nowrap">falta ' + faltaCell + repCell + '</td>' +
         '</tr>';
       }
       html += '</table></div>';
@@ -4652,19 +4798,33 @@ function _renderDespachable() {
 function _copiarDespachable(idx) {
   var R = _despachableData[idx];
   if (!R) return;
-  var ahora = [], falta = [];
+  var ahora = [], falta = [], hayEtas = false;
   for (var pp = 0; pp < R.pedidosArr.length; pp++) {
     var P = R.pedidosArr[pp];
     for (var li = 0; li < P.lineas.length; li++) {
       var L = P.lineas[li];
       var label = (L.skuRaw || L.sku) + (L.desc ? ' — ' + L.desc : '');
       if (L.ahora > 0) ahora.push('• ' + label + ' — ' + L.ahora + ' u (pedido ' + P.numero + ')');
-      if (L.falta > 0) falta.push('• ' + label + ' — ' + L.falta + ' u (pedido ' + P.numero + ')');
+      if (L.falta > 0) {
+        // Detalle de reposición: cuántas unidades llegan con cada compra DJI
+        var det = '';
+        if (L.rep && L.rep.length) {
+          var pz = [];
+          for (var rj = 0; rj < L.rep.length; rj++) {
+            var rr = L.rep[rj];
+            pz.push(rr.qty + ' u ' + (rr.eta ? 'llega ~' + rr.eta : 'fecha a confirmar'));
+            if (rr.eta) hayEtas = true;
+          }
+          if (L.sinEta > 0) pz.push(L.sinEta + ' u fecha a confirmar');
+          det = ' → ' + pz.join(' + ');
+        }
+        falta.push('• ' + label + ' — ' + L.falta + ' u (pedido ' + P.numero + ')' + det);
+      }
     }
   }
   var txt = 'Hola ' + R.reseller + ',\n\n';
   txt += 'De tus pedidos pendientes te puedo despachar AHORA:\n' + (ahora.length ? ahora.join('\n') : '(nada disponible por el momento)') + '\n';
-  if (falta.length) txt += '\nQueda para el próximo envío (sin stock por ahora):\n' + falta.join('\n') + '\n';
+  if (falta.length) txt += '\nQueda para el próximo envío' + (hayEtas ? ' — con fecha estimada de llegada a depósito' : ' (sin stock por ahora)') + ':\n' + falta.join('\n') + '\n';
   txt += '\n¿Querés que te envíe ahora lo disponible y el resto en el próximo envío?';
   _dpCopiarTexto(txt);
 }
