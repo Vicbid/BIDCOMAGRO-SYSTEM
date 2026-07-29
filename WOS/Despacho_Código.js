@@ -1,4 +1,4 @@
-// @version 3.17
+// @version 3.19
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1117,6 +1117,7 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
 // ── Consulta de stock para operarios ─────────────────────────
 // Parsea "dd/MM/yyyy" o "dd/MM" (año actual) → Date; cualquier otra cosa → null.
 function _wosEtaToDate(s) {
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
   s = String(s || '').trim();
   if (!s) return null;
   var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
@@ -1126,6 +1127,16 @@ function _wosEtaToDate(s) {
   if (yy < 100) yy += 2000;
   var dt = new Date(yy, mm, dd);
   return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Formatea una ETA (Date o texto) a "dd/MM/yyyy" limpio para mostrar. '0'/vacío → ''.
+// Robustez: Sheets puede convertir el texto de la celda FECHA_ETA en una fecha real; sin esto
+// se mostraría "Tue Aug 04 2026 00:00:00 GMT-0300 (…)".
+function _wosEtaFmt(v) {
+  var dt = _wosEtaToDate(v);
+  if (dt) { try { return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'dd/MM/yyyy'); } catch(e) {} }
+  var s = String(v == null ? '' : v).trim();
+  return (s === '0') ? '' : s;
 }
 
 // Retorna el mapa de unidades en camino { SKU: { total, ocs, batches, etaMin } }.
@@ -1161,7 +1172,7 @@ function WOS_getEnCaminoMap() {
       if (!dSku || !casActivos[dCas]) continue;
       var pend = Math.max(0, dPed - dRec);
       if (pend > 0) {
-        var dEta = String(detData[d][6] || '').trim();   // FECHA_ETA (col G)
+        var dEta = _wosEtaFmt(detData[d][6]);            // FECHA_ETA (col G) → dd/MM/yyyy limpio
         var dAir = String(detData[d][7] || '').trim();   // N_AIR    (col H)
         if (!enCaminoMap[dSku]) enCaminoMap[dSku] = { total: 0, ocs: {}, _bmap: {} };
         enCaminoMap[dSku].total += pend;
@@ -1180,15 +1191,16 @@ function WOS_getEnCaminoMap() {
     // y calcular disponibilidad restando las reservas activas por CAS.
     for (var _sk in enCaminoMap) {
       var _em  = enCaminoMap[_sk];
-      var _arr = [];
-      for (var _bk in _em._bmap) _arr.push(_em._bmap[_bk]);
-      _arr.sort(function(a, b) {
-        var da = _wosEtaToDate(a.eta), db = _wosEtaToDate(b.eta);
-        if (da && db) return da - db;
-        if (da) return -1;
-        if (db) return 1;
+      var _tmp = [];
+      for (var _bk in _em._bmap) { var _bb = _em._bmap[_bk]; _tmp.push({ b: _bb, dt: _wosEtaToDate(_bb.eta) }); }
+      _tmp.sort(function(a, b) {   // fecha precalculada (no re-parsear en cada comparación)
+        if (a.dt && b.dt) return a.dt - b.dt;
+        if (a.dt) return -1;
+        if (b.dt) return 1;
         return 0;
       });
+      var _arr = [];
+      for (var _ti = 0; _ti < _tmp.length; _ti++) _arr.push(_tmp[_ti].b);
       _em.batches = _arr;
       _em.etaMin  = (_arr.length && _arr[0].eta) ? _arr[0].eta : '';
 
@@ -1259,28 +1271,47 @@ function _wosResSheet() {
   return h;
 }
 
-// Lee reservas activas. Devuelve { byCasSku:{SKU:{CAS:qty}}, byPedidoSku:{PEDIDO:{SKU:qty}}, total }
-function _wosReservasActivas() {
+var _WOS_RES_CACHE = 'wos_reservas_activas_v1';
+function _wosInvalidarReservasCache() {
+  try { CacheService.getScriptCache().remove(_WOS_RES_CACHE); } catch(e) {}
+}
+
+// Lee reservas activas → { byCasSku:{SKU:{CAS:qty}}, byPedidoSku:{PEDIDO:{SKU:qty}}, total }
+// Cacheada 60s (la invalidan reservar/cerrar). bypass=true fuerza lectura fresca (al asignar).
+function _wosReservasActivas(bypass) {
+  if (!bypass) {
+    try {
+      var c0 = CacheService.getScriptCache().get(_WOS_RES_CACHE);
+      if (c0) return JSON.parse(c0);
+    } catch(eC) {}
+  }
   var out = { byCasSku: {}, byPedidoSku: {}, total: 0 };
   try {
     var h = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_RES_SHEET);
-    if (!h) return out;
-    var d = h.getDataRange().getValues();
-    var R = _WOS_RES;
-    for (var i = 1; i < d.length; i++) {
-      if (String(d[i][R.ESTADO] || '').trim() !== 'Activa') continue;
-      var sku = String(d[i][R.SKU]    || '').trim().toUpperCase();
-      var cas = String(d[i][R.CAS]    || '').trim().toUpperCase();
-      var ped = String(d[i][R.PEDIDO] || '').trim();
-      var q   = Number(d[i][R.CANTIDAD]) || 0;
-      if (!sku || q <= 0) continue;
-      if (!out.byCasSku[sku])    out.byCasSku[sku]    = {};
-      if (!out.byPedidoSku[ped]) out.byPedidoSku[ped] = {};
-      out.byCasSku[sku][cas]    = (out.byCasSku[sku][cas]    || 0) + q;
-      out.byPedidoSku[ped][sku] = (out.byPedidoSku[ped][sku] || 0) + q;
-      out.total += q;
+    if (h) {
+      var d = h.getDataRange().getValues();
+      var R = _WOS_RES;
+      for (var i = 1; i < d.length; i++) {
+        if (String(d[i][R.ESTADO] || '').trim() !== 'Activa') continue;
+        var sku = String(d[i][R.SKU]    || '').trim().toUpperCase();
+        var cas = String(d[i][R.CAS]    || '').trim().toUpperCase();
+        var ped = String(d[i][R.PEDIDO] || '').trim();
+        var q   = Number(d[i][R.CANTIDAD]) || 0;
+        if (!sku || q <= 0) continue;
+        if (!out.byCasSku[sku])    out.byCasSku[sku]    = {};
+        if (!out.byPedidoSku[ped]) out.byPedidoSku[ped] = {};
+        out.byCasSku[sku][cas]    = (out.byCasSku[sku][cas]    || 0) + q;
+        out.byPedidoSku[ped][sku] = (out.byPedidoSku[ped][sku] || 0) + q;
+        out.total += q;
+      }
     }
   } catch(e) { Logger.log('_wosReservasActivas: ' + e); }
+  if (!bypass) {
+    try {
+      var pl = JSON.stringify(out);
+      if (pl.length < 90000) CacheService.getScriptCache().put(_WOS_RES_CACHE, pl, 60);
+    } catch(eP) {}
+  }
   return out;
 }
 
@@ -1288,12 +1319,15 @@ function _wosReservasActivas() {
 // en Backorder) contra los lotes DJI disponibles más próximos. Idempotente: no re-reserva lo ya
 // reservado para ese pedido. Debe llamarse DESPUÉS de que las líneas queden en Backorder.
 function _wosReservarEnCamino(numero, reseller) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch(eL) { Logger.log('_wosReservarEnCamino lock: ' + eL); }
   try {
     numero = String(numero || '').trim();
     if (!numero) return { ok: false };
-    var ec    = WOS_getEnCaminoMap();
+    _wosInvalidarReservasCache();                 // asignar siempre con datos frescos (evita doble reserva)
+    var ec    = WOS_getEnCaminoMap();             // batchesDisp ya descuenta reservas activas
     var ecMap = (ec && ec.ok) ? ec.map : {};
-    var resv  = _wosReservasActivas();
+    var resv  = _wosReservasActivas(true);
     var yaRes = resv.byPedidoSku[numero] || {};
 
     var hoja = _getHojaPorNumero(numero);
@@ -1309,8 +1343,7 @@ function _wosReservarEnCamino(numero, reseller) {
       if (pend > 0) needBySku[sku] = (needBySku[sku] || 0) + pend;
     }
 
-    var nuevas = [];
-    var ahora  = new Date();
+    var nuevas = [], ahora = new Date(), totalRes = 0, etaProx = '', etaProxDt = null;
     for (var s in needBySku) {
       var need = needBySku[s] - (yaRes[s] || 0);   // descuenta lo ya reservado para este pedido
       if (need <= 0) continue;
@@ -1321,16 +1354,20 @@ function _wosReservarEnCamino(numero, reseller) {
         var take = Math.min(need, bt.qty);
         if (take <= 0) continue;
         nuevas.push([ahora, numero, reseller || '', s, bt.cas, bt.air || '', bt.eta || '', take, 'Activa']);
-        need -= take;
+        need -= take; totalRes += take;
+        var _dt = _wosEtaToDate(bt.eta);
+        if (_dt && (!etaProxDt || _dt < etaProxDt)) { etaProxDt = _dt; etaProx = bt.eta; }
       }
     }
     if (nuevas.length) {
       var h = _wosResSheet();
       h.getRange(h.getLastRow() + 1, 1, nuevas.length, nuevas[0].length).setValues(nuevas);
       SpreadsheetApp.flush();
+      _wosInvalidarReservasCache();
     }
-    return { ok: true, reservas: nuevas.length };
+    return { ok: true, reservas: nuevas.length, cantidad: totalRes, etaProx: etaProx };
   } catch(e) { Logger.log('_wosReservarEnCamino: ' + e); return { ok: false, error: e.toString() }; }
+  finally { try { lock.releaseLock(); } catch(eR) {} }
 }
 
 // Cambia el estado de las reservas ACTIVAS de un pedido (opcionalmente filtrando por SKU).
@@ -1351,9 +1388,57 @@ function _wosCerrarReservas(numero, skuOpt, estadoNuevo) {
       h.getRange(i + 1, R.ESTADO + 1).setValue(estadoNuevo);
       chg++;
     }
-    if (chg) SpreadsheetApp.flush();
+    if (chg) { SpreadsheetApp.flush(); _wosInvalidarReservasCache(); }
     return { ok: true, cambiadas: chg };
   } catch(e) { Logger.log('_wosCerrarReservas: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// Libera/cierra las reservas ACTIVAS cuyo pedido ya NO tiene backorder pendiente de ese SKU
+// (se despachó por otro camino, se canceló, o el reseller nunca volvió). Evita que retengan
+// unidades fantasma. Idempotente y segura de correr seguido (la llama el detector cada 10 min).
+// Cumplida si ese SKU tuvo despacho en el pedido; si no, Cancelada.
+function WOS_reconciliarReservas() {
+  try {
+    var h = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_RES_SHEET);
+    if (!h) return { ok: true, revisadas: 0, cerradas: 0 };
+    var d = h.getDataRange().getValues();
+    var R = _WOS_RES;
+
+    // Necesidad viva por (pedido, sku): pendiente en Backorder + si hubo despacho de ese SKU
+    var need  = {};
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
+    for (var hh = 0; hh < hojas.length; hh++) {
+      var pd = hojas[hh].getDataRange().getValues();
+      for (var i = 1; i < pd.length; i++) {
+        var num = String(pd[i][COL.NUMERO] || '').trim();
+        var sku = String(pd[i][COL.SKU]    || '').trim().toUpperCase();
+        if (!num || !sku) continue;
+        var est  = String(pd[i][COL.ESTADO] || '').trim();
+        var pend = (est === EST.BACKORDER)
+          ? Math.max(0, (Number(pd[i][COL.CANT_SOL]) || 0) - (Number(pd[i][COL.CANT_DESP]) || 0) - (Number(pd[i][COL.CANT_CANCEL]) || 0))
+          : 0;
+        if (!need[num]) need[num] = {};
+        if (!need[num][sku]) need[num][sku] = { pend: 0, desp: 0 };
+        need[num][sku].pend += pend;
+        need[num][sku].desp += Number(pd[i][COL.CANT_DESP]) || 0;
+      }
+    }
+
+    var cerradas = 0, revisadas = 0;
+    for (var r = 1; r < d.length; r++) {
+      if (String(d[r][R.ESTADO] || '').trim() !== 'Activa') continue;
+      revisadas++;
+      var pnum = String(d[r][R.PEDIDO] || '').trim();
+      var psku = String(d[r][R.SKU]    || '').trim().toUpperCase();
+      var info = (need[pnum] && need[pnum][psku]) ? need[pnum][psku] : { pend: 0, desp: 0 };
+      if (info.pend > 0) continue;   // sigue necesitando ese SKU en backorder → mantener la reserva
+      h.getRange(r + 1, R.ESTADO + 1).setValue(info.desp > 0 ? 'Cumplida' : 'Cancelada');
+      cerradas++;
+    }
+    if (cerradas) { SpreadsheetApp.flush(); _wosInvalidarReservasCache(); }
+    if (cerradas) Logger.log('WOS_reconciliarReservas: ' + cerradas + ' cerrada(s) de ' + revisadas + ' activas');
+    return { ok: true, revisadas: revisadas, cerradas: cerradas };
+  } catch(e) { Logger.log('WOS_reconciliarReservas: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 // Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.
@@ -1512,7 +1597,8 @@ function WOS_cargarStock(q) {
         modelos:     String(datos[i][4] || '').trim(),
         enCamino:    ecTotal,
         enCaminoOcs: ecOcs,
-        enCaminoETA: ecData ? (ecData.etaMin || '') : ''
+        enCaminoETA: ecData ? (ecData.etaMin || '') : '',
+        enCaminoReservado: ecData ? (ecData.reservado || 0) : 0
       });
     }
 
@@ -1887,7 +1973,7 @@ function WOS_reporteBackorder() {
           var dEtaDt = _wosEtaToDate(detData[d][6]);
           if (dEtaDt) {
             var prevDt = enCaminoEta[dSku] ? _wosEtaToDate(enCaminoEta[dSku]) : null;
-            if (!prevDt || dEtaDt < prevDt) enCaminoEta[dSku] = String(detData[d][6] || '').trim();
+            if (!prevDt || dEtaDt < prevDt) enCaminoEta[dSku] = _wosEtaFmt(detData[d][6]);
           }
         }
       }

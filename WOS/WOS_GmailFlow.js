@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.24
+// @version 2.26
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1531,17 +1531,35 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       var _ec = WOS_getEnCaminoMap();
       if (_ec && _ec.ok) _ecMap = _ec.map || {};
     } catch(eEc) { Logger.log('WOS_notificarFaltante enCamino: ' + eEc); }
-    function _faltEta(sku) {
-      // ETA DISPONIBLE (resta lo ya reservado a otros resellers) → no re-promete un lote comprometido
+    // Reposición por SKU: reparte el faltante entre los lotes DJI DISPONIBLES (descuenta lo
+    // reservado a otros) → cuántas unidades llegan con cada ETA. { lineas:[{qty,eta}], etaProx, sinFecha }
+    function _faltReposicion(sku, faltaQty) {
       var e = _ecMap[String(sku || '').trim().toUpperCase()];
-      return (e && e.etaMinDisp) ? e.etaMinDisp : '';
+      if (!e || !e.batchesDisp || !e.batchesDisp.length || faltaQty <= 0) {
+        return { lineas: [], etaProx: '', sinFecha: faltaQty > 0 ? faltaQty : 0 };
+      }
+      var rem = faltaQty, lineas = [], etaProx = '';
+      for (var b = 0; b < e.batchesDisp.length && rem > 0; b++) {
+        var bt = e.batchesDisp[b];
+        var take = Math.min(rem, bt.qty);
+        if (take <= 0) continue;
+        lineas.push({ qty: take, eta: bt.eta });
+        if (!etaProx && bt.eta) etaProx = bt.eta;
+        rem -= take;
+      }
+      return { lineas: lineas, etaProx: etaProx, sinFecha: rem };
+    }
+    var _repMap = {};
+    for (var _rf = 0; _rf < faltantes.length; _rf++) {
+      var _rfSku   = String(faltantes[_rf].sku || '').trim().toUpperCase();
+      var _rfFalta = Math.max(0, (Number(faltantes[_rf].cantSol) || 0) - (Number(faltantes[_rf].cantDisp) || 0));
+      _repMap[_rfSku] = _faltReposicion(_rfSku, _rfFalta);
     }
     // ETA más próxima entre todos los faltantes (para el bloque OPCIÓN A)
     var _etaProx = '', _etaProxDt = null;
-    for (var fe = 0; fe < faltantes.length; fe++) {
-      var _feStr = _faltEta(faltantes[fe].sku);
-      var _feDt  = _wosEtaToDate(_feStr);
-      if (_feDt && (!_etaProxDt || _feDt < _etaProxDt)) { _etaProxDt = _feDt; _etaProx = _feStr; }
+    for (var _pk in _repMap) {
+      var _peDt = _wosEtaToDate(_repMap[_pk].etaProx);
+      if (_peDt && (!_etaProxDt || _peDt < _etaProxDt)) { _etaProxDt = _peDt; _etaProx = _repMap[_pk].etaProx; }
     }
 
     // ── Tabla de faltantes ────────────────────────────────────
@@ -1552,20 +1570,29 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         "<th style='padding:7px 10px;text-align:left;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Descripción</th>" +
         "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Solicitado</th>" +
         "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Disponible</th>" +
-        "<th style='padding:7px 10px;text-align:center;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Reposici\xf3n estim.</th>" +
+        "<th style='padding:7px 10px;text-align:left;border-bottom:2px solid #f5a5a5;font-size:10px;font-weight:700;text-transform:uppercase;color:#7f1919'>Reposici\xf3n estim.</th>" +
       "</tr></thead><tbody>";
     for (var i = 0; i < faltantes.length; i++) {
       var f = faltantes[i];
-      var _fEta = _faltEta(f.sku);
+      var _rep = _repMap[String(f.sku || '').trim().toUpperCase()] || { lineas: [], etaProx: '', sinFecha: 0 };
+      var _repHtml;
+      if (_rep.lineas.length) {
+        _repHtml = '';
+        for (var _rl = 0; _rl < _rep.lineas.length; _rl++) {
+          _repHtml += "<div style='white-space:nowrap;color:#1a56db'><strong>" + _rep.lineas[_rl].qty + " u.</strong> \xb7 llega ~" + (_rep.lineas[_rl].eta || 'a confirmar') + "</div>";
+        }
+        if (_rep.sinFecha > 0) _repHtml += "<div style='white-space:nowrap;color:#94a3b8'>" + _rep.sinFecha + " u. \xb7 a confirmar</div>";
+      } else {
+        _repHtml = "<span style='color:#94a3b8'>a confirmar</span>";
+      }
       tablaFalt +=
         "<tr style='border-bottom:1px solid #f0f2f5'>" +
-          "<td style='padding:8px 10px;font-family:monospace;font-weight:700;color:#e74c3c'>" + (f.sku  || '') + "</td>" +
-          "<td style='padding:8px 10px;color:#1a202c'>"                                      + (f.desc || '') + "</td>" +
-          "<td style='padding:8px 10px;text-align:center;font-weight:700'>"                  + (f.cantSol  || 0) + "</td>" +
-          "<td style='padding:8px 10px;text-align:center;font-weight:700;color:" +
+          "<td style='padding:8px 10px;font-family:monospace;font-weight:700;color:#e74c3c;vertical-align:top'>" + (f.sku  || '') + "</td>" +
+          "<td style='padding:8px 10px;color:#1a202c;vertical-align:top'>"                                      + (f.desc || '') + "</td>" +
+          "<td style='padding:8px 10px;text-align:center;font-weight:700;vertical-align:top'>"                  + (f.cantSol  || 0) + "</td>" +
+          "<td style='padding:8px 10px;text-align:center;font-weight:700;vertical-align:top;color:" +
             (f.cantDisp > 0 ? '#1a9e4a' : '#e74c3c') + "'>"                                 + (f.cantDisp || 0) + "</td>" +
-          "<td style='padding:8px 10px;text-align:center;font-size:12px;color:" +
-            (_fEta ? '#1a56db;font-weight:700' : '#94a3b8') + "'>"                          + (_fEta ? 'llega ~' + _fEta : 'a confirmar') + "</td>" +
+          "<td style='padding:8px 10px;text-align:left;font-size:12px;vertical-align:top'>"                     + _repHtml + "</td>" +
         "</tr>";
     }
     tablaFalt += "</tbody></table>";
@@ -1846,8 +1873,16 @@ function WOS_detectarRespuestasResellers() {
 
         // ── Reservar (A) o liberar (B) las unidades en camino comprometidas ──
         SpreadsheetApp.flush();
-        if (esA)      { try { _wosReservarEnCamino(numero, info.reseller); } catch(eRs) { Logger.log('detector reservar [' + numero + ']: ' + eRs); } }
-        else if (esB) { try { _wosCerrarReservas(numero, '', 'Cancelada'); }  catch(eRl) { Logger.log('detector liberar [' + numero + ']: ' + eRl); } }
+        if (esA) {
+          try {
+            var _rSumD = _wosReservarEnCamino(numero, info.reseller);
+            if (_rSumD && _rSumD.reservas && _rSumD.etaProx) {
+              confMensaje += "<br><strong style='color:#3730a3'>Reservamos " + _rSumD.cantidad + " u. del lote que llega ~" + _rSumD.etaProx + ".</strong>";
+            }
+          } catch(eRs) { Logger.log('detector reservar [' + numero + ']: ' + eRs); }
+        } else if (esB) {
+          try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('detector liberar [' + numero + ']: ' + eRl); }
+        }
 
         // ── Confirmación al reseller en el mismo hilo ─────────
         try {
@@ -1874,6 +1909,9 @@ function WOS_detectarRespuestasResellers() {
         Logger.log('WOS_detectarRespuestasResellers thread [' + numero + ']: ' + eT);
       }
     }
+
+    // Reconciliar reservas: liberar las que ya no tienen backorder pendiente (huérfanas)
+    try { WOS_reconciliarReservas(); } catch(eRec) { Logger.log('detector reconciliar: ' + eRec); }
 
     // ── Confirmación de entrega: escanear pedidos Entregado_Cerrado ──
     var entregados = {};
@@ -2118,8 +2156,16 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
     SpreadsheetApp.flush();
 
     // Reservar (Opción A) o liberar (Opción B) las unidades en camino comprometidas al reseller
-    if (op === 'A') { try { _wosReservarEnCamino(numero, reseller); } catch(eRs) { Logger.log('procesarRespuestaManual reservar [' + numero + ']: ' + eRs); } }
-    else            { try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('procesarRespuestaManual liberar [' + numero + ']: ' + eRl); } }
+    if (op === 'A') {
+      try {
+        var _rSumM = _wosReservarEnCamino(numero, reseller);
+        if (_rSumM && _rSumM.reservas && _rSumM.etaProx) {
+          confMensaje += "<br><strong style='color:#3730a3'>Reservamos " + _rSumM.cantidad + " u. del lote que llega ~" + _rSumM.etaProx + ".</strong>";
+        }
+      } catch(eRs) { Logger.log('procesarRespuestaManual reservar [' + numero + ']: ' + eRs); }
+    } else {
+      try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('procesarRespuestaManual liberar [' + numero + ']: ' + eRl); }
+    }
 
     if (threadId) {
       try {
