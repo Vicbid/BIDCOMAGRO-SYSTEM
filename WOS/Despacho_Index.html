@@ -1,4 +1,4 @@
-<!-- @version 3.42 -->
+<!-- @version 3.43 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -672,6 +672,9 @@ body{overflow:hidden}
       <button class="nav-tab" onclick="abrirDespachable()">
         <i class="fa fa-truck-loading"></i><span>Despacho parcial</span>
       </button>
+      <button class="nav-tab" onclick="abrirColaIngresos()">
+        <i class="fa fa-bell"></i><span>Avisos de ingreso</span>
+      </button>
       <button class="nav-tab" onclick="abrirResumen()">
         <i class="fa fa-file-alt"></i><span>Resumen Envíos</span>
       </button>
@@ -1000,6 +1003,33 @@ body{overflow:hidden}
   <div class="stk-body">
     <div class="stk-wrap">
       <div id="dp-content"><div class="stk-empty">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: Cola de avisos de ingreso -->
+<div class="stk-overlay" id="ni-overlay" style="display:none">
+  <div class="stk-head">
+    <div>
+      <div class="stk-title">Avisos de ingreso · qué se le avisó a cada reseller</div>
+      <div class="stk-sub" id="ni-sub">—</div>
+    </div>
+    <button class="btn btn-ghost" onclick="cerrarColaIngresos()" style="flex-shrink:0;margin-left:auto">✕ Cerrar</button>
+  </div>
+  <div class="stk-body">
+    <div class="stk-wrap">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--raise)">
+          <th style="padding:6px 10px;text-align:left">Fecha</th>
+          <th style="padding:6px 10px;text-align:left">Pedido</th>
+          <th style="padding:6px 10px;text-align:left">Reseller</th>
+          <th style="padding:6px 10px;text-align:left">SKU</th>
+          <th style="padding:6px 10px;text-align:center">Cant.</th>
+          <th style="padding:6px 10px;text-align:left">CAS</th>
+          <th style="padding:6px 10px;text-align:center">Resultado</th>
+        </tr></thead>
+        <tbody id="ni-content"><tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx-d)">Cargando…</td></tr></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -4854,6 +4884,64 @@ function _dpCopiarTexto(txt) {
     } else { _dpCopiarFallback(txt); }
   } catch(e) { _dpCopiarFallback(txt); }
 }
+// ── Cola de avisos de ingreso (NOTIF_INGRESOS_WOS) — panel de auditoría ──
+var _NI_RESULT_LABEL = {
+  'auto_completo':              '✅ avisado (completo)',
+  'auto_completo_sin_contacto': '✅ completo \xb7 ⚠ sin contacto (alertado a soporte)',
+  'pregunta_enviada':           '❓ esperando respuesta',
+  'recordado':                  '🔔 recordatorio enviado',
+  'escalado':                   '🚨 escalado a soporte',
+  'respondido_A':               '🟢 respondi\xf3: despachar ahora',
+  'respondido_B':               '🔵 respondi\xf3: esperar todo junto',
+  'sin_contacto_alertado':      '⚠ sin contacto (alertado a soporte)',
+  'sin_backorder':              '— (ya resuelto por otra v\xeda)',
+  'pedido_no_encontrado':       '❌ pedido no encontrado',
+  '':                           '⏳ pendiente de procesar'
+};
+
+function abrirColaIngresos() {
+  document.getElementById('ni-overlay').style.display = 'flex';
+  document.getElementById('ni-content').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx-d)">Cargando…</td></tr>';
+  google.script.run
+    .withSuccessHandler(_renderColaIngresos)
+    .withFailureHandler(function(err) {
+      document.getElementById('ni-content').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--red)">Error: ' + err + '</td></tr>';
+    })
+    .WOS_cargarColaIngresos();
+}
+function cerrarColaIngresos() {
+  document.getElementById('ni-overlay').style.display = 'none';
+}
+function _renderColaIngresos(res) {
+  if (!res || !res.ok) {
+    document.getElementById('ni-content').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--red)">Error: ' + escH((res && res.error) || 'desconocido') + '</td></tr>';
+    return;
+  }
+  var rows = res.rows || [];
+  var resumenTxt = [];
+  var resumen = res.resumen || {};
+  for (var k in resumen) resumenTxt.push((_NI_RESULT_LABEL[k] || k) + ': ' + resumen[k]);
+  document.getElementById('ni-sub').textContent = rows.length + ' aviso(s)' + (resumenTxt.length ? ' \xb7 ' + resumenTxt.join(' \xb7 ') : '');
+  if (!rows.length) {
+    document.getElementById('ni-content').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--tx-d)">Sin avisos de ingreso todav\xeda.</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    html += '<tr style="border-bottom:1px solid var(--brd)">' +
+      '<td style="padding:5px 10px;white-space:nowrap;color:var(--tx-d)">' + escH(r.fecha) + '</td>' +
+      '<td style="padding:5px 10px;font-family:monospace">' + escH(r.pedido) + '</td>' +
+      '<td style="padding:5px 10px">' + escH(r.reseller) + '</td>' +
+      '<td style="padding:5px 10px;font-family:monospace">' + escH(r.sku) + '</td>' +
+      '<td style="padding:5px 10px;text-align:center">' + r.cantidad + '</td>' +
+      '<td style="padding:5px 10px;font-family:monospace;font-size:10px;color:var(--tx-d)">' + escH(r.cas) + '</td>' +
+      '<td style="padding:5px 10px;text-align:center;white-space:nowrap">' + escH(_NI_RESULT_LABEL[r.resultado] || r.resultado || '⏳ pendiente') + '</td>' +
+    '</tr>';
+  }
+  document.getElementById('ni-content').innerHTML = html;
+}
+
 function _dpCopiarFallback(txt) {
   try {
     var ta = document.createElement('textarea');

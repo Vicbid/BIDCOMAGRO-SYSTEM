@@ -1,4 +1,4 @@
-// @version 3.22
+// @version 3.23
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -167,9 +167,60 @@ function WOS_procesarRespuestaIngreso(numero, opcion, operario) {
 
     _wosLogAccion('Aviso de ingreso: ' + (op === 'A' ? 'despachar ahora' : 'esperar todo junto') +
       (reactivados ? ' \xb7 ' + reactivados + ' l\xednea(s) \x2192 Preparado' : ''), numero, reseller, String(operario || ''), '');
+    try { _wosMarcarRespondidoIngreso(numero, op); } catch(eMk) { Logger.log('marcarRespondidoIngreso: ' + eMk); }
     return { ok: true, opcion: op, reseller: reseller, reactivados: reactivados };
   } catch(e) {
     Logger.log('WOS_procesarRespuestaIngreso ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Marca en NOTIF_INGRESOS_WOS que el pedido YA respondió (A o B) al aviso de ingreso parcial,
+// para que el recordatorio/escalado (WOS_recordarIngresosPendientes, en WOS_GmailFlow.js) no
+// lo siga persiguiendo. _WOS_NOTIF_ING_SHEET se define en WOS_GmailFlow.js (mismo proyecto).
+function _wosMarcarRespondidoIngreso(numero, op) {
+  var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
+  if (!hoja) return;
+  var d = hoja.getDataRange().getValues();
+  var val = 'respondido_' + op, changed = false;
+  for (var i = 1; i < d.length; i++) {
+    if (String(d[i][2] || '').trim() !== numero) continue;
+    var res = String(d[i][7] || '').trim();
+    if (res !== 'pregunta_enviada' && res !== 'recordado') continue;
+    hoja.getRange(i + 1, 8).setValue(val);
+    changed = true;
+  }
+  if (changed) SpreadsheetApp.flush();
+}
+
+// Cola de avisos de ingreso (NOTIF_INGRESOS_WOS) para el panel de auditoría en WOS: qué se le
+// avisó a cada reseller cuando llegó mercadería bloqueada, y qué resultado tuvo cada aviso.
+function WOS_cargarColaIngresos() {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
+    if (!hoja) return { ok: true, rows: [], resumen: {} };
+    var d  = hoja.getDataRange().getValues();
+    var tz = Session.getScriptTimeZone();
+    var rows = [], resumen = {};
+    for (var i = 1; i < d.length; i++) {
+      var fecha    = d[i][0];
+      var fechaMs  = (fecha instanceof Date) ? fecha.getTime() : 0;
+      var fechaStr = (fecha instanceof Date) ? Utilities.formatDate(fecha, tz, 'dd/MM/yyyy HH:mm') : String(fecha || '');
+      var resultado = String(d[i][7] || '').trim();
+      var estado    = String(d[i][6] || '').trim();
+      var key = resultado || estado || '?';
+      resumen[key] = (resumen[key] || 0) + 1;
+      rows.push({
+        fecha: fechaStr, fechaMs: fechaMs, cas: String(d[i][1] || ''), pedido: String(d[i][2] || ''),
+        reseller: String(d[i][3] || ''), sku: String(d[i][4] || ''), cantidad: Number(d[i][5]) || 0,
+        estado: estado, resultado: resultado
+      });
+    }
+    rows.sort(function(a, b) { return b.fechaMs - a.fechaMs; });
+    if (rows.length > 300) rows = rows.slice(0, 300);
+    return { ok: true, rows: rows, resumen: resumen };
+  } catch(e) {
+    Logger.log('WOS_cargarColaIngresos ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
 }

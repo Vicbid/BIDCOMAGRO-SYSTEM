@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.27
+// @version 2.28
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1915,6 +1915,8 @@ function WOS_detectarRespuestasResellers() {
 
     // Avisos de ingreso: procesar la cola que llena SM al recibir un CAS con unidades bloqueadas
     try { WOS_notificarIngresos(); } catch(eNI) { Logger.log('detector notifIngresos: ' + eNI); }
+    // Recordatorio/escalado de avisos de ingreso sin respuesta (3 días / 6 días)
+    try { WOS_recordarIngresosPendientes(); } catch(eRI) { Logger.log('detector recordarIngresos: ' + eRI); }
 
     // ── Confirmación de entrega: escanear pedidos Entregado_Cerrado ──
     var entregados = {};
@@ -2334,12 +2336,20 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
       } catch(eSc) {
         if (email) { try { GmailApp.sendEmail(email, '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero, plainC, optsC); } catch(eS2) { Logger.log('notifIngreso mail completo [' + numero + ']: ' + eS2); } }
       }
+      return 'auto_completo';
     }
-    return 'auto_completo';
+    // Sin hilo ni email (OT / reseller sin mail cargado): el pedido ya se reactivó solo,
+    // pero nadie fue avisado → alertar a soporte para que lo contacte a mano (llamado, WhatsApp).
+    _wosAlertarSinContacto(numero, reseller, llegaron, [], true);
+    return 'auto_completo_sin_contacto';
   }
 
   // ── Ingreso PARCIAL → preguntar: ¿despachamos ahora o esperás el resto? ──
-  if (!threadId && !email) return 'sin_mail';   // OTs / clientes sin mail: lo maneja el operador en WOS
+  if (!threadId && !email) {
+    // OTs / clientes sin mail: no hay a quién preguntarle A/B → alertar a soporte, no queda en silencio.
+    _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false);
+    return 'sin_contacto_alertado';
+  }
 
   var filasFalta = '';
   for (var ff = 0; ff < faltan.length; ff++) {
@@ -2402,13 +2412,176 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
   try {
     var okP = _wosReplyHiloOriginal(threadId, plainP, optsP, [email]);
     if (!okP && email) GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP);
-    else if (!okP && !email) return 'sin_mail';
+    else if (!okP && !email) { _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false); return 'sin_contacto_alertado'; }
   } catch(eSp) {
     if (email) { try { GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP); } catch(eS3) { Logger.log('notifIngreso mail parcial [' + numero + ']: ' + eS3); return ''; } }
-    else return 'sin_mail';
+    else { _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false); return 'sin_contacto_alertado'; }
   }
   try { _wosLogAccion('Aviso de ingreso parcial enviado (\xbfdespachar ahora o esperar?)', numero, reseller, 'auto_ingreso', ''); } catch(eLg) {}
   return 'pregunta_enviada';
+}
+
+// Alerta interna a soporte cuando un pedido con unidades bloqueadas recibe mercadería pero no
+// hay forma de avisarle al reseller (OT sin email, o reseller sin mail cargado en el Portal).
+// Evita que la recepción quede "resuelta en silencio" sin que nadie lo contacte.
+function _wosAlertarSinContacto(numero, reseller, llegaron, faltan, completo) {
+  try {
+    var llegoTxt = llegaron.map(function(x) { return '- ' + x.sku + ' (' + x.desc + ') — ' + x.qty + ' u.'; }).join('\n');
+    var faltaTxt = faltan.length
+      ? faltan.map(function(x) { return '- ' + x.sku + ' (' + x.desc + ') — ' + x.falta + ' u. pendientes' + (x.eta ? ' (ETA ~' + x.eta + ')' : ''); }).join('\n')
+      : '(nada \x2014 el pedido ya qued\xf3 completo y se prepar\xf3 solo)';
+    var asunto = '[WOS] Ingreso sin contacto \x2014 Pedido ' + numero + ' (' + reseller + ')';
+    var cuerpo = 'Ingres\xf3 mercader\xeda reservada para el pedido ' + numero + ' de ' + reseller +
+      ', pero no hay hilo de Gmail ni email cargado para avisarle autom\xe1ticamente.\n\n' +
+      'Ingres\xf3 ahora:\n' + llegoTxt + '\n\n' +
+      (completo ? '' : 'Todav\xeda pendiente:\n' + faltaTxt + '\n\n') +
+      'Contactalo manualmente (tel\xe9fono / WhatsApp)' +
+      (completo ? ' para avisarle que se lo despachamos.' : ' y pregunt\xe1le si despachamos ahora lo disponible o espera a que llegue todo junto.');
+    GmailApp.sendEmail(_wosConfig().emailSoporte, asunto, cuerpo);
+  } catch(e) { Logger.log('_wosAlertarSinContacto: ' + e); }
+}
+
+// ═══ RECORDATORIO / ESCALADO — pedidos que no responden al aviso de ingreso parcial ═══════
+// Sin esto, un pedido en "pregunta_enviada" puede quedar esperando indefinidamente si el
+// reseller nunca contesta ni con click ni por mail. A los _NI_RECORDAR_DIAS se reenvía el
+// aviso; si sigue sin respuesta, a los _NI_ESCALAR_DIAS se avisa a soporte para contacto manual.
+// Corre en cada pasada del detector (piggyback, sin trigger nuevo); es idempotente porque cada
+// etapa solo dispara una vez (avanza el RESULTADO de la fila en NOTIF_INGRESOS_WOS).
+var _NI_RECORDAR_DIAS = 3;
+var _NI_ESCALAR_DIAS  = 6;
+
+function WOS_recordarIngresosPendientes() {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
+    if (!hoja) return { ok: true, recordados: 0, escalados: 0 };
+    var d = hoja.getDataRange().getValues();
+    var DIA = 24 * 60 * 60 * 1000, ahoraMs = Date.now();
+
+    var porPedido = {};
+    for (var i = 1; i < d.length; i++) {
+      var res = String(d[i][7] || '').trim();
+      if (res !== 'pregunta_enviada' && res !== 'recordado') continue;
+      var ped = String(d[i][2] || '').trim();
+      if (!ped) continue;
+      var fRaw = d[i][0];
+      var fMs  = (fRaw instanceof Date) ? fRaw.getTime() : 0;
+      if (!porPedido[ped]) porPedido[ped] = { rows: [], fechaMin: 0, etapa: res };
+      porPedido[ped].rows.push(i);
+      if (fMs && (!porPedido[ped].fechaMin || fMs < porPedido[ped].fechaMin)) porPedido[ped].fechaMin = fMs;
+      if (res === 'recordado') porPedido[ped].etapa = 'recordado';   // ya se recordó una vez → evaluar escalado
+    }
+
+    var recordados = 0, escalados = 0;
+    for (var pedNum in porPedido) {
+      var info = porPedido[pedNum];
+      var dias = info.fechaMin ? (ahoraMs - info.fechaMin) / DIA : 0;
+      if (info.etapa === 'pregunta_enviada' && dias >= _NI_RECORDAR_DIAS) {
+        if (_wosRecordarIngresoPedido(pedNum)) {
+          for (var r1 = 0; r1 < info.rows.length; r1++) hoja.getRange(info.rows[r1] + 1, 8).setValue('recordado');
+          recordados++;
+        }
+      } else if (info.etapa === 'recordado' && dias >= _NI_ESCALAR_DIAS) {
+        if (_wosEscalarIngresoPedido(pedNum)) {
+          for (var r2 = 0; r2 < info.rows.length; r2++) hoja.getRange(info.rows[r2] + 1, 8).setValue('escalado');
+          escalados++;
+        }
+      }
+    }
+    if (recordados || escalados) SpreadsheetApp.flush();
+    return { ok: true, recordados: recordados, escalados: escalados };
+  } catch(e) { Logger.log('WOS_recordarIngresosPendientes: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// Datos mínimos de un pedido para recordatorio/escalado: reseller, contacto, y su backorder vivo.
+function _wosPedidoInfoBasico(numero) {
+  var hoja = _getHojaPorNumero(numero);
+  if (!hoja) return null;
+  var datos = hoja.getDataRange().getValues();
+  var reseller = '', threadId = '', email = '', backorder = [], descPorSku = {};
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    if (!reseller) { reseller = String(datos[i][COL.RESELLER] || ''); threadId = String(datos[i][COL.THREAD_ID] || '').trim(); }
+    var sku = String(datos[i][COL.SKU] || '').trim().toUpperCase();
+    if (sku && !descPorSku[sku]) descPorSku[sku] = String(datos[i][COL.DESC] || '');
+    if (String(datos[i][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+    var pend = (Number(datos[i][COL.CANT_SOL]) || 0) - (Number(datos[i][COL.CANT_DESP]) || 0) - (Number(datos[i][COL.CANT_CANCEL]) || 0);
+    if (sku && pend > 0) backorder.push({ sku: sku, desc: descPorSku[sku] || '', pend: pend });
+  }
+  if (!reseller) return null;
+  try { email = _wosGetEmailReseller(reseller); } catch(eE) {}
+  return { reseller: reseller, threadId: threadId, email: email, backorder: backorder };
+}
+
+function _wosRecordarIngresoPedido(numero) {
+  var info = _wosPedidoInfoBasico(numero);
+  if (!info || !info.reseller || (!info.threadId && !info.email)) return false;
+
+  var filas = '';
+  for (var i = 0; i < info.backorder.length; i++) {
+    var b = info.backorder[i];
+    filas += '<tr>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + b.sku + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px'>" + b.desc + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + b.pend + ' u.</td>' +
+      '</tr>';
+  }
+  var tabla = filas
+    ? "<table style='width:100%;border-collapse:collapse;border:1px solid #eee;margin:10px 0'>" +
+        "<thead><tr style='background:#f5f5f5'>" +
+          "<th style='padding:6px 10px;font-size:11px;text-align:left'>C\xf3digo</th>" +
+          "<th style='padding:6px 10px;font-size:11px;text-align:left'>Descripci\xf3n</th>" +
+          "<th style='padding:6px 10px;font-size:11px;text-align:center'>Pendiente</th>" +
+        '</tr></thead><tbody>' + filas + '</tbody></table>'
+    : '';
+
+  var urlBase = '';
+  try { urlBase = ScriptApp.getService().getUrl(); } catch(eU) {}
+  var urlA = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=A' : '';
+  var urlB = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=B' : '';
+  var botones = urlA
+    ? "<div style='text-align:center;margin:18px 0 6px'>" +
+        "<a href='" + urlA + "' style='display:inline-block;margin:6px;padding:12px 20px;background:#00875a;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none'>Despachar AHORA lo disponible</a>" +
+        "<a href='" + urlB + "' style='display:inline-block;margin:6px;padding:12px 20px;background:#3730a3;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none'>Esperar y recibir todo junto</a>" +
+      '</div>'
+    : '';
+
+  var html = _wosPortalHead('\xbfSeguimos esperando? — Pedido ' + numero) +
+    "<p style='font-size:14px;color:#666;margin:0 0 18px'>Hola <strong>" + info.reseller + '</strong>:</p>' +
+    "<p style='font-size:13px;color:#555;line-height:1.6'>Te escribimos de nuevo porque no tuvimos respuesta sobre tu pedido " +
+      "<strong style='color:#00a3e0'>" + numero + '</strong>. Todav\xeda tenemos pendiente:</p>' +
+    tabla +
+    "<p style='font-size:13px;color:#555'>\xbfDespachamos ya lo que est\xe1 disponible, o segu\xeds esperando a que llegue todo junto?</p>" +
+    botones +
+    _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + info.reseller + '.');
+  var plain = 'Hola ' + info.reseller + ',\n\nTe escribimos de nuevo porque no tuvimos respuesta sobre tu pedido ' + numero +
+    '. \xbfDespachamos ya lo disponible o segu\xeds esperando a que llegue todo junto?\n' +
+    (urlA ? 'Despachar ahora: ' + urlA + '\nEsperar todo junto: ' + urlB + '\n' : '');
+
+  var opts = { htmlBody: html, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  try {
+    var ok = _wosReplyHiloOriginal(info.threadId, plain, opts, [info.email]);
+    if (!ok && info.email) GmailApp.sendEmail(info.email, '\xbfSeguimos esperando? — Pedido ' + numero, plain, opts);
+    else if (!ok && !info.email) return false;
+  } catch(e) {
+    if (info.email) { try { GmailApp.sendEmail(info.email, '\xbfSeguimos esperando? — Pedido ' + numero, plain, opts); } catch(e2) { return false; } }
+    else return false;
+  }
+  try { _wosLogAccion('Recordatorio de ingreso parcial enviado', numero, info.reseller, 'auto_recordatorio', ''); } catch(eLg) {}
+  return true;
+}
+
+function _wosEscalarIngresoPedido(numero) {
+  var info = _wosPedidoInfoBasico(numero);
+  if (!info || !info.reseller) return false;
+  var filasTxt = info.backorder.map(function(b) { return '- ' + b.sku + ' (' + b.desc + ') — ' + b.pend + ' u. pendientes'; }).join('\n');
+  var asunto = '[WOS] Sin respuesta \x2014 Pedido ' + numero + ' (' + info.reseller + ')';
+  var cuerpo = 'El pedido ' + numero + ' de ' + info.reseller + ' tiene una reposici\xf3n parcial esperando respuesta desde hace ' +
+    _NI_ESCALAR_DIAS + '+ d\xedas y el reseller no contest\xf3 (ni click ni respuesta al mail).\n\n' +
+    'Pendiente:\n' + (filasTxt || '(sin detalle)') + '\n\n' +
+    'Contactalo manualmente para definir: despachar ahora lo disponible o seguir esperando.';
+  try { GmailApp.sendEmail(_wosConfig().emailSoporte, asunto, cuerpo); } catch(e) { Logger.log('_wosEscalarIngresoPedido mail: ' + e); return false; }
+  try { _wosLogAccion('Escalado a soporte: sin respuesta al aviso de ingreso', numero, info.reseller, 'auto_escalado', ''); } catch(eLg) {}
+  return true;
 }
 
 
