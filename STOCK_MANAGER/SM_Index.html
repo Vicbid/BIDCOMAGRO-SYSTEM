@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.31 -->
+<!-- @version 5.32 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -67,7 +67,8 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .foto-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:12px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,background .15s}
 .foto-card.done{border-color:var(--green);background:rgba(26,158,74,.05)}
-.foto-card .fc-cod{font-weight:700;font-size:13px;color:var(--tx)}
+.foto-card .fc-cod{font-weight:700;font-size:13px;color:var(--tx);cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px;width:fit-content}
+.foto-card .fc-cod:hover{color:var(--blue)}
 .foto-card .fc-desc{font-size:11px;color:var(--tx-m);line-height:1.4;min-height:30px}
 .foto-card .fc-modelo{font-size:10px;color:var(--tx-d)}
 .foto-card .fc-thumb{width:100%;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:22px;border:1px dashed var(--brd2)}
@@ -4343,6 +4344,32 @@ function cargarFotosFaltantesTab() {
     .SM_obtenerRepuestosSinFoto(10);
 }
 
+// Copia el código al portapapeles (mismo patrón textarea+execCommand que _copiarEquipos,
+// más compatible en el webapp embebido que navigator.clipboard). El operador lo pega en
+// la búsqueda de la web donde baja la imagen del repuesto.
+function _copiarAlPortapapeles(texto) {
+  var ta = document.createElement('textarea');
+  ta.value = texto;
+  ta.style.position = 'fixed'; ta.style.top = '-1000px'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function _fotoCopiarCodigo(fila) {
+  var item = _fotosData[fila];
+  if (!item) return;
+  var ok = _copiarAlPortapapeles(item.codigo);
+  toast(ok ? ('Código copiado: ' + item.codigo) : 'No se pudo copiar', ok ? 'ok' : 'err');
+  if (!ok) return;
+  var el = document.getElementById('fc-cod-' + fila);
+  if (!el) return;
+  var original = el.innerHTML;
+  el.innerHTML = '<i class="fa fa-check" style="font-size:9px;color:var(--green)"></i>' + escH(item.codigo);
+  setTimeout(function() { el.innerHTML = original; }, 1000);
+}
+
 function renderFotosFaltantes(items) {
   var grid = document.getElementById('fotos-grid');
   _fotosData = {};
@@ -4356,7 +4383,9 @@ function renderFotosFaltantes(items) {
     _fotosData[it.fila] = it;
     h += '<div class="foto-card" id="fc-' + it.fila + '">' +
         '<div class="fc-thumb" id="fc-thumb-' + it.fila + '"><i class="fa fa-image"></i></div>' +
-        '<div class="fc-cod">' + escH(it.codigo) + '</div>' +
+        '<div class="fc-cod" id="fc-cod-' + it.fila + '" onclick="_fotoCopiarCodigo(' + it.fila + ')" title="Click para copiar el código">' +
+          '<i class="fa fa-copy" style="font-size:9px;opacity:.5"></i>' + escH(it.codigo) +
+        '</div>' +
         '<div class="fc-desc">' + escH(it.descripcion || '—') + '</div>' +
         (it.modelo ? '<div class="fc-modelo"><i class="fa fa-helicopter"></i> ' + escH(it.modelo) + '</div>' : '') +
         '<label class="fc-upload" id="fc-upload-' + it.fila + '">' +
