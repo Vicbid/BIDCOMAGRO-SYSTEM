@@ -1,4 +1,4 @@
-// @version 3.21
+// @version 3.22
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -8,6 +8,9 @@ function doGet(e) {
   }
   if (page === 'resp_faltante') {
     return _doGetRespFaltante(e ? e.parameter : {});
+  }
+  if (page === 'resp_ingreso') {
+    return _doGetRespIngreso(e ? e.parameter : {});
   }
   if (page === 'confirma_entrega') {
     return _doGetConfirmaEntrega(e ? e.parameter : {});
@@ -65,6 +68,109 @@ function _doGetRespFaltante(params) {
   } catch(e) {
     Logger.log('_doGetRespFaltante ERROR [' + numero + ']: ' + e);
     return HtmlService.createHtmlOutput(_rfHtml(false, 'Error interno', 'Ocurri\xf3 un error. Comunicate con nuestro equipo.'));
+  }
+}
+
+// Respuesta del reseller al aviso de INGRESO PARCIAL ("llegó parte de lo que esperabas"):
+// op=A → despachar ahora lo que ya está disponible · op=B → esperar y recibir todo junto.
+function _doGetRespIngreso(params) {
+  var numero = String(params.num || '').trim();
+  var opcion = String(params.op  || '').trim().toUpperCase();
+  if (!numero || (opcion !== 'A' && opcion !== 'B')) {
+    return HtmlService.createHtmlOutput(_rfHtml(false, 'Enlace no v\xe1lido', 'El enlace de respuesta no es v\xe1lido. Comunicate con nuestro equipo.'));
+  }
+  try {
+    var res = WOS_procesarRespuestaIngreso(numero, opcion, 'reseller_click');
+    if (!res.ok) {
+      return HtmlService.createHtmlOutput(_rfHtml(false, 'Error al procesar', 'No pudimos registrar tu respuesta. Por favor comunicate con nuestro equipo.'));
+    }
+    var msg;
+    if (opcion === 'A') {
+      msg = res.reactivados > 0
+        ? 'Registramos tu elecci\xf3n: <strong>Despachar ahora lo disponible.</strong><br>Estamos preparando el env\xedo con lo que ya ingres\xf3; el resto llega en un segundo env\xedo cuando ingrese.'
+        : 'Registramos tu elecci\xf3n, pero por el momento no hay unidades listas para despachar. Nuestro equipo lo va a revisar y te contactamos.';
+    } else {
+      msg = 'Registramos tu elecci\xf3n: <strong>Esperar y recibir todo junto en un solo env\xedo.</strong><br>Tus unidades quedan reservadas y te avisamos cuando ingrese el resto.';
+    }
+    return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + res.reseller + '!', msg))
+      .setTitle('Respuesta registrada \xb7 Pedido ' + numero);
+  } catch(e) {
+    Logger.log('_doGetRespIngreso ERROR [' + numero + ']: ' + e);
+    return HtmlService.createHtmlOutput(_rfHtml(false, 'Error interno', 'Ocurri\xf3 un error. Comunicate con nuestro equipo.'));
+  }
+}
+
+// A: reactiva (Backorder→Preparado) las líneas del pedido cuyo SKU tiene stock suficiente HOY
+//    para su pendiente (lee Carmen fresco) y cierra sus reservas (Cumplida). Las líneas con
+//    stock parcial o sin stock siguen en Backorder con su reserva (las maneja el operador).
+// B: no cambia nada — el pedido sigue esperando con sus reservas activas; cuando llegue el
+//    resto, la cola de ingresos vuelve a evaluarlo (y si queda completo se prepara solo).
+function WOS_procesarRespuestaIngreso(numero, opcion, operario) {
+  try {
+    numero = String(numero || '').trim();
+    var op = (String(opcion || '').trim().toUpperCase() === 'A') ? 'A' : 'B';
+    var hoja = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
+    var datos = hoja.getDataRange().getValues();
+    var reseller = '';
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][COL.NUMERO] || '').trim() === numero) {
+        reseller = String(datos[i][COL.RESELLER] || '');
+        break;
+      }
+    }
+    if (!reseller) return { ok: false, error: 'Pedido no encontrado.' };
+
+    var reactivados = 0;
+    if (op === 'A') {
+      // Stock actual FRESCO desde Carmen (sin cache: el ingreso puede ser de hace segundos)
+      var stockMap = {};
+      try {
+        var cs = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK').getDataRange().getValues();
+        for (var sc = 1; sc < cs.length; sc++) {
+          var sCod = String(cs[sc][0] || '').trim().toUpperCase();
+          if (sCod) stockMap[sCod] = parseInt(cs[sc][2]) || 0;
+        }
+      } catch(eSt) { Logger.log('WOS_procesarRespuestaIngreso stock: ' + eSt); }
+
+      // Pendiente total por SKU (puede haber varias filas del mismo SKU)
+      var pendPorSku = {};
+      for (var p = 1; p < datos.length; p++) {
+        if (String(datos[p][COL.NUMERO] || '').trim() !== numero) continue;
+        if (String(datos[p][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+        var pSku  = String(datos[p][COL.SKU] || '').trim().toUpperCase();
+        var pPend = (Number(datos[p][COL.CANT_SOL]) || 0) - (Number(datos[p][COL.CANT_DESP]) || 0) - (Number(datos[p][COL.CANT_CANCEL]) || 0);
+        if (pSku && pPend > 0) pendPorSku[pSku] = (pendPorSku[pSku] || 0) + pPend;
+      }
+
+      var ahora = new Date(), skusOk = {};
+      for (var r = 1; r < datos.length; r++) {
+        if (String(datos[r][COL.NUMERO] || '').trim() !== numero) continue;
+        if (String(datos[r][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+        var rSku = String(datos[r][COL.SKU] || '').trim().toUpperCase();
+        if (!rSku || !(pendPorSku[rSku] > 0)) continue;
+        if ((Number(stockMap[rSku]) || 0) < pendPorSku[rSku]) continue;   // cobertura parcial → queda en backorder
+        var rEst = hoja.getRange(r + 1, COL.ESTADO + 1);
+        rEst.clearDataValidations();
+        rEst.setValue(EST.PREPARADO);
+        hoja.getRange(r + 1, COL.FECHA_ESTADO + 1).setValue(ahora);
+        skusOk[rSku] = true;
+        reactivados++;
+      }
+      if (reactivados) {
+        SpreadsheetApp.flush();
+        for (var sk in skusOk) {
+          try { _wosCerrarReservas(numero, sk, 'Cumplida'); } catch(eCR) { Logger.log('respIngreso cerrarReservas: ' + eCR); }
+        }
+      }
+    }
+
+    _wosLogAccion('Aviso de ingreso: ' + (op === 'A' ? 'despachar ahora' : 'esperar todo junto') +
+      (reactivados ? ' \xb7 ' + reactivados + ' l\xednea(s) \x2192 Preparado' : ''), numero, reseller, String(operario || ''), '');
+    return { ok: true, opcion: op, reseller: reseller, reactivados: reactivados };
+  } catch(e) {
+    Logger.log('WOS_procesarRespuestaIngreso ERROR: ' + e);
+    return { ok: false, error: e.toString() };
   }
 }
 

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.26
+// @version 2.27
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1913,6 +1913,9 @@ function WOS_detectarRespuestasResellers() {
     // Reconciliar reservas: liberar las que ya no tienen backorder pendiente (huérfanas)
     try { WOS_reconciliarReservas(); } catch(eRec) { Logger.log('detector reconciliar: ' + eRec); }
 
+    // Avisos de ingreso: procesar la cola que llena SM al recibir un CAS con unidades bloqueadas
+    try { WOS_notificarIngresos(); } catch(eNI) { Logger.log('detector notifIngresos: ' + eNI); }
+
     // ── Confirmación de entrega: escanear pedidos Entregado_Cerrado ──
     var entregados = {};
     for (var ei = 1; ei < datos.length; ei++) {
@@ -2192,6 +2195,220 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
     return { ok: false, error: e.toString() };
   }
  });
+}
+
+// ═══ AVISOS DE INGRESO — cola NOTIF_INGRESOS_WOS (la llena SM al recibir un CAS) ═══════════
+// Por cada pedido con unidades bloqueadas que acaban de ingresar:
+//  · Si el stock de HOY cubre TODO su backorder → se reactiva solo (Backorder→Preparado,
+//    reservas Cumplida) y se avisa al reseller que se lo despachamos — sin preguntar (default).
+//  · Si todavía falta otra cosa → mail con lo que llegó + lo que falta (con su ETA) y links:
+//    A = despachar ahora lo disponible · B = esperar y recibir todo junto (un solo envío).
+// Idempotente por fila (ESTADO Pendiente→Notificado); un error deja la fila Pendiente y se
+// reintenta en la próxima corrida del detector.
+var _WOS_NOTIF_ING_SHEET = 'NOTIF_INGRESOS_WOS';
+// cols: 0 FECHA · 1 CAS · 2 PEDIDO · 3 RESELLER · 4 SKU · 5 CANTIDAD · 6 ESTADO · 7 RESULTADO
+
+function WOS_notificarIngresos() {
+  var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
+  if (!hoja) return { ok: true, procesadas: 0 };
+  var d = hoja.getDataRange().getValues();
+  var porPedido = {};
+  for (var i = 1; i < d.length; i++) {
+    if (String(d[i][6] || '').trim() !== 'Pendiente') continue;
+    var ped = String(d[i][2] || '').trim();
+    var sku = String(d[i][4] || '').trim().toUpperCase();
+    if (!ped || !sku) continue;
+    if (!porPedido[ped]) porPedido[ped] = { rows: [], items: {} };
+    porPedido[ped].rows.push(i);
+    porPedido[ped].items[sku] = (porPedido[ped].items[sku] || 0) + (Number(d[i][5]) || 0);
+  }
+  var peds = Object.keys(porPedido);
+  if (!peds.length) return { ok: true, procesadas: 0 };
+
+  // Stock FRESCO desde Carmen (sin cache: el ingreso puede ser de hace minutos)
+  var stockMap = {};
+  try {
+    var cs = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK').getDataRange().getValues();
+    for (var c = 1; c < cs.length; c++) {
+      var cod = String(cs[c][0] || '').trim().toUpperCase();
+      if (cod) stockMap[cod] = parseInt(cs[c][2]) || 0;
+    }
+  } catch(eCs) { Logger.log('WOS_notificarIngresos stock: ' + eCs); }
+
+  var ecMap = {};
+  try { var _ec = WOS_getEnCaminoMap(); if (_ec && _ec.ok) ecMap = _ec.map || {}; } catch(eEc) {}
+
+  var procesadas = 0;
+  for (var p = 0; p < peds.length; p++) {
+    var numero = peds[p], resultado = '';
+    try { resultado = _wosNotificarIngresoPedido(numero, porPedido[numero].items, stockMap, ecMap); }
+    catch(eP) { Logger.log('WOS_notificarIngresos [' + numero + ']: ' + eP); }
+    if (!resultado) continue;
+    for (var rI = 0; rI < porPedido[numero].rows.length; rI++) {
+      var fila = porPedido[numero].rows[rI] + 1;
+      hoja.getRange(fila, 7).setValue('Notificado');
+      hoja.getRange(fila, 8).setValue(resultado);
+    }
+    procesadas += porPedido[numero].rows.length;
+  }
+  if (procesadas) SpreadsheetApp.flush();
+  return { ok: true, procesadas: procesadas };
+}
+
+// Evalúa y notifica UN pedido de la cola de ingresos. Devuelve el resultado ('' = error, reintentar).
+function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
+  var hoja = _getHojaPorNumero(numero);
+  if (!hoja) return 'pedido_no_encontrado';
+  var datos = hoja.getDataRange().getValues();
+  var reseller = '', threadId = '', boPorSku = {}, descPorSku = {};
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    if (!reseller) {
+      reseller = String(datos[i][COL.RESELLER]  || '');
+      threadId = String(datos[i][COL.THREAD_ID] || '').trim();
+    }
+    var sku = String(datos[i][COL.SKU] || '').trim().toUpperCase();
+    if (sku && !descPorSku[sku]) descPorSku[sku] = String(datos[i][COL.DESC] || '');
+    if (String(datos[i][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+    var pend = (Number(datos[i][COL.CANT_SOL]) || 0) - (Number(datos[i][COL.CANT_DESP]) || 0) - (Number(datos[i][COL.CANT_CANCEL]) || 0);
+    if (sku && pend > 0) boPorSku[sku] = (boPorSku[sku] || 0) + pend;
+  }
+  if (!reseller) return 'pedido_no_encontrado';
+  var skusBO = Object.keys(boPorSku);
+  if (!skusBO.length) return 'sin_backorder';   // se resolvió por otro camino (despacho manual, etc.)
+
+  // ¿El stock de hoy (incluye lo recién ingresado) cubre TODO el backorder del pedido?
+  var faltan = [], completo = true;
+  for (var s = 0; s < skusBO.length; s++) {
+    var skuB = skusBO[s];
+    var stk  = Number(stockMap[skuB]) || 0;
+    if (stk >= boPorSku[skuB]) continue;
+    completo = false;
+    var em = ecMap[skuB];
+    faltan.push({ sku: skuB, desc: descPorSku[skuB] || '', falta: boPorSku[skuB] - Math.max(0, stk),
+                  eta: (em && em.etaMin) ? em.etaMin : '' });
+  }
+
+  var llegaron = [];
+  for (var lk in llegoItems) llegaron.push({ sku: lk, desc: descPorSku[lk] || '', qty: llegoItems[lk] });
+
+  var email = '';
+  try { email = _wosGetEmailReseller(reseller); } catch(eEm) {}
+
+  var filasLlego = '';
+  for (var fl = 0; fl < llegaron.length; fl++) {
+    filasLlego += '<tr>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + llegaron[fl].sku + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px'>" + llegaron[fl].desc + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center;font-weight:700;color:#00875a'>" + llegaron[fl].qty + ' u.</td>' +
+      '</tr>';
+  }
+  var tablaLlego =
+    "<table style='width:100%;border-collapse:collapse;border:1px solid #d1e7dd;margin:10px 0'>" +
+      "<thead><tr style='background:#e7f5ee'>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:left'>C\xf3digo</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:left'>Descripci\xf3n</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Ingres\xf3</th>" +
+      '</tr></thead><tbody>' + filasLlego + '</tbody></table>';
+
+  if (completo) {
+    // ── Default: llegó todo → preparar y despachar sin preguntar nada ──
+    var reac = null;
+    try { reac = WOS_reactivarBackorder(numero, 'auto_ingreso'); } catch(eRe) { Logger.log('notifIngreso reactivar [' + numero + ']: ' + eRe); }
+    if (!reac || !reac.ok) return '';   // reintentar en la próxima corrida
+
+    var htmlC = _wosPortalHead('\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero) +
+      "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + '</strong>:</p>' +
+      "<p style='font-size:13px;color:#555;line-height:1.6'>Ingres\xf3 a nuestro dep\xf3sito la mercader\xeda que estabas esperando de tu pedido " +
+        "<strong style='color:#00a3e0'>" + numero + '</strong>:</p>' +
+      tablaLlego +
+      "<p style='font-size:13px;color:#1a7f4f;font-weight:700;line-height:1.6'>Tu pedido queda completo: lo estamos preparando y te lo despachamos. No ten\xe9s que hacer nada.</p>" +
+      _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + reseller + '.');
+    var plainC = 'Hola ' + reseller + ',\n\nIngres\xf3 la mercader\xeda que estabas esperando de tu pedido ' + numero +
+      '. Tu pedido queda completo: lo estamos preparando y te lo despachamos. No ten\xe9s que hacer nada.';
+    var optsC = { htmlBody: htmlC, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+    if (threadId || email) {
+      try {
+        var okC = _wosReplyHiloOriginal(threadId, plainC, optsC, [email]);
+        if (!okC && email) GmailApp.sendEmail(email, '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero, plainC, optsC);
+      } catch(eSc) {
+        if (email) { try { GmailApp.sendEmail(email, '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero, plainC, optsC); } catch(eS2) { Logger.log('notifIngreso mail completo [' + numero + ']: ' + eS2); } }
+      }
+    }
+    return 'auto_completo';
+  }
+
+  // ── Ingreso PARCIAL → preguntar: ¿despachamos ahora o esperás el resto? ──
+  if (!threadId && !email) return 'sin_mail';   // OTs / clientes sin mail: lo maneja el operador en WOS
+
+  var filasFalta = '';
+  for (var ff = 0; ff < faltan.length; ff++) {
+    filasFalta += '<tr>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + faltan[ff].sku + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px'>" + faltan[ff].desc + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center;font-weight:700;color:#B54708'>" + faltan[ff].falta + ' u.</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + (faltan[ff].eta ? 'llega ~<strong>' + faltan[ff].eta + '</strong>' : 'a confirmar') + '</td>' +
+      '</tr>';
+  }
+  var tablaFalta =
+    "<table style='width:100%;border-collapse:collapse;border:1px solid #ffe1bd;margin:10px 0'>" +
+      "<thead><tr style='background:#fff3e0'>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:left'>C\xf3digo</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:left'>Descripci\xf3n</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Falta</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Reposici\xf3n estim.</th>" +
+      '</tr></thead><tbody>' + filasFalta + '</tbody></table>';
+
+  var urlBase = '';
+  try { urlBase = ScriptApp.getService().getUrl(); } catch(eU) { Logger.log('notifIngreso URL: ' + eU); }
+  var urlA = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=A' : '';
+  var urlB = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=B' : '';
+  var botones = urlA
+    ? "<div style='text-align:center;margin:22px 0 8px'>" +
+        "<a href='" + urlA + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#00875a;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>Despachar AHORA lo disponible</a>" +
+        "<a href='" + urlB + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#3730a3;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>Esperar y recibir todo junto</a>" +
+      '</div>' +
+      "<p style='font-size:11px;color:#888;text-align:center;margin:4px 0 0'>Si los botones no funcionan, respond\xe9 este correo y te ayudamos.</p>"
+    : "<p style='font-size:12px;color:#555;background:#f5f8fc;border-radius:6px;padding:10px 14px;line-height:1.6'>Respond\xe9 este correo indic\xe1ndonos si despach\xe1s ahora lo disponible o esper\xe1s a que llegue todo.</p>";
+
+  var htmlP = _wosPortalHead('Lleg\xf3 parte de tu pedido — ' + numero) +
+    "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + '</strong>:</p>' +
+    "<p style='font-size:13px;color:#555;line-height:1.6'>Ingres\xf3 a nuestro dep\xf3sito parte de la mercader\xeda que estabas esperando de tu pedido " +
+      "<strong style='color:#00a3e0'>" + numero + '</strong>:</p>' +
+    tablaLlego +
+    "<p style='font-size:13px;color:#555;margin:14px 0 6px'>Todav\xeda est\xe1 pendiente:</p>" +
+    tablaFalta +
+    "<p style='font-size:13px;color:#1a1f2e;font-weight:700;margin:18px 0 10px'>\xbfC\xf3mo prefer\xeds recibirlo?</p>" +
+    "<div style='border:1px solid #b7e0cd;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#e7f5ee'>" +
+      "<p style='margin:0 0 4px;font-size:13px;color:#00875a;font-weight:700'>Despachar AHORA lo disponible</p>" +
+      "<p style='margin:0;font-size:12px;color:#4a5568'>Te enviamos ya lo que ingres\xf3; el resto va en un segundo env\xedo cuando llegue.</p>" +
+    '</div>' +
+    "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#eef2ff'>" +
+      "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>Esperar y recibir todo junto</p>" +
+      "<p style='margin:0;font-size:12px;color:#4a5568'>Tus unidades quedan reservadas y despachamos todo en un solo env\xedo cuando ingrese el resto \x2014 un solo costo de env\xedo.</p>" +
+    '</div>' +
+    botones +
+    _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + reseller + '.');
+
+  var plainP = 'Hola ' + reseller + ',\n\nIngres\xf3 parte de la mercader\xeda de tu pedido ' + numero + '.\n\n' +
+    'Ya disponible:\n';
+  for (var pl = 0; pl < llegaron.length; pl++) plainP += '\x2022 ' + llegaron[pl].sku + ' \x2014 ' + llegaron[pl].desc + ' \x2014 ' + llegaron[pl].qty + ' u.\n';
+  plainP += '\nTodav\xeda pendiente:\n';
+  for (var pf = 0; pf < faltan.length; pf++) plainP += '\x2022 ' + faltan[pf].sku + ' \x2014 ' + faltan[pf].desc + ' \x2014 ' + faltan[pf].falta + ' u.' + (faltan[pf].eta ? ' (llega ~' + faltan[pf].eta + ')' : ' (fecha a confirmar)') + '\n';
+  plainP += '\n\xbfDespachamos ahora lo disponible o esper\xe1s a que llegue todo y va en un solo env\xedo?\n' +
+    (urlA ? 'Despachar ahora: ' + urlA + '\nEsperar todo junto: ' + urlB + '\n' : 'Respond\xe9 este correo con tu preferencia.\n');
+
+  var optsP = { htmlBody: htmlP, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  try {
+    var okP = _wosReplyHiloOriginal(threadId, plainP, optsP, [email]);
+    if (!okP && email) GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP);
+    else if (!okP && !email) return 'sin_mail';
+  } catch(eSp) {
+    if (email) { try { GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP); } catch(eS3) { Logger.log('notifIngreso mail parcial [' + numero + ']: ' + eS3); return ''; } }
+    else return 'sin_mail';
+  }
+  try { _wosLogAccion('Aviso de ingreso parcial enviado (\xbfdespachar ahora o esperar?)', numero, reseller, 'auto_ingreso', ''); } catch(eLg) {}
+  return 'pregunta_enviada';
 }
 
 

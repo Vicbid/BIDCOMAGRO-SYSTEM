@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.3
+// @version 1.4
 
 // ============================================================
 //  COMPRAS DJI
@@ -238,6 +238,9 @@ function recibirMercaderia(cas, items, operador, deposito) {
     // Escribir cada ítem en la hoja Recibidos del spreadsheet Carmen
     _escribirEnRecibidos(cas, items, '');
 
+    // Encolar avisos a resellers de WOS cuyas unidades en camino bloqueadas llegaron con este CAS
+    _encolarNotifIngresoWOS(cas, items);
+
     // Marcar CAS como En depósito
     actualizarEstadoCAS(cas, "En depósito", "Recepción registrada", operador);
     return { ok: true, destinoMercaderia: destinos };
@@ -246,6 +249,47 @@ function recibirMercaderia(cas, items, operador, deposito) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Cruza el CAS recibido con RESERVAS_EN_CAMINO (unidades bloqueadas por WOS a resellers que
+// esperan) y encola un aviso por (pedido, SKU) en NOTIF_INGRESOS_WOS. El mail al reseller lo
+// arma y envía WOS en su detector (corre cada 10 min): si con este ingreso el pedido queda
+// completo lo prepara y avisa sin preguntar; si sigue faltando algo pregunta "¿despachamos ahora
+// o esperás el resto?" (links A/B). SM solo encola — no toca reservas ni manda mails al reseller.
+function _encolarNotifIngresoWOS(cas, items) {
+  try {
+    var casUp   = String(cas || '').trim().toUpperCase();
+    var hojaRes = getSheet('RESERVAS_EN_CAMINO');
+    if (!hojaRes) return;
+    var dRes = hojaRes.getDataRange().getValues();
+    // RESERVAS_EN_CAMINO (la mantiene WOS): FECHA·PEDIDO·RESELLER·SKU·CAS·N_AIR·ETA·CANTIDAD·ESTADO
+    var recPorSku = {};
+    for (var i = 0; i < items.length; i++) {
+      var c = String(items[i].codigo || '').trim().toUpperCase();
+      var q = parseInt(items[i].cantRecibida) || 0;
+      if (c && q > 0) recPorSku[c] = (recPorSku[c] || 0) + q;
+    }
+    var filas = [], ahora = new Date();
+    for (var r = 1; r < dRes.length; r++) {
+      if (String(dRes[r][8] || '').trim() !== 'Activa') continue;
+      if (String(dRes[r][4] || '').trim().toUpperCase() !== casUp) continue;
+      var sku  = String(dRes[r][3] || '').trim().toUpperCase();
+      var disp = recPorSku[sku] || 0;
+      if (disp <= 0) continue;
+      var take = Math.min(disp, parseInt(dRes[r][7]) || 0);
+      if (take <= 0) continue;
+      recPorSku[sku] = disp - take;   // recepción parcial: repartir lo recibido entre reservas en orden
+      filas.push([ahora, casUp, String(dRes[r][1] || '').trim(), String(dRes[r][2] || ''), sku, take, 'Pendiente', '']);
+    }
+    if (!filas.length) return;
+    var hojaQ = getSheet('NOTIF_INGRESOS_WOS');
+    if (!hojaQ) {
+      hojaQ = getSheet(SCHEMA.SHEETS.COMPRAS).getParent().insertSheet('NOTIF_INGRESOS_WOS');
+      hojaQ.appendRow(['FECHA', 'CAS', 'PEDIDO', 'RESELLER', 'SKU', 'CANTIDAD', 'ESTADO', 'RESULTADO']);
+      hojaQ.setFrozenRows(1);
+    }
+    hojaQ.getRange(hojaQ.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
+  } catch(e) { Logger.log('_encolarNotifIngresoWOS: ' + e); }
 }
 
 function _alertarBackordersPendientes(cas) {
