@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.25
+// @version 2.26
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -530,26 +530,10 @@ function obtenerTecnicosDisponibles() {
 function obtenerDetalleOT(fila) {
   try {
     var filaNum = parseInt(fila);
-    if (isNaN(filaNum) || filaNum < 2) return { trabajo: "", repuestos: "", mensajes: "", stockPorCodigo: {} };
+    if (isNaN(filaNum) || filaNum < 2) return { trabajo: "", repuestos: "", mensajes: "" };
     var datos = getSheetValues(SCHEMA.SHEETS.OT, true);  // force=true: siempre leer del sheet, nunca del cache
     var f = datos[filaNum - 1];
-    if (!f) return { trabajo: "", repuestos: "", mensajes: "", stockPorCodigo: {} };
-
-    // Build stock map for repuestos in this OT
-    // FIX: antes leía SCHEMA.SHEETS.STOCK (STOCK_REPUESTOS), fuente vieja/no confiable.
-    // Carmen es la ÚNICA fuente real de stock del proyecto — ver _hubCarmenStockMap().
-    var repStr = String(f[16] || "").trim();
-    var stockPorCodigo = {};
-    if (repStr && repStr !== 'Sin consumo de repuestos') {
-      var stockIdx = _hubCarmenStockMap();
-      var ls = repStr.split(' ; ');
-      for (var r = 0; r < ls.length; r++) {
-        var p = ls[r].split(' | ');
-        if (p.length < 1) continue;
-        var cod = String(p[0]).trim().toUpperCase();
-        stockPorCodigo[cod] = stockIdx.hasOwnProperty(cod) ? stockIdx[cod] : null;
-      }
-    }
+    if (!f) return { trabajo: "", repuestos: "", mensajes: "" };
 
     var histRaw = String(f[SCHEMA.OT.HISTORIAL_ESTADOS]||"").trim();
     var historial = [];
@@ -561,13 +545,12 @@ function obtenerDetalleOT(fila) {
       trabajo:             String(f[12]||""),
       repuestos:           String(f[16]||""),
       mensajes:            String(f[11]||""),
-      stockPorCodigo:      stockPorCodigo,
       historialEstados:    historial,
       ultimaModificacion:  (rawUM instanceof Date) ? rawUM.getTime() : 0
     };
   } catch(e) {
     Logger.log("obtenerDetalleOT ERROR fila=" + fila + " : " + e);
-    return { trabajo: "", repuestos: "", mensajes: "", stockPorCodigo: {} };
+    return { trabajo: "", repuestos: "", mensajes: "" };
   }
 }
 
@@ -655,19 +638,13 @@ function actualizarOrden(data) {
       }
     }
 
-    var esEstadoTerminal = (data.estado === "Finalizado" || data.estado === "Entregado" || data.estado === "CANCELADO" || data.estado === "Rechazado DJI" || data.estado === "Sin respuesta · Cerrado");
-
     if (data.estado === "Finalizado") {
       hoja.getRange(fila, SCHEMA.OT.FECHA_CIERRE + 1).setValue(new Date());
       // HUB ya no descuenta stock al finalizar: la baja de repuestos se registra fuera de HUB.
       // (Antes: procesarSalidaRepuestos escribía STOCK_REPUESTOS + MOVIMIENTOS_STOCK — removido.)
-      _cerrarSolicitudesPendientes(data.ot, Session.getActiveUser().getEmail());
     } else if (data.estado === "Entregado") {
       // Taller central: el equipo fue retirado o despachado — cierra la OT
       if (!old[SCHEMA.OT.FECHA_CIERRE]) hoja.getRange(fila, SCHEMA.OT.FECHA_CIERRE + 1).setValue(new Date());
-      _cerrarSolicitudesPendientes(data.ot, Session.getActiveUser().getEmail());
-    } else if (data.estado === "CANCELADO") {
-      _cerrarSolicitudesPendientes(data.ot, Session.getActiveUser().getEmail());
     }
 
     sincronizarDeudaReseller(data);
@@ -685,10 +662,6 @@ function actualizarOrden(data) {
     data.cliente        = String(old[SCHEMA.OT.CLIENTE] || '').trim();
 
     enviarNotificaciones(data, estadoAnterior, tecnico);
-    // No re-registrar despachos si la OT ya cerró — evita recrear filas Pendiente
-    if (!esEstadoTerminal) {
-      registrarSolicitudDespacho(data.ot, data.reseller, data.repuestos);
-    }
 
     // Sello de concurrencia: siempre al final, tras todas las escrituras
     hoja.getRange(fila, SCHEMA.OT.ULTIMA_MODIFICACION + 1).setValue(new Date());
@@ -708,8 +681,7 @@ function actualizarOrden(data) {
 // ============================================================
 //  CANCELAR CASO
 //  1. Marca la OT como CANCELADO en 'Ordenes de trabajo'.
-//  2. Cancela todas las SOLICITUDES_DESPACHO Pendientes de esa OT.
-//  3. Registra el evento en LOGS.
+//  2. Registra el evento en LOGS.
 // ============================================================
 function cancelarCaso(idOT) {
   var lock = LockService.getScriptLock();
@@ -739,36 +711,13 @@ function cancelarCaso(idOT) {
     hojaOT.getRange(filaOT, O.FECHA_CIERRE + 1).setValue(new Date());
     hojaOT.getRange(filaOT, O.FECHA_ESTADO + 1).setValue(new Date());
 
-    // ── 2. Cancelar solicitudes de despacho Pendientes ────────
-    var hojaSol  = getSheet(SCHEMA.SHEETS.SOLICITUDES);
-    var canceladas = 0;
-    if (hojaSol) {
-      var datosSol = hojaSol.getDataRange().getValues();
-      var SD       = SCHEMA.SOLICITUDES_DESPACHO;
-      var solChanged = false;
-      for (var s = 1; s < datosSol.length; s++) {
-        if (String(datosSol[s][SD.OT] || '').trim() !== otBusc) continue;
-        var estSol = String(datosSol[s][SD.ESTADO] || '').trim();
-        if (estSol === 'Pendiente') {
-          datosSol[s][SD.ESTADO]        = 'Cancelado';
-          datosSol[s][SD.OBSERVACIONES] = 'Cancelado por anulación de OT';
-          canceladas++;
-          solChanged = true;
-        }
-      }
-      if (solChanged) {
-        hojaSol.getDataRange().setValues(datosSol);
-        invalidateSheetValues(SCHEMA.SHEETS.SOLICITUDES);
-      }
-    }
-
-    // ── 3. Registrar en LOGS ──────────────────────────────────
+    // ── 2. Registrar en LOGS ──────────────────────────────────
     var hojaLog = getSheet(SCHEMA.SHEETS.LOGS);
     if (hojaLog) {
       hojaLog.appendRow([
         new Date(), otBusc, '', '', '',
         estadoAnterior, 'CANCELADO',
-        'Caso cancelado · ' + canceladas + ' solicitudes liberadas',
+        'Caso cancelado',
         Session.getActiveUser().getEmail()
       ]);
       invalidateSheetValues(SCHEMA.SHEETS.LOGS);
@@ -777,37 +726,12 @@ function cancelarCaso(idOT) {
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.OT);
 
-    return { ok: true, ot: otBusc, solicitudesCanceladas: canceladas };
+    return { ok: true, ot: otBusc };
   } catch(e) {
     Logger.log('cancelarCaso: ' + e);
     return { ok: false, msg: e.toString() };
   } finally {
     try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
-  }
-}
-
-// Al finalizar una OT marca todas sus solicitudes Pendiente como Despachado,
-// con cant_despachada = cant_solicitada (los repuestos se usaron en la reparación).
-function _cerrarSolicitudesPendientes(idOT, operador) {
-  var hojaSol = getSheet(SCHEMA.SHEETS.SOLICITUDES);
-  if (!hojaSol) return;
-  var SD      = SCHEMA.SOLICITUDES_DESPACHO;
-  var otKey   = String(idOT).trim().toUpperCase();
-  var datos   = hojaSol.getDataRange().getValues();
-  var hoy     = new Date();
-  var changed = false;
-  for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][SD.OT] || '').trim().toUpperCase() !== otKey) continue;
-    if (String(datos[i][SD.ESTADO] || '') !== 'Pendiente') continue;
-    datos[i][SD.CANT_DESPACHADA] = parseInt(datos[i][SD.CANT_SOLICITADA]) || 0;
-    datos[i][SD.ESTADO]          = 'Despachado';
-    datos[i][SD.FECHA_DESPACHO]  = hoy;
-    datos[i][SD.OPERADOR]        = operador || '';
-    changed = true;
-  }
-  if (changed) {
-    hojaSol.getDataRange().setValues(datos);
-    invalidateSheetValues(SCHEMA.SHEETS.SOLICITUDES);
   }
 }
 
@@ -2296,41 +2220,31 @@ function obtenerDatosSupervisor() {
     var hoy    = new Date();
 
     // ── Backorder predictivo ─────────────────────────────────
-    var EST_BACK_R  = ["Aprobacion DJI","Pedido de repuestos"];
-    var EST_BACK_RP = ["Pedido de repuesto para reparar","Reparado y aprobado en el aftersales"];
+    // Fuente: Pedidos_OTs (WOS) — el mismo dato real que alimenta el Command Center de
+    // la orden, no una heurística por texto/estado de la OT. Antes esto se inferí­a de
+    // f[16] (texto de repuestos) cruzado con una tabla de estados fija por circuito que
+    // excluía por completo Taller (la mayoría de las OTs de este taller) — ver VERSIONS.md.
+    var pedidoRowsSup = _hubPedidosOTsRows();
     var mapaRep = {};
-
-    for (var i = 1; i < datos.length; i++) {
-      var f = datos[i];
-      if (!f[2]) continue;
-      var estado  = String(f[4]||"");
-      if (estado === "CANCELADO") continue;
-      var circUp  = String(f[18]||"").trim().toUpperCase();
-      var esR      = (circUp === "RESELLER" || circUp === "SI");
-      var esRP    = (circUp === "RESELLER PROPIO");
-      var rep     = String(f[16]||"").trim();
-      if (!rep || rep === "Sin consumo de repuestos") continue;
-
-      var esBack = false;
-      if (esR  && EST_BACK_R.indexOf(estado)  !== -1) esBack = true;
-      if (esRP && EST_BACK_RP.indexOf(estado) !== -1) esBack = true;
-      if (!esBack) continue;
-
-      var ls = rep.split(" ; ");
-      for (var j = 0; j < ls.length; j++) {
-        var p   = ls[j].split(" | ");
-        if (p.length < 3) continue;
-        var cod = p[0].trim().toUpperCase();
-        var nom = p[1].trim();
-        var ped = parseInt(p[2].split("E:")[0].replace("P:","")) || 0;
-        var env = parseInt(p[2].split("E:")[1]) || 0;
-        var pend = ped - env;
-        if (pend <= 0) continue;
-        if (!mapaRep[cod]) mapaRep[cod] = { codigo: cod, nombre: nom, cantOTs: 0, pendiente: 0, ots: [] };
-        mapaRep[cod].cantOTs++;
-        mapaRep[cod].pendiente += pend;
-        mapaRep[cod].ots.push(String(f[2]));
-      }
+    var vistoOtSku = {};
+    for (var pi = 1; pi < pedidoRowsSup.length; pi++) {
+      var fp = pedidoRowsSup[pi];
+      var numeroSup = String(fp[0] || '').trim();
+      if (numeroSup.toUpperCase().indexOf('OT-') !== 0) continue;
+      if (String(fp[9] || '').trim() !== 'Backorder') continue;
+      var otIdSup = numeroSup.substring(3);
+      var cod     = String(fp[2] || '').trim().toUpperCase();
+      if (!cod) continue;
+      var dupKey = otIdSup + '|' + cod;
+      if (vistoOtSku[dupKey]) continue;   // no consolidar duplicados del mismo OT+SKU
+      vistoOtSku[dupKey] = true;
+      var pend = Math.max(0, (Number(fp[4]) || 0) - (Number(fp[5]) || 0) - (Number(fp[25]) || 0));
+      if (pend <= 0) continue;
+      var nom = String(fp[3] || '').trim();
+      if (!mapaRep[cod]) mapaRep[cod] = { codigo: cod, nombre: nom, cantOTs: 0, pendiente: 0, ots: [] };
+      mapaRep[cod].cantOTs++;
+      mapaRep[cod].pendiente += pend;
+      mapaRep[cod].ots.push(otIdSup);
     }
     var backorderPred = [];
     var keys = Object.keys(mapaRep);
@@ -2394,16 +2308,15 @@ function obtenerDatosSupervisor() {
       slaFinal[circ] = arr;
     }
 
-    // Tiempo de respuesta de repuestos: solicitud → despacho
-    var hojaSolicR = getSheet(SCHEMA.SHEETS.SOLICITUDES);
-    var dSolicR    = hojaSolicR ? getSheetValues(hojaSolicR) : [];
-    var SD = SCHEMA.SOLICITUDES_DESPACHO;
+    // Tiempo de respuesta de repuestos: pedido a WOS → despacho.
+    // Fuente: Pedidos_OTs (WOS) FECHA/FECHA_DESPACHO — antes leía la hoja shadow
+    // SOLICITUDES_DESPACHO, que HUB_PRO ya no escribe (ver VERSIONS.md).
     var sumDesp = 0, cntDesp = 0;
-    for (var si = 1; si < dSolicR.length; si++) {
-      var fs = dSolicR[si];
-      if (String(fs[SD.ESTADO]).trim() !== 'Despachado') continue;
-      var fSol  = fs[SD.FECHA]         instanceof Date ? fs[SD.FECHA]         : null;
-      var fDisp = fs[SD.FECHA_DESPACHO] instanceof Date ? fs[SD.FECHA_DESPACHO] : null;
+    for (var sj = 1; sj < pedidoRowsSup.length; sj++) {
+      var fj = pedidoRowsSup[sj];
+      if (String(fj[0] || '').trim().toUpperCase().indexOf('OT-') !== 0) continue;
+      var fSol  = fj[10] instanceof Date ? fj[10] : null;
+      var fDisp = fj[14] instanceof Date ? fj[14] : null;
       if (!fSol || !fDisp) continue;
       var diasDisp = Math.floor((fDisp - fSol) / 86400000);
       if (diasDisp >= 0) { sumDesp += diasDisp; cntDesp++; }
@@ -2774,69 +2687,6 @@ function diagnosticarSistema() {
   Logger.log("==============================");
 }
 
-function registrarSolicitudDespacho(idOT, reseller, strRepuestos) {
-  var hoja = getSheet(SCHEMA.SHEETS.SOLICITUDES);
-  if (!hoja) return;
-
-  var SD    = SCHEMA.SOLICITUDES_DESPACHO;
-  var otKey = String(idOT).trim().toUpperCase();
-
-  // Parse new repuesto list into SKU → full item-string map
-  // If list is empty/no pipes (e.g. 'Sin consumo de repuestos'), newSkus stays {}
-  // which means all Pendiente solicitudes for this OT will be cancelled below
-  var newSkus = {};
-  if (strRepuestos && strRepuestos.indexOf('|') !== -1) {
-    var items = strRepuestos.split(';');
-    for (var x = 0; x < items.length; x++) {
-      var partes = items[x].split('|');
-      if (partes.length >= 2) {
-        newSkus[partes[0].trim().toUpperCase()] = items[x];
-      }
-    }
-  }
-
-  // Read SOLICITUDES fresh — bypass cache so we see the real current state
-  var dExist    = hoja.getDataRange().getValues();
-  var activos   = {};  // SKUs whose Pendiente row we kept (still in the new list)
-  var solChanged = false;
-  for (var e = 1; e < dExist.length; e++) {
-    var rowOT  = String(dExist[e][SD.OT]    || '').trim().toUpperCase();
-    var rowCod = String(dExist[e][SD.CODIGO] || '').trim().toUpperCase();
-    var rowEst = String(dExist[e][SD.ESTADO] || '');
-    if (rowOT  !== otKey)     continue;
-    if (rowEst === 'Cancelado' || rowEst === 'Despachado') continue;
-    if (!newSkus[rowCod]) {
-      // SKU was removed from the OT — cancel its pending solicitud
-      dExist[e][SD.ESTADO] = 'Cancelado';
-      solChanged = true;
-    } else {
-      activos[rowCod] = true;  // still present; keep it
-    }
-  }
-  if (solChanged) hoja.getDataRange().setValues(dExist);
-
-  // Append new SKUs that don't already have an active solicitud
-  var skuKeys = Object.keys(newSkus);
-  for (var k = 0; k < skuKeys.length; k++) {
-    var codigo = skuKeys[k];
-    if (activos[codigo]) continue;
-
-    var itemStr   = newSkus[codigo];
-    var partes2   = itemStr.split('|');
-    var desc      = partes2[1].trim();
-    var cantMatch = itemStr.match(/P:(\d+)/);
-    var cantidad  = cantMatch ? parseInt(cantMatch[1]) : 1;
-    var idSoli    = 'SD-' + new Date().getTime() + '-' + Math.floor(Math.random()*1000);
-
-    hoja.appendRow([
-      idSoli, new Date(), idOT, reseller, codigo, desc, cantidad, 0,
-      'Pendiente', 'NORMAL', '', Session.getActiveUser().getEmail(), 'Auto-HUB'
-    ]);
-  }
-
-  invalidateSheetValues(SCHEMA.SHEETS.SOLICITUDES);
-}
-
 // ============================================================
 //  COMMAND CENTER DE REPUESTOS — helpers de dominio
 //  Cruzan, en una sola lectura por hoja (sin N+1), el estado real de un repuesto de OT:
@@ -3001,55 +2851,6 @@ function obtenerEstadoRepuestosOTs() {
     return { ok: false, error: e.toString() };
   }
 }
-
-// ============================================================
-//  RESERVAS DE STOCK EN TRÁNSITO — HUB
-// ============================================================
-
-function obtenerCASEnTransito() {
-  try {
-    var datos = getSheetValues(SCHEMA.SHEETS.COMPRAS);
-    var out   = [];
-    for (var i = 1; i < datos.length; i++) {
-      var f      = datos[i];
-      var estado = String(f[2] || '').trim();
-      if (estado !== 'En vuelo' && estado !== 'En aduana') continue;
-      out.push({ cas: String(f[0] || ''), estado: estado });
-    }
-    return out;
-  } catch(e) { return []; }
-}
-
-function crearReservaDesdeHUB(sku, descripcion, cantidad, otNombre, casRef, operador) {
-  try {
-    var hoja = getSheet(SCHEMA.SHEETS.RESERVAS);
-    if (!hoja) return { ok: false, msg: 'Hoja RESERVAS_STOCK no encontrada. Creá la hoja ejecutando crearHojaReservas() desde Stock Manager.' };
-    var lock = LockService.getScriptLock();
-    lock.waitLock(10000);
-    try {
-      var id = 'RES-' + new Date().getTime();
-      var R  = SCHEMA.RESERVAS_STOCK;
-      var row = new Array(11);
-      row[R.ID]            = id;
-      row[R.FECHA]         = new Date();
-      row[R.SKU]           = String(sku).trim().toUpperCase();
-      row[R.DESCRIPCION]   = String(descripcion || '');
-      row[R.CANTIDAD]      = parseInt(cantidad) || 1;
-      row[R.ORIGEN]        = 'TALLER';
-      row[R.ID_REFERENCIA] = String(otNombre || '');
-      row[R.ESTADO]        = 'Activa';
-      row[R.CAS_REF]       = String(casRef || '');
-      row[R.OPERADOR]      = String(operador || '');
-      row[R.OBSERVACIONES] = '';
-      hoja.appendRow(row);
-      invalidateSheetValues(SCHEMA.SHEETS.RESERVAS);
-      return { ok: true, id: id };
-    } finally {
-      if (lock.hasLock()) lock.releaseLock();
-    }
-  } catch(e) { return { ok: false, msg: e.toString() }; }
-}
-
 
 // ============================================================
 //  FACTURACIÓN — FLUJO COMPLETO

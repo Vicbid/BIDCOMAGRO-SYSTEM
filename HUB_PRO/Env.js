@@ -1,16 +1,13 @@
-// @version 1.2
+// @version 1.4
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
 var SCHEMA = {
   SHEETS: {
     OT: 'Ordenes de trabajo',
-    STOCK: 'STOCK_REPUESTOS',
     RESELLERS: 'Resellers',
-    SOLICITUDES: 'SOLICITUDES_DESPACHO',
     VENTAS_DIRECTAS: 'VENTAS_DIRECTAS',
     COMPRAS: 'COMPRAS_DJI',
-    MOVIMIENTOS: 'MOVIMIENTOS_STOCK',
     DB_REPUESTOS: 'DB_REPUESTOS',
     LOGS: 'LOGS',
     EMAIL_LOGS: 'EMAIL_LOGS',
@@ -48,33 +45,6 @@ var SCHEMA = {
     ORIGEN_REPUESTO: 26,   // AA: quién pone el repuesto — "Adelantado" | "Stock reseller" | ""
     CIERRE_TIPO: 27        // AB: cómo cerramos — "Reposicion" | "NC" | ""
   },
-  STOCK_REPUESTOS: {
-    CODIGO: 0,
-    DESCRIPCION: 1,
-    STOCK_ACTUAL: 2,
-    STOCK_MINIMO: 3,
-    CATEGORIA: 4,
-    UBICACION: 5,
-    MODELOS: 6,
-    ULTIMA_ENTRADA: 7,
-    ULTIMA_SALIDA: 8,
-    REQUIERE_SN: 9
-  },
-  SOLICITUDES_DESPACHO: {
-    ID: 0,
-    FECHA: 1,
-    OT: 2,
-    RESELLER: 3,
-    CODIGO: 4,
-    DESCRIPCION: 5,
-    CANT_SOLICITADA: 6,
-    CANT_DESPACHADA: 7,
-    ESTADO: 8,
-    URGENCIA: 9,
-    FECHA_DESPACHO: 10,
-    OPERADOR: 11,
-    OBSERVACIONES: 12
-  },
   RESELLERS: {
     NOMBRE: 0,
     CUIT: 1,
@@ -85,17 +55,6 @@ var SCHEMA = {
     TELEFONO: 6,
     EMAIL: 9,
     PIN: 10
-  },
-  MOVIMIENTOS_STOCK: {
-    FECHA:            0,
-    TIPO:             1,
-    CODIGO:           2,
-    DESCRIPCION:      3,
-    CANTIDAD:         4,
-    STOCK_RESULTANTE: 5,
-    REFERENCIA:       6,
-    OPERADOR:         7,
-    OBSERVACIONES:    8
   },
   DB_REPUESTOS: {
     CODIGO: 1,

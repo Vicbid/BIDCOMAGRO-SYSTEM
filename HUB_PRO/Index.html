@@ -1,4 +1,4 @@
-<!-- @version 2.15 -->
+<!-- @version 2.17 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -756,31 +756,6 @@ body.compact tbody td{padding:6px 14px!important}
   </div>
 </div>
 
-<!-- MODAL RESERVAR DE IMPORTACIÓN -->
-<div class="modal fade" id="modal-res-import" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
-    <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
-      <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
-        <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-bookmark" style="color:var(--indigo);margin-right:6px"></i>Reservar de Importación</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
-        <div id="res-imp-info" style="font-size:12px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px"></div>
-        <div>
-          <label style="font-size:11px;color:var(--tx-d);margin-bottom:4px;display:block">CAS en tránsito</label>
-          <select id="res-imp-cas" class="form-select" style="font-size:12px">
-            <option value="">Cargando...</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
-        <button class="btn-s" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn-s" style="background:var(--indigo);color:#fff" onclick="confirmarReservaImportacion()"><i class="fa fa-check"></i> Reservar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL ADEUDOS -->
 <div class="modal fade" id="modalAd" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
@@ -1220,18 +1195,6 @@ body.compact tbody td{padding:6px 14px!important}
               <button class="btn-tec-add" onclick="agregarTecnico()"><i class="fa fa-plus" style="margin-right:4px"></i>Agregar</button>
             </div>
           </div>
-        </div>
-
-        <!-- Solicitudes de despacho al Stock Manager -->
-        <div id="desp-section" style="display:none">
-          <hr class="f-sep">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <span class="rp-lbl">Despacho de repuestos</span>
-            <button class="btn-log" id="btn-solicitar-desp" onclick="solicitarDespacho()" style="width:auto;padding:7px 14px;font-size:11px;background:var(--blue);color:#fff;border-color:var(--blue)">
-              <i class="fa fa-dolly" style="margin-right:6px"></i>Solicitar despacho al Stock Manager
-            </button>
-          </div>
-          <div id="desp-status"></div>
         </div>
 
         <hr class="f-sep">
@@ -1989,7 +1952,6 @@ function abrirLista(c) {
       var _repLineas = [];   // [{cod, desc, ped, env}] — para el Command Center
       if (det.repuestos && det.repuestos !== 'Sin consumo de repuestos' && det.repuestos.trim() !== '') {
         actual.repuestosCompletos = det.repuestos;
-        var stockMap = det.stockPorCodigo || {};
         var ls = det.repuestos.split(' ; ');
         for (var i = 0; i < ls.length; i++) {
           var p = ls[i].split(' | ');
@@ -1997,8 +1959,7 @@ function abrirLista(c) {
           var ped = p[2].indexOf('P:') !== -1 ? p[2].split(' E:')[0].replace('P:','') : 1;
           var env = p[2].indexOf('E:') !== -1 ? p[2].split(' E:')[1] : 1;
           var codUp = String(p[0]).trim().toUpperCase();
-          var stk = stockMap.hasOwnProperty(codUp) ? stockMap[codUp] : undefined;
-          addR(p[0], p[1], ped, env, stk);
+          addR(p[0], p[1], ped, env);
           _repLineas.push({ cod: codUp, desc: p[1], ped: parseInt(ped) || 0, env: parseInt(env) || 0 });
         }
       } else {
@@ -2450,10 +2411,6 @@ function abrir(c){
   if (msgSec) msgSec.style.display = 'block';
   document.getElementById('msg-badge').style.display = actual.msgNoLeido ? 'inline' : 'none';
 
-  // 6. Sección de despacho — deshabilitada (sin backend)
-  var despSection = document.getElementById('desp-section');
-  if (despSection) despSection.style.display = 'none';
-  
   var esOOW = (actual.garantia === 'OOW');
   dispararLogicaDeFlujoAutomatico(); // fija esBateriaActual ANTES de renderizar el stepper
   togPrio(true);
@@ -2752,20 +2709,14 @@ function cargarHistorial(){
 }
 
 // ── REPUESTOS ─────────────────────────────────────────────────
-function addR(cod,desc,ped,env,stock){
+function addR(cod,desc,ped,env){
   cod=cod||''; desc=desc||''; ped=ped!==undefined?ped:1; env=env!==undefined?env:1;
-  var reservBtn='';
-  if(stock!==undefined && stock!==null && stock===0){
-    var codEsc=cod.replace(/'/g,"\\'"), descEsc=desc.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    reservBtn='<button type="button" class="btn-del" style="background:var(--indigo);color:#fff;font-size:10px;padding:0 7px;white-space:nowrap" title="Reservar este repuesto de una importación en tránsito" onclick="reservarDeImportacion(\''+codEsc+'\',\''+descEsc+'\','+ped+')"><i class="fa fa-bookmark"></i></button>';
-  }
   var d=document.createElement('div'); d.className='p-row';
   d.innerHTML=
     '<input type="text" class="form-control in-c" value="'+cod+'" readonly placeholder="Código">'+
     '<div class="position-relative"><input type="text" class="form-control in-desc" value="'+desc.replace(/"/g,'&quot;')+'" onkeyup="busPN(this)" onblur="blurD(this)" oninput="markDirty()" placeholder="Descripción..."><div class="sug-box"></div></div>'+
     '<input type="number" class="form-control in-n in-p" value="'+ped+'" min="0" oninput="markDirty()">'+
     '<input type="number" class="form-control in-n in-e" value="'+env+'" min="0" oninput="markDirty()">'+
-    reservBtn+
     '<button class="btn-del" onclick="eliminarFilaRepuesto(this)">×</button>';
   document.getElementById('cont-r').appendChild(d);
 }
@@ -3551,55 +3502,6 @@ function abrirOTPorNombre(otNombre) {
   // No está entre las activas: si las cerradas aún no se cargaron, traerlas y reintentar
   if (!_cerradasLoaded) { _cargarCerradas(function(){ if (!buscar()) toast('OT no encontrada','err'); }); return; }
   toast('OT no encontrada','err');
-}
-
-// ── RESERVAS DE IMPORTACIÓN ───────────────────────────────────
-var _resImpSku = ''; var _resImpDesc = ''; var _resImpQty = 1;
-
-function reservarDeImportacion(sku, desc, qty) {
-  _resImpSku  = sku;
-  _resImpDesc = desc;
-  _resImpQty  = parseInt(qty) || 1;
-  var infoEl = document.getElementById('res-imp-info');
-  var selEl  = document.getElementById('res-imp-cas');
-  infoEl.innerHTML =
-    '<strong>' + sku + '</strong> — ' + (desc || '') +
-    ' <span style="color:var(--red);font-weight:700">· Sin stock ·</span> ' +
-    'OT: <strong>' + (actual && actual.ot ? actual.ot : '—') + '</strong>';
-  selEl.innerHTML = '<option value="">Cargando CAS en tránsito...</option>';
-  var m = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-res-import'));
-  m.show();
-  google.script.run
-    .withSuccessHandler(function(lista) {
-      if (!lista.length) {
-        selEl.innerHTML = '<option value="">Sin CAS en tránsito — no hay importaciones activas</option>';
-        return;
-      }
-      var h = '<option value="">Seleccioná el CAS...</option>';
-      for (var i = 0; i < lista.length; i++) {
-        h += '<option value="' + lista[i].cas + '">' + lista[i].cas + ' — ' + lista[i].estado + '</option>';
-      }
-      selEl.innerHTML = h;
-    })
-    .withFailureHandler(function() { selEl.innerHTML = '<option value="">Error al cargar CAS</option>'; })
-    .obtenerCASEnTransito();
-}
-
-function confirmarReservaImportacion() {
-  var cas = document.getElementById('res-imp-cas').value.trim();
-  if (!cas) { toast('Seleccioná un CAS', 'err'); return; }
-  var otNombre = actual && actual.ot ? actual.ot : '';
-  var operador = document.getElementById('f-tec') ? document.getElementById('f-tec').value : '';
-  google.script.run
-    .withSuccessHandler(function(r) {
-      if (!r.ok) { toast('Error: ' + r.msg, 'err'); return; }
-      toast('Reserva creada (' + r.id + ') para OT ' + otNombre, 'ok');
-      bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-res-import')).hide();
-      cargarEstadoRepuestos();
-      if (actual && actual.ot === otNombre) _cargarEstadoRepuestosOT(otNombre, _repLineasActuales());
-    })
-    .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); })
-    .crearReservaDesdeHUB(_resImpSku, _resImpDesc, _resImpQty, otNombre, cas, operador);
 }
 
 // ── HISTORIAL POR S/N ─────────────────────────────────────────
