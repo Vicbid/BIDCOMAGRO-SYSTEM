@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.30 -->
+<!-- @version 5.31 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -427,7 +427,7 @@ tr:last-child td{border-bottom:none}
         <i class="fa fa-helicopter"></i><span>Equipos</span>
       </button>
       <button class="nav-tab" id="nt-fotos" onclick="showTab('fotos','nt-fotos')">
-        <i class="fa fa-camera"></i><span>Fotos</span>
+        <i class="fa fa-image"></i><span>Fotos</span>
       </button>
 
       <span class="sb-section-lbl">Compras &amp; Ventas</span>
@@ -714,9 +714,9 @@ tr:last-child td{border-bottom:none}
     <!-- ══ FOTOS FALTANTES DEL CATÁLOGO ════════════════════════ -->
     <div class="tab-view" id="tab-fotos">
       <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
-        <i class="fa fa-camera" style="color:var(--blue);font-size:13px"></i>
+        <i class="fa fa-image" style="color:var(--blue);font-size:13px"></i>
         <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
-        <span style="color:var(--tx-m)">Elegí la foto de cada código — se sube sola apenas la seleccionás.</span>
+        <span style="color:var(--tx-m)">Bajá la imagen a tu PC y seleccionala para cada código — se sube sola.</span>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
           <span><strong id="fotos-cnt-pend">0</strong> sin foto en todo el catálogo</span>
           <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 10 más</button>
@@ -4360,8 +4360,8 @@ function renderFotosFaltantes(items) {
         '<div class="fc-desc">' + escH(it.descripcion || '—') + '</div>' +
         (it.modelo ? '<div class="fc-modelo"><i class="fa fa-helicopter"></i> ' + escH(it.modelo) + '</div>' : '') +
         '<label class="fc-upload" id="fc-upload-' + it.fila + '">' +
-          '<i class="fa fa-camera"></i> Elegir foto' +
-          '<input type="file" accept="image/*" capture="environment" onchange="_fotoSeleccionada(this,' + it.fila + ')">' +
+          '<i class="fa fa-folder-open"></i> Seleccionar imagen' +
+          '<input type="file" accept="image/*" onchange="_fotoSeleccionada(this,' + it.fila + ')">' +
         '</label>' +
         '<div class="fc-status" id="fc-status-' + it.fila + '"></div>' +
       '</div>';
@@ -4386,7 +4386,7 @@ function _fotoSeleccionada(input, fila) {
     google.script.run
       .withSuccessHandler(function(r) {
         if (!r || !r.ok) {
-          upload.innerHTML = '<i class="fa fa-camera"></i> Reintentar';
+          upload.innerHTML = '<i class="fa fa-folder-open"></i> Reintentar';
           status.textContent = (r && r.error) || 'Error al subir';
           status.className = 'fc-status err';
           return;
@@ -4410,14 +4410,17 @@ function _fotoSeleccionada(input, fila) {
       })
       .SM_subirFotoRepuesto(fila, item.codigo, base64);
   }, function() {
-    upload.innerHTML = '<i class="fa fa-camera"></i> Elegir foto';
+    upload.innerHTML = '<i class="fa fa-folder-open"></i> Seleccionar imagen';
     toast('No se pudo leer la imagen', 'err');
   });
 }
 
-// Redimensiona/comprime la foto en el navegador antes de mandarla: las fotos de
-// celular pesan varios MB y google.script.run no tiene canal binario, todo va
-// como base64 — sin esto la subida sería lenta o fallaría con conexión de depósito.
+// Redimensiona/comprime la imagen en el navegador antes de mandarla (suelen bajarse
+// de una web y pesar varios MB; google.script.run no tiene canal binario, todo va
+// como base64 — sin esto la subida sería lenta o fallaría con conexión de depósito).
+// Se reencodea siempre a JPEG: si el original era PNG con fondo transparente (típico
+// en imágenes de despiece bajadas de la web), hay que rellenar blanco ANTES de dibujar
+// — el canvas compone lo transparente como negro al exportar a JPEG si no se hace esto.
 function _fotosComprimir(file, maxDim, calidad, cb, cbErr) {
   var reader = new FileReader();
   reader.onerror = function() { if (cbErr) cbErr(); };
@@ -4430,7 +4433,10 @@ function _fotosComprimir(file, maxDim, calidad, cb, cbErr) {
       var ch = Math.max(1, Math.round(img.height * esc));
       var canvas = document.createElement('canvas');
       canvas.width = cw; canvas.height = ch;
-      canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
       cb(canvas.toDataURL('image/jpeg', calidad));
     };
     img.src = e.target.result;
