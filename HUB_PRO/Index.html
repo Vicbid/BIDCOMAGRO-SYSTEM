@@ -1,4 +1,4 @@
-<!-- @version 2.17 -->
+<!-- @version 2.18 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1980,12 +1980,11 @@ function abrirLista(c) {
 }
 
 // ── COMMAND CENTER DE REPUESTOS ────────────────────────────────
-// URL del webapp de WOS para el botón "Abrir pedido" — pegar acá el deployment real
-// (mismo patrón que CONFIG.PORTAL_URL en HUB_Código.js, hoy también pendiente de completar).
-var WOS_WEBAPP_URL = 'https://script.google.com/macros/s/TU_DEPLOYMENT_ID_WOS/exec';
+// URL del webapp de WOS para el botón "Abrir pedido".
+var WOS_WEBAPP_URL = 'https://script.google.com/a/macros/bidcom.com.ar/s/AKfycby2yOABl8kMtMzzFPezQX-MlBSVikm9d16L_4XxqEeaHD_JrSBvdfeh4jmzwEdpSunvDQ/exec';
 
 function abrirPedidoWOS(numero) {
-  if (!WOS_WEBAPP_URL || WOS_WEBAPP_URL.indexOf('TU_DEPLOYMENT_ID_WOS') !== -1) {
+  if (!WOS_WEBAPP_URL) {
     toast('Falta configurar WOS_WEBAPP_URL en Index.html', 'err');
     return;
   }
