@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
@@ -103,10 +103,128 @@ function _mapaCumplimientoPedidos() {
   return mapa;
 }
 
+// ── ETA de compras DJI en camino — SOLO para el panel RTV, nunca se expone al ──
+// ── reseller externo (obtenerHistorialPedidosPortal no la usa) ────────────────
+// Misma spreadsheet MASTER que usa WOS (MASTER_SS_ID en Despacho_Env.js ==
+// MASTER_SHEET_ID acá): hojas COMPRAS_DJI + COMPRAS_DETALLE (compras internacionales
+// en tránsito) y RESERVAS_EN_CAMINO (unidades ya apartadas para un pedido puntual
+// cuando el reseller eligió "Esperar" en el mail de faltante de WOS).
+//
+// Robustez: Sheets puede convertir el texto de FECHA_ETA en una fecha real; sin este
+// formateo se mostraría "Tue Aug 04 2026 00:00:00 GMT-0300 (…)" en vez de "04/08/2026".
+function _rsEtaToDate(s) {
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+  s = String(s || '').trim();
+  if (!s) return null;
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (!m) return null;
+  var dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1;
+  var yy = m[3] ? parseInt(m[3], 10) : (new Date()).getFullYear();
+  if (yy < 100) yy += 2000;
+  var dt = new Date(yy, mm, dd);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+function _rsFmtEta(v) {
+  var dt = _rsEtaToDate(v);
+  if (dt) { try { return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'dd/MM/yyyy'); } catch(e) {} }
+  var s = String(v == null ? '' : v).trim();
+  return (s === '0') ? '' : s;
+}
+
+// Lee RESERVAS_EN_CAMINO (solo filas "Activa") una sola vez y arma dos vistas:
+//  · byPedidoSku[pedido][SKU] = {eta, air} → reserva FIRME de ESE pedido puntual
+//    (ya la aceptó el reseller; nadie más se la lleva mientras siga activa).
+//  · byCasSku[SKU][CAS] = cantidad reservada → para descontar de los lotes
+//    genéricos de _rsEtaComprasPorSku (si un lote ya está comprometido con OTRO
+//    pedido, no sirve como estimación para el resto).
+function _rsLeerReservasActivas() {
+  var out = { byPedidoSku: {}, byCasSku: {} };
+  try {
+    var d = getSheetValues(SCHEMA.SHEETS.RESERVAS_EN_CAMINO);
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][8] || '').trim() !== 'Activa') continue;
+      var ped  = String(d[i][1] || '').trim();
+      var sku  = String(d[i][3] || '').trim().toUpperCase();
+      var cas  = String(d[i][4] || '').trim().toUpperCase();
+      var cant = Number(d[i][7]) || 0;
+      if (!sku || cant <= 0) continue;
+      if (ped) {
+        if (!out.byPedidoSku[ped]) out.byPedidoSku[ped] = {};
+        if (!out.byPedidoSku[ped][sku]) {
+          out.byPedidoSku[ped][sku] = { eta: _rsFmtEta(d[i][6]), air: String(d[i][5] || '').trim() };
+        }
+      }
+      if (!out.byCasSku[sku]) out.byCasSku[sku] = {};
+      out.byCasSku[sku][cas] = (out.byCasSku[sku][cas] || 0) + cant;
+    }
+  } catch(e) { Logger.log('_rsLeerReservasActivas: ' + e); }
+  return out;
+}
+
+// ETA GENÉRICA por SKU: el lote de compra pendiente (no reservado a otro pedido)
+// con la fecha más próxima. Es una ESTIMACIÓN de la compra internacional — puede
+// atrasarse, y estas unidades no están apartadas para ningún pedido en particular:
+// cualquier otro pedido que elija "Esperar" antes se las puede llevar primero. Por
+// eso el front SIEMPRE la marca como "estimado", nunca como fecha firme.
+function _rsEtaComprasPorSku(reservas) {
+  var mapa = {};
+  try {
+    var dCAS = getSheetValues(SCHEMA.SHEETS.COMPRAS);
+    var casActivos = {};
+    for (var c = 1; c < dCAS.length; c++) {
+      var casId  = String(dCAS[c][0] || '').trim().toUpperCase();
+      var estado = String(dCAS[c][2] || '').trim();
+      if (casId && estado !== 'En depósito' && estado.indexOf('Borrador') < 0) casActivos[casId] = true;
+    }
+
+    var lotesPorSku = {};
+    var dDET = getSheetValues(SCHEMA.SHEETS.COMPRAS_DETALLE);
+    for (var d = 1; d < dDET.length; d++) {
+      var cas = String(dDET[d][0] || '').trim().toUpperCase();
+      var sku = String(dDET[d][1] || '').trim().toUpperCase();
+      if (!sku || !casActivos[cas]) continue;
+      var pend = (Number(dDET[d][3]) || 0) - (Number(dDET[d][4]) || 0);
+      if (pend <= 0) continue;
+      if (!lotesPorSku[sku]) lotesPorSku[sku] = [];
+      lotesPorSku[sku].push({
+        cas: cas, qty: pend,
+        eta: _rsFmtEta(dDET[d][6]), dt: _rsEtaToDate(dDET[d][6]),
+        air: String(dDET[d][7] || '').trim()
+      });
+    }
+
+    var byCasSku = (reservas && reservas.byCasSku) || {};
+    for (var sk in lotesPorSku) {
+      var lotes = lotesPorSku[sk];
+      lotes.sort(function(a, b) {          // fecha asc; sin fecha al final
+        if (a.dt && b.dt) return a.dt - b.dt;
+        if (a.dt) return -1;
+        if (b.dt) return 1;
+        return 0;
+      });
+      var reservadoPorCas = {};
+      var _base = byCasSku[sk] || {};
+      for (var rc in _base) reservadoPorCas[rc] = _base[rc];
+
+      var elegido = null;
+      for (var li = 0; li < lotes.length; li++) {
+        var lote   = lotes[li];
+        var tomado = Math.min(reservadoPorCas[lote.cas] || 0, lote.qty);
+        reservadoPorCas[lote.cas] = (reservadoPorCas[lote.cas] || 0) - tomado;
+        if (lote.qty - tomado > 0) { elegido = lote; break; }  // 1er lote con saldo libre de reservas
+      }
+      if (elegido) mapa[sk] = { eta: elegido.eta, air: elegido.air };
+    }
+  } catch(e) { Logger.log('_rsEtaComprasPorSku: ' + e); }
+  return mapa;
+}
+
 // Convierte un registro del mapa en el resumen listo para el front:
 // entregado / pendiente / cancelado / porcentaje de cumplimiento + detalle por ítem.
 // % = entregado / (solicitado - cancelado); lo cancelado no cuenta como "a entregar".
-function _resumenCumplimiento(reg) {
+// etaGenerica/etaReservadaPedido: SOLO los llena obtenerPedidosRTV (panel RTV); el
+// reseller externo nunca pasa estos parámetros, así que para él queda sin ETA.
+function _resumenCumplimiento(reg, etaGenerica, etaReservadaPedido) {
   var solicitado = reg ? reg.solicitado : 0;
   var entregado  = reg ? reg.entregado  : 0;
   var cancelado  = reg ? reg.cancelado  : 0;
@@ -125,10 +243,20 @@ function _resumenCumplimiento(reg) {
       var it    = reg.items[reg.orden[i]];
       var iBase = it.solicitado - it.cancelado;
       var iPend = iBase - it.entregado; if (iPend < 0) iPend = 0;
-      items.push({
+      var itemOut = {
         sku: it.sku, descripcion: it.descripcion, precio: it.precio,
         solicitado: it.solicitado, entregado: it.entregado, cancelado: it.cancelado, pendiente: iPend
-      });
+      };
+      // ETA solo aplica mientras falte entregar algo de ESTE ítem. Prioridad: reserva
+      // firme de este pedido > estimación genérica del próximo lote sin reservar.
+      if (iPend > 0) {
+        var skuUp = String(it.sku || '').trim().toUpperCase();
+        var resv  = etaReservadaPedido && etaReservadaPedido[skuUp];
+        var gen   = etaGenerica         && etaGenerica[skuUp];
+        if (resv && resv.eta)     itemOut.eta = { fecha: resv.eta, air: resv.air, tipo: 'reservado' };
+        else if (gen && gen.eta)  itemOut.eta = { fecha: gen.eta,  air: gen.air,  tipo: 'estimado'  };
+      }
+      items.push(itemOut);
     }
   }
   return {
@@ -152,6 +280,10 @@ function obtenerPedidosRTV() {
     if (!Object.keys(autorizado).length) return { ok: false, error: 'Sin resellers asignados', pedidos: [] };
 
     var cumpl = _mapaCumplimientoPedidos();  // numero → entregado/pendiente/% (fuente: Pedidos_resellers)
+
+    // ETA de compras DJI en camino — solo para este panel (ver comentario arriba de _rsEtaComprasPorSku)
+    var reservas    = _rsLeerReservasActivas();
+    var etaGenerica = _rsEtaComprasPorSku(reservas);
 
     var dPed  = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
@@ -184,7 +316,7 @@ function obtenerPedidosRTV() {
         formaPago: String(dPed[j][P.FORMA_PAGO]    || ''),
         envio:     String(dPed[j][P.ENVIO]         || ''),
         items:     items,
-        cumplimiento: _resumenCumplimiento(cumpl[id])
+        cumplimiento: _resumenCumplimiento(cumpl[id], etaGenerica, reservas.byPedidoSku[id])
       });
 
       if (pedidos.length >= 200) break;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.63 -->
+<!-- @version 1.64 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -7012,12 +7012,27 @@ function _rtvDetalleHTML(p) {
         '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Entregado</th>' +
         '<th style="padding:6px 8px;text-align:center;color:var(--tx-d);font-weight:600">Pendiente</th>' +
       '</tr></thead><tbody>';
+    var hayEtaEnPedido = false;
     for (var k = 0; k < c.items.length; k++) {
       var it   = c.items[k];
       var alt  = k % 2 === 0 ? '#fff' : 'var(--panel)';
       var iBase = it.solicitado - it.cancelado;
       var anuladoItem = it.cancelado > 0 && iBase <= 0;   // ítem totalmente cancelado
       var completo = it.pendiente <= 0 && iBase > 0;
+      var etaHtml = '';
+      if (it.eta && it.eta.fecha && !anuladoItem && !completo) {
+        hayEtaEnPedido = true;
+        var esReservado = it.eta.tipo === 'reservado';
+        var etaColor = esReservado ? '#5c5fc0' : '#e67e22';
+        var etaIcon  = esReservado ? 'fa-lock' : 'fa-hourglass-half';
+        var etaLbl   = esReservado ? 'Reservado' : '~Estimado';
+        var etaTip   = esReservado
+          ? ('Unidades apartadas para este pedido (llega ' + it.eta.fecha + (it.eta.air ? ', vuelo ' + it.eta.air : '') + '). Ningún otro pedido se la puede llevar mientras la reserva siga activa.')
+          : ('Fecha estimada de la compra internacional en camino. NO está reservada a este pedido en particular — puede atrasarse o quedarse otro pedido con esas mismas unidades si acepta esperar antes.');
+        etaHtml = '<div title="' + _escHtml(etaTip) + '" style="font-size:9px;font-weight:700;margin-top:3px;color:' + etaColor + ';white-space:nowrap">' +
+          '<i class="fa ' + etaIcon + '" style="margin-right:3px"></i>' + etaLbl + ' ' + _escHtml(it.eta.fecha) +
+        '</div>';
+      }
       html +=
         '<tr style="background:' + alt + '">' +
           '<td style="padding:6px 10px;font-family:monospace;color:var(--blue);font-weight:600">' + _escHtml(it.sku || '—') + '</td>' +
@@ -7026,10 +7041,19 @@ function _rtvDetalleHTML(p) {
           '<td style="padding:6px 8px;text-align:center;font-weight:700">' + (anuladoItem ? '—' : iBase) + '</td>' +
           '<td style="padding:6px 8px;text-align:center;font-weight:700;color:#1a9e4a">' + it.entregado + '</td>' +
           '<td style="padding:6px 8px;text-align:center;font-weight:700;color:' + (it.pendiente > 0 ? '#d63031' : 'var(--tx-d)') + '">' +
-            (anuladoItem ? '<span style="color:#d63031;font-size:10px">Cancelado</span>' : (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente)) + '</td>' +
+            (anuladoItem ? '<span style="color:#d63031;font-size:10px">Cancelado</span>' : (completo ? '<i class="fa fa-check" style="color:#1a9e4a"></i>' : it.pendiente)) +
+            etaHtml +
+          '</td>' +
         '</tr>';
     }
     html += '</tbody></table>';
+    if (hayEtaEnPedido) {
+      html += '<div style="margin-top:8px;padding:7px 11px;background:rgba(230,126,34,.07);border-left:3px solid #e67e22;border-radius:var(--r);font-size:10px;color:var(--tx-m);line-height:1.6">' +
+        '<i class="fa fa-triangle-exclamation" style="margin-right:5px;color:#e67e22"></i>' +
+        'Las fechas ETA son estimaciones de la compra internacional en tránsito y pueden atrasarse por demoras de importación. ' +
+        '<i class="fa fa-lock" style="margin:0 3px 0 6px;color:#5c5fc0"></i><strong style="color:#5c5fc0">Reservado</strong> = unidades ya apartadas para este pedido puntual; sin ese ícono, la fecha es orientativa y podría terminar yendo a otro pedido.' +
+      '</div>';
+    }
   } else if (p.items && p.items.length) {
     // Fallback: pedido aún sin filas en Pedidos_resellers → mostrar snapshot (cantidad pedida)
     html += '<div style="font-size:10px;color:var(--tx-d);margin:8px 0 4px"><i class="fa fa-hourglass-half"></i> Aún sin datos de entrega — se muestra lo pedido.</div>';
