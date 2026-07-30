@@ -1,6 +1,6 @@
 // ============================================================
 //  STOCK MANAGER BIDCOMAGRO — SM_Codigo.gs
-//  @version 2.0
+//  @version 2.1
 //  Archivo principal (stub). La lógica está distribuida en:
 //    Sm_Core.js       — variables, Carmen helpers, utilidades
 //    Sm_Dashboard.js  — cargarDashboard, OTs, rotación
@@ -8,4 +8,5 @@
 //    Sm_WMS.js        — ubicaciones, layout, WMS
 //    Sm_Compras.js    — compras DJI, CAS, catálogo, reabastecimiento
 //    Sm_Ventas.js     — ventas directas, resellers
+//    Sm_Fotos.js      — fotos faltantes del catálogo (hoja TODO)
 // ============================================================

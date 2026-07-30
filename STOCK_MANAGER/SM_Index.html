@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.29 -->
+<!-- @version 5.30 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -62,6 +62,22 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .card-head-left{display:flex;align-items:center;gap:8px}
 .card-head i{color:var(--blue);font-size:13px}
 .card-body{padding:16px}
+
+/* ── FOTOS FALTANTES DEL CATÁLOGO ───────── */
+.foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.foto-card{background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:12px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,background .15s}
+.foto-card.done{border-color:var(--green);background:rgba(26,158,74,.05)}
+.foto-card .fc-cod{font-weight:700;font-size:13px;color:var(--tx)}
+.foto-card .fc-desc{font-size:11px;color:var(--tx-m);line-height:1.4;min-height:30px}
+.foto-card .fc-modelo{font-size:10px;color:var(--tx-d)}
+.foto-card .fc-thumb{width:100%;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:22px;border:1px dashed var(--brd2)}
+.foto-card .fc-thumb img{width:100%;height:100%;object-fit:cover}
+.foto-card .fc-upload{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--blue-a);color:var(--blue);border:1px dashed var(--blue);border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;text-align:center}
+.foto-card .fc-upload input{display:none}
+.foto-card .fc-status{font-size:10px;font-weight:700;text-align:center}
+.foto-card .fc-status.ok{color:var(--green)}
+.foto-card .fc-status.err{color:var(--red)}
+.modo-op .foto-card .fc-upload{padding:14px;font-size:13px}
 
 /* ── KPI GRID ───────────────────────────── */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
@@ -410,6 +426,9 @@ tr:last-child td{border-bottom:none}
       <button class="nav-tab" id="nt-equip" onclick="showTab('equip','nt-equip')">
         <i class="fa fa-helicopter"></i><span>Equipos</span>
       </button>
+      <button class="nav-tab" id="nt-fotos" onclick="showTab('fotos','nt-fotos')">
+        <i class="fa fa-camera"></i><span>Fotos</span>
+      </button>
 
       <span class="sb-section-lbl">Compras &amp; Ventas</span>
       <button class="nav-tab" id="nt-comp" onclick="showTab('comp','nt-comp')">
@@ -690,6 +709,23 @@ tr:last-child td{border-bottom:none}
         </div>
       </div>
     </div><!-- /equipos -->
+
+
+    <!-- ══ FOTOS FALTANTES DEL CATÁLOGO ════════════════════════ -->
+    <div class="tab-view" id="tab-fotos">
+      <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
+        <i class="fa fa-camera" style="color:var(--blue);font-size:13px"></i>
+        <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
+        <span style="color:var(--tx-m)">Elegí la foto de cada código — se sube sola apenas la seleccionás.</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
+          <span><strong id="fotos-cnt-pend">0</strong> sin foto en todo el catálogo</span>
+          <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 10 más</button>
+        </div>
+      </div>
+      <div id="fotos-grid" class="foto-grid">
+        <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
+      </div>
+    </div><!-- /fotos -->
 
 
     <!-- ══ COMPRAS DJI ════════════════════════ -->
@@ -2258,6 +2294,7 @@ function showTab(id, btnId) {
   if (id==='mov')   cargarMovimientosTab();
   if (id==='wms')   _wmsTabAbierto();
   if (id==='equip') cargarEquiposTab();
+  if (id==='fotos') cargarFotosFaltantesTab();
 }
 
 // ══════════════════════════════════════════
@@ -4281,6 +4318,124 @@ function renderOTTracking(lista) {
     h += '</div>';
   });
   wrap.innerHTML = h;
+}
+
+// ══════════════════════════════════════════
+//  FOTOS FALTANTES DEL CATÁLOGO (hoja TODO)
+// ══════════════════════════════════════════
+var _fotosData = {}; // fila → {fila, codigo, descripcion, modelo}
+
+function cargarFotosFaltantesTab() {
+  document.getElementById('fotos-grid').innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) {
+        document.getElementById('fotos-grid').innerHTML = '<div class="empty-state">Error al cargar' + (r && r.error ? ': ' + escH(r.error) : '') + '</div>';
+        return;
+      }
+      document.getElementById('fotos-cnt-pend').textContent = r.totalPendiente;
+      renderFotosFaltantes(r.items);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('fotos-grid').innerHTML = '<div class="empty-state">Error al cargar</div>';
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+    })
+    .SM_obtenerRepuestosSinFoto(10);
+}
+
+function renderFotosFaltantes(items) {
+  var grid = document.getElementById('fotos-grid');
+  _fotosData = {};
+  if (!items || !items.length) {
+    grid.innerHTML = '<div class="empty-state"><i class="fa fa-circle-check" style="color:var(--green);font-size:22px;display:block;margin-bottom:8px"></i>¡Todo el catálogo tiene foto!</div>';
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    _fotosData[it.fila] = it;
+    h += '<div class="foto-card" id="fc-' + it.fila + '">' +
+        '<div class="fc-thumb" id="fc-thumb-' + it.fila + '"><i class="fa fa-image"></i></div>' +
+        '<div class="fc-cod">' + escH(it.codigo) + '</div>' +
+        '<div class="fc-desc">' + escH(it.descripcion || '—') + '</div>' +
+        (it.modelo ? '<div class="fc-modelo"><i class="fa fa-helicopter"></i> ' + escH(it.modelo) + '</div>' : '') +
+        '<label class="fc-upload" id="fc-upload-' + it.fila + '">' +
+          '<i class="fa fa-camera"></i> Elegir foto' +
+          '<input type="file" accept="image/*" capture="environment" onchange="_fotoSeleccionada(this,' + it.fila + ')">' +
+        '</label>' +
+        '<div class="fc-status" id="fc-status-' + it.fila + '"></div>' +
+      '</div>';
+  }
+  grid.innerHTML = h;
+}
+
+function _fotoSeleccionada(input, fila) {
+  var file = input.files && input.files[0];
+  var item = _fotosData[fila];
+  if (!file || !item) return;
+
+  var upload = document.getElementById('fc-upload-' + fila);
+  var status = document.getElementById('fc-status-' + fila);
+  var thumb  = document.getElementById('fc-thumb-' + fila);
+  upload.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Subiendo...';
+  status.textContent = ''; status.className = 'fc-status';
+
+  _fotosComprimir(file, 1280, 0.82, function(dataUrl) {
+    if (thumb) thumb.innerHTML = '<img src="' + dataUrl + '">';
+    var base64 = dataUrl.split(',')[1];
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r || !r.ok) {
+          upload.innerHTML = '<i class="fa fa-camera"></i> Reintentar';
+          status.textContent = (r && r.error) || 'Error al subir';
+          status.className = 'fc-status err';
+          return;
+        }
+        var card = document.getElementById('fc-' + fila);
+        if (card) card.classList.add('done');
+        upload.style.display = 'none';
+        status.innerHTML = '<i class="fa fa-circle-check"></i> Subida';
+        status.className = 'fc-status ok';
+        // Cuando ya no queda ninguna tarjeta pendiente en pantalla, trae la
+        // siguiente tanda sola (mínimos clics: el operador no tiene que pedirla).
+        if (!document.querySelectorAll('#fotos-grid .foto-card:not(.done)').length) {
+          setTimeout(cargarFotosFaltantesTab, 700);
+        }
+      })
+      .withFailureHandler(function(e) {
+        upload.innerHTML = '<i class="fa fa-camera"></i> Reintentar';
+        status.textContent = 'Error al subir';
+        status.className = 'fc-status err';
+        toast('Error: ' + (e && e.message ? e.message : e), 'err');
+      })
+      .SM_subirFotoRepuesto(fila, item.codigo, base64);
+  }, function() {
+    upload.innerHTML = '<i class="fa fa-camera"></i> Elegir foto';
+    toast('No se pudo leer la imagen', 'err');
+  });
+}
+
+// Redimensiona/comprime la foto en el navegador antes de mandarla: las fotos de
+// celular pesan varios MB y google.script.run no tiene canal binario, todo va
+// como base64 — sin esto la subida sería lenta o fallaría con conexión de depósito.
+function _fotosComprimir(file, maxDim, calidad, cb, cbErr) {
+  var reader = new FileReader();
+  reader.onerror = function() { if (cbErr) cbErr(); };
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onerror = function() { if (cbErr) cbErr(); };
+    img.onload = function() {
+      var esc = Math.min(1, maxDim / Math.max(img.width, img.height));
+      var cw = Math.max(1, Math.round(img.width * esc));
+      var ch = Math.max(1, Math.round(img.height * esc));
+      var canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      cb(canvas.toDataURL('image/jpeg', calidad));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ══════════════════════════════════════════
