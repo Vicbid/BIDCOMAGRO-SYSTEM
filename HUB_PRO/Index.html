@@ -1,4 +1,4 @@
-<!-- @version 2.14 -->
+<!-- @version 2.15 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -257,6 +257,39 @@ td:first-child{padding-left:20px}
 .fc-head{background:var(--surf);border-bottom:1px solid var(--brd);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .f-ot-title{font-size:20px;font-weight:300;color:#fff;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
 .c-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:3px;background:var(--blue-a);color:var(--blue);border:1px solid rgba(0,163,224,.2);letter-spacing:.04em}
+
+/* ── COMMAND CENTER DE REPUESTOS — badges de estado del pedido WOS (mismos colores que
+   WOS/Despacho_Index.html por EST, mismo significado = mismo color en toda la suite) + chips
+   propios para los casos que no vienen de un pedido WOS. ── */
+.badge-estado{font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;letter-spacing:.03em;text-transform:uppercase;display:inline-block}
+.badge-Pendiente_Revision{background:#FFF4E5;color:#974F0C;border:1px solid #FF8B00}
+.badge-Confirmado{background:#E3FCEF;color:#006644;border:1px solid rgba(0,135,90,.3)}
+.badge-En_Espera_Reseller{background:rgba(99,102,241,.14);color:var(--indigo);border:1px solid rgba(99,102,241,.35)}
+.badge-Preparado,.badge-Preparado_Parcial{background:#EBF3FF;color:#0052CC;border:1px solid rgba(0,82,204,.3)}
+.badge-Backorder{background:#FFF0E6;color:#7A3D00;border:1px solid #FF5630}
+.badge-Cancelado{background:#FFEBE6;color:#BF2600;border:1px solid rgba(222,53,11,.3)}
+.badge-Entregado_Cerrado,.badge-Entregado_Confirmado{background:#E3FCEF;color:#006644;border:1px solid rgba(0,135,90,.3)}
+.badge-Listo_Retiro{background:#E6FCFF;color:#006972;border:1px solid rgba(0,185,217,.3)}
+
+.chip-sin-pedido{background:rgba(231,76,60,.14);color:var(--red);border:1px solid rgba(231,76,60,.35);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
+.chip-reservado{background:rgba(99,102,241,.14);color:var(--indigo);border:1px solid rgba(99,102,241,.35);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
+.chip-en-stock{background:rgba(39,174,96,.14);color:var(--green);border:1px solid rgba(39,174,96,.35);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
+.chip-resuelto{background:rgba(160,165,165,.14);color:var(--silver);border:1px solid rgba(160,165,165,.3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
+
+#rep-cc-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px;border-radius:var(--rm);font-size:12.5px;font-weight:600;line-height:1.4}
+#rep-cc-banner.cc-critico{background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.35);color:#ff6b5e}
+#rep-cc-banner.cc-esperando{background:rgba(255,139,0,.12);border:1px solid rgba(255,139,0,.35);color:#ffab40}
+#rep-cc-banner.cc-en_camino{background:rgba(0,82,204,.12);border:1px solid rgba(0,82,204,.3);color:#5b9dff}
+#rep-cc-banner.cc-resuelto{background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3);color:var(--green)}
+#rep-cc-banner .cc-mas{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;opacity:.85}
+#rep-cc-banner .cc-abrir{margin-left:auto;flex-shrink:0;background:transparent;border:1.5px solid currentColor;color:inherit;font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
+#rep-cc-banner .cc-abrir:hover{background:currentColor;color:var(--panel)!important}
+body.light #rep-cc-banner.cc-critico{color:#c0392b}
+body.light #rep-cc-banner.cc-esperando{color:#a35a00}
+body.light #rep-cc-banner.cc-en_camino{color:#0052cc}
+
+.rep-item-status{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--tx-m);padding:4px 2px 2px;border-top:1px dashed var(--brd)}
+.rep-item-status .ri-abrir{background:none;border:none;color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
 .fl-wrap{display:flex;align-items:center;gap:8px;background:var(--raise);border:1px solid var(--brd2);padding:6px 12px;border-radius:var(--rm)}
 .fl-wrap label{font-size:10px;color:var(--tx-d);white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
 .fl-sel{background:transparent;border:none;color:var(--tx);font-size:13px;font-weight:500;outline:none;cursor:pointer}
@@ -808,6 +841,7 @@ body.compact tbody td{padding:6px 14px!important}
           <button class="nb" id="fb-u" onclick="setF('urgentes',this)"><i class="fa fa-exclamation-circle" style="color:var(--red)"></i> Urgentes</button>
           <button class="nb" id="fb-msg" onclick="setF('mensajes',this)"><i class="fa fa-comments" style="color:var(--blue)"></i> Mensajes<span id="kpi-msg-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:auto">0</span></button>
           <button class="nb" id="fb-tc" onclick="setF('taller',this)"><i class="fa fa-tools" style="color:var(--blue)"></i> Taller Central</button>
+          <button class="nb" id="fb-rep" onclick="setF('esperando_repuesto',this)"><i class="fa fa-tools" style="color:var(--red)"></i> Esperando repuesto</button>
           <button class="nb" id="fb-h" onclick="setF('todos',this)"><i class="fa fa-check-circle" style="color:var(--tx-d)"></i> Finalizados</button>
         </div>
       </div>
@@ -909,7 +943,7 @@ body.compact tbody td{padding:6px 14px!important}
         </div>
         <table>
           <thead>
-            <tr><th>Orden de Trabajo</th><th>Gto.</th><th>Reseller</th><th>Equipo</th><th>Técnico</th><th>Estado</th><th title="Días totales · Días en estado actual">Días</th><th title="Fecha estimada entrega">Est.</th><th title="Backorder pendiente">Bck</th></tr>
+            <tr><th>Orden de Trabajo</th><th>Gto.</th><th>Reseller</th><th>Equipo</th><th>Técnico</th><th>Estado</th><th title="Días totales · Días en estado actual">Días</th><th title="Fecha estimada entrega">Est.</th><th title="Estado del repuesto pendiente (pedido a WOS, reserva, o stock)">Repuesto</th></tr>
           </thead>
           <tbody id="tbody">
             <tr><td colspan="8" style="padding:20px">
@@ -1094,6 +1128,11 @@ body.compact tbody td{padding:6px 14px!important}
 
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
+
+        <!-- COMMAND CENTER DE REPUESTOS: semáforo de una línea, arriba de todo lo demás
+             (no al lado de "Repuestos utilizados" — queda muy abajo, obligaría a scrollear
+             y el objetivo es responder "¿qué frena esto?" en <5 segundos sin scroll). -->
+        <div id="rep-cc-banner" style="display:none"></div>
 
         <!-- Origen del repuesto (quién pone la pieza) + Cierre (reposición vs NC) -->
         <div id="repo-block" style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px">
@@ -1565,6 +1604,41 @@ function _bgRefresh() {
   var ae = document.activeElement;
   if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return; // está tipeando/filtrando
   load(true);
+  cargarEstadoRepuestos();   // refresca el chip de "Repuesto" en el mismo ciclo
+}
+
+// ── COMMAND CENTER DE REPUESTOS — mapa bulk (una lectura por hoja para TODAS las OTs) ──
+var _repEstadoBulk = { pedidos: {}, reservas: {}, stockMap: {} };
+
+function cargarEstadoRepuestos() {
+  google.script.run
+    .withSuccessHandler(function(r) { if (r && r.ok) { _repEstadoBulk = r; render(); } })
+    .withFailureHandler(function() {})
+    .obtenerEstadoRepuestosOTs();
+}
+
+// Severidad de la PEOR línea pendiente de una OT, usando el mapa bulk ya cargado.
+// Devuelve null si no hay ninguna línea pendiente (ped>env) — no compite en la lista.
+function _otRepChip(c) {
+  if (!c.repuestos || c.repuestos === 'Sin consumo de repuestos' || !c.repuestos.trim()) return null;
+  var ls = c.repuestos.split(' ; ');
+  var pedidosOT  = _repEstadoBulk.pedidos[c.ot]  || {};
+  var reservasOT = _repEstadoBulk.reservas[c.ot] || {};
+  var peor = null;
+  for (var i = 0; i < ls.length; i++) {
+    var p = ls[i].split(' | ');
+    if (p.length < 3) continue;
+    var cod = String(p[0]).trim().toUpperCase();
+    var ped = parseInt(p[2].split(' E:')[0].replace('P:','')) || 0;
+    var env = parseInt(p[2].split(' E:')[1]) || 0;
+    if (ped <= env) continue;
+    var pedInfo   = pedidosOT[cod] ? { estado: pedidosOT[cod].estado, eta: '' } : null;
+    var tieneRes  = !!reservasOT[cod];
+    var stockAct  = _repEstadoBulk.stockMap.hasOwnProperty(cod) ? _repEstadoBulk.stockMap[cod] : null;
+    var sev = _repSeveridad(ped, env, pedInfo, tieneRes, stockAct);
+    if (!peor || _NIVEL_ORDEN[sev.nivel] < _NIVEL_ORDEN[peor.nivel]) peor = sev;
+  }
+  return peor;
 }
 
 // Lista filtrada según vista/búsqueda/filtros. Fuente = activas o cerradas (Finalizados).
@@ -1579,6 +1653,11 @@ function _listaFiltrada() {
     else if (filtro==='pendientes') f=f.filter(function(c){return !_esCerradoCli(c.estado);});
     else if (filtro==='todos')      f=f.filter(function(c){return _esCerradoCli(c.estado);});
     else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&!_esCerradoCli(c.estado);});
+    else if (filtro==='esperando_repuesto') f=f.filter(function(c){
+      if (_esCerradoCli(c.estado)) return false;
+      var chip=_otRepChip(c);
+      return chip && (chip.nivel==='critico'||chip.nivel==='esperando');
+    });
   } else {
     f=f.filter(function(c){return c.estado===filEstVal;});
   }
@@ -1626,10 +1705,10 @@ function render() {
     var msgDot = c.msgNoLeido
       ? '<span title="Mensaje sin leer del reseller" style="display:inline-block;width:7px;height:7px;background:var(--blue);border-radius:50%;margin-left:6px;vertical-align:middle"></span>'
       : '';
-    // Backorder
-    var tieneBack = detectarBackorderLocal(c.repuestos, c.circuito, c.estado);
-    var backHtml  = tieneBack
-      ? '<span title="Backorder pendiente" style="color:var(--yellow);font-size:13px"><i class="fa fa-exclamation-triangle"></i></span>'
+    // Estado del repuesto (Command Center) — reemplaza el viejo "Bck" (que excluía Taller)
+    var _chip = _otRepChip(c);
+    var backHtml = _chip
+      ? '<span class="' + _chip.cls + '" style="font-size:9px;padding:2px 7px">' + _chip.label + '</span>'
       : '<span style="color:var(--tx-d);font-size:11px">—</span>';
     // Dos contadores: total · estado actual
     var diasEstado = c.diasEstado !== undefined ? c.diasEstado : '?';
@@ -1898,12 +1977,16 @@ function abrirLista(c) {
   // Render inmediato del thread desde datos ya disponibles (sin esperar async)
   _renderThreadHUB(c.mensajes || '', false);
 
+  // Command Center: banner en "verificando…" desde el primer instante, nunca vacío.
+  _renderRepCCBannerCargando();
+
   google.script.run
     .withSuccessHandler(function(det) {
       if (!det) return;
       // Limpiar SIEMPRE (evita repuestos pegados de orden anterior)
       document.getElementById('cont-r').innerHTML = '';
       document.getElementById('f-tra').value = det.trabajo || '';
+      var _repLineas = [];   // [{cod, desc, ped, env}] — para el Command Center
       if (det.repuestos && det.repuestos !== 'Sin consumo de repuestos' && det.repuestos.trim() !== '') {
         actual.repuestosCompletos = det.repuestos;
         var stockMap = det.stockPorCodigo || {};
@@ -1916,6 +1999,7 @@ function abrirLista(c) {
           var codUp = String(p[0]).trim().toUpperCase();
           var stk = stockMap.hasOwnProperty(codUp) ? stockMap[codUp] : undefined;
           addR(p[0], p[1], ped, env, stk);
+          _repLineas.push({ cod: codUp, desc: p[1], ped: parseInt(ped) || 0, env: parseInt(env) || 0 });
         }
       } else {
         document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Sin consumo de repuestos</div>';
@@ -1928,9 +2012,170 @@ function abrirLista(c) {
       actual.ultimaModificacion = det.ultimaModificacion || 0;
       isDirty = false;
       document.getElementById('unsaved-bar').classList.remove('show');
+      _cargarEstadoRepuestosOT(c.ot, _repLineas);
     })
     .withFailureHandler(function(e) { console.log('obtenerDetalleOT err: ' + e.message); })
     .obtenerDetalleOT(c.fila);
+}
+
+// ── COMMAND CENTER DE REPUESTOS ────────────────────────────────
+// URL del webapp de WOS para el botón "Abrir pedido" — pegar acá el deployment real
+// (mismo patrón que CONFIG.PORTAL_URL en HUB_Código.js, hoy también pendiente de completar).
+var WOS_WEBAPP_URL = 'https://script.google.com/macros/s/TU_DEPLOYMENT_ID_WOS/exec';
+
+function abrirPedidoWOS(numero) {
+  if (!WOS_WEBAPP_URL || WOS_WEBAPP_URL.indexOf('TU_DEPLOYMENT_ID_WOS') !== -1) {
+    toast('Falta configurar WOS_WEBAPP_URL en Index.html', 'err');
+    return;
+  }
+  window.open(WOS_WEBAPP_URL + '?buscar=' + encodeURIComponent(numero), '_blank');
+}
+
+function _clsEst(est) { return String(est || '').trim().replace(/\s+/g, '_'); }
+
+// Única fuente de verdad de severidad/color/label — usada por el banner del detalle,
+// el chip por línea de repuesto y el chip de la lista. ped/env ya numéricos.
+function _repSeveridad(ped, env, pedidoWOS, tieneReserva, stockActual) {
+  if (ped <= env) return { nivel: 'resuelto', label: '✅ Cargado', cls: 'chip-resuelto' };
+  if (pedidoWOS) {
+    var est = pedidoWOS.estado;
+    var etaTxt = pedidoWOS.eta ? ' · ETA ~' + pedidoWOS.eta : '';
+    if (est === 'Cancelado')            return { nivel: 'critico',   label: '🔴 Pedido cancelado',              cls: 'badge-estado badge-Cancelado' };
+    if (est === 'Backorder')            return { nivel: 'esperando', label: '🟠 Backorder' + etaTxt,            cls: 'badge-estado badge-Backorder' };
+    if (est === 'Pendiente_Revision')   return { nivel: 'esperando', label: '🟡 Pendiente de revisión',         cls: 'badge-estado badge-Pendiente_Revision' };
+    if (est === 'En_Espera_Reseller')   return { nivel: 'esperando', label: '🟣 En espera del reseller',        cls: 'badge-estado badge-En_Espera_Reseller' };
+    if (est === 'Confirmado')           return { nivel: 'en_camino', label: '🔵 Confirmado en WOS',             cls: 'badge-estado badge-Confirmado' };
+    if (est.indexOf('Preparado') === 0) return { nivel: 'en_camino', label: '📦 ' + est,                        cls: 'badge-estado badge-' + _clsEst(est) };
+    if (est === 'Listo_Retiro')         return { nivel: 'en_camino', label: '🔷 Listo para retirar',            cls: 'badge-estado badge-Listo_Retiro' };
+    if (est.indexOf('Entregado') === 0) return { nivel: 'resuelto',  label: '✅ ' + est.replace(/_/g, ' '),      cls: 'badge-estado badge-' + _clsEst(est) };
+    return { nivel: 'en_camino', label: est, cls: 'badge-estado badge-' + _clsEst(est) };
+  }
+  if (tieneReserva) return { nivel: 'en_camino', label: '🔒 Reservado (importación)', cls: 'chip-reservado' };
+  if (stockActual !== null && stockActual !== undefined && stockActual >= (ped - env))
+    return { nivel: 'en_camino', label: '📦 Hay stock — falta asignar', cls: 'chip-en-stock' };
+  return { nivel: 'critico', label: '❌ Sin pedir', cls: 'chip-sin-pedido' };
+}
+
+function _renderRepCCBannerCargando() {
+  var b = document.getElementById('rep-cc-banner');
+  if (!b) return;
+  b.className = '';
+  b.style.display = 'none';   // se muestra recién si hay algo pendiente (ver _renderRepCCBanner)
+  b.innerHTML = '';
+}
+
+// Pide al backend el cruce de estado (WOS + reserva directa + stock Carmen + ETA) para
+// los SKUs de la OT abierta, pinta el banner y el chip por línea en "Repuestos utilizados".
+function _cargarEstadoRepuestosOT(otRaw, lineas) {
+  var pendientes = lineas.filter(function(l) { return l.ped > l.env; });
+  if (!lineas.length) { _renderRepCCBannerCargando(); return; }
+  var b = document.getElementById('rep-cc-banner');
+  if (b && pendientes.length) {
+    b.className = 'cc-esperando';
+    b.style.display = 'flex';
+    b.innerHTML = '<span>⏳ Verificando estado del repuesto…</span>';
+  }
+  var skus = lineas.map(function(l) { return l.cod; });
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { _renderRepCCBannerCargando(); return; }
+      _renderRepCCBanner(lineas, res.items || {});
+      _aplicarEstadoRepuestosEnFilas(res.items || {});
+    })
+    .withFailureHandler(function() { _renderRepCCBannerCargando(); })
+    .obtenerEstadoRepuestosOT(otRaw, skus);
+}
+
+var _NIVEL_ORDEN = { critico: 0, esperando: 1, en_camino: 2, resuelto: 3 };
+
+// Reconstruye el array {cod,desc,ped,env} leyendo el DOM actual de "Repuestos utilizados"
+// — para refrescar el Command Center al instante tras pedir/reservar, sin esperar a reabrir la OT.
+function _repLineasActuales() {
+  var out = [];
+  var rows = document.querySelectorAll('#cont-r .p-row');
+  for (var i = 0; i < rows.length; i++) {
+    var inC = rows[i].querySelector('.in-c'), inD = rows[i].querySelector('.in-desc');
+    var inP = rows[i].querySelector('.in-p'), inE = rows[i].querySelector('.in-e');
+    if (!inC || !inC.value.trim()) continue;
+    out.push({
+      cod: inC.value.trim().toUpperCase(), desc: inD ? inD.value : '',
+      ped: parseInt(inP ? inP.value : 0) || 0, env: parseInt(inE ? inE.value : 0) || 0
+    });
+  }
+  return out;
+}
+
+function _renderRepCCBanner(lineas, itemsMap) {
+  var b = document.getElementById('rep-cc-banner');
+  if (!b) return;
+  var pendientes = lineas.filter(function(l) { return l.ped > l.env; });
+  if (!pendientes.length) { _renderRepCCBannerCargando(); return; }
+
+  var peor = null;
+  for (var i = 0; i < pendientes.length; i++) {
+    var l = pendientes[i];
+    var it = itemsMap[l.cod] || {};
+    var sev = _repSeveridad(l.ped, l.env, it.pedidoWOS, !!it.reserva, it.stockActual);
+    if (!peor || _NIVEL_ORDEN[sev.nivel] < _NIVEL_ORDEN[peor.sev.nivel]) peor = { linea: l, item: it, sev: sev };
+  }
+  if (!peor) { _renderRepCCBannerCargando(); return; }
+
+  var falta = peor.linea.ped - peor.linea.env;
+  var frase = '';
+  if (peor.sev.nivel === 'critico' && !peor.item.pedidoWOS) {
+    frase = '🔴 Esta orden está detenida: falta <strong>' + _escHtml(peor.linea.cod) + '</strong> — sin pedido a WOS todavía.';
+  } else if (peor.item.pedidoWOS) {
+    frase = peor.sev.label.replace(/^\S+\s/, function(m) { return m; }) +
+      ': <strong>' + _escHtml(peor.linea.cod) + '</strong> — pedido <strong>' + _escHtml(peor.item.pedidoWOS.numero) + '</strong>' +
+      (peor.item.pedidoWOS.operario ? ' · pedido por ' + _escHtml(peor.item.pedidoWOS.operario) : '');
+  } else if (peor.item.reserva) {
+    frase = '🔒 <strong>' + _escHtml(peor.linea.cod) + '</strong> reservado de una importación en tránsito (CAS ' + _escHtml(peor.item.reserva.casRef) + ').';
+  } else {
+    frase = '📦 <strong>' + _escHtml(peor.linea.cod) + '</strong>: hay ' + (peor.item.stockActual||0) + ' u. en stock — falta asignar ' + falta + ' u. a esta orden.';
+  }
+  if (pendientes.length > 1) {
+    frase += ' <span class="cc-mas" onclick="document.getElementById(\'cont-r\').scrollIntoView({behavior:\'smooth\',block:\'center\'})">+' + (pendientes.length - 1) + ' repuesto(s) más pendiente(s)</span>';
+  }
+
+  b.className = 'cc-' + peor.sev.nivel;
+  b.style.display = 'flex';
+  b.innerHTML = '<span>' + frase + '</span>' +
+    (peor.item.pedidoWOS ? '<button class="cc-abrir" onclick="abrirPedidoWOS(\'' + _escHtml(peor.item.pedidoWOS.numero) + '\')">Abrir pedido ↗</button>' : '');
+}
+
+// Agrega/actualiza el chip de estado debajo de cada fila de "Repuestos utilizados"
+// (una vez que resuelve obtenerEstadoRepuestosOT — llega después del render inicial de addR).
+function _aplicarEstadoRepuestosEnFilas(itemsMap) {
+  var rows = document.querySelectorAll('#cont-r .p-row');
+  for (var i = 0; i < rows.length; i++) {
+    var row  = rows[i];
+    var inC  = row.querySelector('.in-c');
+    var inP  = row.querySelector('.in-p');
+    var inE  = row.querySelector('.in-e');
+    if (!inC) continue;
+    var cod  = String(inC.value || '').trim().toUpperCase();
+    var it   = itemsMap[cod];
+    var prev = row.querySelector('.rep-item-status');
+    if (prev) prev.remove();
+    if (!it || !cod) continue;
+    var ped = parseInt(inP ? inP.value : 0) || 0;
+    var env = parseInt(inE ? inE.value : 0) || 0;
+    var sev = _repSeveridad(ped, env, it.pedidoWOS, !!it.reserva, it.stockActual);
+    var det = document.createElement('div');
+    det.className = 'rep-item-status';
+    var html = '<span class="' + sev.cls + '">' + sev.label + '</span>';
+    if (it.pedidoWOS && it.pedidoWOS.fecha) {
+      html += '<span>pedido el ' + new Date(it.pedidoWOS.fecha).toLocaleDateString('es-AR') + '</span>';
+    }
+    if (it.stockActual !== null && it.stockActual !== undefined) {
+      html += '<span>stock actual: ' + it.stockActual + ' u.</span>';
+    }
+    if (it.pedidoWOS) {
+      html += '<button class="ri-abrir" onclick="abrirPedidoWOS(\'' + it.pedidoWOS.numero.replace(/'/g, "\\'") + '\')">Abrir pedido ↗</button>';
+    }
+    det.innerHTML = html;
+    row.appendChild(det);
+  }
 }
 
 // ── MOTOR DE DIAGNÓSTICO — CASOS SIMILARES ────────────────────
@@ -3350,6 +3595,8 @@ function confirmarReservaImportacion() {
       if (!r.ok) { toast('Error: ' + r.msg, 'err'); return; }
       toast('Reserva creada (' + r.id + ') para OT ' + otNombre, 'ok');
       bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-res-import')).hide();
+      cargarEstadoRepuestos();
+      if (actual && actual.ot === otNombre) _cargarEstadoRepuestosOT(otNombre, _repLineasActuales());
     })
     .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); })
     .crearReservaDesdeHUB(_resImpSku, _resImpDesc, _resImpQty, otNombre, cas, operador);
@@ -3579,6 +3826,8 @@ function _repWosConfirmar() {
           bRepWos.style.color = 'var(--green)';
           bRepWos.innerHTML = '<i class="fa fa-check-circle"></i> WOS: ' + r.numero;
         }
+        cargarEstadoRepuestos();
+        if (actual) _cargarEstadoRepuestosOT(actual.ot, _repLineasActuales());
       } else {
         toast('Error: ' + r.error, 'err');
       }
@@ -3882,6 +4131,7 @@ window.onload=function(){
   cargarUsuario();
   cargarCatalogoFront();   // catálogo estático: una vez (o desde cache de sesión)
   load();                  // lista viva (rápida, sin catálogo)
+  cargarEstadoRepuestos(); // Command Center: chip de "Repuesto" en la lista
 };
 </script>
 

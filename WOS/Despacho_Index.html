@@ -1,4 +1,4 @@
-<!-- @version 3.43 -->
+<!-- @version 3.44 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -1675,12 +1675,30 @@ function cargar() {
         'Actualizado ' + ('0'+now.getHours()).slice(-2) + ':' + ('0'+now.getMinutes()).slice(-2);
       document.title = 'WOS \xb7 Despacho Portal';
       if (!_pollingTimer) { _iniciarPolling(); _pedirPermisoNotificacion(); }
+      if (!_buscarUrlAplicado) { _buscarUrlAplicado = true; _wosAplicarBuscarURL(); }
     })
     .withFailureHandler(function(e) {
       wosLoadDone(); btn.classList.remove('loading');
       toast('Error de conexi\xF3n: ' + e.message, 'err');
     })
     .WOS_cargarPedidos();
+}
+
+// Deep link ?buscar=NUMERO (ej. desde HUB_PRO, botón "Abrir pedido") — precarga el buscador
+// y filtra. La página corre en un iframe de origen distinto al de la URL de deployment, así
+// que location.search NO ve el parámetro externo: hay que usar la API de Apps Script
+// google.script.url.getLocation(). El guard evita reaplicarlo en cada poll de refresco y
+// pisar una búsqueda que el operario ya haya tipeado a mano.
+var _buscarUrlAplicado = false;
+function _wosAplicarBuscarURL() {
+  try {
+    google.script.url.getLocation(function(loc) {
+      var b = loc && loc.parameter && loc.parameter.buscar;
+      if (!b) return;
+      var inp = document.getElementById('search-inp');
+      if (inp) { inp.value = b; renderPedidos(); }
+    });
+  } catch(e) {}
 }
 
 function _pedirPermisoNotificacion() {

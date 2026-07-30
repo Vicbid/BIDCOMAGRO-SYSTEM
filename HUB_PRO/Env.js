@@ -1,5 +1,6 @@
-// @version 1.1
+// @version 1.2
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
+var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
 var SCHEMA = {
   SHEETS: {
@@ -211,6 +212,27 @@ function getSheetValues(nombre, force) {
 function invalidateSheetValues(nombre) {
   var keyName = (nombre && typeof nombre.getName === 'function') ? nombre.getName() : String(nombre);
   CacheService.getScriptCache().remove(_cacheKey(keyName));
+}
+
+// Lector cacheado para spreadsheets EXTERNOS (WOS, Carmen) o el MASTER por ID explícito.
+// A diferencia de getSheetValues()/getSheet() (que dependen de getDb(), y de un getSheet()
+// distinto redefinido en HUB_Código.js apuntando a getActiveSpreadsheet() — ambigüedad ya
+// existente en este proyecto), este helper siempre abre por openById explícito: sin dudas
+// de a qué spreadsheet apunta, sin importar el orden de carga de los archivos del proyecto.
+function _hubExtSheetValues(ssId, sheetName, ttlSec) {
+  var cache = CacheService.getScriptCache();
+  var key = 'ext:' + ssId + ':' + sheetName;
+  var cached = cache.get(key);
+  if (cached) {
+    try { return _deserializeValues(cached); } catch(e) {}
+  }
+  var sh = SpreadsheetApp.openById(ssId).getSheetByName(sheetName);
+  var values = sh ? sh.getDataRange().getValues() : [];
+  try {
+    var payload = _serializeValues(values);
+    if (payload.length < 90000) cache.put(key, payload, ttlSec || 60);
+  } catch(e) {}
+  return values;
 }
 
 function getCachedData(key, callback, ttl) {

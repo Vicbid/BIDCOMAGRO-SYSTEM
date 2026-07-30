@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: el spreadsheet activo (SS)
-// @version 2.24
+// @version 2.25
 //
 //  Funciones exclusivas del HUB interno:
 //  cargarTodo, actualizarOrden, crearNuevaOT,
@@ -536,15 +536,12 @@ function obtenerDetalleOT(fila) {
     if (!f) return { trabajo: "", repuestos: "", mensajes: "", stockPorCodigo: {} };
 
     // Build stock map for repuestos in this OT
+    // FIX: antes leía SCHEMA.SHEETS.STOCK (STOCK_REPUESTOS), fuente vieja/no confiable.
+    // Carmen es la ÚNICA fuente real de stock del proyecto — ver _hubCarmenStockMap().
     var repStr = String(f[16] || "").trim();
     var stockPorCodigo = {};
     if (repStr && repStr !== 'Sin consumo de repuestos') {
-      var dStock = getSheetValues(SCHEMA.SHEETS.STOCK);
-      var ST = SCHEMA.STOCK_REPUESTOS;
-      var stockIdx = {};
-      for (var s = 1; s < dStock.length; s++) {
-        stockIdx[String(dStock[s][ST.CODIGO] || '').trim().toUpperCase()] = parseInt(dStock[s][ST.STOCK_ACTUAL]) || 0;
-      }
+      var stockIdx = _hubCarmenStockMap();
       var ls = repStr.split(' ; ');
       for (var r = 0; r < ls.length; r++) {
         var p = ls[r].split(' | ');
@@ -2838,6 +2835,171 @@ function registrarSolicitudDespacho(idOT, reseller, strRepuestos) {
   }
 
   invalidateSheetValues(SCHEMA.SHEETS.SOLICITUDES);
+}
+
+// ============================================================
+//  COMMAND CENTER DE REPUESTOS — helpers de dominio
+//  Cruzan, en una sola lectura por hoja (sin N+1), el estado real de un repuesto de OT:
+//  · Pedidos_OTs (WOS)      → pedido a WOS, su estado, fecha, operario.
+//  · RESERVAS_STOCK (MASTER)→ reserva directa "de importación" armada desde HUB_PRO.
+//  · COMPRAS_DJI+DETALLE    → ETA del lote DJI más próximo, si el pedido está en Backorder.
+//  · Carmen STOCK           → stock actual real (ver fix en obtenerDetalleOT).
+// ============================================================
+
+function _hubCarmenStockMap() {              // { SKU: stockActual } — Carmen col A(código)/C(stock)
+  var d = _hubExtSheetValues(CARMEN_SS_ID, 'STOCK', 60);
+  var m = {};
+  for (var i = 1; i < d.length; i++) {
+    var c = String(d[i][0] || '').trim().toUpperCase();
+    if (c) m[c] = parseInt(d[i][2]) || 0;
+  }
+  return m;
+}
+
+function _hubPedidosOTsRows() {
+  return _hubExtSheetValues(WOS_SS_ID, WOS_HOJA_PED, 30);
+}
+
+function _hubReservasStockRows() {
+  return _hubExtSheetValues(MASTER_SHEET_ID, SCHEMA.SHEETS.RESERVAS, 30);
+}
+
+// Parsea "dd/MM/yyyy" o "dd/MM" (año actual) → Date; Date → Date; cualquier otra cosa → null.
+// Réplica de _wosEtaToDate (WOS/Despacho_Código.js) — mismo formato de FECHA_ETA en COMPRAS_DETALLE.
+function _hubEtaToDate(s) {
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+  s = String(s || '').trim();
+  if (!s) return null;
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (!m) return null;
+  var dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1;
+  var yy = m[3] ? parseInt(m[3], 10) : (new Date()).getFullYear();
+  if (yy < 100) yy += 2000;
+  var dt = new Date(yy, mm, dd);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+// Réplica simplificada de WOS_getEnCaminoMap (WOS/Despacho_Código.js): solo la ETA más
+// próxima por SKU entre CAS activos — no necesitamos acá la lógica de reservas-netas de WOS.
+// { SKU: 'dd/MM/yyyy' }
+function _hubEnCaminoEtaPorSku() {
+  var dCAS = _hubExtSheetValues(MASTER_SHEET_ID, 'COMPRAS_DJI', 60);
+  var dDET = _hubExtSheetValues(MASTER_SHEET_ID, 'COMPRAS_DETALLE', 60);
+  var casActivos = {};
+  for (var c = 1; c < dCAS.length; c++) {
+    var casId  = String(dCAS[c][0] || '').trim().toUpperCase();
+    var estado = String(dCAS[c][2] || '').trim();
+    if (casId && estado !== 'En depósito' && estado.indexOf('Borrador') < 0) casActivos[casId] = true;
+  }
+  var out = {}, bestDt = {};
+  for (var d = 1; d < dDET.length; d++) {
+    var dCas = String(dDET[d][0] || '').trim().toUpperCase();
+    var dSku = String(dDET[d][1] || '').trim().toUpperCase();
+    var pend = (Number(dDET[d][3]) || 0) - (Number(dDET[d][4]) || 0);
+    if (!dSku || !casActivos[dCas] || pend <= 0) continue;
+    var dt = _hubEtaToDate(dDET[d][6]);
+    if (dt && (!bestDt[dSku] || dt < bestDt[dSku])) {
+      bestDt[dSku] = dt;
+      out[dSku] = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    }
+  }
+  return out;
+}
+
+// ── Detalle de UNA OT (se llama al abrir la orden) ───────────────────────────────────
+// otRaw: número crudo de la OT (actual.ot, ej. "WH/REP/00123", SIN el prefijo "OT-").
+// skus: array de códigos ya parseados en el cliente desde det.repuestos.
+function obtenerEstadoRepuestosOT(otRaw, skus) {
+  try {
+    var numero     = 'OT-' + String(otRaw || '').trim();
+    var otRawTrim  = String(otRaw || '').trim();
+    var pedidoRows = _hubPedidosOTsRows();
+    var resRows    = _hubReservasStockRows();
+    var stockMap   = _hubCarmenStockMap();
+    var etaMap     = _hubEnCaminoEtaPorSku();
+    var R = SCHEMA.RESERVAS_STOCK;
+    var out = {};
+
+    for (var s = 0; s < (skus || []).length; s++) {
+      var sku = String(skus[s]).trim().toUpperCase();
+      if (!sku || out[sku]) continue;
+      var item = { pedidoWOS: null, reserva: null, stockActual: stockMap.hasOwnProperty(sku) ? stockMap[sku] : null };
+
+      for (var p = 1; p < pedidoRows.length; p++) {
+        if (String(pedidoRows[p][0] || '').trim() !== numero) continue;
+        if (String(pedidoRows[p][2] || '').trim().toUpperCase() !== sku) continue;
+        var est = String(pedidoRows[p][9] || '').trim();
+        item.pedidoWOS = {
+          numero:   numero,
+          estado:   est,
+          fecha:    (pedidoRows[p][10] instanceof Date) ? pedidoRows[p][10].getTime() : null,
+          operario: String(pedidoRows[p][23] || ''),
+          cantPend: Math.max(0, (Number(pedidoRows[p][4]) || 0) - (Number(pedidoRows[p][5]) || 0) - (Number(pedidoRows[p][25]) || 0)),
+          eta:      (est === 'Backorder' && etaMap[sku]) ? etaMap[sku] : ''
+        };
+        break;   // 1ª fila que matchea numero+sku (ver Riesgos: duplicados del mismo SKU no se consolidan)
+      }
+
+      for (var r = 1; r < resRows.length; r++) {
+        if (String(resRows[r][R.ID_REFERENCIA] || '').trim() !== otRawTrim) continue;
+        if (String(resRows[r][R.SKU] || '').trim().toUpperCase() !== sku) continue;
+        if (String(resRows[r][R.ESTADO] || '').trim() !== 'Activa') continue;
+        item.reserva = {
+          id:       String(resRows[r][R.ID] || ''),
+          casRef:   String(resRows[r][R.CAS_REF] || ''),
+          fecha:    (resRows[r][R.FECHA] instanceof Date) ? resRows[r][R.FECHA].getTime() : null,
+          operador: String(resRows[r][R.OPERADOR] || '')
+        };
+        break;
+      }
+      out[sku] = item;
+    }
+    return { ok: true, items: out };
+  } catch(e) {
+    Logger.log('obtenerEstadoRepuestosOT ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// ── Resumen BULK de TODAS las OTs abiertas (se llama al cargar la lista) ─────────────
+// Una sola pasada por Pedidos_OTs y RESERVAS_STOCK — NO abre "Ordenes de trabajo" (el
+// cliente ya tiene c.repuestos de cargarOrdenes()). otId sin el prefijo "OT-".
+function obtenerEstadoRepuestosOTs() {
+  try {
+    var pedidoRows = _hubPedidosOTsRows();
+    var resRows    = _hubReservasStockRows();
+    var stockMap   = _hubCarmenStockMap();
+    var R = SCHEMA.RESERVAS_STOCK;
+
+    var pedidosPorOT = {};   // { otId: { SKU: {estado, cantPend} } }
+    for (var p = 1; p < pedidoRows.length; p++) {
+      var numero = String(pedidoRows[p][0] || '').trim();
+      if (numero.toUpperCase().indexOf('OT-') !== 0) continue;
+      var otId = numero.substring(3);
+      var sku  = String(pedidoRows[p][2] || '').trim().toUpperCase();
+      if (!sku) continue;
+      if (!pedidosPorOT[otId]) pedidosPorOT[otId] = {};
+      pedidosPorOT[otId][sku] = {
+        estado:   String(pedidoRows[p][9] || '').trim(),
+        cantPend: Math.max(0, (Number(pedidoRows[p][4]) || 0) - (Number(pedidoRows[p][5]) || 0) - (Number(pedidoRows[p][25]) || 0))
+      };
+    }
+
+    var reservasPorOT = {};  // { otId: { SKU: true } } — solo Activas
+    for (var r = 1; r < resRows.length; r++) {
+      if (String(resRows[r][R.ESTADO] || '').trim() !== 'Activa') continue;
+      var otRef = String(resRows[r][R.ID_REFERENCIA] || '').trim();
+      var skuR  = String(resRows[r][R.SKU] || '').trim().toUpperCase();
+      if (!otRef || !skuR) continue;
+      if (!reservasPorOT[otRef]) reservasPorOT[otRef] = {};
+      reservasPorOT[otRef][skuR] = true;
+    }
+
+    return { ok: true, pedidos: pedidosPorOT, reservas: reservasPorOT, stockMap: stockMap };
+  } catch(e) {
+    Logger.log('obtenerEstadoRepuestosOTs ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 // ============================================================
