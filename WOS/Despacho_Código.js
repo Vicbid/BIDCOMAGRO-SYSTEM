@@ -1,4 +1,4 @@
-// @version 3.23
+// @version 3.24
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -30,7 +30,12 @@ function _doGetRespFaltante(params) {
   }
 
   try {
-    var hoja  = _getHojaPedidos();
+    // Antes hardcodeado a _getHojaPedidos() (solo Pedidos_resellers) — el botón del mail
+    // de faltante para pedidos de OT ('OT-...') siempre daba "Pedido no encontrado".
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) {
+      return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + numero + '. Comunicate con nuestro equipo.'));
+    }
     var datos = hoja.getDataRange().getValues();
     var reseller = '', hayEnEspera = false;
     for (var i = 1; i < datos.length; i++) {
@@ -60,9 +65,17 @@ function _doGetRespFaltante(params) {
       return HtmlService.createHtmlOutput(_rfHtml(false, 'Error al procesar', 'No pudimos registrar tu respuesta. Por favor comunicate con nuestro equipo.'));
     }
 
-    var msg = opcion === 'A'
-      ? 'Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>Despachamos lo disponible a la brevedad y los \xedtems faltantes llegan cuando haya stock.'
-      : 'Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>Despachamos lo disponible y los \xedtems faltantes quedan cancelados.';
+    var esOT = _esNumeroOT(numero);
+    var msg;
+    if (esOT) {
+      msg = opcion === 'A'
+        ? 'Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar y consolidar en un solo env\xedo.</strong><br>Retenemos tambi\xe9n lo que ya est\xe1 disponible; cuando llegue el resto va todo junto.'
+        : 'Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Despachar ahora lo disponible.</strong><br>El resto llega despu\xe9s, en un segundo env\xedo. No se cancela nada.';
+    } else {
+      msg = opcion === 'A'
+        ? 'Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>Despachamos lo disponible a la brevedad y los \xedtems faltantes llegan cuando haya stock.'
+        : 'Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>Despachamos lo disponible y los \xedtems faltantes quedan cancelados.';
+    }
     return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + reseller + '!', msg))
       .setTitle('Respuesta registrada \xb7 Pedido ' + numero);
   } catch(e) {
@@ -154,6 +167,7 @@ function WOS_procesarRespuestaIngreso(numero, opcion, operario) {
         rEst.clearDataValidations();
         rEst.setValue(EST.PREPARADO);
         hoja.getRange(r + 1, COL.FECHA_ESTADO + 1).setValue(ahora);
+        datos[r][COL.ESTADO] = EST.PREPARADO;   // mantener `datos` en memoria consistente (ver liberarConsolidar abajo)
         skusOk[rSku] = true;
         reactivados++;
       }
@@ -162,6 +176,8 @@ function WOS_procesarRespuestaIngreso(numero, opcion, operario) {
         for (var sk in skusOk) {
           try { _wosCerrarReservas(numero, sk, 'Cumplida'); } catch(eCR) { Logger.log('respIngreso cerrarReservas: ' + eCR); }
         }
+        // OT: si este pedido ya no tiene ninguna fila Backorder, liberar lo retenido por consolidación
+        try { _wosLiberarConsolidarSiSinBackorder(hoja, datos, numero); } catch(eLib) { Logger.log('respIngreso liberarConsolidar: ' + eLib); }
       }
     }
 
@@ -531,6 +547,7 @@ function WOS_actualizarValidacion() {
   var estados = [
     'Pendiente_Revision', 'Confirmado', 'En_Espera_Reseller',
     'Cancelado', 'Preparado', 'Backorder', 'Preparado Parcial',
+    'Reservado_Consolidar',
     'Entregado_Cerrado', 'Listo_Retiro', 'Entregado_Confirmado'
   ];
   var regla = SpreadsheetApp.newDataValidation()
@@ -728,7 +745,7 @@ function WOS_cargarPedidos() {
 
     // Cancelado NO entra en la prioridad: un pedido con ítems entregados + alguno cancelado
     // es un pedido ENTREGADO (parcialmente cancelado), no un pedido cancelado.
-    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER];
+    var EST_PRIORIDAD = [EST.PENDIENTE, EST.CONFIRMADO, EST.EN_ESPERA, EST.PREPARADO, EST.PREP_PARCIAL, EST.BACKORDER, EST.RESERVADO_CONSOLIDAR];
 
     var result = [];
     for (var k = 0; k < orden.length; k++) {
@@ -1064,10 +1081,12 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
       var _cantDesp   = Number(datos[i][COL.CANT_DESP])   || 0;
       var _cantCancel = Number(datos[i][COL.CANT_CANCEL]) || 0;
       var _cantPend   = _cantSol - _cantDesp - _cantCancel;
-      // Si la línea está En_Espera_Reseller (faltante esperando al reseller), preparar lo disponible
-      // NO la saca de En_Espera: se registran SN + peso pero el estado se mantiene para que la respuesta
-      // A/B del reseller la siga resolviendo. Resto: Preparado / Preparado Parcial según lo preparado.
-      var _estNuevo = (estActual === EST.EN_ESPERA) ? EST.EN_ESPERA
+      // Si la línea está En_Espera_Reseller (faltante esperando al reseller) o Reservado_Consolidar
+      // (OT: disponible pero retenido a propósito hasta consolidar en 1 envío), preparar lo disponible
+      // NO la saca de ese estado: se registran SN + peso pero el estado se mantiene para que la
+      // respuesta A/B o la liberación por consolidación la sigan resolviendo. Resto: Preparado /
+      // Preparado Parcial según lo preparado.
+      var _estNuevo = (estActual === EST.EN_ESPERA || estActual === EST.RESERVADO_CONSOLIDAR) ? estActual
                     : ((qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL);
       hoja.getRange(fila, COL.ESTADO       + 1).setValue(_estNuevo);
       hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
@@ -1110,6 +1129,12 @@ function WOS_reactivarBackorder(numero, operario) {
     SpreadsheetApp.flush();
     // El backorder reactivado ya tiene su stock → cerrar las reservas del pedido (Cumplida)
     try { _wosCerrarReservas(numero, '', 'Cumplida'); } catch(eCR) { Logger.log('reactivarBackorder cerrarReservas: ' + eCR); }
+    // OT: si este pedido ya no tiene ninguna fila Backorder, cualquier línea retenida por
+    // consolidación (Reservado_Consolidar) se libera junto — lectura fresca, requerida.
+    try {
+      var datosFrescos = hoja.getDataRange().getValues();
+      _wosLiberarConsolidarSiSinBackorder(hoja, datosFrescos, numero);
+    } catch(eLib) { Logger.log('reactivarBackorder liberarConsolidar: ' + eLib); }
     var reseller = '';
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() === numero) {
@@ -1229,12 +1254,15 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
         _rmR.clearDataValidations();
         _rmR.setValue(EST.PREPARADO);
         hoja.getRange(rm + 1, COL.FECHA_ESTADO + 1).setValue(_rmAhora);
+        datos[rm][COL.ESTADO] = EST.PREPARADO;   // mantener `datos` en memoria consistente (ver liberarConsolidar abajo)
         _rmFlip++;
       }
       if (!_rmFlip) continue;   // este pedido no tenía backorder de ese SKU → no reactivar/notificar
 
       // La unidad reservada de este SKU llegó y se reactivó → cerrar la reserva (Cumplida)
       try { _wosCerrarReservas(numero, skuUp, 'Cumplida'); } catch(eCR) { Logger.log('recibirMercaderia cerrarReservas: ' + eCR); }
+      // OT: si este pedido ya no tiene ninguna fila Backorder, liberar lo retenido por consolidación
+      try { _wosLiberarConsolidarSiSinBackorder(hoja, datos, numero); } catch(eLib) { Logger.log('recibirMercaderia liberarConsolidar: ' + eLib); }
 
       if (threadId) {
         try {

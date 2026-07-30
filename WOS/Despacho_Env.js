@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 var NOTAS_SS_ID            = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
@@ -95,7 +95,12 @@ var EST = {
   PREP_PARCIAL:   'Preparado Parcial',
   ENTREGADO:      'Entregado_Cerrado',
   LISTO_RETIRO:   'Listo_Retiro',
-  ENTREGADO_CONF: 'Entregado_Confirmado'
+  ENTREGADO_CONF: 'Entregado_Confirmado',
+  // Solo pedidos de OT (ver _esNumeroOT): ítem YA disponible pero retenido a propósito
+  // porque el contacto de la OT eligió "esperar y consolidar en 1 solo envío". A
+  // diferencia de Backorder, NO significa "falta comprar/reponer" — no debe entrar en
+  // WOS_reporteBackorder ni en el backorderPred del Command Center de HUB_PRO.
+  RESERVADO_CONSOLIDAR: 'Reservado_Consolidar'
 };
 
 function _getHojaPedidos() {

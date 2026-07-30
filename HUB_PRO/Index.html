@@ -1,4 +1,4 @@
-<!-- @version 2.18 -->
+<!-- @version 2.19 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -270,6 +270,7 @@ td:first-child{padding-left:20px}
 .badge-Cancelado{background:#FFEBE6;color:#BF2600;border:1px solid rgba(222,53,11,.3)}
 .badge-Entregado_Cerrado,.badge-Entregado_Confirmado{background:#E3FCEF;color:#006644;border:1px solid rgba(0,135,90,.3)}
 .badge-Listo_Retiro{background:#E6FCFF;color:#006972;border:1px solid rgba(0,185,217,.3)}
+.badge-Reservado_Consolidar{background:rgba(142,68,173,.14);color:#8e44ad;border:1px solid rgba(142,68,173,.35)}
 
 .chip-sin-pedido{background:rgba(231,76,60,.14);color:var(--red);border:1px solid rgba(231,76,60,.35);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
 .chip-reservado{background:rgba(99,102,241,.14);color:var(--indigo);border:1px solid rgba(99,102,241,.35);font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;white-space:nowrap;display:inline-block}
@@ -2007,6 +2008,7 @@ function _repSeveridad(ped, env, pedidoWOS, tieneReserva, stockActual) {
     if (est === 'Confirmado')           return { nivel: 'en_camino', label: '🔵 Confirmado en WOS',             cls: 'badge-estado badge-Confirmado' };
     if (est.indexOf('Preparado') === 0) return { nivel: 'en_camino', label: '📦 ' + est,                        cls: 'badge-estado badge-' + _clsEst(est) };
     if (est === 'Listo_Retiro')         return { nivel: 'en_camino', label: '🔷 Listo para retirar',            cls: 'badge-estado badge-Listo_Retiro' };
+    if (est === 'Reservado_Consolidar') return { nivel: 'en_camino', label: '🟣 Disponible — esperando consolidar envío', cls: 'badge-estado badge-Reservado_Consolidar' };
     if (est.indexOf('Entregado') === 0) return { nivel: 'resuelto',  label: '✅ ' + est.replace(/_/g, ' '),      cls: 'badge-estado badge-' + _clsEst(est) };
     return { nivel: 'en_camino', label: est, cls: 'badge-estado badge-' + _clsEst(est) };
   }

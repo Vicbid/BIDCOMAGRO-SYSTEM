@@ -1,4 +1,4 @@
-<!-- @version 3.44 -->
+<!-- @version 3.45 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -122,6 +122,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;li
 .card-head.est-Preparado          {border-left-color:var(--blue)}
 .card-head.est-Preparado_Parcial  {border-left-color:var(--blue)}
 .card-head.est-Backorder          {border-left-color:#FF5630}
+.card-head.est-Reservado_Consolidar{border-left-color:var(--indigo)}
 .card-head.est-Cancelado          {border-left-color:var(--red-m)}
 .card-head.est-Entregado_Cerrado  {border-left-color:var(--green-m)}
 .card-head.est-Listo_Retiro       {border-left-color:var(--teal-m)}
@@ -150,6 +151,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;li
 .badge-Preparado          {background:var(--blue-l);color:var(--blue);border:1px solid rgba(0,82,204,.3)}
 .badge-Preparado_Parcial  {background:var(--blue-l);color:var(--blue);border:1px solid rgba(0,82,204,.3)}
 .badge-Backorder          {background:#FFF0E6;color:#7A3D00;border:1px solid #FF5630}
+.badge-Reservado_Consolidar{background:rgba(82,67,170,.12);color:var(--indigo);border:1px solid rgba(82,67,170,.35)}
 .badge-Cancelado          {background:var(--red-l);color:var(--red);border:1px solid rgba(222,53,11,.3)}
 .badge-Entregado_Cerrado  {background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.3)}
 .badge-Listo_Retiro       {background:var(--teal-l);color:var(--teal);border:1px solid rgba(0,185,217,.3)}
@@ -174,11 +176,13 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;li
 .wf-dot.active{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a)}
 .wf-dot.o2c   {background:var(--purple-m);border-color:var(--purple-m);box-shadow:0 0 0 3px var(--purple-l)}
 .wf-dot.warn  {background:var(--yellow-m);border-color:var(--yellow-m);box-shadow:0 0 0 3px rgba(255,139,0,.2)}
+.wf-dot.consolidar{background:var(--indigo);border-color:var(--indigo);box-shadow:0 0 0 3px rgba(82,67,170,.2)}
 .wf-step-lbl{font-size:8px;font-weight:600;color:var(--tx-d);margin-top:4px;white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
 .wf-step-lbl.done  {color:var(--green-m)}
 .wf-step-lbl.active{color:var(--blue)}
 .wf-step-lbl.o2c   {color:var(--purple-m)}
 .wf-step-lbl.warn  {color:var(--yellow-m)}
+.wf-step-lbl.consolidar{color:var(--indigo)}
 .wf-line{flex:1;height:2px;background:var(--brd);margin-bottom:14px;transition:background .2s}
 .wf-line.done{background:var(--green-m)}
 .wf-cancelled-msg{font-size:10px;color:var(--red-m);font-weight:700;padding:8px 0}
@@ -403,6 +407,7 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .est-hdr-Preparado          .est-hdr-dot{background:var(--blue)}
 .est-hdr-Preparado_Parcial  .est-hdr-dot{background:var(--blue)}
 .est-hdr-Backorder          .est-hdr-dot{background:#FF5630}
+.est-hdr-Reservado_Consolidar .est-hdr-dot{background:var(--indigo)}
 .est-hdr-Cancelado          .est-hdr-dot{background:var(--red-m)}
 .est-hdr-Entregado_Cerrado  .est-hdr-dot{background:var(--green-m)}
 .est-hdr-Listo_Retiro       .est-hdr-dot{background:var(--teal-m)}
@@ -651,6 +656,9 @@ body{overflow:hidden}
       </button>
       <button class="filter-tab" data-est="Backorder" onclick="filtrarEstado('Backorder')">
         <i class="fa fa-exclamation-circle"></i><span>Backorder</span><span class="nb-cnt" id="st-back">—</span>
+      </button>
+      <button class="filter-tab" data-est="Reservado_Consolidar" onclick="filtrarEstado('Reservado_Consolidar')">
+        <i class="fa fa-object-group"></i><span>Consolidar envío</span><span class="nb-cnt" id="st-consolidar">—</span>
       </button>
       <button class="filter-tab" data-est="Listo_Retiro" onclick="filtrarEstado('Listo_Retiro')">
         <i class="fa fa-store-alt"></i><span>Listo retiro</span><span class="nb-cnt" id="st-retiro">—</span>
@@ -1129,7 +1137,8 @@ function _horasHabilesDesde(startMs) {
 var EST_TERMINAL = { 'Cancelado': true, 'Entregado_Cerrado': true, 'Listo_Retiro': true, 'Entregado_Confirmado': true };
 var EST_ACTIVOS  = {
   'Pendiente_Revision': true, 'Confirmado': true, 'En_Espera_Reseller': true,
-  'Preparado': true, 'Preparado Parcial': true, 'Backorder': true
+  'Preparado': true, 'Preparado Parcial': true, 'Backorder': true,
+  'Reservado_Consolidar': true
 };
 
 // Convierte el nombre de estado a clase CSS (reemplaza espacios)
@@ -1772,7 +1781,7 @@ function actualizarKPI() {
 // ── Stats ─────────────────────────────────────────────────────
 function actualizarStats() {
   var C = { '':0,'Pendiente_Revision':0,'Confirmado':0,'En_Espera_Reseller':0,
-            'Preparado':0,'Preparado Parcial':0,'Backorder':0,
+            'Preparado':0,'Preparado Parcial':0,'Backorder':0,'Reservado_Consolidar':0,
             'Entregado_Cerrado':0,'Listo_Retiro':0,'Entregado_Confirmado':0,'Cancelado':0 };
   for (var i = 0; i < _pedidos.length; i++) {
     var e = _pedidos[i].estado;
@@ -1788,6 +1797,7 @@ function actualizarStats() {
   document.getElementById('st-prep').textContent     = C['Preparado'];
   document.getElementById('st-parcial').textContent  = C['Preparado Parcial'];
   document.getElementById('st-back').textContent     = C['Backorder'];
+  document.getElementById('st-consolidar').textContent = C['Reservado_Consolidar'];
   document.getElementById('st-retiro').textContent   = C['Listo_Retiro'];
   document.getElementById('st-cerrados').textContent = C['__cerrados'];
   // Marcar estados vacíos y actualizar botón toggle
@@ -1859,7 +1869,7 @@ function filtrarEstado(est) {
 // ── Render lista ──────────────────────────────────────────────
 var _EST_ORDEN = [
   'Pendiente_Revision','Confirmado','Preparado','Preparado Parcial',
-  'En_Espera_Reseller','Backorder',
+  'En_Espera_Reseller','Backorder','Reservado_Consolidar',
   'Entregado_Cerrado','Listo_Retiro','Entregado_Confirmado','Cancelado'
 ];
 var _EST_HDR_LABEL = {
@@ -1869,6 +1879,7 @@ var _EST_HDR_LABEL = {
   'Preparado Parcial':   'Despacho parcial',
   'En_Espera_Reseller':  'Esperando respuesta del reseller',
   'Backorder':           'En backorder — sin stock',
+  'Reservado_Consolidar':'Disponible — esperando consolidar envío',
   'Entregado_Cerrado':   'Despachados',
   'Listo_Retiro':        'Listos para retiro en local',
   'Entregado_Confirmado':'Recibidos por el reseller',
@@ -1959,6 +1970,10 @@ function _renderWorkflow(estado) {
   } else if (estado === 'Backorder') {
     steps = [{lbl:'Pedido'},{lbl:'Sin stock'},{lbl:'Backorder'}];
     cur   = 2; isO2C = true;
+  } else if (estado === 'Reservado_Consolidar') {
+    // OT: disponible pero retenido a propósito hasta consolidar todo en 1 envío.
+    steps = [{lbl:'Pedido'},{lbl:'Disponible'},{lbl:'Consolidando'}];
+    cur   = 2; isO2C = true;
   } else {
     steps = [{lbl:'Nuevo'},{lbl:'Confirmado'},{lbl:'Preparado'}];
     cur   = {'Pendiente_Revision':0,'Confirmado':1,'Preparado':2}[estado];
@@ -1969,8 +1984,10 @@ function _renderWorkflow(estado) {
   var html = '<div class="wf-wrap">';
   for (var i = 0; i < steps.length; i++) {
     var isWarn = isO2C && estado === 'Backorder' && i === cur;
+    var isConsolidar = isO2C && estado === 'Reservado_Consolidar' && i === cur;
     var dotCls, lblCls;
     if (isWarn)     { dotCls = 'warn'; lblCls = 'warn'; }
+    else if (isConsolidar) { dotCls = 'consolidar'; lblCls = 'consolidar'; }
     else if (i < cur)    { dotCls = 'done'; lblCls = 'done'; }
     else if (i === cur)  { dotCls = isO2C ? 'o2c' : 'active'; lblCls = isO2C ? 'o2c' : 'active'; }
     else                 { dotCls = '';     lblCls = ''; }
@@ -2143,6 +2160,7 @@ function renderCard(p) {
     'Preparado':          'Preparado',
     'Preparado Parcial':  'Parcial',
     'Backorder':          'Sin stock',
+    'Reservado_Consolidar':'Consolidando',
     'Entregado_Cerrado':   'Despachado',
     'Listo_Retiro':        'Retiro listo',
     'Entregado_Confirmado':'Recibido ✓',
@@ -2278,7 +2296,7 @@ function renderAcciones(p) {
 
   // Lanzador del armado guiado (paso a paso + checklist antes de cerrar). Primero, prominente.
   if (est === 'Pendiente_Revision' || est === 'Confirmado' || est === 'En_Espera_Reseller' ||
-      est === 'Backorder' || est === 'Preparado' || est === 'Preparado Parcial') {
+      est === 'Backorder' || est === 'Preparado' || est === 'Preparado Parcial' || est === 'Reservado_Consolidar') {
     btns += '<button class="btn btn-primary" style="font-weight:800" onclick="_wzGuia(\'' + n + '\')">▶ Armar pedido guiado</button>';
   }
 
@@ -2292,7 +2310,15 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Despachar lo disponible</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>';
   }
-  if (est === 'Pendiente_Revision' || est === 'Confirmado' || est === 'En_Espera_Reseller' || est === 'Preparado' || est === 'Preparado Parcial') {
+  if (est === 'Reservado_Consolidar') {
+    // OT: se retuvo a propósito lo disponible para consolidar en 1 solo envío — no se ofrece
+    // "Despachar ahora" directo (saltearía WOS_procesarRespuestaManual y su bookkeeping);
+    // el override pasa por la misma vía que un cambio de decisión telefónico.
+    btns += '<div class="parcial-aviso parcial-aviso-espera">🟣 Retenido para consolidar en un solo envío — se libera solo cuando llegue el resto. Podés preparar (N° de serie + peso) por adelantado; o registrar si el contacto de la OT pidió despachar ahora.</div>';
+    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar por adelantado</button>';
+    btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El contacto respondió</button>';
+  }
+  if (est === 'Pendiente_Revision' || est === 'Confirmado' || est === 'En_Espera_Reseller' || est === 'Preparado' || est === 'Preparado Parcial' || est === 'Reservado_Consolidar') {
     btns += '<button class="btn btn-ghost" onclick="abrirPickTicket(\'' + n + '\')" title="Imprimir hoja de preparación" style="padding:7px 11px;gap:5px">' +
       '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
       'Pick ticket' +
@@ -2331,10 +2357,10 @@ function renderAcciones(p) {
     if (_usuario.esAdmin) btns += _btnAdminCancelar(n);
     return btns;
   }
-  if (!EST_TERMINAL[est] && est !== 'En_Espera_Reseller') {
+  if (!EST_TERMINAL[est] && est !== 'En_Espera_Reseller' && est !== 'Reservado_Consolidar') {
     btns += '<button class="btn btn-ghost" onclick="abrirModalCancelar(\'' + n + '\')" style="color:var(--red);border-color:var(--red)">✕ Cancelar pedido</button>';
   }
-  if (_usuario.esAdmin && (EST_TERMINAL[est] || est === 'En_Espera_Reseller') && est !== 'Cancelado') {
+  if (_usuario.esAdmin && (EST_TERMINAL[est] || est === 'En_Espera_Reseller' || est === 'Reservado_Consolidar') && est !== 'Cancelado') {
     btns += _btnAdminCancelar(n);
   }
   return btns;
@@ -2485,6 +2511,7 @@ function abrirModalPreparar(numero, parcial) {
       if (it0.cantPend <= 0) continue;
       if (it0.estado === 'Cancelado') continue; // faltante cancelado (Opción B): no es pendiente aunque col G no se haya actualizado
       if (it0.estado === 'En_Espera_Reseller') continue; // faltante esperando la decisión del reseller: se prepara solo lo disponible, no bloquea
+      if (it0.estado === 'Reservado_Consolidar') continue; // OT: disponible pero retenido a propósito hasta consolidar — no bloquea
       if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
         sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
       }
@@ -2510,7 +2537,7 @@ function abrirModalPreparar(numero, parcial) {
     if (it.estado === 'Cancelado') continue; // no serializar líneas canceladas (faltante Opción B)
     // Faltante esperando al reseller: se prepara SOLO lo disponible (como parcial), sin bloquear; la
     // línea sigue En_Espera hasta que el reseller decida (el backend no la saca de En_Espera al preparar).
-    var esEnEsperaIt = it.estado === 'En_Espera_Reseller';
+    var esEnEsperaIt = it.estado === 'En_Espera_Reseller' || it.estado === 'Reservado_Consolidar';
     var itParcial = parcial || esEnEsperaIt;
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
     // En parcial / en espera, saltear ítems sin stock (quedan en backorder / siguen esperando). En normal, incluir todo.
@@ -3293,6 +3320,7 @@ function abrirModalDespacho(numero) {
     var yaEnviado   = it.cantPend <= 0 && it.cantDesp > 0;
     var esBackorder = it.estado === 'Backorder';
     var esEnEspera  = it.estado === 'En_Espera_Reseller';   // faltante esperando la decisión del reseller
+    var esConsolidar = it.estado === 'Reservado_Consolidar'; // OT: disponible pero retenido a propósito
 
     if (!esCancelado) {
       _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, cantPend: it.cantPend, estado: it.estado, sku: it.sku, desc: it.desc, seriales: it.seriales });
@@ -3351,6 +3379,26 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaEsp + '</div>' +
+          '</div>' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+        '</div>' +
+        '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
+        '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
+      '</div>';
+    } else if (esConsolidar) {
+      // OT: ítem disponible pero retenido a propósito para consolidar en 1 solo envío. Igual que
+      // esEnEspera, arranca en 0 — despacharlo acá sería saltear la decisión de consolidación.
+      var metaCons = 'Sol.: <strong>' + it.cantSol + '</strong>' +
+        (it.cantDesp > 0 ? ' \xa0\xb7\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +
+        ' \xa0\xb7\xa0 Pend.: <strong>' + it.cantPend + '</strong>' +
+        ' \xa0<span style="color:var(--indigo);font-weight:700;font-size:10px">🟣 RETENIDO PARA CONSOLIDAR — disponible, no se despacha ahora</span>';
+      html += '<div class="modal-item-row" style="border-left:3px solid var(--indigo);flex-direction:column;align-items:stretch;gap:6px">' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          '<div class="modal-item-info">' +
+            '<div class="modal-item-sku">' + escH(it.sku) + '</div>' +
+            '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
+            '<div class="modal-item-sol">' + metaCons + '</div>' +
           '</div>' +
           '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
@@ -4326,6 +4374,7 @@ function abrirPickTicket(numero) {
     'Pendiente_Revision': 'Nuevo',     'Confirmado': 'Confirmado',
     'En_Espera_Reseller': 'Esp. reseller', 'Preparado': 'Preparado',
     'Preparado Parcial':  'Parcial',   'Backorder': 'Sin stock',
+    'Reservado_Consolidar': 'Consolidando',
     'Entregado_Cerrado':  'Despachado','Listo_Retiro': 'Retiro listo',
     'Entregado_Confirmado': 'Recibido ✓', 'Cancelado': 'Cancelado'
   };
@@ -5443,11 +5492,18 @@ function abrirRespuestaTelefonica(numero) {
     '<thead><tr><th>SKU</th><th>Descripción</th><th class="r">Pend.</th><th class="r">En stock</th></tr></thead>' +
     '<tbody>' + filas + '</tbody></table>';
 
-  var opciones =
-    '<div style="display:flex;flex-direction:column;gap:8px">' +
-    _rtOpcion('A', '#eef2ff', '#3730a3', 'A', 'Esperar el faltante — segundo env\xedo', 'Despachamos lo disponible ahora. Los \xedtems faltantes los enviamos en un segundo despacho cuando ingresen al stock.') +
-    _rtOpcion('B', '#fff3e0', '#7c3c00', 'B', 'Cancelar el faltante', 'Despachamos lo disponible y cancelamos definitivamente los \xedtems que no hay en stock. Solo se factura lo enviado.') +
-    '</div>';
+  // OT (reparación, HUB_PRO): mismas letras A/B pero otro significado — ver
+  // WOS_procesarRespuestaManual. A = consolidar (retener todo), B = despachar ahora.
+  var esOT = String(numero || '').toUpperCase().indexOf('OT-') === 0;
+  var opciones = esOT
+    ? ('<div style="display:flex;flex-direction:column;gap:8px">' +
+      _rtOpcion('A', '#eef2ff', '#3730a3', 'A', 'Esperar y consolidar en un solo env\xedo', 'Retenemos tambi\xe9n lo que ya est\xe1 disponible. Cuando llegue el resto, se despacha todo junto.') +
+      _rtOpcion('B', '#fff3e0', '#7c3c00', 'B', 'Despachar ahora lo disponible', 'Enviamos ya lo que hay; el resto llega despu\xe9s, en un segundo env\xedo. No se cancela nada.') +
+      '</div>')
+    : ('<div style="display:flex;flex-direction:column;gap:8px">' +
+      _rtOpcion('A', '#eef2ff', '#3730a3', 'A', 'Esperar el faltante — segundo env\xedo', 'Despachamos lo disponible ahora. Los \xedtems faltantes los enviamos en un segundo despacho cuando ingresen al stock.') +
+      _rtOpcion('B', '#fff3e0', '#7c3c00', 'B', 'Cancelar el faltante', 'Despachamos lo disponible y cancelamos definitivamente los \xedtems que no hay en stock. Solo se factura lo enviado.') +
+      '</div>');
 
   document.getElementById('rt-title').textContent = 'Respuesta Telefónica · ' + numero;
   document.getElementById('rt-sub').textContent   = ped.reseller;
@@ -5482,7 +5538,10 @@ function confirmarRespuestaTelefonica() {
     .withSuccessHandler(function(res) {
       wosLoadDone();
       if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
-      var labels = { A:'Preparado Parcial — despachar disponible, esperar faltante en 2\xBA env\xEDo', B:'Preparado — faltante cancelado, despachar todo en un solo env\xEDo' };
+      var esOTLbl = String(numero || '').toUpperCase().indexOf('OT-') === 0;
+      var labels = esOTLbl
+        ? { A:'Consolidar — se retiene todo hasta tener el pedido completo', B:'Despachar ahora lo disponible — el resto llega despu\xE9s' }
+        : { A:'Preparado Parcial — despachar disponible, esperar faltante en 2\xBA env\xEDo', B:'Preparado — faltante cancelado, despachar todo en un solo env\xEDo' };
       toast(numero + ' → ' + (labels[opcion] || opcion), 'ok');
       toast('Confirmaci\xF3n enviada al reseller por email', 'email', '📧');
       cargar();

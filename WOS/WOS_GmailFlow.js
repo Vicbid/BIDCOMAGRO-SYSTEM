@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.28
+// @version 2.29
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -157,6 +157,22 @@ function _wosSetEstadoPorSku(hoja, datos, numero, skuFaltSet, estFalt, estDisp) 
     rEst.setValue(nuevoEst);
     hoja.getRange(i + 1, COL.FECHA_ESTADO + 1).setValue(ahora);
   }
+}
+
+// Pedidos OT con líneas Reservado_Consolidar (ítems ya disponibles, retenidos a propósito
+// por la Opción A de WOS_procesarRespuestaManual): una vez que el pedido YA NO tiene
+// ninguna fila Backorder (el faltante real se resolvió, por cualquier vía — cron de avisos
+// de ingreso, recepción manual, respuesta de ingreso), las filas Reservado_Consolidar pasan
+// a Preparado junto — el pedido queda completo para un solo envío. `datos` debe ser una
+// lectura fresca (post-flush) del caller, si no puede evaluar estados ya viejos.
+function _wosLiberarConsolidarSiSinBackorder(hoja, datos, numero) {
+  var quedaBackorder = false;
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    if (String(datos[i][COL.ESTADO] || '').trim() === EST.BACKORDER) { quedaBackorder = true; break; }
+  }
+  if (quedaBackorder) return;
+  _wosSetEstadoFiltrado(hoja, datos, numero, EST.RESERVADO_CONSOLIDAR, EST.PREPARADO);
 }
 
 // Responde DENTRO del hilo pero apuntando a los destinatarios ORIGINALES del pedido, no a quien
@@ -1516,6 +1532,10 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
  return _wosLockIdempot(reqToken, function() {
   try {
     operario = String(operario || '');
+    // Pedidos de OT (reparación, HUB_PRO): la pregunta de faltante es distinta — acá no
+    // tiene sentido despachar una pieza suelta si falta la principal para terminar el
+    // arreglo. Ver EST.RESERVADO_CONSOLIDAR y WOS_procesarRespuestaManual.
+    var esOT = _esNumeroOT(numero);
     var ped = _wosLeerPedido(numero);
     if (!ped.reseller) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     // Sin threadId: el bloque try/catch de más abajo ya envía email nuevo como fallback.
@@ -1604,15 +1624,27 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
     }
 
     // ── Cuerpo HTML ───────────────────────────────────────────
-    var introDisp = hayDisponible
-      ? "<p style='font-size:13px;color:#155724;background:#e8f7ee;border:1px solid #8fd4a8;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
-          "&#128666; <strong>Vamos a despachar lo disponible</strong> a la brevedad.<br>" +
-          "<span style='font-size:12px;color:#4a5568'>Solo necesitamos saber qué preferís hacer con los ítems faltantes:</span>" +
-        "</p>"
-      : "<p style='font-size:13px;color:#7c3c00;background:#fff3e0;border:1px solid #ffba7b;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
-          "&#9888; <strong>No tenemos stock disponible</strong> para ninguno de los ítems faltantes.<br>" +
-          "<span style='font-size:12px;color:#4a5568'>Por favor indicanos cómo querés proceder:</span>" +
-        "</p>";
+    // Pedidos de OT: TODAVÍA no se despachó nada (a diferencia de reseller, donde lo
+    // disponible ya se preparó de inmediato) — el copy tiene que reflejar eso.
+    var introDisp = esOT
+      ? (hayDisponible
+          ? "<p style='font-size:13px;color:#1a1f2e;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
+              "&#128230; <strong>Ya tenemos parte de este pedido disponible.</strong><br>" +
+              "<span style='font-size:12px;color:#4a5568'>Todav\xeda no despachamos nada — necesitamos que nos digas c\xf3mo prefer\xeds recibirlo:</span>" +
+            "</p>"
+          : "<p style='font-size:13px;color:#7c3c00;background:#fff3e0;border:1px solid #ffba7b;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
+              "&#9888; <strong>No tenemos stock disponible</strong> para ninguno de los \xedtems de este pedido.<br>" +
+              "<span style='font-size:12px;color:#4a5568'>Por favor indicanos c\xf3mo quer\xe9s proceder:</span>" +
+            "</p>")
+      : (hayDisponible
+          ? "<p style='font-size:13px;color:#155724;background:#e8f7ee;border:1px solid #8fd4a8;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
+              "&#128666; <strong>Vamos a despachar lo disponible</strong> a la brevedad.<br>" +
+              "<span style='font-size:12px;color:#4a5568'>Solo necesitamos saber qué preferís hacer con los ítems faltantes:</span>" +
+            "</p>"
+          : "<p style='font-size:13px;color:#7c3c00;background:#fff3e0;border:1px solid #ffba7b;border-radius:8px;padding:12px 16px;margin:16px 0 4px'>" +
+              "&#9888; <strong>No tenemos stock disponible</strong> para ninguno de los ítems faltantes.<br>" +
+              "<span style='font-size:12px;color:#4a5568'>Por favor indicanos cómo querés proceder:</span>" +
+            "</p>");
 
     var _wosUrl = '';
     try { _wosUrl = ScriptApp.getService().getUrl(); } catch(eUrl) { Logger.log('WOS URL error: ' + eUrl); }
@@ -1621,13 +1653,22 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       if (_itemsStr) _itemsStr += ',';
       _itemsStr += String(faltantes[fi].sku || '').toUpperCase().replace(/[,: ]/g, '') + ':' + (faltantes[fi].cantDisp || 0);
     }
-    var _urlA = _wosUrl ? _wosUrl + '?page=resp_faltante&num=' + encodeURIComponent(numero) + '&op=A' : '';
+    // items= va en AMBAS URLs (antes solo en B): WOS_procesarRespuestaManual lo necesita
+    // en pedidos OT para distinguir, entre los ítems retenidos, cuáles eran el faltante
+    // real (Opción A · consolidar) de los que solo estaban disponibles.
+    var _urlA = _wosUrl ? _wosUrl + '?page=resp_faltante&num=' + encodeURIComponent(numero) + '&op=A&items=' + encodeURIComponent(_itemsStr) : '';
     var _urlB = _wosUrl ? _wosUrl + '?page=resp_faltante&num=' + encodeURIComponent(numero) + '&op=B&items=' + encodeURIComponent(_itemsStr) : '';
+
+    // Rótulos de los botones/tarjetas: mismas letras A/B (el parser de Hito 3 depende del
+    // texto literal "Opción A"/"Opción B"), pero para OT el SIGNIFICADO es otro — ver
+    // WOS_procesarRespuestaManual: acá A = consolidar (retener todo), B = despachar ahora.
+    var _lblBotonA = esOT ? 'Opci\xf3n A — Esperar y consolidar' : 'Opci\xf3n A — Esperar el faltante';
+    var _lblBotonB = esOT ? 'Opci\xf3n B — Despachar ahora'      : 'Opci\xf3n B — Cancelar el faltante';
 
     var _botonesHtml = _urlA
       ? "<div style='text-align:center;margin:22px 0 8px'>" +
-          "<a href='" + _urlA + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#3730a3;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>Opci\xf3n A — Esperar el faltante</a>" +
-          "<a href='" + _urlB + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#92400e;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>Opci\xf3n B — Cancelar el faltante</a>" +
+          "<a href='" + _urlA + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#3730a3;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>" + _lblBotonA + "</a>" +
+          "<a href='" + _urlB + "' style='display:inline-block;margin:6px;padding:13px 22px;background:#92400e;color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none'>" + _lblBotonB + "</a>" +
         "</div>" +
         "<p style='font-size:11px;color:#888;text-align:center;margin:4px 0 0'>Si los botones no funcionan, respond\xe9 este correo con <strong>\"Opci\xf3n A\"</strong> o <strong>\"Opci\xf3n B\"</strong>.</p>"
       : "<p style='font-size:12px;color:#555;background:#f5f8fc;border-radius:6px;padding:10px 14px;line-height:1.6'>" +
@@ -1635,16 +1676,26 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         "</p>";
 
     var opcionesHtml = introDisp +
-      "<p style='font-size:13px;color:#1a1f2e;font-weight:700;margin:18px 0 10px'>\xbfQu\xe9 hacemos con el faltante?</p>" +
-      "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
-        "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar el faltante (segundo env\xedo)</p>" +
-        "<p style='margin:0;font-size:12px;color:#4a5568'>Los \xedtems faltantes quedan pendientes. Cuando ingresen al stock los despachamos en un segundo env\xedo.</p>" +
-        (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
-      "</div>" +
-      "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
-        "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Cancelar el faltante</p>" +
-        "<p style='margin:0;font-size:12px;color:#4a5568'>Cancelamos definitivamente los \xedtems que no tenemos en stock. Solo se factura lo que se despacha ahora.</p>" +
-      "</div>" +
+      "<p style='font-size:13px;color:#1a1f2e;font-weight:700;margin:18px 0 10px'>\xbfQu\xe9 hacemos con " + (esOT ? 'este pedido' : 'el faltante') + "?</p>" +
+      (esOT
+        ? "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
+            "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar y consolidar en un solo env\xedo</p>" +
+            "<p style='margin:0;font-size:12px;color:#4a5568'>Retenemos tambi\xe9n lo que ya est\xe1 disponible. Cuando llegue el resto, se despacha/entrega todo junto — un solo env\xedo.</p>" +
+            (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
+          "</div>" +
+          "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
+            "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Despachar ahora lo disponible</p>" +
+            "<p style='margin:0;font-size:12px;color:#4a5568'>Te enviamos ya lo que tenemos; el resto llega despu\xe9s, en un segundo env\xedo. No se cancela nada.</p>" +
+          "</div>"
+        : "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
+            "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar el faltante (segundo env\xedo)</p>" +
+            "<p style='margin:0;font-size:12px;color:#4a5568'>Los \xedtems faltantes quedan pendientes. Cuando ingresen al stock los despachamos en un segundo env\xedo.</p>" +
+            (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
+          "</div>" +
+          "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
+            "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Cancelar el faltante</p>" +
+            "<p style='margin:0;font-size:12px;color:#4a5568'>Cancelamos definitivamente los \xedtems que no tenemos en stock. Solo se factura lo que se despacha ahora.</p>" +
+          "</div>") +
       _botonesHtml;
 
     var htmlBody = _wosPortalHead('Faltante de stock — ' + numero) +
@@ -1658,18 +1709,27 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       (ped.obs ? "<p style='font-size:11px;color:#888;margin-top:12px'><strong>Obs.:</strong> " + ped.obs + "</p>" : '') +
       _wosPortalFoot('Pedido ' + numero + ' · ' + ped.reseller + '.');
 
-    // ── Plain text (incluye WOSDATA para que Hito 3 lo parsee) ──
+    // ── Plain text (incluye WOSDATA para que Hito 3 / WOS_detectarRespuestasOT lo parseen) ──
     var wosDataJson = JSON.stringify({ numero: numero, faltantes: faltantes });
-    var plainBody =
-      'Hola ' + ped.reseller + ',\n\n' +
-      'Al procesar tu pedido ' + numero + ' detectamos un faltante de stock.\n' +
-      (hayDisponible ? 'Vamos a despachar lo disponible. ' : '') +
-      'Por favor indicanos qué hacer con los ítems faltantes:\n\n' +
-      'OPCI\xd3N A: Esperar el faltante y recibirlo en un segundo env\xedo cuando el stock est\xe9 disponible.' +
-      (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
-      'OPCI\xd3N B: Cancelar definitivamente los \xedtems faltantes.\n\n' +
-      'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
-      '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===';
+    var plainBody = esOT
+      ? ('Hola ' + ped.reseller + ',\n\n' +
+        'Al procesar el pedido ' + numero + ' detectamos un faltante de stock.\n' +
+        (hayDisponible ? 'Todav\xeda no despachamos nada de este pedido. ' : '') +
+        'Por favor indicanos c\xf3mo prefer\xeds recibirlo:\n\n' +
+        'OPCI\xd3N A: Esperar y consolidar en un solo env\xedo (retenemos tambi\xe9n lo disponible).' +
+        (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
+        'OPCI\xd3N B: Despachar ahora lo disponible; el resto llega despu\xe9s (no se cancela nada).\n\n' +
+        'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
+        '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===')
+      : ('Hola ' + ped.reseller + ',\n\n' +
+        'Al procesar tu pedido ' + numero + ' detectamos un faltante de stock.\n' +
+        (hayDisponible ? 'Vamos a despachar lo disponible. ' : '') +
+        'Por favor indicanos qué hacer con los ítems faltantes:\n\n' +
+        'OPCI\xd3N A: Esperar el faltante y recibirlo en un segundo env\xedo cuando el stock est\xe9 disponible.' +
+        (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
+        'OPCI\xd3N B: Cancelar definitivamente los \xedtems faltantes.\n\n' +
+        'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
+        '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===');
 
     // ── Enviar como RESPUESTA en el hilo ancla (fallback: email nuevo) ──
     var faltOpts = {
@@ -1699,12 +1759,16 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       }
     }
 
-    // ── Cambiar estado por ítem: faltantes → En_Espera_Reseller, disponibles → Preparado ──
+    // ── Cambiar estado por ítem ──
+    // Reseller: faltantes → En_Espera_Reseller, disponibles → Preparado (se despachan ya).
+    // OT: faltantes → En_Espera_Reseller, disponibles TAMBIÉN → En_Espera_Reseller — nada
+    // se despacha todavía. Recién en WOS_procesarRespuestaManual, según la respuesta, los
+    // disponibles pasan a Preparado (Opción B) o a Reservado_Consolidar (Opción A).
     var faltSet = {};
     for (var ff = 0; ff < faltantes.length; ff++) {
       faltSet[String(faltantes[ff].sku || '').trim().toUpperCase()] = true;
     }
-    _wosSetEstadoPorSku(ped.hoja, ped.datos, numero, faltSet, EST.EN_ESPERA, EST.PREPARADO);
+    _wosSetEstadoPorSku(ped.hoja, ped.datos, numero, faltSet, EST.EN_ESPERA, esOT ? EST.EN_ESPERA : EST.PREPARADO);
     SpreadsheetApp.flush();
 
     _wosLogAccion('Faltante notificado', numero, ped.reseller, operario, faltantes.length + ' items faltantes');
@@ -1917,6 +1981,8 @@ function WOS_detectarRespuestasResellers() {
     try { WOS_notificarIngresos(); } catch(eNI) { Logger.log('detector notifIngresos: ' + eNI); }
     // Recordatorio/escalado de avisos de ingreso sin respuesta (3 días / 6 días)
     try { WOS_recordarIngresosPendientes(); } catch(eRI) { Logger.log('detector recordarIngresos: ' + eRI); }
+    // Respuestas de texto libre en Gmail para pedidos de OT (Pedidos_OTs no lo escaneaba)
+    try { WOS_detectarRespuestasOT(); } catch(eOT) { Logger.log('detector respuestasOT: ' + eOT); }
 
     // ── Confirmación de entrega: escanear pedidos Entregado_Cerrado ──
     var entregados = {};
@@ -1978,6 +2044,103 @@ function WOS_detectarRespuestasResellers() {
 
   } catch(e) {
     Logger.log('WOS_detectarRespuestasResellers ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Detector de respuestas de texto libre — pedidos OT
+//  Réplica del escaneo de WOS_detectarRespuestasResellers pero sobre Pedidos_OTs (que ese
+//  detector nunca miraba — hoy no existía NINGÚN canal de "responder por texto" para OT).
+//  A diferencia del detector de resellers, acá NO se reimplementa la lógica de estados:
+//  se delega a WOS_procesarRespuestaManual (el mismo punto de convergencia que ya usan el
+//  botón del mail y la respuesta telefónica), que ya sabe bifurcar por _esNumeroOT.
+// ─────────────────────────────────────────────────────────────
+function WOS_detectarRespuestasOT() {
+  try {
+    var hoja  = _getHojaPedidosOT();
+    if (!hoja) return { ok: true, procesados: 0 };
+    var datos = hoja.getDataRange().getValues();
+
+    var enEspera = {}; // numero → { threadId, rows: [...] }
+    for (var i = 1; i < datos.length; i++) {
+      var num    = String(datos[i][COL.NUMERO]    || '').trim();
+      var estado = String(datos[i][COL.ESTADO]    || '').trim();
+      var tId    = String(datos[i][COL.THREAD_ID] || '').trim();
+      if (!num || estado !== EST.EN_ESPERA || !tId) continue;
+      if (!enEspera[num]) enEspera[num] = { threadId: tId, rows: [] };
+      enEspera[num].rows.push(i);
+    }
+
+    var numeros = Object.keys(enEspera);
+    if (!numeros.length) return { ok: true, procesados: 0 };
+
+    var dominioInterno = '@bidcom.com.ar';
+    var procesados = 0;
+
+    for (var n = 0; n < numeros.length; n++) {
+      var numero = numeros[n];
+      var info   = enEspera[numero];
+      try {
+        var thread   = GmailApp.getThreadById(info.threadId);
+        var messages = thread.getMessages();
+        if (!messages || messages.length < 2) continue; // aún no hay respuesta
+
+        var wosDataStr = null, resellerPlain = null, lastExtMsg = null;
+        for (var m = 0; m < messages.length; m++) {
+          var msg   = messages[m];
+          var from  = msg.getFrom().toLowerCase();
+          var plain = msg.getPlainBody();
+          if (from.indexOf(dominioInterno) >= 0) {
+            var matchW = plain.match(/===WOSDATA===\s*([\s\S]*?)\s*===ENDWOSDATA===/);
+            if (matchW) wosDataStr = matchW[1].trim();
+          } else {
+            lastExtMsg    = msg;
+            resellerPlain = plain;
+          }
+        }
+        if (!resellerPlain || !lastExtMsg) continue;
+
+        var rLow = resellerPlain.toLowerCase();
+        var esA  = /opci[oó]n\s*a\b/.test(rLow);
+        var esB  = /opci[oó]n\s*b\b/.test(rLow);
+        if (!esA && !esB) {
+          Logger.log('WOS_detectarRespuestasOT: ' + numero + ' → respuesta no reconocida, se ignora');
+          continue;
+        }
+
+        // WOSDATA trae {numero, faltantes:[{sku,cantDisp}]} — mismo shape que `cantidades`
+        // que espera WOS_procesarRespuestaManual (viene de _wosNotificarFaltante).
+        var cantidades = [];
+        if (wosDataStr) {
+          try {
+            var wosObj = JSON.parse(wosDataStr);
+            var fArr   = wosObj.faltantes || [];
+            for (var fi = 0; fi < fArr.length; fi++) {
+              cantidades.push({ sku: fArr[fi].sku, cantDisp: Number(fArr[fi].cantDisp) || 0 });
+            }
+          } catch(eJ) { Logger.log('WOS_detectarRespuestasOT JSON parse: ' + eJ); }
+        }
+
+        var res = WOS_procesarRespuestaManual(numero, esA ? 'A' : 'B', cantidades,
+          'ot_texto_libre', 'ot_txt_' + numero + '_' + info.threadId);
+        if (!res || !res.ok) {
+          Logger.log('WOS_detectarRespuestasOT: ' + numero + ' → procesarRespuestaManual error: ' + (res && res.error));
+          continue;
+        }
+
+        thread.markRead();
+        procesados++;
+        Logger.log('WOS_detectarRespuestasOT: ' + numero + ' → OPCI\xd3N ' + (esA ? 'A' : 'B') + ' procesada por texto libre');
+      } catch(eT) {
+        Logger.log('WOS_detectarRespuestasOT thread [' + numero + ']: ' + eT);
+      }
+    }
+
+    Logger.log('WOS_detectarRespuestasOT: procesados=' + procesados + ' de ' + numeros.length);
+    return { ok: true, procesados: procesados };
+  } catch(e) {
+    Logger.log('WOS_detectarRespuestasOT ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
 }
@@ -2080,6 +2243,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
  return _wosLockIdempot(reqToken, function() {
   try {
     operario  = String(operario || '');
+    var esOT  = _esNumeroOT(numero);
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado: ' + numero };
     var datos = hoja.getDataRange().getValues();
@@ -2105,62 +2269,131 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
 
     var op = String(opcion || '').toUpperCase();
     var nuevoEst, confTitulo, confMensaje;
+    // cantMap trae el SKU:cantDisp de los ítems que Hito 2 marcó como faltante (ver
+    // WOS_notificarFaltante) — llega tanto en Opción A como B (ambas URLs incluyen
+    // &items=...). Sirve para distinguir, en pedidos OT, cuáles filas eran el faltante
+    // REAL (estaban en cantMap) de las que solo quedaron retenidas por estar en el mismo
+    // pedido (no estaban en cantMap — eran "disponibles" cuando se detectó el faltante).
 
-    if (op === 'A') {
-      // Opción A = esperar faltante en segundo envío
-      // Solo los items En_Espera_Reseller pasan a Backorder; los Preparado quedan intactos
-      nuevoEst    = EST.BACKORDER;
+    if (!esOT) {
+      // ── Pedidos de reseller: comportamiento sin cambios ──────────────────────────
+      if (op === 'A') {
+        // Opción A = esperar faltante en segundo envío
+        // Solo los items En_Espera_Reseller pasan a Backorder; los Preparado quedan intactos
+        nuevoEst    = EST.BACKORDER;
+        confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
+        confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>" +
+          "Recibir\xe1s la Nota de Entrega por los \xedtems que se despachan ahora. " +
+          "El faltante llegar\xe1 en un segundo env\xedo cuando el stock est\xe9 disponible.";
+        _wosSetEstadoFiltrado(hoja, datos, numero, EST.EN_ESPERA, nuevoEst);
+
+      } else {
+        // Opción B = cancelar faltante → despacho único de lo disponible
+        // Solo los items En_Espera_Reseller se modifican: cantDisp>0 → Preparado, cantDisp=0 → Cancelado
+        nuevoEst    = EST.PREPARADO;
+        confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
+        confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>" +
+          "Estamos preparando el despacho de lo disponible. Recibir\xe1s la Nota de Entrega cuando sea despachado. Los \xedtems faltantes quedan cancelados.";
+        var ahoraM = new Date();
+        for (var r = 0; r < rows.length; r++) {
+          var _estFilaB = String(datos[rows[r].rowNum - 1][COL.ESTADO] || '').trim();
+          // "Cancelar el faltante" aplica a TODA la línea pendiente del faltante: tanto la que aún espera
+          // respuesta (En_Espera_Reseller) COMO la que ya quedó aparcada en Backorder. Antes el filtro era
+          // sólo En_Espera → en un pedido mixto la línea en Backorder no se cancelaba y "quedaba en
+          // backorder" aunque el operario eligiera la Opción B (bug reportado).
+          if (_estFilaB !== EST.EN_ESPERA && _estFilaB !== EST.BACKORDER) continue;
+          // Trabajar sobre lo REALMENTE pendiente (E - F - Z), no sobre lo solicitado: una línea de
+          // Backorder puede tener unidades ya despachadas (F>0) o canceladas (Z>0) → así no se cancela de más.
+          var _solB   = Number(datos[rows[r].rowNum - 1][COL.CANT_SOL])    || 0;
+          var _despB  = Number(datos[rows[r].rowNum - 1][COL.CANT_DESP])   || 0;
+          var _cancB0 = Number(datos[rows[r].rowNum - 1][COL.CANT_CANCEL]) || 0;
+          var _pendB  = _solB - _despB - _cancB0;
+          if (_pendB <= 0) continue;   // nada pendiente en esta línea
+          var cantDispM = (cantMap[rows[r].sku] !== undefined) ? cantMap[rows[r].sku] : 0;
+          if (cantDispM > _pendB) cantDispM = _pendB;   // no preparar más de lo pendiente
+          var rEstM = hoja.getRange(rows[r].rowNum, COL.ESTADO + 1);
+          rEstM.clearDataValidations();
+          if (cantDispM >= _pendB) {
+            // Hay stock para cubrir todo lo pendiente → se despacha completo, no se cancela nada
+            rEstM.setValue(EST.PREPARADO);
+          } else if (cantDispM > 0) {
+            // Se despacha lo disponible y se CANCELA el resto pendiente (acumula sobre lo ya cancelado)
+            hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + (_pendB - cantDispM));
+            rEstM.setValue(EST.PREP_PARCIAL);
+          } else {
+            // Sin stock → se CANCELA todo lo pendiente
+            hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + _pendB);
+            rEstM.setValue(EST.CANCELADO);
+          }
+          hoja.getRange(rows[r].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraM);
+        }
+      }
+
+    } else if (op === 'A') {
+      // ── OT · Opción A = Esperar y consolidar en un solo envío ────────────────────
+      // Los SKUs que SÍ eran el faltante real (están en cantMap) → Backorder (2º envío
+      // cuando llegue). Los que estaban disponibles y quedaron retenidos (no están en
+      // cantMap) → Reservado_Consolidar: NO es "falta comprar", es "ya está, pero se
+      // retiene a propósito" — se libera solo cuando el faltante real se resuelva (ver
+      // _wosLiberarConsolidarSiSinBackorder).
+      nuevoEst    = EST.RESERVADO_CONSOLIDAR;
       confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
-      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>" +
-        "Recibir\xe1s la Nota de Entrega por los \xedtems que se despachan ahora. " +
-        "El faltante llegar\xe1 en un segundo env\xedo cuando el stock est\xe9 disponible.";
-      _wosSetEstadoFiltrado(hoja, datos, numero, EST.EN_ESPERA, nuevoEst);
+      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar y consolidar en un solo env\xedo.</strong><br>" +
+        "Retenemos tambi\xe9n lo que ya est\xe1 disponible. Cuando llegue el resto, va todo junto en un \xfanico env\xedo.";
+      var ahoraOA = new Date();
+      for (var ra = 0; ra < rows.length; ra++) {
+        var _estFilaOA = String(datos[rows[ra].rowNum - 1][COL.ESTADO] || '').trim();
+        if (_estFilaOA !== EST.EN_ESPERA) continue;
+        var rEstOA = hoja.getRange(rows[ra].rowNum, COL.ESTADO + 1);
+        rEstOA.clearDataValidations();
+        rEstOA.setValue(cantMap.hasOwnProperty(rows[ra].sku) ? EST.BACKORDER : EST.RESERVADO_CONSOLIDAR);
+        hoja.getRange(rows[ra].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraOA);
+      }
 
     } else {
-      // Opción B = cancelar faltante → despacho único de lo disponible
-      // Solo los items En_Espera_Reseller se modifican: cantDisp>0 → Preparado, cantDisp=0 → Cancelado
+      // ── OT · Opción B = Despachar ahora lo disponible + el resto después ─────────
+      // A diferencia de la Opción B de reseller, ACÁ NUNCA SE CANCELA nada: lo que no se
+      // puede cubrir ahora queda en Backorder (2º envío), no Cancelado — para una
+      // reparación, cancelar un repuesto que hace falta no tiene sentido.
       nuevoEst    = EST.PREPARADO;
       confTitulo  = 'Recibimos tu decisi\xf3n — Pedido ' + numero;
-      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>" +
-        "Estamos preparando el despacho de lo disponible. Recibir\xe1s la Nota de Entrega cuando sea despachado. Los \xedtems faltantes quedan cancelados.";
-      var ahoraM = new Date();
-      for (var r = 0; r < rows.length; r++) {
-        var _estFilaB = String(datos[rows[r].rowNum - 1][COL.ESTADO] || '').trim();
-        // "Cancelar el faltante" aplica a TODA la línea pendiente del faltante: tanto la que aún espera
-        // respuesta (En_Espera_Reseller) COMO la que ya quedó aparcada en Backorder. Antes el filtro era
-        // sólo En_Espera → en un pedido mixto la línea en Backorder no se cancelaba y "quedaba en
-        // backorder" aunque el operario eligiera la Opción B (bug reportado).
-        if (_estFilaB !== EST.EN_ESPERA && _estFilaB !== EST.BACKORDER) continue;
-        // Trabajar sobre lo REALMENTE pendiente (E - F - Z), no sobre lo solicitado: una línea de
-        // Backorder puede tener unidades ya despachadas (F>0) o canceladas (Z>0) → así no se cancela de más.
-        var _solB   = Number(datos[rows[r].rowNum - 1][COL.CANT_SOL])    || 0;
-        var _despB  = Number(datos[rows[r].rowNum - 1][COL.CANT_DESP])   || 0;
-        var _cancB0 = Number(datos[rows[r].rowNum - 1][COL.CANT_CANCEL]) || 0;
-        var _pendB  = _solB - _despB - _cancB0;
-        if (_pendB <= 0) continue;   // nada pendiente en esta línea
-        var cantDispM = (cantMap[rows[r].sku] !== undefined) ? cantMap[rows[r].sku] : 0;
-        if (cantDispM > _pendB) cantDispM = _pendB;   // no preparar más de lo pendiente
-        var rEstM = hoja.getRange(rows[r].rowNum, COL.ESTADO + 1);
-        rEstM.clearDataValidations();
-        if (cantDispM >= _pendB) {
-          // Hay stock para cubrir todo lo pendiente → se despacha completo, no se cancela nada
-          rEstM.setValue(EST.PREPARADO);
-        } else if (cantDispM > 0) {
-          // Se despacha lo disponible y se CANCELA el resto pendiente (acumula sobre lo ya cancelado)
-          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + (_pendB - cantDispM));
-          rEstM.setValue(EST.PREP_PARCIAL);
-        } else {
-          // Sin stock → se CANCELA todo lo pendiente
-          hoja.getRange(rows[r].rowNum, COL.CANT_CANCEL + 1).setValue(_cancB0 + _pendB);
-          rEstM.setValue(EST.CANCELADO);
+      confMensaje = "Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Despachar ahora lo disponible.</strong><br>" +
+        "El resto llega despu\xe9s, en un segundo env\xedo. No se cancela nada.";
+      var ahoraOB = new Date();
+      for (var rb = 0; rb < rows.length; rb++) {
+        var _estFilaOB = String(datos[rows[rb].rowNum - 1][COL.ESTADO] || '').trim();
+        if (_estFilaOB !== EST.EN_ESPERA) continue;
+        var rEstOB = hoja.getRange(rows[rb].rowNum, COL.ESTADO + 1);
+        rEstOB.clearDataValidations();
+        if (!cantMap.hasOwnProperty(rows[rb].sku)) {
+          // Nunca fue faltante — estaba disponible y solo se retuvo por consolidación → despachar ya
+          rEstOB.setValue(EST.PREPARADO);
+          hoja.getRange(rows[rb].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraOB);
+          continue;
         }
-        hoja.getRange(rows[r].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraM);
+        var _solBO   = Number(datos[rows[rb].rowNum - 1][COL.CANT_SOL])    || 0;
+        var _despBO  = Number(datos[rows[rb].rowNum - 1][COL.CANT_DESP])   || 0;
+        var _cancBO0 = Number(datos[rows[rb].rowNum - 1][COL.CANT_CANCEL]) || 0;
+        var _pendBO  = _solBO - _despBO - _cancBO0;
+        if (_pendBO <= 0) continue;
+        var cantDispBO = (cantMap[rows[rb].sku] !== undefined) ? cantMap[rows[rb].sku] : 0;
+        if (cantDispBO > _pendBO) cantDispBO = _pendBO;
+        if (cantDispBO >= _pendBO) {
+          rEstOB.setValue(EST.PREPARADO);
+        } else if (cantDispBO > 0) {
+          rEstOB.setValue(EST.PREP_PARCIAL);   // parcial ahora, resto en Backorder — sin CANT_CANCEL
+        } else {
+          rEstOB.setValue(EST.BACKORDER);      // nada ahora, sigue esperando — sin cancelar
+        }
+        hoja.getRange(rows[rb].rowNum, COL.FECHA_ESTADO + 1).setValue(ahoraOB);
       }
     }
 
     SpreadsheetApp.flush();
 
-    // Reservar (Opción A) o liberar (Opción B) las unidades en camino comprometidas al reseller
+    // Reservar (Opción A / Consolidar) o liberar (Opción B reseller) las unidades en
+    // camino comprometidas. Para OT-Opción B ("despachar ahora") no se cancela nada, así
+    // que no hay reservas que liberar — se deja que WOS_reconciliarReservas() reconcilie.
     if (op === 'A') {
       try {
         var _rSumM = _wosReservarEnCamino(numero, reseller);
@@ -2168,7 +2401,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
           confMensaje += "<br><strong style='color:#3730a3'>Reservamos " + _rSumM.cantidad + " u. del lote que llega ~" + _rSumM.etaProx + ".</strong>";
         }
       } catch(eRs) { Logger.log('procesarRespuestaManual reservar [' + numero + ']: ' + eRs); }
-    } else {
+    } else if (!esOT) {
       try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('procesarRespuestaManual liberar [' + numero + ']: ' + eRl); }
     }
 
