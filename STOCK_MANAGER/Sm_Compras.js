@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.5
+// @version 1.6
 
 // ============================================================
 //  COMPRAS DJI
@@ -508,6 +508,10 @@ function _normEtaVal(v) {
   return s;
 }
 
+// Recién se avisa al reseller si el retraso supera esto — un corrimiento de 1-2 días del
+// proveedor es normal y no vale la pena molestarlo; más de 1 semana sí es relevante.
+var _SM_ETA_RETRASO_MIN_DIAS = 7;
+
 // Parsea una ETA ya normalizada por _normEtaVal ("dd/MM/yyyy") a Date, para poder comparar
 // si una fecha nueva es POSTERIOR a la anterior (retraso real, no solo un texto distinto).
 function _smEtaToDate(s) {
@@ -734,8 +738,13 @@ function sincronizarItemsCAS(cas) {
       var etaAnt = etaAnteriorMap[xIt.sku] || '';
       if (etaAnt && xIt.eta && etaAnt !== xIt.eta) {
         var dAnt = _smEtaToDate(etaAnt), dNva = _smEtaToDate(xIt.eta);
-        if (dAnt && dNva && dNva.getTime() > dAnt.getTime()) {
-          retrasos.push({ sku: xIt.sku, desc: xIt.desc, etaAnterior: etaAnt, etaNueva: xIt.eta });
+        if (dAnt && dNva) {
+          var diasRetraso = (dNva.getTime() - dAnt.getTime()) / 86400000;
+          // Solo avisar si el retraso supera _SM_ETA_RETRASO_MIN_DIAS (corrimientos chicos del
+          // proveedor, 1-2 días, son normales y no ameritan un mail al reseller).
+          if (diasRetraso > _SM_ETA_RETRASO_MIN_DIAS) {
+            retrasos.push({ sku: xIt.sku, desc: xIt.desc, etaAnterior: etaAnt, etaNueva: xIt.eta });
+          }
         }
       }
     }
