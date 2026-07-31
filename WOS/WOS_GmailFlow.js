@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.36
+// @version 2.37
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -2086,6 +2086,7 @@ function WOS_notificarCambiosEta() {
   var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ETA_SHEET);
   if (!hoja) return { ok: true, procesadas: 0 };
   var d = hoja.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
   var porPedido = {};
   for (var i = 1; i < d.length; i++) {
     if (String(d[i][8] || '').trim() !== 'Pendiente') continue;
@@ -2093,11 +2094,13 @@ function WOS_notificarCambiosEta() {
     if (!ped) continue;
     if (!porPedido[ped]) porPedido[ped] = { rows: [], reseller: String(d[i][3] || ''), items: [] };
     porPedido[ped].rows.push(i);
+    // Sheets auto-detecta "dd/MM/yyyy" en la celda y lo guarda como Date → String(Date) da
+    // el toString largo ("Tue Aug 04 2026 00:00:00 GMT-0300 (...)"), hay que formatearlo.
     porPedido[ped].items.push({
       sku:         String(d[i][4] || '').trim().toUpperCase(),
       cantidad:    Number(d[i][5]) || 0,
-      etaAnterior: String(d[i][6] || ''),
-      etaNueva:    String(d[i][7] || '')
+      etaAnterior: (d[i][6] instanceof Date) ? Utilities.formatDate(d[i][6], tz, 'dd/MM/yyyy') : String(d[i][6] || ''),
+      etaNueva:    (d[i][7] instanceof Date) ? Utilities.formatDate(d[i][7], tz, 'dd/MM/yyyy') : String(d[i][7] || '')
     });
   }
   var peds = Object.keys(porPedido);
