@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Fotos faltantes del catálogo (hoja TODO) ──
-// @version 1.2
+// @version 1.3
 // ============================================================
 // Catálogo unificado (misma spreadsheet que Portal Reseller usa como
 // LISTA_PRECIOS_SS_ID / RS_getListaPrecios): CATALOGO_REPUESTOS_ID (Env.js),
@@ -8,7 +8,7 @@
 // El operador ve de a N códigos sin foto (col H vacía) y sube la imagen desde
 // el celular/PC; se comprime a JPEG en el front antes de mandarla acá.
 // ============================================================
-var _SM_FOTOS_COL = { COD_LARGO: 0, COD_CORTO: 1, DESC: 2, MODELO: 3, IMAGEN: 7 };
+var _SM_FOTOS_COL = { COD_LARGO: 0, COD_CORTO: 1, DESC: 2, MODELO: 3, PVP: 5, IMAGEN: 7 };
 
 function _smHojaTodo() {
   return SpreadsheetApp.openById(CATALOGO_REPUESTOS_ID).getSheetByName('TODO');
@@ -33,6 +33,9 @@ function _smSkusEnNotasDeEntrega() {
 
 // Devuelve hasta `n` repuestos sin foto, PRIORIZANDO los que están en Notas de Entrega
 // (ver _smSkusEnNotasDeEntrega), + los totales pendientes (para mostrar progreso).
+// El resto (sin demanda de resellers) se ordena por PVP descendente — sin demanda real,
+// mejor priorizar la foto de lo que vale más. Es solo orden, no se muestra nada de esto
+// en el front (ítem no lleva el PVP en la respuesta).
 // `fila` = nº de fila real (1-based) en la hoja, se manda de vuelta al subir para
 // escribir directo sin tener que re-buscar por código.
 function SM_obtenerRepuestosSinFoto(n) {
@@ -57,8 +60,14 @@ function SM_obtenerRepuestosSinFoto(n) {
         modelo:      String(datos[i][C.MODELO]    || '').trim(),
         prioritario: !!enDemanda[codigo.toUpperCase()]
       };
-      (item.prioritario ? prioritarios : resto).push(item);
+      if (item.prioritario) {
+        prioritarios.push(item);
+      } else {
+        resto.push({ item: item, pvp: Number(datos[i][C.PVP]) || 0 });
+      }
     }
+    resto.sort(function(a, b) { return b.pvp - a.pvp; });
+    resto = resto.map(function(r) { return r.item; });
 
     var items = prioritarios.concat(resto).slice(0, n);
     return {
