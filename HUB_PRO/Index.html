@@ -1,4 +1,4 @@
-<!-- @version 2.19 -->
+<!-- @version 2.20 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1104,6 +1104,10 @@ body.compact tbody td{padding:6px 14px!important}
 
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
+        <!-- Aviso de envío registrado por WOS — WOS ya NO cambia el estado de la OT directamente
+             (ver VERSIONS.md), solo deja esta marca; el paso a "Repuestos enviados" lo hace un
+             humano acá, con el stepper de arriba. -->
+        <div id="rep-envio-wos-note" style="display:none;align-items:center;gap:8px;padding:9px 14px;margin:8px 0 0;border-radius:var(--rm);font-size:12px;font-weight:600;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3);color:var(--green)"></div>
 
         <!-- COMMAND CENTER DE REPUESTOS: semáforo de una línea, arriba de todo lo demás
              (no al lado de "Repuestos utilizados" — queda muy abajo, obligaría a scrollear
@@ -1950,6 +1954,7 @@ function abrirLista(c) {
       // Limpiar SIEMPRE (evita repuestos pegados de orden anterior)
       document.getElementById('cont-r').innerHTML = '';
       document.getElementById('f-tra').value = det.trabajo || '';
+      actual.repuestosEnvioWos = det.repuestosEnvioWos || '';
       var _repLineas = [];   // [{cod, desc, ped, env}] — para el Command Center
       if (det.repuestos && det.repuestos !== 'Sin consumo de repuestos' && det.repuestos.trim() !== '') {
         actual.repuestosCompletos = det.repuestos;
@@ -2530,6 +2535,27 @@ function dispararLogicaDeFlujoAutomatico() {
   var circ = document.getElementById('f-circ').value || actual.circuito || 'Taller';
   esBateriaActual = (actual.esBateria === true);
   renderEst(); // actualiza badge, visibilidad tec-row y stepper de estados
+  _renderEnvioWosNote();
+}
+
+// WOS ya no cambia el estado de la OT directamente (ver WOS_GmailFlow.js / VERSIONS.md) —
+// solo deja una marca de texto (fecha + nº de nota) cuando termina de despachar completo un
+// pedido de repuestos. Acá se la mostramos al operador para que sea QUIEN decida pasar el
+// estado a "Repuestos enviados" con el stepper de arriba (si corresponde). Se oculta sola en
+// cuanto el estado ya llegó a ese paso o más adelante.
+function _renderEnvioWosNote() {
+  var el = document.getElementById('rep-envio-wos-note');
+  if (!el) return;
+  var circ = document.getElementById('f-circ').value;
+  var txt = (actual && actual.repuestosEnvioWos) ? String(actual.repuestosEnvioWos).trim() : '';
+  var yaAvanzado = estadoAct && EST_R.indexOf(estadoAct) >= EST_R.indexOf('Repuestos enviados');
+  if (circ === 'Reseller' && txt && !yaAvanzado) {
+    el.style.display = 'flex';
+    el.innerHTML = '<span>📦 WOS registró un envío: <strong>' + _escHtml(txt) + '</strong> — si ya salió todo, pasá el estado a <strong>"Repuestos enviados"</strong> arriba.</span>';
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
 }
 
 function setE(el,val){

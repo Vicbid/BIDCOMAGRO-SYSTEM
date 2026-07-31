@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -436,7 +436,8 @@ function obtenerDetalleOT(fila) {
       repuestos:           String(f[16]||""),
       mensajes:            String(f[11]||""),
       historialEstados:    historial,
-      ultimaModificacion:  (rawUM instanceof Date) ? rawUM.getTime() : 0
+      ultimaModificacion:  (rawUM instanceof Date) ? rawUM.getTime() : 0,
+      repuestosEnvioWos:   String(f[SCHEMA.OT.REPUESTOS_ENVIO_WOS]||"")
     };
   } catch(e) {
     Logger.log("obtenerDetalleOT ERROR fila=" + fila + " : " + e);

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.32
+// @version 2.33
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -821,19 +821,24 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     }
     SpreadsheetApp.flush();
 
-    // Actualizar HUB PRO OT: E: en REPUESTOS (col Q) + estado si completo
+    // Actualizar HUB PRO OT: E: en REPUESTOS (col Q). WOS NO toca el ESTADO de la OT (col E) —
+    // eso lo decide un humano en HUB_PRO, con el stepper de la orden. Si el despacho quedó
+    // completo (sin backorder), se deja una marca de texto en col AC (fecha + nota + qué se
+    // envió) avisando que se puede pasar el estado a "Repuestos enviados" — ver
+    // HUB_PRO/Env.js SCHEMA.OT.REPUESTOS_ENVIO_WOS y el aviso que pinta Index.html.
     if (_esNumeroOT(numero)) {
       try {
         var otNum = numero.replace(/^OT-/, '');
-        // SKU → total despachado (previo + este despacho)
-        var skuDespMap = {};
+        // SKU → total despachado (previo + este despacho), y SKU → cantidad de ESTE despacho
+        var skuDespMap = {}, skuEnviadoAhora = {};
         for (var di = 1; di < ped.datos.length; di++) {
           if (String(ped.datos[di][COL.NUMERO] || '').trim() !== numero) continue;
           var dSku = String(ped.datos[di][COL.SKU] || '').trim().toUpperCase();
           if (!dSku) continue;
-          var totalDi = (Number(ped.datos[di][COL.CANT_DESP]) || 0) +
-                        ((despMap[di + 1] !== undefined) ? (Number(despMap[di + 1]) || 0) : 0);
+          var enviadoAhoraDi = (despMap[di + 1] !== undefined) ? (Number(despMap[di + 1]) || 0) : 0;
+          var totalDi = (Number(ped.datos[di][COL.CANT_DESP]) || 0) + enviadoAhoraDi;
           skuDespMap[dSku] = (skuDespMap[dSku] || 0) + totalDi;
+          if (enviadoAhoraDi > 0) skuEnviadoAhora[dSku] = (skuEnviadoAhora[dSku] || 0) + enviadoAhoraDi;
         }
         var hubHoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Ordenes de trabajo');
         if (hubHoja) {
@@ -856,8 +861,20 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
               }
               hubHoja.getRange(hi + 1, 17).setValue(repNuevas.join(' ; '));
             }
-            // Estado: solo pasa a "Repuestos enviados" si el despacho fue completo
-            if (!hayBackorder) hubHoja.getRange(hi + 1, 5).setValue('Repuestos enviados');
+            // Marca de "envío completo" en col AC (29) — solo aviso, no toca el ESTADO.
+            if (!hayBackorder) {
+              var _maxColHub = hubHoja.getMaxColumns();
+              if (_maxColHub < 29) hubHoja.insertColumnsAfter(_maxColHub, 29 - _maxColHub);
+              if (!String(hubHoja.getRange(1, 29).getValue() || '').trim()) {
+                hubHoja.getRange(1, 29).setValue('Envío Repuestos (WOS)');
+              }
+              var _itemsTxt = [];
+              for (var _esk in skuEnviadoAhora) _itemsTxt.push(_esk + ' x' + skuEnviadoAhora[_esk]);
+              hubHoja.getRange(hi + 1, 29).setValue(
+                Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') +
+                ' — Nota ' + notaEntrega + (_itemsTxt.length ? ' (' + _itemsTxt.join(', ') + ')' : '')
+              );
+            }
             break;
           }
         }

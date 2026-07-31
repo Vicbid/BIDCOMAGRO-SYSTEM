@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
@@ -43,7 +43,11 @@ var SCHEMA = {
     HISTORIAL_ESTADOS: 24,
     ULTIMA_MODIFICACION: 25,
     ORIGEN_REPUESTO: 26,   // AA: quién pone el repuesto — "Adelantado" | "Stock reseller" | ""
-    CIERRE_TIPO: 27        // AB: cómo cerramos — "Reposicion" | "NC" | ""
+    CIERRE_TIPO: 27,       // AB: cómo cerramos — "Reposicion" | "NC" | ""
+    REPUESTOS_ENVIO_WOS: 28 // AC: marca de texto que deja WOS al despachar completo un pedido
+                             // de repuestos de esta OT (fecha + nº de nota) — WOS NO toca el
+                             // ESTADO (col E) directamente, esto es solo un aviso para que un
+                             // humano decida pasar el estado a "Repuestos enviados" acá en HUB_PRO
   },
   RESELLERS: {
     NOMBRE: 0,
