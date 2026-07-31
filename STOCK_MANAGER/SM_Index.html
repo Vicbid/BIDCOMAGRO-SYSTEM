@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.32 -->
+<!-- @version 5.33 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -719,10 +719,12 @@ tr:last-child td{border-bottom:none}
         <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
         <span style="color:var(--tx-m)">Bajá la imagen a tu PC y seleccionala para cada código — se sube sola.</span>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
+          <span><strong id="fotos-cnt-prio" style="color:var(--orange)">0</strong> con pedidos de resellers sin foto</span>
           <span><strong id="fotos-cnt-pend">0</strong> sin foto en todo el catálogo</span>
           <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 10 más</button>
         </div>
       </div>
+      <div style="font-size:10px;color:var(--tx-d);margin:-6px 0 10px 2px"><i class="fa fa-circle-info"></i> Se muestran primero los códigos que resellers ya pidieron (Notas de Entrega) — el resto del catálogo va después.</div>
       <div id="fotos-grid" class="foto-grid">
         <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
       </div>
@@ -4335,6 +4337,7 @@ function cargarFotosFaltantesTab() {
         return;
       }
       document.getElementById('fotos-cnt-pend').textContent = r.totalPendiente;
+      document.getElementById('fotos-cnt-prio').textContent = r.totalPrioritario || 0;
       renderFotosFaltantes(r.items);
     })
     .withFailureHandler(function(e) {
@@ -4383,6 +4386,7 @@ function renderFotosFaltantes(items) {
     _fotosData[it.fila] = it;
     h += '<div class="foto-card" id="fc-' + it.fila + '">' +
         '<div class="fc-thumb" id="fc-thumb-' + it.fila + '"><i class="fa fa-image"></i></div>' +
+        (it.prioritario ? '<div style="font-size:9px;font-weight:700;color:#fff;background:var(--orange);padding:2px 7px;border-radius:10px;width:fit-content"><i class="fa fa-fire"></i> Con pedidos de resellers</div>' : '') +
         '<div class="fc-cod" id="fc-cod-' + it.fila + '" onclick="_fotoCopiarCodigo(' + it.fila + ')" title="Click para copiar el código">' +
           '<i class="fa fa-copy" style="font-size:9px;opacity:.5"></i>' + escH(it.codigo) +
         '</div>' +

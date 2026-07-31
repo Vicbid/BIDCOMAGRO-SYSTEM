@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Fotos faltantes del catálogo (hoja TODO) ──
-// @version 1.0
+// @version 1.1
 // ============================================================
 // Catálogo unificado (misma spreadsheet que Portal Reseller usa como
 // LISTA_PRECIOS_SS_ID / RS_getListaPrecios): CATALOGO_REPUESTOS_ID (Env.js),
@@ -14,9 +14,27 @@ function _smHojaTodo() {
   return SpreadsheetApp.openById(CATALOGO_REPUESTOS_ID).getSheetByName('TODO');
 }
 
-// Devuelve hasta `n` repuestos sin foto + el total pendiente en todo el catálogo
-// (para mostrar progreso). `fila` = nº de fila real (1-based) en la hoja, se manda
-// de vuelta al subir para escribir directo sin tener que re-buscar por código.
+// SKUs que aparecen en "Notas de Entrega" (hoja Pedidos_resellers, WOS_NOTAS_SS_ID) —
+// repuestos que resellers realmente pidieron alguna vez. Se usan para priorizar: mejor
+// la foto de algo que se vende que la de un código que capaz nadie compró nunca.
+function _smSkusEnNotasDeEntrega() {
+  var set = {};
+  try {
+    var hoja = SpreadsheetApp.openById(WOS_NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
+    if (!hoja) return set;
+    var d = hoja.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var sku = String(d[i][2] || '').trim().toUpperCase();  // col C = SKU
+      if (sku) set[sku] = true;
+    }
+  } catch(e) { Logger.log('_smSkusEnNotasDeEntrega: ' + e); }
+  return set;
+}
+
+// Devuelve hasta `n` repuestos sin foto, PRIORIZANDO los que están en Notas de Entrega
+// (ver _smSkusEnNotasDeEntrega), + los totales pendientes (para mostrar progreso).
+// `fila` = nº de fila real (1-based) en la hoja, se manda de vuelta al subir para
+// escribir directo sin tener que re-buscar por código.
 function SM_obtenerRepuestosSinFoto(n) {
   try {
     n = Number(n) || 10;
@@ -24,24 +42,30 @@ function SM_obtenerRepuestosSinFoto(n) {
     if (!hoja) return { ok: false, error: 'No se encontró la pestaña "TODO" en el catálogo.' };
     var datos = hoja.getDataRange().getValues();
     var C = _SM_FOTOS_COL;
-    var items = [];
-    var totalPendiente = 0;
+    var enDemanda = _smSkusEnNotasDeEntrega();
+
+    var prioritarios = [], resto = [];
     for (var i = 1; i < datos.length; i++) {
       var codigo = String(datos[i][C.COD_CORTO] || '').trim();
       if (!codigo) continue;
       if (String(datos[i][C.IMAGEN] || '').trim()) continue;  // ya tiene foto
-      totalPendiente++;
-      if (items.length < n) {
-        items.push({
-          fila:        i + 1,
-          codigo:      codigo,
-          codigoLargo: String(datos[i][C.COD_LARGO] || '').trim(),
-          descripcion: String(datos[i][C.DESC]      || '').trim(),
-          modelo:      String(datos[i][C.MODELO]    || '').trim()
-        });
-      }
+      var item = {
+        fila:        i + 1,
+        codigo:      codigo,
+        codigoLargo: String(datos[i][C.COD_LARGO] || '').trim(),
+        descripcion: String(datos[i][C.DESC]      || '').trim(),
+        modelo:      String(datos[i][C.MODELO]    || '').trim(),
+        prioritario: !!enDemanda[codigo.toUpperCase()]
+      };
+      (item.prioritario ? prioritarios : resto).push(item);
     }
-    return { ok: true, items: items, totalPendiente: totalPendiente };
+
+    var items = prioritarios.concat(resto).slice(0, n);
+    return {
+      ok: true, items: items,
+      totalPendiente:   prioritarios.length + resto.length,
+      totalPrioritario: prioritarios.length
+    };
   } catch(e) {
     Logger.log('SM_obtenerRepuestosSinFoto: ' + e);
     return { ok: false, error: e.toString() };
