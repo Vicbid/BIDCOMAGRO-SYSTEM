@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.35
+// @version 2.36
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1226,7 +1226,10 @@ function WOS_detectarRespuestasResellers() {
     var procesados = 0;
     if (!numeros.length) {
       Logger.log('WOS_detectarRespuestasResellers: sin pedidos en espera');
-      return { ok: true, procesados: 0 };
+      // OJO: NO return acá — el resto de esta función (reconciliar reservas, avisos de
+      // ingreso/ETA, detectarRespuestasOT, confirmación de entrega) se agregó después y
+      // vive más abajo en el mismo tick; un return temprano los salteaba enteros cada vez
+      // que no había ningún pedido esperando respuesta A/B (la mayoría de los ticks).
     }
 
     var dominioInterno = '@bidcom.com.ar';
