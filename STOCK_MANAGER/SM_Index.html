@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.35 -->
+<!-- @version 5.36 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -718,36 +718,29 @@ tr:last-child td{border-bottom:none}
 
     <!-- ══ FOTOS FALTANTES DEL CATÁLOGO ════════════════════════ -->
     <div class="tab-view" id="tab-fotos">
-      <!-- Carga directa por nombre de archivo — para fotos que YA vienen nombradas con el
-           código exacto (ej. bajadas de un catálogo/ERP que ya las nombra así). Distinto del
-           flujo de abajo (que es para fotos con nombre random, sin foto todavía): acá se
-           escribe directo por código, en CUALQUIER SKU del catálogo tenga o no foto ya —
-           y si ya tenía, la reemplaza (pedido explícito del usuario). -->
-      <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
-        <i class="fa fa-file-image" style="color:var(--blue);font-size:13px"></i>
-        <span style="font-weight:600;color:var(--tx)">¿Ya tenés las fotos nombradas con el código?</span>
-        <span style="color:var(--tx-m)">El nombre del archivo (sin extensión) tiene que ser el código exacto. Si el código ya tenía foto, la reemplaza.</span>
-        <label class="btn-p" style="cursor:pointer;margin-left:auto">
-          <i class="fa fa-folder-open"></i> Elegir fotos ya nombradas
-          <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosPorNombreSeleccionadas(this)">
-        </label>
-      </div>
-      <div id="fotos-porn-lista" style="display:none;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:8px 14px;margin-bottom:14px;font-size:11px;max-height:220px;overflow-y:auto"></div>
-
+      <!-- Una sola barra para las 3 acciones (antes eran 2 cajas apiladas, quedaba pesado).
+           Las explicaciones largas de cada botón van en el title (tooltip) en vez de texto
+           siempre visible — mismo criterio que ya usaba "Asignar varias fotos". -->
       <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
         <i class="fa fa-image" style="color:var(--blue);font-size:13px"></i>
-        <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
-        <span style="color:var(--tx-m)">Bajá las fotos a tu PC en el mismo orden que los códigos de abajo y elegilas todas juntas.</span>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
+        <span style="font-weight:600;color:var(--tx)">Fotos del catálogo</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:14px;font-size:11px;color:var(--tx-d);flex-wrap:wrap">
           <span><strong id="fotos-cnt-prio" style="color:var(--orange)">0</strong> con pedidos de resellers sin foto</span>
           <span><strong id="fotos-cnt-pend">0</strong> sin foto en todo el catálogo</span>
-          <label class="btn-p" style="cursor:pointer" title="Elegí de una todas las fotos que ya bajaste a tu PC — se asignan en el mismo orden en que aparecen los códigos de abajo (la más vieja primero)">
-            <i class="fa fa-images"></i> Asignar varias fotos
-            <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosMultipleSeleccionadas(this)">
-          </label>
-          <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 20 más</button>
+          <div style="display:flex;gap:8px">
+            <label class="btn-p" style="cursor:pointer" title="Para fotos YA nombradas con el código exacto (sin la extensión) — se suben directo por código, en cualquier SKU tenga o no foto, y si ya tenía la reemplaza">
+              <i class="fa fa-file-image"></i> Ya nombradas
+              <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosPorNombreSeleccionadas(this)">
+            </label>
+            <label class="btn-p" style="cursor:pointer" title="Elegí de una todas las fotos que ya bajaste a tu PC (nombre random) — se asignan en el mismo orden en que aparecen los códigos de abajo (la más vieja primero)">
+              <i class="fa fa-images"></i> Asignar varias
+              <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosMultipleSeleccionadas(this)">
+            </label>
+            <button class="btn-p" onclick="cargarFotosFaltantesTab()" title="Trae los próximos 20 códigos sin foto"><i class="fa fa-sync-alt"></i> Traer 20 más</button>
+          </div>
         </div>
       </div>
+      <div id="fotos-porn-lista" style="display:none;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:8px 14px;margin-bottom:14px;font-size:11px;max-height:220px;overflow-y:auto"></div>
       <div style="font-size:10px;color:var(--tx-d);margin:-6px 0 10px 2px"><i class="fa fa-circle-info"></i> Se muestran primero los códigos que resellers ya pidieron (Notas de Entrega) — el resto del catálogo va después.</div>
       <div id="fotos-confirmar-bar" style="display:none;position:sticky;top:0;z-index:5;background:var(--blue);color:#fff;border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;align-items:center;gap:12px;font-size:12px;font-weight:600">
         <span id="fotos-confirmar-msg"><strong>0</strong> fotos asignadas — revisá que coincidan con su código (arrastrá una miniatura sobre otra para intercambiarlas) y confirmá.</span>
