@@ -1,14 +1,16 @@
 // ============================================================
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
-//  Sheet ID: el spreadsheet activo (SS)
-// @version 2.27
+//  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
+// @version 2.28
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
-//  sesión (identificarUsuario), acceso a hojas (SS/getSheet), logs
-//  (registrarLog/registrarEmailLog), hilos de Gmail (_enviarConHilo/
-//  enviarEmail) y los primitivos HTML de los mails (bloqueCard/
-//  filaDetalle/construirEmailHTML/construirTablaRepuestos).
+//  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
+//  hilos de Gmail (_enviarConHilo/enviarEmail) y los primitivos HTML de
+//  los mails (bloqueCard/filaDetalle/construirEmailHTML/construirTablaRepuestos).
+//  El acceso a hojas (getSheet/getSheetValues) vive en Env.js — antes había
+//  un getSheet() SEGUNDO acá mismo (apuntaba a getActiveSpreadsheet() en vez
+//  de MASTER_SHEET_ID); se sacó por ambiguo y quedó uno solo (fix 2026-07-30).
 //
 //  El resto se reorganizó (2026-07-30, sin cambios funcionales) en:
 //    HUB_OTs.js            — CRUD/listado de órdenes de trabajo + pedido de repuestos
@@ -30,15 +32,6 @@ function _fmtNum(n) {
   }
   return result + ',' + parts[1];
 }
-
-
-var _SS = null;
-function SS() {
-  if (!_SS) _SS = SpreadsheetApp.getActiveSpreadsheet();
-  return _SS;
-}
-
-function getSheet(nombre) { return SS().getSheetByName(nombre); }
 
 //  CONFIGURACIÓN — EDITÁ SOLO ESTA SECCIÓN
 
@@ -141,7 +134,7 @@ function registrarEmailLog(ot, destinatario, rol, asunto, estado, threadId) {
   try {
     var hoja = getSheet(SCHEMA.SHEETS.EMAIL_LOGS);
     if (!hoja) {
-      hoja = SS().insertSheet("EMAIL_LOGS");
+      hoja = getDb().insertSheet("EMAIL_LOGS");
       hoja.appendRow(["Fecha","OT","Destinatario","Rol","Asunto","Estado","ThreadID"]);
     }
     hoja.appendRow([new Date(), ot, destinatario, rol, asunto, estado, threadId || '']);

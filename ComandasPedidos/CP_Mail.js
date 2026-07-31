@@ -1,0 +1,404 @@
+// @version 1.0
+// ============================================================
+//  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
+//  recordatorios a Sole, auto-mail + sus triggers de setup.
+//  Extraído de CP_Código.js 1.43 el 2026-07-30 — reorganización sin
+//  cambios funcionales (más archivos, mismo comportamiento).
+// ============================================================
+
+
+// Destinatarios del mail al reseller de un envío: reseller (Resellers col J) + RTV (hoja RTV) +
+// fijos (_CONFIG MAIL_DESTINATARIOS). Devuelve { to:[...], detalle:[...] } deduplicado.
+// resellerMap / rtvMap: opcionales. Si se pasan (ya leídos una vez), evita releer
+// las hojas Resellers/RTV por cada envío (clave para no colgar el diagnóstico en lote).
+function _cpDestinatariosEnvio(det, cfg, resellerMap, rtvMap) {
+  var toList = [], detalle = [];
+  var rinfo = (resellerMap || _cpResellerMap())[_kitKey(det.reseller)] || {};
+  if (rinfo.mail) { toList.push(rinfo.mail); detalle.push('reseller'); }
+  var rtvName = rinfo.rtv || det.rtv;
+  var mailRtv = rtvName ? (rtvMap || _cpRtvMailMap())[_kitKey(rtvName)] : '';
+  if (mailRtv) { toList.push(mailRtv); detalle.push('RTV (' + rtvName + ')'); }
+  if (cfg['MAIL_DESTINATARIOS']) { toList.push(cfg['MAIL_DESTINATARIOS']); detalle.push('fijos'); }
+  var seen = {}, to = [];
+  toList.join(',').split(',').forEach(function(x) { x = x.trim(); var k = x.toLowerCase(); if (x && !seen[k]) { seen[k] = true; to.push(x); } });
+  return { to: to, detalle: detalle };
+}
+
+
+// VISTA PREVIA del mail al reseller de un envío (NO envía, NO marca nada).
+// Devuelve { ok, html, asunto, destinatarios, a, sinGuia, sinDestino }.
+function CP_previewMailEnvio(idVenta, envio) {
+  try {
+    idVenta = _s(idVenta); envio = _num(envio);
+    if (!idVenta) return { ok: false, mensaje: 'Falta el ID de la venta.' };
+    var arr = _cpEnviosMap()[idVenta.toUpperCase()] || [];
+    var e = null; arr.forEach(function(x) { if (x.envio === envio) e = x; });
+    if (!e) return { ok: false, mensaje: 'No se encontró el envío.' };
+
+    var master = _cpMasterMap();
+    var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
+    var guias = [], transs = [], tieneGuia = parts.length > 0;
+    parts.forEach(function(p) {
+      var m = master[p.toUpperCase()];
+      if (!m || !m.guia) tieneGuia = false;
+      if (m) { if (m.guia) guias.push(m.guia); if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista); }
+    });
+
+    var cfg = _cpConfig();
+    var det = _cpDetalleVenta(idVenta);
+    var dest = _cpDestinatariosEnvio(det, cfg);
+    var pdfs = [];
+    parts.forEach(function(p) { var pdf = _cpBuscarPdf(p); if (pdf) pdfs.push({ comanda: p, url: pdf.url, name: pdf.name }); });
+    var detEnv = _cpDetalleEnvio(det, e.productos);
+    var pend = _cpPendingVenta(det, arr);
+    var ocaBase = cfg['OCA_TRACKING_URL'] || '';
+    // Mismos adjuntos que el envío real: comanda(s) siempre; documentos definidos solo en el 1er envío.
+    var esPrimerEnvio = !arr.some(function(x) { return x.envio !== e.envio && x.mailReseller; });
+    var docNames = esPrimerEnvio ? _cpDocsDefinidosArchivos().map(function(a) { return a.name; }) : [];
+    var asunto = (cfg['MAIL_ASUNTO'] || 'Despacho {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
+      .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames);
+
+    var bcc = _s(cfg['MAIL_BCC']), cc = _s(cfg['MAIL_CC']);
+    return {
+      ok: true, html: html, asunto: asunto,
+      destinatarios: dest.to.join(', '), a: dest.detalle.join(' + '),
+      cc: cc, bcc: bcc, sinGuia: !tieneGuia, sinDestino: !dest.to.length
+    };
+  } catch (e) {
+    return { ok: false, mensaje: String(e && e.message ? e.message : e) };
+  }
+}
+
+
+// Mail al reseller de UN envío. Manual: force=true → reenvía aunque ya se haya mandado.
+function CP_enviarMailEnvio(idVenta, envio) {
+  var _auth = _cpUsuarioAutorizado();
+  if (!_auth.ok) return { ok: false, noAutorizado: true, mensaje: _auth.mensaje };
+  return _cpEnviarEnvioCore(_s(idVenta), _num(envio), true);
+}
+
+
+// Core del mail al reseller (por envío). force=false → NO reenvía si ya se mandó.
+function _cpEnviarEnvioCore(idVenta, envio, force) {
+  try {
+    idVenta = _s(idVenta); envio = _num(envio);
+    if (!idVenta) return { ok: false, mensaje: 'Falta el ID de la venta.' };
+    var arr = _cpEnviosMap()[idVenta.toUpperCase()] || [];
+    var e = null;
+    arr.forEach(function(x) { if (x.envio === envio) e = x; });
+    if (!e) return { ok: false, mensaje: 'No se encontró el envío.' };
+    if (!force && e.mailReseller) return { ok: false, yaEnviado: true, mensaje: 'El mail de este envío ya fue enviado (' + e.mailReseller + ').' };
+
+    var master = _cpMasterMap();
+    var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
+    if (!parts.length) return { ok: false, mensaje: 'El envío no tiene comanda.' };
+
+    var guias = [], transs = [], tieneGuia = true;
+    parts.forEach(function(p) {
+      var m = master[p.toUpperCase()];
+      if (!m || !m.guia) tieneGuia = false;
+      if (m) { if (m.guia) guias.push(m.guia); if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista); }
+    });
+    if (!tieneGuia) return { ok: false, mensaje: 'Este envío todavía no tiene número de seguimiento (guía) en Comandas Master.' };
+
+    var cfg = _cpConfig();
+    var det = _cpDetalleVenta(idVenta);
+
+    // destinatarios: reseller (Resellers col J) + RTV (col C → hoja RTV) + fijos de _CONFIG
+    var dest = _cpDestinatariosEnvio(det, cfg);
+    var to = dest.to, detalleDest = dest.detalle;
+    if (!to.length) return { ok: false, mensaje: 'No hay destinatarios: falta el mail del reseller (Resellers), del RTV (hoja RTV) o MAIL_DESTINATARIOS en _CONFIG.' };
+
+    var pdfs = [];
+    parts.forEach(function(p) { var pdf = _cpBuscarPdf(p); if (pdf) pdfs.push({ comanda: p, url: pdf.url, name: pdf.name }); });
+    var detEnv = _cpDetalleEnvio(det, e.productos);          // lo que se envió en ESTE envío
+    var pend = _cpPendingVenta(det, arr);                    // lo que todavía falta de la venta
+    var ocaBase = cfg['OCA_TRACKING_URL'] || '';
+
+    // Adjuntos: el PDF de la comanda de ESTE envío siempre; los "documentos definidos"
+    // (carpeta CP_DOCS_FOLDER_ID) SOLO en el primer envío de la venta. "Primer envío" =
+    // ningún otro envío de la venta se mandó todavía al reseller (robusto ante borrados/reintentos).
+    var esPrimerEnvio = !arr.some(function(x) { return x.envio !== e.envio && x.mailReseller; });
+    var docsArch = esPrimerEnvio ? _cpDocsDefinidosArchivos() : [];   // 1 solo listado de la carpeta
+    var docNames = docsArch.map(function(a) { return a.name; });      // nombres para el cuerpo del mail
+
+    var asunto = (cfg['MAIL_ASUNTO'] || 'Despacho {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
+      .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames);
+
+    var opts = { htmlBody: html, name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO' };
+    if (cfg['MAIL_CC'])  opts.cc  = cfg['MAIL_CC'];
+    if (cfg['MAIL_BCC']) opts.bcc = cfg['MAIL_BCC'];
+
+    var adjuntos = _cpPdfBlobs(parts);
+    docsArch.forEach(function(a) { try { adjuntos.push(DriveApp.getFileById(a.id).getBlob()); } catch (eD) { Logger.log('adjuntar doc ' + a.name + ': ' + eD); } });
+    if (adjuntos.length) opts.attachments = adjuntos;
+
+    try {
+      _cpGmailSend(to.join(','), asunto, 'Envío ' + envio + ' · comanda ' + parts.join('/') + ' — ver versión HTML.', opts);
+    } catch (se) {
+      // registrar el error en la hoja (col Estado) para que quede visible; el auto-trigger reintentará.
+      try { _cpEnviosHoja().getRange(e.rowIdx, 9).setValue('MAIL ERROR · ' + _fmtTs(new Date()) + ' · ' + String(se && se.message ? se.message : se)); } catch (_) {}
+      return { ok: false, mailError: true, mensaje: 'No se pudo enviar el mail: ' + String(se && se.message ? se.message : se) };
+    }
+    _cpMarcarMailEnvio(e.rowIdx, guias.join('/'), transs.join(', '));
+    _cpAuditar('Mail reseller', idVenta, envio, 'a ' + to.join(', '));
+    return { ok: true, destinatarios: to.join(', '), a: detalleDest.join(' + '), envio: envio };
+  } catch (e) {
+    return { ok: false, mensaje: String(e && e.message ? e.message : e) };
+  }
+}
+
+
+function _cpMarcarMailEnvio(rowIdx, guia, transportista) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(8000); } catch (e) {}
+  try {
+    var h = _cpEnviosHoja();
+    if (guia)          h.getRange(rowIdx, 7).setValue(guia);
+    if (transportista) h.getRange(rowIdx, 8).setValue(transportista);
+    h.getRange(rowIdx, 9).setValue(CP_DESPACHADO);
+    h.getRange(rowIdx, 11).setValue('SÍ · ' + _fmtTs(new Date()));
+  } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+
+
+// AUTOMÁTICO (trigger horario). Manda el mail de los envíos que ya tienen guía y aún no se enviaron.
+// Solo actúa si en _CONFIG está AUTO_MAIL_DESPACHO = SI.
+function CP_autoMailEnvios() {
+  var cfg = _cpConfig();
+  var v = _s(cfg['AUTO_MAIL_DESPACHO']).toUpperCase();
+  if (v.indexOf('SI') !== 0 && v.indexOf('SÍ') !== 0) { Logger.log('AUTO_MAIL_DESPACHO desactivado en _CONFIG.'); return; }
+  var mapAll = _cpEnviosMap(), enviados = 0;
+  Object.keys(mapAll).forEach(function(k) {
+    mapAll[k].forEach(function(e) {
+      if (e.mailReseller) return;
+      var r = _cpEnviarEnvioCore(k, e.envio, false);
+      if (r && r.ok) enviados++;
+    });
+  });
+  Logger.log('CP_autoMailEnvios: ' + enviados + ' mail(s) enviado(s).');
+}
+
+// Alias por si quedó instalado el trigger viejo.
+function CP_autoMailDespacho() { return CP_autoMailEnvios(); }
+
+
+// Reintenta manualmente TODOS los envíos con guía cuyo mail al reseller aún no salió
+// (incluye los que quedaron en "MAIL ERROR"). Independiente de AUTO_MAIL_DESPACHO.
+// Devuelve { ok, enviados, fallidos:[{idVenta, envio, mensaje}] }.
+function CP_reintentarFallidos() {
+  try {
+    var _auth = _cpUsuarioAutorizado();
+    if (!_auth.ok) return { ok: false, noAutorizado: true, mensaje: _auth.mensaje };
+    var mapAll = _cpEnviosMap(), enviados = 0, fallidos = [];
+    Object.keys(mapAll).forEach(function(k) {
+      mapAll[k].forEach(function(e) {
+        if (e.mailReseller) return;                 // ya salió
+        if (!_s(e.comanda)) return;                 // sin comanda → no aplica
+        var r = _cpEnviarEnvioCore(k, e.envio, false);
+        if (r && r.ok) enviados++;
+        else if (r && r.mailError) fallidos.push({ idVenta: k, envio: e.envio, mensaje: r.mensaje || 'error' });
+        // los que aún no tienen guía/destinatario se ignoran (no son "fallidos", sólo no están listos)
+      });
+    });
+    if (enviados || fallidos.length) _cpAuditar('Reintentar fallidos', '', '', enviados + ' enviado(s), ' + fallidos.length + ' fallo(s)');
+    return { ok: true, enviados: enviados, fallidos: fallidos };
+  } catch (e) {
+    return { ok: false, mensaje: String(e && e.message ? e.message : e) };
+  }
+}
+
+
+// Recordatorio a Sole cada X horas (RECORDATORIO_HORAS, def 24) para comandas que
+// siguen SIN despacharse (sin guía). Usa ScriptProperties para no repetir antes de X horas.
+function CP_recordatoriosSole() {
+  var cfg = _cpConfig();
+  var sole = cfg['MAIL_APROBACION'];
+  if (!sole) { Logger.log('CP_recordatoriosSole: falta MAIL_APROBACION.'); return; }
+  var horas = _num(cfg['RECORDATORIO_HORAS']) || 24;
+  var master = _cpMasterMap();
+  var props = PropertiesService.getScriptProperties();
+  var now = Date.now(), enviados = 0;
+  var mapAll = _cpEnviosMap();
+  Object.keys(mapAll).forEach(function(k) {
+    mapAll[k].forEach(function(e) {
+      if (!e.fechaTs) return;
+      var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (!parts.length) return;
+      var tieneGuia = true;
+      parts.forEach(function(p) { var m = master[p.toUpperCase()]; if (!m || !m.guia) tieneGuia = false; });
+      if (tieneGuia) return;                              // ya despachado → no molestar a Sole
+      if ((now - e.fechaTs) / 3600000 < horas) return;   // todavía no cumple X horas
+      var pk = 'rem_' + k + '_' + e.envio;
+      var last = _num(props.getProperty(pk));
+      if (last && (now - last) / 3600000 < horas) return; // recordado hace < X horas
+      var det = _cpDetalleVenta(k);
+      var okr = _cpEnviarRecordatorioSole(sole, k, e, cfg, det, Math.floor((now - e.fechaTs) / 3600000));
+      if (okr) { props.setProperty(pk, String(now)); enviados++; }
+    });
+  });
+  Logger.log('CP_recordatoriosSole: ' + enviados + ' recordatorio(s) enviado(s).');
+}
+
+
+function _cpEnviarRecordatorioSole(sole, idVenta, e, cfg, det, horas) {
+  try {
+    var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
+    var pdfs = [];
+    parts.forEach(function(p) { var pdf = _cpBuscarPdf(p); if (pdf) pdfs.push({ comanda: p, url: pdf.url, name: pdf.name }); });
+    var detEnv = _cpDetalleEnvio(det, e.productos);
+    var arr = _cpEnviosMap()[String(idVenta).toUpperCase()] || [];
+    var pend = _cpPendingVenta(det, arr);   // faltantes de la venta tras este envío
+    var nota = 'RECORDATORIO — esta comanda sigue sin despacharse hace ~' + horas + ' h.' + (e.notaAprob ? ' · ' + e.notaAprob : '');
+    var asunto = '⏰ RECORDATORIO · ' + (cfg['ASUNTO_APROBACION'] || 'APROBAR MC · {COMANDA} · {IDVENTA}')
+      .replace('{COMANDA}', parts.join('/')).replace('{IDVENTA}', idVenta);
+    var opts = {
+      htmlBody: _cpMailAprobacionHtml(idVenta, parts, det, pdfs, nota, detEnv, e.envio, pend),
+      name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO'
+    };
+    if (cfg['MAIL_BCC']) opts.bcc = cfg['MAIL_BCC'];
+    var adj = _cpPdfBlobs(parts);
+    if (adj.length) opts.attachments = adj;
+    _cpGmailSend(sole, asunto, 'Recordatorio: autorizar comanda ' + e.comanda + ' en Masterchief.', opts);
+    _cpAuditar('Recordatorio Sole', idVenta, e.envio, 'a ' + sole + ' · ~' + horas + ' h sin despachar');
+    return true;
+  } catch (err) { Logger.log('_cpEnviarRecordatorioSole ' + idVenta + '#' + e.envio + ': ' + err); return false; }
+}
+
+
+// SETUP: instala el trigger de recordatorios a Sole (revisa cada 6 h; recuerda cada RECORDATORIO_HORAS). Correr una vez.
+function CP_setupRecordatorios() {
+  var ya = ScriptApp.getProjectTriggers().some(function(t) { return t.getHandlerFunction() === 'CP_recordatoriosSole'; });
+  if (ya) { Logger.log('El trigger CP_recordatoriosSole ya existe.'); return; }
+  ScriptApp.newTrigger('CP_recordatoriosSole').timeBased().everyHours(6).create();
+  Logger.log('✅ Trigger de recordatorios instalado (revisa cada 6 h; recuerda cada ' + (_cpConfig()['RECORDATORIO_HORAS'] || 24) + ' h una comanda sin despachar).');
+}
+
+
+// SETUP: instala el trigger horario del envío automático. Correr una vez.
+function CP_setupAutoMail() {
+  var ya = ScriptApp.getProjectTriggers().some(function(t) { return t.getHandlerFunction() === 'CP_autoMailEnvios'; });
+  if (ya) { Logger.log('El trigger CP_autoMailEnvios ya existe.'); return; }
+  ScriptApp.newTrigger('CP_autoMailEnvios').timeBased().everyMinutes(30).create();
+  Logger.log('✅ Trigger automático instalado (cada 30 min). Activá AUTO_MAIL_DESPACHO=SI en _CONFIG para que envíe.');
+}
+
+
+// ── Cuerpos de mail ──
+function _cpMailItemsRows(items, esc) {
+  return (items || []).map(function(it) {
+    return '<tr><td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:700;text-align:center">' + esc(it.cant) + '×</td>' +
+           '<td style="padding:5px 8px;border-bottom:1px solid #eee;font-family:monospace;font-weight:700">' + esc(it.sku || '—') + '</td>' +
+           '<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#555">' + esc(it.desc || '') + '</td></tr>';
+  }).join('');
+}
+
+
+// Bloque HTML de FALTANTES (lo que queda pendiente de enviar de la venta).
+// Devuelve '' si no hay nada pendiente → así no sale nada en el mail.
+function _cpPendBloqueHtml(pendientes, esc, titulo) {
+  if (!pendientes || !pendientes.length) return '';
+  var rows = pendientes.map(function(f){
+    return '<tr><td style="padding:5px 8px;border-bottom:1px solid #f3d9d9;font-weight:700;text-align:center;color:#c0392b">'+esc(f.cantidad)+'×</td>'+
+           '<td style="padding:5px 8px;border-bottom:1px solid #f3d9d9;font-family:monospace;font-weight:700">'+esc(f.sku||'—')+'</td>'+
+           '<td style="padding:5px 8px;border-bottom:1px solid #f3d9d9;color:#555">'+esc(f.descripcion||'')+'</td></tr>';
+  }).join('');
+  return '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c0392b;margin:16px 0 8px">'+esc(titulo)+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e6b3b3;border-radius:8px;overflow:hidden;background:#fff7f7">'+rows+'</table>';
+}
+
+
+// Mail al reseller: un ENVÍO (lo despachado en este envío + guía + lo que queda pendiente).
+function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs, itemsEnviados, notaReseller, pendientes, envioNum, docsAdjuntos) {
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); }
+  // Sección explícita de adjuntos: la(s) comanda(s) de este envío + los documentos definidos (1er envío).
+  var adjItems = [];
+  (pdfs||[]).forEach(function(p){ adjItems.push('📄 Comanda ' + esc(p.comanda) + (p.name ? ' <span style="color:#888">('+esc(p.name)+')</span>' : '')); });
+  (docsAdjuntos||[]).forEach(function(n){ adjItems.push('📎 ' + esc(n)); });
+  var adjBloque = adjItems.length
+    ? '<div style="background:#f0faf4;border:1px solid #b7e3c8;border-left:3px solid #1a9e4a;border-radius:0 8px 8px 0;padding:12px 15px;margin:0 0 16px;font-size:13px;color:#1a1f2e">'
+      + '<div style="font-weight:700;margin-bottom:6px">📎 Documentos adjuntos a este correo</div>'
+      + '<ul style="margin:0;padding-left:20px;line-height:1.8">' + adjItems.map(function(x){ return '<li>'+x+'</li>'; }).join('') + '</ul>'
+      + '</div>'
+    : '';
+  var guiasHtml = (guias||[]).map(function(g){
+    var url = ocaBase ? ocaBase.replace('{GUIA}', encodeURIComponent(g)) : '';
+    return url ? '<a href="'+url+'" style="color:#00a3e0;font-weight:700;text-decoration:none">'+esc(g)+' ↗</a>' : '<b>'+esc(g)+'</b>';
+  }).join(' &nbsp;·&nbsp; ') || '—';
+  var pdfHtml = (pdfs && pdfs.length)
+    ? pdfs.map(function(p){ return '<a href="'+esc(p.url)+'" style="color:#00a3e0;font-weight:700;text-decoration:none">📄 '+esc(p.comanda)+' ↗</a>'; }).join(' &nbsp;·&nbsp; ')
+    : '—';
+  var notaBloque = _s(notaReseller)
+    ? '<div style="background:#eef7ff;border:1px solid #cfe6fb;border-left:3px solid #00a3e0;border-radius:0 8px 8px 0;padding:12px 15px;margin:0 0 16px;font-size:13px;color:#1a1f2e;white-space:pre-wrap"><b>Mensaje:</b> '+esc(notaReseller)+'</div>'
+    : '';
+  var chip = function(l,v){ return '<tr><td style="padding:4px 0;color:#888;width:150px">'+esc(l)+'</td><td style="padding:4px 0;color:#1a1f2e;font-weight:600">'+v+'</td></tr>'; };
+
+  // Los faltantes NO van en el mail de despacho (reseller+RTV): solo lo que se envía en esta
+  // comanda. El seguimiento de pendientes sigue vivo en la UI y en PENDIENTES_ENTREGA.
+  return ''+
+  '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1f2e">'+
+    '<div style="background:#00a3e0;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">'+
+      '<div style="font-size:12px;opacity:.85;letter-spacing:.05em">BIDCOMAGRO · DESPACHO' + (envioNum ? ' · ENVÍO ' + esc(envioNum) : '') + '</div>'+
+      '<div style="font-size:20px;font-weight:800;margin-top:2px">Comanda '+esc((comandas||[]).join(' / '))+' cargada</div>'+
+    '</div>'+
+    '<div style="border:1px solid #e0e3e8;border-top:none;border-radius:0 0 10px 10px;padding:20px 22px">'+
+      notaBloque+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">'+
+        chip('ID Venta', esc(idVenta))+
+        chip('Comanda(s)', esc((comandas||[]).join(' / ')))+
+        chip('Razón Social', esc(det.razonSocial||'—'))+
+        chip('Reseller', esc(det.reseller||'—'))+
+        chip('Operación', esc(det.operacion||'—'))+
+        chip('Transportista', esc(transportista||'—'))+
+        chip('Guía de seguimiento', guiasHtml)+
+        chip('PDF comanda', pdfHtml)+
+      '</table>'+
+      adjBloque+
+      '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin:6px 0 8px">Detalle despachado (este envío)</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e0e3e8;border-radius:8px;overflow:hidden">'+
+        (_cpMailItemsRows(itemsEnviados, esc) || '<tr><td style="padding:8px;color:#999">Sin detalle</td></tr>')+
+      '</table>'+
+      '<div style="margin-top:18px;font-size:11px;color:#aaa">Enviado automáticamente desde Comandas · Carga Masterchief.</div>'+
+    '</div>'+
+  '</div>';
+}
+
+
+// Mail a Sole: aprobar la comanda de un ENVÍO en Masterchief (con detalle de ese envío + PDF adjunto).
+function _cpMailAprobacionHtml(idVenta, comandas, det, pdfs, notaAprob, itemsEnviados, envioNum, pendientes) {
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); }
+  var pdfHtml = (pdfs && pdfs.length)
+    ? pdfs.map(function(p){ return '<a href="'+esc(p.url)+'" style="color:#00a3e0;font-weight:700;text-decoration:none">📄 '+esc(p.comanda)+' ↗</a>'; }).join(' &nbsp;·&nbsp; ')
+    : '—';
+  var notaBloque = _s(notaAprob)
+    ? '<div style="background:#fff6e6;border:1px solid #f3dca6;border-left:3px solid #d4890a;border-radius:0 8px 8px 0;padding:12px 15px;margin:0 0 16px;font-size:13px;color:#1a1f2e;white-space:pre-wrap"><b>Nota del operador:</b> '+esc(notaAprob)+'</div>'
+    : '';
+  var chip = function(l,v){ return '<tr><td style="padding:4px 0;color:#888;width:150px">'+esc(l)+'</td><td style="padding:4px 0;color:#1a1f2e;font-weight:600">'+v+'</td></tr>'; };
+
+  return ''+
+  '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1f2e">'+
+    '<div style="background:#d4890a;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">'+
+      '<div style="font-size:12px;opacity:.9;letter-spacing:.05em">BIDCOMAGRO · APROBACIÓN MASTERCHIEF' + (envioNum ? ' · ENVÍO ' + esc(envioNum) : '') + '</div>'+
+      '<div style="font-size:20px;font-weight:800;margin-top:2px">Autorizar comanda '+esc((comandas||[]).join(' / '))+'</div>'+
+    '</div>'+
+    '<div style="border:1px solid #e0e3e8;border-top:none;border-radius:0 0 10px 10px;padding:20px 22px">'+
+      '<p style="margin:0 0 14px;font-size:13.5px">Se cargó una comanda en Masterchief y necesita tu <b>autorización</b>.</p>'+
+      notaBloque+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">'+
+        chip('Comanda(s)', esc((comandas||[]).join(' / ')))+
+        chip('ID Venta', esc(idVenta))+
+        chip('Razón Social', esc(det.razonSocial||'—'))+
+        chip('Reseller', esc(det.reseller||'—'))+
+        chip('Operación', esc(det.operacion||'—'))+
+        chip('PDF comanda', pdfHtml)+
+      '</table>'+
+      '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin:6px 0 8px">Detalle a cargar (este envío)</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e0e3e8;border-radius:8px;overflow:hidden">'+
+        (_cpMailItemsRows(itemsEnviados, esc) || '<tr><td style="padding:8px;color:#999">Sin detalle</td></tr>')+
+      '</table>'+
+      '<div style="margin-top:18px;font-size:11px;color:#aaa">Enviado automáticamente desde Comandas · Carga Masterchief.</div>'+
+    '</div>'+
+  '</div>';
+}

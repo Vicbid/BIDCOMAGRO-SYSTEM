@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
@@ -173,11 +173,11 @@ function invalidateSheetValues(nombre) {
   CacheService.getScriptCache().remove(_cacheKey(keyName));
 }
 
-// Lector cacheado para spreadsheets EXTERNOS (WOS, Carmen) o el MASTER por ID explícito.
-// A diferencia de getSheetValues()/getSheet() (que dependen de getDb(), y de un getSheet()
-// distinto redefinido en HUB_Código.js apuntando a getActiveSpreadsheet() — ambigüedad ya
-// existente en este proyecto), este helper siempre abre por openById explícito: sin dudas
-// de a qué spreadsheet apunta, sin importar el orden de carga de los archivos del proyecto.
+// Lector cacheado para spreadsheets EXTERNOS (WOS, Carmen) — el MASTER ya lo cubre
+// getSheetValues()/getSheet() de acá arriba (dependen de getDb(), único desde 2026-07-30:
+// antes había un getSheet() SEGUNDO redefinido en HUB_Código.js apuntando a
+// getActiveSpreadsheet(), ambigüedad ya resuelta). Este helper abre siempre por openById
+// explícito: sin dudas de a qué spreadsheet apunta.
 function _hubExtSheetValues(ssId, sheetName, ttlSec) {
   var cache = CacheService.getScriptCache();
   var key = 'ext:' + ssId + ':' + sheetName;
