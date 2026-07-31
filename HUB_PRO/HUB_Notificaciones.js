@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Motor de notificaciones por mail ante cambio de estado
 //  de una OT (reseller/técnico/supervisor/facturación) + las 2
@@ -179,6 +179,10 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
   try {
     var estadoNuevo    = data.estado;
     var tieneBackorder = detectarBackorder(data.repuestos);
+    // El aviso de "Backorder / Repuestos pendientes de envío" habla de un ENVÍO (repuesto que
+    // viaja de BIDCOMAGRO al reseller) — no aplica a Taller: ahí el repuesto se usa en el
+    // propio taller, no se "envía" a ningún lado. Se filtra acá para no mandarlo en OTs Taller.
+    var tieneBackorderEnvio = tieneBackorder && data.circuito !== "Taller";
     Logger.log("=== NOTIF " + data.ot + " | " + estadoAnterior + " → " + estadoNuevo + " ===");
 
     // 0. REPOSICIÓN BATERÍA — se dispara al confirmar el envío del scrap a DJI
@@ -223,11 +227,11 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
     var motivoSup = [];
     if (estaEnLista(estadoNuevo, CONFIG.ESTADOS_NOTIFICAR_SUPERVISOR)) motivoSup.push(estadoNuevo);
     if (CONFIG.SUPERVISOR_RECIBE_URGENTES  && data.prioridad)   motivoSup.push("URGENTE");
-    if (CONFIG.SUPERVISOR_RECIBE_BACKORDER && tieneBackorder)   motivoSup.push("Backorder");
+    if (CONFIG.SUPERVISOR_RECIBE_BACKORDER && tieneBackorderEnvio) motivoSup.push("Backorder");
     if (motivoSup.length > 0) {
       var asuntoS = "[HUB] " + motivoSup.join(" · ") + " — " + data.ot;
       try {
-        var tidS = _enviarConHilo(data.ot, CONFIG.EMAIL_SUPERVISOR, asuntoS, armarEmailSupervisor(data, estadoAnterior, estadoNuevo, tecnico, tieneBackorder));
+        var tidS = _enviarConHilo(data.ot, CONFIG.EMAIL_SUPERVISOR, asuntoS, armarEmailSupervisor(data, estadoAnterior, estadoNuevo, tecnico, tieneBackorderEnvio));
         registrarEmailLog(data.ot, CONFIG.EMAIL_SUPERVISOR, "Supervisor", asuntoS, "OK", tidS || "");
       } catch(e) {
         registrarEmailLog(data.ot, CONFIG.EMAIL_SUPERVISOR, "Supervisor", asuntoS, "ERROR: " + e.message, "");
