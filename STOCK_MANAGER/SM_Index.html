@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.33 -->
+<!-- @version 5.34 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -71,8 +71,12 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .foto-card .fc-cod:hover{color:var(--blue)}
 .foto-card .fc-desc{font-size:11px;color:var(--tx-m);line-height:1.4;min-height:30px}
 .foto-card .fc-modelo{font-size:10px;color:var(--tx-d)}
-.foto-card .fc-thumb{width:100%;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:22px;border:1px dashed var(--brd2)}
+.foto-card .fc-thumb{position:relative;width:100%;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:22px;border:1px dashed var(--brd2)}
 .foto-card .fc-thumb img{width:100%;height:100%;object-fit:cover}
+.foto-card .fc-thumb.staged{border-style:solid;border-color:var(--blue);cursor:grab}
+.foto-card .fc-thumb.dragover{outline:2px solid var(--blue);outline-offset:-2px}
+.foto-card .fc-thumb-x{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;z-index:2}
+.foto-card .fc-thumb-x:hover{background:var(--red)}
 .foto-card .fc-upload{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--blue-a);color:var(--blue);border:1px dashed var(--blue);border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;text-align:center}
 .foto-card .fc-upload input{display:none}
 .foto-card .fc-status{font-size:10px;font-weight:700;text-align:center}
@@ -717,14 +721,25 @@ tr:last-child td{border-bottom:none}
       <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
         <i class="fa fa-image" style="color:var(--blue);font-size:13px"></i>
         <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
-        <span style="color:var(--tx-m)">Bajá la imagen a tu PC y seleccionala para cada código — se sube sola.</span>
+        <span style="color:var(--tx-m)">Bajá las fotos a tu PC en el mismo orden que los códigos de abajo y elegilas todas juntas.</span>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--tx-d)">
           <span><strong id="fotos-cnt-prio" style="color:var(--orange)">0</strong> con pedidos de resellers sin foto</span>
           <span><strong id="fotos-cnt-pend">0</strong> sin foto en todo el catálogo</span>
-          <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 10 más</button>
+          <label class="btn-p" style="cursor:pointer" title="Elegí de una todas las fotos que ya bajaste a tu PC — se asignan en el mismo orden en que aparecen los códigos de abajo (la más vieja primero)">
+            <i class="fa fa-images"></i> Asignar varias fotos
+            <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosMultipleSeleccionadas(this)">
+          </label>
+          <button class="btn-p" onclick="cargarFotosFaltantesTab()"><i class="fa fa-sync-alt"></i> Traer 20 más</button>
         </div>
       </div>
       <div style="font-size:10px;color:var(--tx-d);margin:-6px 0 10px 2px"><i class="fa fa-circle-info"></i> Se muestran primero los códigos que resellers ya pidieron (Notas de Entrega) — el resto del catálogo va después.</div>
+      <div id="fotos-confirmar-bar" style="display:none;position:sticky;top:0;z-index:5;background:var(--blue);color:#fff;border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;align-items:center;gap:12px;font-size:12px;font-weight:600">
+        <span id="fotos-confirmar-msg"><strong>0</strong> fotos asignadas — revisá que coincidan con su código (arrastrá una miniatura sobre otra para intercambiarlas) y confirmá.</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="fotos-btn-subir" class="btn-p" style="background:#fff;color:var(--blue)" onclick="_fotosConfirmarSubida()"><i class="fa fa-upload"></i> Subir todas</button>
+          <button class="btn-p" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)" onclick="_fotosCancelarTodas()">Cancelar</button>
+        </div>
+      </div>
       <div id="fotos-grid" class="foto-grid">
         <div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>
       </div>
@@ -4326,7 +4341,12 @@ function renderOTTracking(lista) {
 // ══════════════════════════════════════════
 //  FOTOS FALTANTES DEL CATÁLOGO (hoja TODO)
 // ══════════════════════════════════════════
-var _fotosData = {}; // fila → {fila, codigo, descripcion, modelo}
+var _fotosData = {};   // fila → {fila, codigo, descripcion, modelo}
+var _fotosOrden = [];  // filas en el orden en que se muestran (prioridad primero) — OJO: no usar
+                        // Object.keys(_fotosData) para esto, fila es numérico y JS reordena claves
+                        // numéricas ascendente por fila, no por prioridad de inserción.
+var _fotosAsignadas = {}; // fila → dataURL ya comprimido, asignado pero todavía NO subido
+var _fotoDragFila = null;
 
 function cargarFotosFaltantesTab() {
   document.getElementById('fotos-grid').innerHTML = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
@@ -4344,7 +4364,7 @@ function cargarFotosFaltantesTab() {
       document.getElementById('fotos-grid').innerHTML = '<div class="empty-state">Error al cargar</div>';
       toast('Error: ' + (e && e.message ? e.message : e), 'err');
     })
-    .SM_obtenerRepuestosSinFoto(10);
+    .SM_obtenerRepuestosSinFoto(20);
 }
 
 // Copia el código al portapapeles (mismo patrón textarea+execCommand que _copiarEquipos,
@@ -4376,6 +4396,9 @@ function _fotoCopiarCodigo(fila) {
 function renderFotosFaltantes(items) {
   var grid = document.getElementById('fotos-grid');
   _fotosData = {};
+  _fotosOrden = [];
+  _fotosAsignadas = {};
+  _fotosActualizarBarraConfirmar();
   if (!items || !items.length) {
     grid.innerHTML = '<div class="empty-state"><i class="fa fa-circle-check" style="color:var(--green);font-size:22px;display:block;margin-bottom:8px"></i>¡Todo el catálogo tiene foto!</div>';
     return;
@@ -4384,8 +4407,9 @@ function renderFotosFaltantes(items) {
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
     _fotosData[it.fila] = it;
+    _fotosOrden.push(it.fila);
     h += '<div class="foto-card" id="fc-' + it.fila + '">' +
-        '<div class="fc-thumb" id="fc-thumb-' + it.fila + '"><i class="fa fa-image"></i></div>' +
+        '<div class="fc-thumb" id="fc-thumb-' + it.fila + '" ondragover="_fotoDragOver(event)" ondragleave="_fotoDragLeave(event)" ondrop="_fotoDrop(event,' + it.fila + ')"><i class="fa fa-image"></i></div>' +
         (it.prioritario ? '<div style="font-size:9px;font-weight:700;color:#fff;background:var(--orange);padding:2px 7px;border-radius:10px;width:fit-content"><i class="fa fa-fire"></i> Con pedidos de resellers</div>' : '') +
         '<div class="fc-cod" id="fc-cod-' + it.fila + '" onclick="_fotoCopiarCodigo(' + it.fila + ')" title="Click para copiar el código">' +
           '<i class="fa fa-copy" style="font-size:9px;opacity:.5"></i>' + escH(it.codigo) +
@@ -4400,6 +4424,182 @@ function renderFotosFaltantes(items) {
       '</div>';
   }
   grid.innerHTML = h;
+}
+
+// Selección múltiple: el operador elige de una todas las fotos que ya bajó a su PC.
+// Se ordenan por fecha de modificación del archivo (= momento de la descarga) y se
+// asignan 1 a 1 a los códigos pendientes en el mismo orden en que se muestran en
+// pantalla (confirmado con el operador: descarga siempre en ese orden). Queda en
+// estado "asignada" (preview), NO se sube todavía — así se puede revisar/corregir
+// antes de escribir en la hoja.
+function _fotosMultipleSeleccionadas(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = ''; // permite volver a elegir el mismo set si hace falta reintentar
+  if (!files.length) return;
+  files.sort(function(a, b) { return (a.lastModified || 0) - (b.lastModified || 0); });
+
+  var pendientes = _fotosOrden.filter(function(fila) {
+    var card = document.getElementById('fc-' + fila);
+    return card && !card.classList.contains('done') && !_fotosAsignadas[fila];
+  });
+  var n = Math.min(files.length, pendientes.length);
+  for (var i = 0; i < n; i++) {
+    _fotosComprimirYAsignar(pendientes[i], files[i]);
+  }
+  if (files.length > pendientes.length) {
+    toast('Sobraron ' + (files.length - pendientes.length) + ' fotos sin código pendiente para asignar', 'err');
+  } else if (n > 0) {
+    toast(n + ' fotos asignadas — revisá que coincidan antes de confirmar', 'ok');
+  }
+}
+
+function _fotosComprimirYAsignar(fila, file) {
+  _fotosComprimir(file, 1280, 0.82, function(dataUrl) {
+    _fotosAsignar(fila, dataUrl);
+  }, function() {
+    toast('No se pudo leer una de las imágenes', 'err');
+  });
+}
+
+// Deja la foto en preview sobre la tarjeta (todavía sin subir a la hoja).
+function _fotosAsignar(fila, dataUrl) {
+  _fotosAsignadas[fila] = dataUrl;
+  var thumb = document.getElementById('fc-thumb-' + fila);
+  var upload = document.getElementById('fc-upload-' + fila);
+  if (!thumb) return;
+  thumb.classList.add('staged');
+  thumb.setAttribute('draggable', 'true');
+  thumb.ondragstart = function(ev) {
+    _fotoDragFila = fila;
+    try { ev.dataTransfer.effectAllowed = 'move'; } catch(e) {}
+  };
+  thumb.innerHTML = '<img src="' + dataUrl + '">' +
+    '<div class="fc-thumb-x" onclick="event.stopPropagation();_fotosQuitar(' + fila + ')" title="Quitar"><i class="fa fa-times"></i></div>';
+  if (upload) upload.innerHTML = '<i class="fa fa-check"></i> Asignada — arrastrá para cambiar';
+  _fotosActualizarBarraConfirmar();
+}
+
+// Saca una foto asignada sin subir (vuelve la tarjeta a "sin foto").
+function _fotosQuitar(fila) {
+  delete _fotosAsignadas[fila];
+  var thumb = document.getElementById('fc-thumb-' + fila);
+  var upload = document.getElementById('fc-upload-' + fila);
+  if (thumb) {
+    thumb.classList.remove('staged');
+    thumb.removeAttribute('draggable');
+    thumb.ondragstart = null;
+    thumb.innerHTML = '<i class="fa fa-image"></i>';
+  }
+  if (upload) upload.innerHTML = '<i class="fa fa-folder-open"></i> Seleccionar imagen';
+  _fotosActualizarBarraConfirmar();
+}
+
+function _fotosCancelarTodas() {
+  Object.keys(_fotosAsignadas).forEach(function(filaStr) { _fotosQuitar(Number(filaStr)); });
+}
+
+function _fotoDragOver(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.add('dragover');
+}
+function _fotoDragLeave(ev) {
+  ev.currentTarget.classList.remove('dragover');
+}
+
+// Intercambia dos fotos asignadas (o mueve una a una tarjeta vacía) arrastrando una
+// miniatura sobre otra — es la forma de corregir un desfasaje sin volver a elegir
+// el archivo desde el explorador.
+function _fotoDrop(ev, filaDestino) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('dragover');
+  var filaOrigen = _fotoDragFila;
+  _fotoDragFila = null;
+  if (filaOrigen == null || filaOrigen === filaDestino) return;
+  var cardOrigen = document.getElementById('fc-' + filaOrigen);
+  var cardDestino = document.getElementById('fc-' + filaDestino);
+  if (!cardOrigen || !cardDestino || cardOrigen.classList.contains('done') || cardDestino.classList.contains('done')) return;
+
+  var urlOrigen = _fotosAsignadas[filaOrigen];
+  var urlDestino = _fotosAsignadas[filaDestino];
+  if (urlDestino) _fotosAsignar(filaOrigen, urlDestino); else _fotosQuitar(filaOrigen);
+  if (urlOrigen) _fotosAsignar(filaDestino, urlOrigen); else _fotosQuitar(filaDestino);
+}
+
+function _fotosActualizarBarraConfirmar() {
+  var bar = document.getElementById('fotos-confirmar-bar');
+  var msg = document.getElementById('fotos-confirmar-msg');
+  if (!bar) return;
+  var n = Object.keys(_fotosAsignadas).length;
+  bar.style.display = n ? 'flex' : 'none';
+  if (msg) msg.innerHTML = '<strong>' + n + '</strong> foto' + (n === 1 ? '' : 's') + ' asignada' + (n === 1 ? '' : 's') + ' — revisá que coincidan con su código (arrastrá una miniatura sobre otra para intercambiarlas) y confirmá.';
+}
+
+// Sube todas las fotos asignadas, una por vez (SM_subirFotoRepuesto ya serializa con
+// LockService del lado del server — subir todo en paralelo no lo haría más rápido,
+// solo generaría contención de lock entre pedidos).
+function _fotosConfirmarSubida() {
+  var filas = Object.keys(_fotosAsignadas).map(Number);
+  if (!filas.length) return;
+  var btn = document.getElementById('fotos-btn-subir');
+  btn.disabled = true;
+  var total = filas.length, hecho = 0;
+  _fotosSetBarraProgreso(hecho, total);
+
+  function siguiente() {
+    if (!filas.length) {
+      btn.disabled = false;
+      _fotosActualizarBarraConfirmar(); // restaura el mensaje normal (o esconde la barra si no quedó ninguna con error)
+      if (!document.querySelectorAll('#fotos-grid .foto-card:not(.done)').length) {
+        setTimeout(cargarFotosFaltantesTab, 700);
+      }
+      return;
+    }
+    var fila = filas.shift();
+    _fotosSubirUna(fila, function() {
+      hecho++;
+      _fotosSetBarraProgreso(hecho, total);
+      siguiente();
+    });
+  }
+  siguiente();
+}
+
+function _fotosSetBarraProgreso(hecho, total) {
+  var msg = document.getElementById('fotos-confirmar-msg');
+  if (msg) msg.textContent = 'Subiendo ' + hecho + '/' + total + '...';
+}
+
+function _fotosSubirUna(fila, done) {
+  var item = _fotosData[fila];
+  var dataUrl = _fotosAsignadas[fila];
+  var upload = document.getElementById('fc-upload-' + fila);
+  var status = document.getElementById('fc-status-' + fila);
+  if (!item || !dataUrl) { done(); return; }
+  if (upload) upload.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Subiendo...';
+  var base64 = dataUrl.split(',')[1];
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) {
+        // se deja en _fotosAsignadas (no delete): queda lista para reintentar con
+        // "Subir todas" sin tener que volver a elegirla del explorador.
+        if (upload) upload.innerHTML = '<i class="fa fa-folder-open"></i> Reintentar';
+        if (status) { status.textContent = (r && r.error) || 'Error al subir'; status.className = 'fc-status err'; }
+      } else {
+        delete _fotosAsignadas[fila];
+        var card = document.getElementById('fc-' + fila);
+        if (card) card.classList.add('done');
+        if (upload) upload.style.display = 'none';
+        if (status) { status.innerHTML = '<i class="fa fa-circle-check"></i> Subida'; status.className = 'fc-status ok'; }
+      }
+      done();
+    })
+    .withFailureHandler(function(e) {
+      if (upload) upload.innerHTML = '<i class="fa fa-folder-open"></i> Reintentar';
+      if (status) { status.textContent = 'Error al subir'; status.className = 'fc-status err'; }
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+      done();
+    })
+    .SM_subirFotoRepuesto(fila, item.codigo, base64);
 }
 
 function _fotoSeleccionada(input, fila) {

@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Fotos faltantes del catálogo (hoja TODO) ──
-// @version 1.1
+// @version 1.2
 // ============================================================
 // Catálogo unificado (misma spreadsheet que Portal Reseller usa como
 // LISTA_PRECIOS_SS_ID / RS_getListaPrecios): CATALOGO_REPUESTOS_ID (Env.js),
@@ -37,7 +37,7 @@ function _smSkusEnNotasDeEntrega() {
 // escribir directo sin tener que re-buscar por código.
 function SM_obtenerRepuestosSinFoto(n) {
   try {
-    n = Number(n) || 10;
+    n = Number(n) || 20;
     var hoja = _smHojaTodo();
     if (!hoja) return { ok: false, error: 'No se encontró la pestaña "TODO" en el catálogo.' };
     var datos = hoja.getDataRange().getValues();
