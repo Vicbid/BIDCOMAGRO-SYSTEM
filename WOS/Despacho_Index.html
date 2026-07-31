@@ -1,4 +1,4 @@
-<!-- @version 3.46 -->
+<!-- @version 3.47 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -3359,9 +3359,13 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaBack + '</div>' +
           '</div>' +
-          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_mdiQtyInput(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-mode-wrap-' + it.row + '" style="display:none;gap:6px;margin:2px 0 2px">' +
+          '<button type="button" id="mdi-mode-unidad-' + it.row + '" style="' + _prepModeBtnStyle(true) + '" onclick="_mdiSetMode(' + it.row + ',\'unidad\')">Unidad</button>' +
+          '<button type="button" id="mdi-mode-bolsa-' + it.row + '" style="' + _prepModeBtnStyle(false) + '" onclick="_mdiSetMode(' + it.row + ',\'bolsa\')">Bolsa</button>' +
+        '</div>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
@@ -3380,9 +3384,13 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaEsp + '</div>' +
           '</div>' +
-          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_mdiQtyInput(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-mode-wrap-' + it.row + '" style="display:none;gap:6px;margin:2px 0 2px">' +
+          '<button type="button" id="mdi-mode-unidad-' + it.row + '" style="' + _prepModeBtnStyle(true) + '" onclick="_mdiSetMode(' + it.row + ',\'unidad\')">Unidad</button>' +
+          '<button type="button" id="mdi-mode-bolsa-' + it.row + '" style="' + _prepModeBtnStyle(false) + '" onclick="_mdiSetMode(' + it.row + ',\'bolsa\')">Bolsa</button>' +
+        '</div>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
@@ -3400,9 +3408,13 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaCons + '</div>' +
           '</div>' +
-          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="0" oninput="_mdiQtyInput(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-mode-wrap-' + it.row + '" style="display:none;gap:6px;margin:2px 0 2px">' +
+          '<button type="button" id="mdi-mode-unidad-' + it.row + '" style="' + _prepModeBtnStyle(true) + '" onclick="_mdiSetMode(' + it.row + ',\'unidad\')">Unidad</button>' +
+          '<button type="button" id="mdi-mode-bolsa-' + it.row + '" style="' + _prepModeBtnStyle(false) + '" onclick="_mdiSetMode(' + it.row + ',\'bolsa\')">Bolsa</button>' +
+        '</div>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
       '</div>';
@@ -3421,10 +3433,14 @@ function abrirModalDespacho(numero) {
             '<div class="modal-item-desc" title="' + escH(it.desc) + '">' + escH(it.desc) + '</div>' +
             '<div class="modal-item-sol">' + metaLine + '</div>' +
           '</div>' +
-          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + _defDesp + '" oninput="_syncSeriales(' + it.row + ',parseInt(this.value)||0)">' +
+          '<input class="modal-desp-inp" id="mdi-' + it.row + '" type="number" min="0" max="' + it.cantPend + '" value="' + _defDesp + '" oninput="_mdiQtyInput(' + it.row + ',parseInt(this.value)||0)">' +
         '</div>' +
         (it.seriales ? '<div style="font-size:10px;color:var(--teal-m);font-family:var(--f-mono);word-break:break-word">🏷 Series registradas: ' + escH(it.seriales) + '</div>' : '') +
         '<label class="modal-ser-chk-lbl"><input type="checkbox" id="mdi-chk-' + it.row + '" onchange="_toggleSeriales(' + it.row + ')"> Requiere N\xba de serie</label>' +
+        '<div id="mdi-mode-wrap-' + it.row + '" style="display:none;gap:6px;margin:2px 0 2px">' +
+          '<button type="button" id="mdi-mode-unidad-' + it.row + '" style="' + _prepModeBtnStyle(true) + '" onclick="_mdiSetMode(' + it.row + ',\'unidad\')">Unidad</button>' +
+          '<button type="button" id="mdi-mode-bolsa-' + it.row + '" style="' + _prepModeBtnStyle(false) + '" onclick="_mdiSetMode(' + it.row + ',\'bolsa\')">Bolsa</button>' +
+        '</div>' +
         '<div id="mdi-ser-wrap-' + it.row + '" class="modal-ser-wrap"></div>' +
         '<div id="mdi-ser-cnt-' + it.row + '" class="modal-ser-cnt" style="display:none"></div>' +
         '<div class="caja-wrap" id="mdi-caja-wrap-' + it.row + '">' +
@@ -3665,6 +3681,7 @@ function _getBinAllocForRow(row, pfx) {
 
 function _toggleSeriales(row) {
   var chk = document.getElementById('mdi-chk-' + row);
+  var modeWrap = document.getElementById('mdi-mode-wrap-' + row);
   if (chk && chk.checked) {
     var inp = document.getElementById('mdi-' + row);
     var q = inp ? (parseInt(inp.value) || 0) : 0;
@@ -3676,8 +3693,12 @@ function _toggleSeriales(row) {
       var mx = parseInt(inp.max, 10) || 0;
       if (mx > 0) { inp.value = mx; q = mx; }
     }
-    _syncSeriales(row, q);
+    if (modeWrap) modeWrap.style.display = 'flex';
+    var it = _mdiItemGet(row);
+    if (it && !it.serMode) it.serMode = 'unidad';   // default: preserva el comportamiento de antes
+    _mdiRenderSerMode(row);
   } else {
+    if (modeWrap) modeWrap.style.display = 'none';
     var wrap = document.getElementById('mdi-ser-wrap-' + row);
     var cnt  = document.getElementById('mdi-ser-cnt-' + row);
     if (wrap) wrap.innerHTML = '';
@@ -3721,6 +3742,162 @@ function _cntSer(row, qty) {
   cntEl.style.display = '';
   cntEl.textContent = filled + ' / ' + qty + ' n\xba de serie ingresados';
   cntEl.style.color = filled === qty ? 'var(--green-m)' : 'var(--amber-m)';
+}
+
+// ── MODO POR UNIDAD / POR BOLSA (modal de despacho "Generar nota de entrega") ──────────
+// Antes, tildar "Requiere N° de serie" acá SIEMPRE pedía 1 campo por unidad — para un ítem
+// que viene empaquetado en bolsas (ej. 160 u. en bolsas de 50 con código SO) era imposible
+// cargarlo sin pasar antes por "Preparar" (que sí tiene este modo). Reusa la misma lógica de
+// bolsas de Preparar (_autoSeedBags, _prepModeBtnStyle, _prepBagAddStyle, WOS_resolverBolsa),
+// pero con sus propios elementos (mdi-*) para no interferir con el modal de Preparar.
+function _mdiItemGet(row) {
+  if (!_modalDesp || !_modalDesp.items) return null;
+  for (var i = 0; i < _modalDesp.items.length; i++) if (_modalDesp.items[i].row === row) return _modalDesp.items[i];
+  return null;
+}
+function _mdiSetMode(row, mode) {
+  var it = _mdiItemGet(row);
+  if (!it) return;
+  it.serMode = mode;
+  var bu = document.getElementById('mdi-mode-unidad-' + row);
+  var bb = document.getElementById('mdi-mode-bolsa-' + row);
+  if (bu) bu.style.cssText = _prepModeBtnStyle(mode === 'unidad');
+  if (bb) bb.style.cssText = _prepModeBtnStyle(mode === 'bolsa');
+  _mdiRenderSerMode(row);
+}
+// Dibuja el bloque de carga de series de un ítem según su modo (unidad = campos individuales
+// de siempre; bolsa = filas de bolsa con código SO + cantidad).
+function _mdiRenderSerMode(row) {
+  var it  = _mdiItemGet(row);
+  var inp = document.getElementById('mdi-' + row);
+  var qty = inp ? (parseInt(inp.value) || 0) : 0;
+  if (!it) return;
+  if (it.serMode === 'bolsa') {
+    var cntEl = document.getElementById('mdi-ser-cnt-' + row);
+    if (cntEl) cntEl.style.display = 'none';
+    var bags = it.mdiBagsSeeded ? _mdiBolsaReadDom(row) : _autoSeedBags(qty, 0);
+    it.mdiBagsSeeded = true;
+    _mdiRenderBolsas(row, bags);
+  } else {
+    _syncSeriales(row, qty);
+  }
+}
+// Dispatcher del oninput de la cantidad a despachar: en modo bolsa no hay que redibujar los
+// campos (se pierde lo cargado), solo recalcular la suma vs. el objetivo.
+function _mdiQtyInput(row, qty) {
+  var it = _mdiItemGet(row);
+  if (it && it.serMode === 'bolsa') { _mdiBolsaSumUpdate(row); return; }
+  _syncSeriales(row, qty);
+}
+function _mdiBolsaReadDom(row) {
+  var rows = document.querySelectorAll('#mdi-ser-wrap-' + row + ' .mdi-bag-row');
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var q = rows[i].querySelector('.mdi-bag-qty');
+    var c = rows[i].querySelector('.mdi-bag-code');
+    out.push({ qty: q ? (parseInt(q.value, 10) || 0) : 0, code: c ? c.value.trim() : '' });
+  }
+  return out;
+}
+function _mdiBagRowHtml(row, qty, code) {
+  var pv = String(code || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  return '<div class="mdi-bag-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    '<input type="number" min="1" class="mdi-bag-qty" value="' + (parseInt(qty, 10) || 1) + '" oninput="_mdiBolsaChange(' + row + ')" ' +
+      'style="width:56px;padding:5px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;text-align:center;outline:none">' +
+    '<span style="font-size:11px;color:var(--tx-d)">u.</span>' +
+    '<span style="font-size:12px;color:var(--tx-d)">\xd7</span>' +
+    '<input type="text" class="mdi-bag-code" placeholder="SO / N\xba serie de la bolsa" value="' + pv + '" ' +
+      'oninput="_mdiBolsaChange(' + row + ')" onchange="_mdiBolsaResolver(this,' + row + ')" ' +
+      'style="flex:1;min-width:110px;padding:5px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;font-family:var(--f-mono);outline:none">' +
+    '<button type="button" onclick="_mdiDelBolsa(this,' + row + ')" title="Quitar bolsa" ' +
+      'style="background:none;border:none;color:var(--red-m);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1">🗑</button>' +
+  '</div>';
+}
+function _mdiRenderBolsas(row, bags) {
+  var wrap = document.getElementById('mdi-ser-wrap-' + row);
+  if (!wrap) return;
+  var html = '<div style="background:rgba(0,82,204,.05);border:1px solid var(--blue-l);border-radius:8px;padding:8px 10px">' +
+    '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx-d);margin-bottom:6px">🔩 Bolsas \xb7 1 c\xf3digo (SO) por bolsa</div>' +
+    '<div id="mdi-bolsas-' + row + '">';
+  for (var i = 0; i < bags.length; i++) html += _mdiBagRowHtml(row, bags[i].qty, bags[i].code);
+  html += '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+      '<button type="button" onclick="_mdiAddBolsa(' + row + ',10)" style="' + _prepBagAddStyle() + '">+ Bolsa 10</button>' +
+      '<button type="button" onclick="_mdiAddBolsa(' + row + ',20)" style="' + _prepBagAddStyle() + '">+ Bolsa 20</button>' +
+      '<button type="button" onclick="_mdiAddBolsa(' + row + ',50)" style="' + _prepBagAddStyle() + '">+ Bolsa 50</button>' +
+      '<button type="button" onclick="_mdiAddBolsa(' + row + ',1)" style="' + _prepBagAddStyle() + '">+ Otra</button>' +
+    '</div>' +
+    '<div id="mdi-bolsa-sum-' + row + '" style="font-size:11px;font-weight:700;margin-top:6px"></div>' +
+  '</div>';
+  wrap.innerHTML = html;
+  _mdiBolsaSumUpdate(row);
+}
+function _mdiAddBolsa(row, qty) {
+  var cont = document.getElementById('mdi-bolsas-' + row);
+  if (!cont) return;
+  var tmp = document.createElement('div');
+  tmp.innerHTML = _mdiBagRowHtml(row, qty, '');
+  cont.appendChild(tmp.firstChild);
+  _mdiBolsaChange(row);
+  var codes = cont.querySelectorAll('.mdi-bag-code');
+  if (codes.length) codes[codes.length - 1].focus();
+}
+function _mdiDelBolsa(el, row) {
+  var rowEl = el.closest ? el.closest('.mdi-bag-row') : el.parentNode;
+  if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+  _mdiBolsaChange(row);
+}
+function _mdiBolsaChange(row) { _mdiBolsaSumUpdate(row); }
+// Muestra Σ bolsas vs. la cantidad a despachar (solo indicador, no bloquea — igual criterio
+// que el conteo de SN "opcional" del resto del modal).
+function _mdiBolsaSumUpdate(row) {
+  var bags = _mdiBolsaReadDom(row);
+  var sum = 0;
+  for (var i = 0; i < bags.length; i++) sum += bags[i].qty;
+  var inp = document.getElementById('mdi-' + row);
+  var target = inp ? (parseInt(inp.value) || 0) : 0;
+  var sumEl = document.getElementById('mdi-bolsa-sum-' + row);
+  if (sumEl) {
+    var ok = (sum === target);
+    sumEl.textContent = 'Σ ' + sum + ' u. de ' + target + (ok ? ' ✓' : '');
+    sumEl.style.color = ok ? 'var(--green-m)' : 'var(--amber-m)';
+  }
+}
+// Círculo cerrado con Stock Manager, igual que en Preparar: si el código de la bolsa fue
+// creado en SM (SO con cantidad), autocompletar la cantidad de esa bolsa.
+function _mdiBolsaResolver(inp, row) {
+  var code = String(inp.value || '').trim();
+  if (!code) return;
+  var rowEl = inp.closest ? inp.closest('.mdi-bag-row') : null;
+  if (!rowEl) return;
+  var qtyEl = rowEl.querySelector('.mdi-bag-qty');
+  if (!qtyEl) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok && r.cantidad > 1) { qtyEl.value = r.cantidad; _mdiBolsaChange(row); }
+    })
+    .withFailureHandler(function() {})
+    .WOS_resolverBolsa(code);
+}
+// Junta los "seriales" a mandar de UN ítem del modal de despacho, sea que esté en modo
+// Unidad (campos individuales) o Bolsa (manifiesto "CODE xN") — usado por _wzColectarDespacho
+// y por las 2 ramas de confirmarDespacho (individual y batch) para no triplicar la lógica.
+function _mdiRecolectarSeriales(row, cnt) {
+  var it = _mdiItemGet(row);
+  var out = [];
+  if (it && it.serMode === 'bolsa') {
+    var bags = _mdiBolsaReadDom(row);
+    for (var i = 0; i < bags.length; i++) {
+      var q = bags[i].qty, c = bags[i].code;
+      if (q > 0 && c) out.push(q > 1 ? (c + ' x' + q) : c);
+    }
+  } else {
+    for (var s = 0; s < cnt; s++) {
+      var sEl = document.getElementById('mdi-ser-' + row + '-' + s);
+      if (sEl && sEl.value.trim()) out.push(sEl.value.trim());
+    }
+  }
+  return out;
 }
 
 var _bultoCounter = 0;
@@ -3838,11 +4015,7 @@ function confirmarDespacho() {
       var bInp = document.getElementById('mdi-' + bIt.row);
       if (!pedsByNum[bIt.numero]) pedsByNum[bIt.numero] = [];
       var bCnt = bInp ? (parseInt(bInp.value) || 0) : 0;
-      var bSers = [];
-      for (var bsn = 0; bsn < bCnt; bsn++) {
-        var bSEl = document.getElementById('mdi-ser-' + bIt.row + '-' + bsn);
-        if (bSEl && bSEl.value.trim()) bSers.push(bSEl.value.trim());
-      }
+      var bSers = _mdiRecolectarSeriales(bIt.row, bCnt);
       if (bCnt > 0 && bSers.length === 0 && !String(bIt.seriales || '').trim()) _sinSerie.push({ sku: bIt.sku, cnt: bCnt });
       var bCajaEl  = document.getElementById('mdi-caja-' + bIt.row);
       var bCajaIdx = bCajaEl ? (parseInt(bCajaEl.value) || 0) : 0;
@@ -3888,11 +4061,7 @@ function confirmarDespacho() {
     var it  = _modalDesp.items[i];
     var inp = document.getElementById('mdi-' + it.row);
     var cnt = inp ? (parseInt(inp.value) || 0) : 0;
-    var sers = [];
-    for (var sn = 0; sn < cnt; sn++) {
-      var sEl = document.getElementById('mdi-ser-' + it.row + '-' + sn);
-      if (sEl && sEl.value.trim()) sers.push(sEl.value.trim());
-    }
+    var sers = _mdiRecolectarSeriales(it.row, cnt);
     if (cnt > 0 && sers.length === 0 && !String(it.seriales || '').trim()) _sinSerieI.push({ sku: it.sku, cnt: cnt });
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
@@ -3955,12 +4124,12 @@ function _wzColectarDespacho() {
     totalPend += Number(it.cantPend) || 0;
     if (cnt > 0) {
       totalDesp += cnt; lineasDesp++;
+      var serList = _mdiRecolectarSeriales(it.row, cnt);
       var lineaSN = 0;
-      for (var s = 0; s < cnt; s++) {
-        var sEl = document.getElementById('mdi-ser-' + it.row + '-' + s);
-        if (sEl && sEl.value.trim()) { allSers.push(sEl.value.trim()); lineaSN++; }
-      }
-      if (it.seriales) { var pr = String(it.seriales).split(','); for (var p = 0; p < pr.length; p++) { var v = pr[p].trim(); if (v) { allSers.push(v); lineaSN++; } } }
+      for (var s = 0; s < serList.length; s++) { allSers.push(serList[s]); lineaSN += _serialUnits(serList[s]); }
+      // FIX de paso: antes cada fragmento de it.seriales sumaba 1 aunque fuera una bolsa
+      // ("SO123 x50" contaba como 1 u., no 50) — usa _serialUnits para contar bien.
+      if (it.seriales) { var pr = String(it.seriales).split(','); for (var p = 0; p < pr.length; p++) { var v = pr[p].trim(); if (v) { allSers.push(v); lineaSN += _serialUnits(v); } } }
       conSN += Math.min(lineaSN, cnt);
     }
   }
