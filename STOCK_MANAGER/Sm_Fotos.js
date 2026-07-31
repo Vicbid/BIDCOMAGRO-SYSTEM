@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Fotos faltantes del catálogo (hoja TODO) ──
-// @version 1.3
+// @version 1.4
 // ============================================================
 // Catálogo unificado (misma spreadsheet que Portal Reseller usa como
 // LISTA_PRECIOS_SS_ID / RS_getListaPrecios): CATALOGO_REPUESTOS_ID (Env.js),
@@ -134,6 +134,53 @@ function SM_subirFotoRepuesto(fila, codigoEsperado, base64Jpeg) {
     return { ok: true, url: url };
   } catch(e) {
     Logger.log('SM_subirFotoRepuesto: ' + e);
+    return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eF) {}
+  }
+}
+
+// Para fotos que YA vienen nombradas con el código exacto (el front saca el código del
+// nombre del archivo, sin extensión). A diferencia de SM_subirFotoRepuesto: (1) busca por
+// código en TODO el catálogo, no solo en los que están sin foto — sirve para cualquier SKU;
+// (2) si el código ya tenía foto, la REEMPLAZA sin preguntar (pedido explícito del usuario,
+// distinto del guard de "no pisar" del flujo de abajo). No borra el archivo viejo de Drive
+// (queda huérfano en la carpeta, no hace daño) por simplicidad.
+function SM_subirFotoPorCodigo(codigo, base64Jpeg) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); }
+  catch(eL) { return { ok: false, error: 'Otra subida en curso, reintentá en unos segundos.' }; }
+  try {
+    codigo = String(codigo || '').trim();
+    if (!codigo) return { ok: false, error: 'Código vacío.' };
+    if (!base64Jpeg) return { ok: false, error: 'No llegó ninguna imagen.' };
+
+    var hoja = _smHojaTodo();
+    if (!hoja) return { ok: false, error: 'No se encontró la pestaña "TODO" en el catálogo.' };
+
+    var C = _SM_FOTOS_COL;
+    var datos = hoja.getDataRange().getValues();
+    var fila = 0, teniaFoto = false;
+    var codigoUp = codigo.toUpperCase();
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][C.COD_CORTO] || '').trim().toUpperCase() === codigoUp) {
+        fila = i + 1;
+        teniaFoto = !!String(datos[i][C.IMAGEN] || '').trim();
+        break;
+      }
+    }
+    if (!fila) return { ok: false, error: 'No se encontró el código "' + codigo + '" en el catálogo.' };
+
+    var bytes = Utilities.base64Decode(base64Jpeg);
+    var blob  = Utilities.newBlob(bytes, 'image/jpeg', codigo + '.jpg');
+    var file  = _smCarpetaFotos().createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var url = 'https://drive.google.com/file/d/' + file.getId() + '/view?usp=drive_link';
+
+    hoja.getRange(fila, C.IMAGEN + 1).setValue(url);
+    return { ok: true, url: url, reemplazo: teniaFoto };
+  } catch(e) {
+    Logger.log('SM_subirFotoPorCodigo: ' + e);
     return { ok: false, error: e.toString() };
   } finally {
     try { lock.releaseLock(); } catch(eF) {}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.34 -->
+<!-- @version 5.35 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -718,6 +718,22 @@ tr:last-child td{border-bottom:none}
 
     <!-- ══ FOTOS FALTANTES DEL CATÁLOGO ════════════════════════ -->
     <div class="tab-view" id="tab-fotos">
+      <!-- Carga directa por nombre de archivo — para fotos que YA vienen nombradas con el
+           código exacto (ej. bajadas de un catálogo/ERP que ya las nombra así). Distinto del
+           flujo de abajo (que es para fotos con nombre random, sin foto todavía): acá se
+           escribe directo por código, en CUALQUIER SKU del catálogo tenga o no foto ya —
+           y si ya tenía, la reemplaza (pedido explícito del usuario). -->
+      <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
+        <i class="fa fa-file-image" style="color:var(--blue);font-size:13px"></i>
+        <span style="font-weight:600;color:var(--tx)">¿Ya tenés las fotos nombradas con el código?</span>
+        <span style="color:var(--tx-m)">El nombre del archivo (sin extensión) tiene que ser el código exacto. Si el código ya tenía foto, la reemplaza.</span>
+        <label class="btn-p" style="cursor:pointer;margin-left:auto">
+          <i class="fa fa-folder-open"></i> Elegir fotos ya nombradas
+          <input type="file" accept="image/*" multiple style="display:none" onchange="_fotosPorNombreSeleccionadas(this)">
+        </label>
+      </div>
+      <div id="fotos-porn-lista" style="display:none;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:8px 14px;margin-bottom:14px;font-size:11px;max-height:220px;overflow-y:auto"></div>
+
       <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px">
         <i class="fa fa-image" style="color:var(--blue);font-size:13px"></i>
         <span style="font-weight:600;color:var(--tx)">Fotos faltantes del catálogo</span>
@@ -4496,6 +4512,71 @@ function _fotosQuitar(fila) {
 
 function _fotosCancelarTodas() {
   Object.keys(_fotosAsignadas).forEach(function(filaStr) { _fotosQuitar(Number(filaStr)); });
+}
+
+// ══════════════════════════════════════════
+//  CARGA POR NOMBRE DE ARCHIVO (fotos ya nombradas con el código)
+//  Distinto del flujo de arriba: acá el nombre del archivo YA ES el código, se busca y
+//  se escribe directo (pisa lo que hubiera en esa fila, a propósito). Secuencial —
+//  SM_subirFotoPorCodigo usa el mismo LockService que SM_subirFotoRepuesto, en paralelo
+//  solo generaría contención.
+function _fotosSkuDeArchivo(nombre) {
+  return String(nombre || '').replace(/\.[^.]+$/, '').trim();
+}
+
+function _fotosPorNombreSeleccionadas(input) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  var cont = document.getElementById('fotos-porn-lista');
+  if (!cont) return;
+  cont.style.display = 'flex';
+  var html = '';
+  for (var i = 0; i < files.length; i++) {
+    var sku = _fotosSkuDeArchivo(files[i].name);
+    html += '<div id="fpn-' + i + '" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid var(--brd)">' +
+      '<span style="color:var(--tx);font-family:monospace">' + escH(sku) + '</span>' +
+      '<span id="fpn-status-' + i + '" style="color:var(--tx-d)">esperando…</span></div>';
+  }
+  cont.innerHTML = html;
+
+  var idx = 0;
+  function siguiente() {
+    if (idx >= files.length) return;
+    var i = idx++;
+    var file = files[i];
+    var sku = _fotosSkuDeArchivo(file.name);
+    var st = document.getElementById('fpn-status-' + i);
+    if (st) st.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> subiendo…';
+    if (!sku) {
+      if (st) { st.innerHTML = '<i class="fa fa-circle-exclamation" style="color:var(--red)"></i> nombre de archivo vacío'; }
+      siguiente();
+      return;
+    }
+    _fotosComprimir(file, 1280, 0.82, function(dataUrl) {
+      var base64 = dataUrl.split(',')[1];
+      google.script.run
+        .withSuccessHandler(function(r) {
+          var s = document.getElementById('fpn-status-' + i);
+          if (s) {
+            if (r && r.ok) s.innerHTML = '<i class="fa fa-circle-check" style="color:var(--green)"></i> subida' + (r.reemplazo ? ' (reemplazó la anterior)' : '');
+            else s.innerHTML = '<i class="fa fa-circle-exclamation" style="color:var(--red)"></i> ' + escH((r && r.error) || 'error');
+          }
+          siguiente();
+        })
+        .withFailureHandler(function(e) {
+          var s = document.getElementById('fpn-status-' + i);
+          if (s) s.innerHTML = '<i class="fa fa-circle-exclamation" style="color:var(--red)"></i> ' + escH((e && e.message) || e);
+          siguiente();
+        })
+        .SM_subirFotoPorCodigo(sku, base64);
+    }, function() {
+      var s = document.getElementById('fpn-status-' + i);
+      if (s) s.innerHTML = '<i class="fa fa-circle-exclamation" style="color:var(--red)"></i> no se pudo leer la imagen';
+      siguiente();
+    });
+  }
+  siguiente();
 }
 
 function _fotoDragOver(ev) {
