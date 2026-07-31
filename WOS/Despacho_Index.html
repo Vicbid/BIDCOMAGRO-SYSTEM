@@ -1,4 +1,4 @@
-<!-- @version 3.47 -->
+<!-- @version 3.48 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2512,6 +2512,7 @@ function abrirModalPreparar(numero, parcial) {
       if (it0.estado === 'Cancelado') continue; // faltante cancelado (Opción B): no es pendiente aunque col G no se haya actualizado
       if (it0.estado === 'En_Espera_Reseller') continue; // faltante esperando la decisión del reseller: se prepara solo lo disponible, no bloquea
       if (it0.estado === 'Reservado_Consolidar') continue; // OT: disponible pero retenido a propósito hasta consolidar — no bloquea
+      if (it0.estado === 'Backorder') continue; // faltante YA notificado y el reseller respondió "esperar" — el ítem sigue el 2º envío, no bloquea preparar el resto
       if (it0.stockActual !== null && it0.stockActual !== undefined && it0.stockActual < it0.cantPend) {
         sinStock.push(it0.sku + ': necesita ' + it0.cantPend + ' \xb7 stock actual ' + (it0.stockActual <= 0 ? 'sin stock (' + it0.stockActual + ')' : it0.stockActual));
       }
