@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.33
+// @version 2.34
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -1386,6 +1386,9 @@ function WOS_detectarRespuestasResellers() {
     try { WOS_notificarIngresos(); } catch(eNI) { Logger.log('detector notifIngresos: ' + eNI); }
     // Recordatorio/escalado de avisos de ingreso sin respuesta (3 días / 6 días)
     try { WOS_recordarIngresosPendientes(); } catch(eRI) { Logger.log('detector recordarIngresos: ' + eRI); }
+    // Avisos de cambio de ETA: cola que llena SM al sincronizar un CAS contra el planner
+    // externo y detectar que la fecha estimada se atrasó (solo informativo, no pide elegir)
+    try { WOS_notificarCambiosEta(); } catch(eNE) { Logger.log('detector notifCambiosEta: ' + eNE); }
     // Respuestas de texto libre en Gmail para pedidos de OT (Pedidos_OTs no lo escaneaba)
     try { WOS_detectarRespuestasOT(); } catch(eOT) { Logger.log('detector respuestasOT: ' + eOT); }
 
@@ -2064,6 +2067,119 @@ function WOS_recordarIngresosPendientes() {
     if (recordados || escalados) SpreadsheetApp.flush();
     return { ok: true, recordados: recordados, escalados: escalados };
   } catch(e) { Logger.log('WOS_recordarIngresosPendientes: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+
+// ═══ AVISOS DE CAMBIO DE ETA — cola NOTIF_ETA_CAMBIO_WOS (la llena SM en sincronizarItemsCAS
+// al detectar, contra el planner externo, que la fecha estimada de un CAS se atrasó) ═══════
+// Puramente informativo — no pide elegir A/B como el aviso de ingreso: solo avisa la nueva
+// fecha al reseller que tiene una reserva ACTIVA de ese SKU/CAS (RESERVAS_EN_CAMINO). Agrupa
+// por pedido (puede haber varios SKUs atrasados del mismo pedido) para mandar 1 solo mail.
+// Idempotente por fila (ESTADO Pendiente→Notificado).
+var _WOS_NOTIF_ETA_SHEET = 'NOTIF_ETA_CAMBIO_WOS';
+// cols: 0 FECHA · 1 CAS · 2 PEDIDO · 3 RESELLER · 4 SKU · 5 CANTIDAD · 6 ETA_ANTERIOR · 7 ETA_NUEVA · 8 ESTADO · 9 RESULTADO
+
+function WOS_notificarCambiosEta() {
+  var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ETA_SHEET);
+  if (!hoja) return { ok: true, procesadas: 0 };
+  var d = hoja.getDataRange().getValues();
+  var porPedido = {};
+  for (var i = 1; i < d.length; i++) {
+    if (String(d[i][8] || '').trim() !== 'Pendiente') continue;
+    var ped = String(d[i][2] || '').trim();
+    if (!ped) continue;
+    if (!porPedido[ped]) porPedido[ped] = { rows: [], reseller: String(d[i][3] || ''), items: [] };
+    porPedido[ped].rows.push(i);
+    porPedido[ped].items.push({
+      sku:         String(d[i][4] || '').trim().toUpperCase(),
+      cantidad:    Number(d[i][5]) || 0,
+      etaAnterior: String(d[i][6] || ''),
+      etaNueva:    String(d[i][7] || '')
+    });
+  }
+  var peds = Object.keys(porPedido);
+  if (!peds.length) return { ok: true, procesadas: 0 };
+
+  var procesadas = 0;
+  for (var p = 0; p < peds.length; p++) {
+    var numero = peds[p], resultado = '';
+    try { resultado = _wosNotificarCambioEtaPedido(numero, porPedido[numero]); }
+    catch(eP) { Logger.log('WOS_notificarCambiosEta [' + numero + ']: ' + eP); }
+    if (!resultado) continue;   // '' → reintentar en la próxima corrida
+    for (var rI = 0; rI < porPedido[numero].rows.length; rI++) {
+      var fila = porPedido[numero].rows[rI] + 1;
+      hoja.getRange(fila, 9).setValue('Notificado');
+      hoja.getRange(fila, 10).setValue(resultado);
+    }
+    procesadas += porPedido[numero].rows.length;
+  }
+  if (procesadas) SpreadsheetApp.flush();
+  return { ok: true, procesadas: procesadas };
+}
+
+// Manda UN mail al reseller de `numero` con todos los SKUs de `info.items` que se atrasaron
+// (antes/ahora). Devuelve el resultado ('' = error, se reintenta en la próxima corrida).
+function _wosNotificarCambioEtaPedido(numero, info) {
+  var hoja = _getHojaPorNumero(numero);
+  if (!hoja) return 'pedido_no_encontrado';
+  var datos = hoja.getDataRange().getValues();
+  var reseller = info.reseller, threadId = '';
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    threadId = String(datos[i][COL.THREAD_ID] || '').trim();
+    if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
+    break;
+  }
+  if (!reseller) return 'pedido_no_encontrado';
+
+  var email = '';
+  try { email = _wosGetEmailReseller(reseller); } catch(eEm) {}
+  if (!threadId && !email) return 'sin_contacto';
+
+  var filas = '';
+  for (var it = 0; it < info.items.length; it++) {
+    var x = info.items[it];
+    filas += '<tr>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + x.sku + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + x.cantidad + ' u.</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center;color:#888;text-decoration:line-through'>" + (x.etaAnterior || '—') + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;text-align:center;font-weight:700;color:#B54708'>" + (x.etaNueva || '—') + '</td>' +
+    '</tr>';
+  }
+  var tabla =
+    "<table style='width:100%;border-collapse:collapse;border:1px solid #ffe1bd;margin:10px 0'>" +
+      "<thead><tr style='background:#fff3e0'>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:left'>C\xf3digo</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Reservado</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Antes</th>" +
+        "<th style='padding:6px 10px;font-size:11px;text-align:center'>Ahora</th>" +
+      '</tr></thead><tbody>' + filas + '</tbody></table>';
+
+  var html = _wosPortalHead('Cambio de fecha estimada — Pedido ' + numero) +
+    "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + '</strong>:</p>' +
+    "<p style='font-size:13px;color:#555;line-height:1.6'>Nuestro proveedor actualiz\xf3 la fecha estimada de llegada de lo que est\xe1s esperando en tu pedido " +
+      "<strong style='color:#00a3e0'>" + numero + '</strong>. Se atras\xf3:</p>' +
+    tabla +
+    "<p style='font-size:12px;color:#888;line-height:1.6'>No ten\xe9s que hacer nada — es solo un aviso. Te contactamos apenas ingrese.</p>" +
+    _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + reseller + '.');
+
+  var plain = 'Hola ' + reseller + ',\n\nNuestro proveedor actualiz\xf3 la fecha estimada de llegada de tu pedido ' + numero + '. Se atras\xf3:\n\n';
+  for (var pl = 0; pl < info.items.length; pl++) {
+    var xp = info.items[pl];
+    plain += '• ' + xp.sku + ' — ' + xp.cantidad + ' u. — antes ~' + (xp.etaAnterior || '?') + ', ahora ~' + (xp.etaNueva || '?') + '\n';
+  }
+  plain += '\nNo ten\xe9s que hacer nada, es solo un aviso.';
+
+  var opts = { htmlBody: html, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  try {
+    var ok = _wosReplyHiloOriginal(threadId, plain, opts, [email]);
+    if (!ok && email) GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts);
+    else if (!ok && !email) return 'sin_contacto';
+  } catch(eS) {
+    if (email) { try { GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts); } catch(eS2) { Logger.log('notifCambioEta mail [' + numero + ']: ' + eS2); return ''; } }
+    else return 'sin_contacto';
+  }
+  return 'avisado';
 }
 
 

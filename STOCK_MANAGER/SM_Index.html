@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.36 -->
+<!-- @version 5.37 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -4888,7 +4888,8 @@ function _sincronizarCAS(cas, btn) {
   google.script.run
     .withSuccessHandler(function(r) {
       if (r.ok) {
-        toast('CAS ' + cas + ' actualizado (' + r.items + ' ítems desde sheet externo)', 'ok');
+        toast('CAS ' + cas + ' actualizado (' + r.items + ' ítems desde sheet externo)' +
+          (r.notificaciones ? ' — ' + r.notificaciones + ' aviso(s) de atraso encolados para resellers' : ''), 'ok');
         _cargarCruceExterno();
       } else {
         toast('Error: ' + (r.error || 'desconocido'), 'err');

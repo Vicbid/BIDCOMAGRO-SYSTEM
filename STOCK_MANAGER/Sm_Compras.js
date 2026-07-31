@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.4
+// @version 1.5
 
 // ============================================================
 //  COMPRAS DJI
@@ -292,6 +292,45 @@ function _encolarNotifIngresoWOS(cas, items) {
   } catch(e) { Logger.log('_encolarNotifIngresoWOS: ' + e); }
 }
 
+// Cuando cambia la ETA de un CAS (Cruce externo → "Usar externo", ver sincronizarItemsCAS),
+// avisa a los resellers que tengan una reserva ACTIVA de ese CAS/SKU en RESERVAS_EN_CAMINO de
+// que se atrasa. Mismo patrón que _encolarNotifIngresoWOS: SM solo encola, el mail lo arma y
+// envía WOS (WOS_notificarCambiosEta). `retrasos`: [{sku, desc, etaAnterior, etaNueva}].
+// Devuelve la cantidad de avisos encolados.
+function _encolarNotifEtaCambioWOS(cas, retrasos) {
+  try {
+    if (!retrasos || !retrasos.length) return 0;
+    var casUp   = String(cas || '').trim().toUpperCase();
+    var hojaRes = getSheet('RESERVAS_EN_CAMINO');
+    if (!hojaRes) return 0;
+    var dRes = hojaRes.getDataRange().getValues();
+    // RESERVAS_EN_CAMINO (la mantiene WOS): FECHA·PEDIDO·RESELLER·SKU·CAS·N_AIR·ETA·CANTIDAD·ESTADO
+    var etaPorSku = {};
+    for (var t = 0; t < retrasos.length; t++) etaPorSku[retrasos[t].sku] = retrasos[t];
+
+    var filas = [], ahora = new Date();
+    for (var r = 1; r < dRes.length; r++) {
+      if (String(dRes[r][8] || '').trim() !== 'Activa') continue;
+      if (String(dRes[r][4] || '').trim().toUpperCase() !== casUp) continue;
+      var sku = String(dRes[r][3] || '').trim().toUpperCase();
+      var ret = etaPorSku[sku];
+      if (!ret) continue;
+      var cant = parseInt(dRes[r][7]) || 0;
+      if (cant <= 0) continue;
+      filas.push([ahora, casUp, String(dRes[r][1] || '').trim(), String(dRes[r][2] || ''), sku, cant, ret.etaAnterior, ret.etaNueva, 'Pendiente', '']);
+    }
+    if (!filas.length) return 0;
+    var hojaQ = getSheet('NOTIF_ETA_CAMBIO_WOS');
+    if (!hojaQ) {
+      hojaQ = getSheet(SCHEMA.SHEETS.COMPRAS).getParent().insertSheet('NOTIF_ETA_CAMBIO_WOS');
+      hojaQ.appendRow(['FECHA', 'CAS', 'PEDIDO', 'RESELLER', 'SKU', 'CANTIDAD', 'ETA_ANTERIOR', 'ETA_NUEVA', 'ESTADO', 'RESULTADO']);
+      hojaQ.setFrozenRows(1);
+    }
+    hojaQ.getRange(hojaQ.getLastRow() + 1, 1, filas.length, filas[0].length).setValues(filas);
+    return filas.length;
+  } catch(e) { Logger.log('_encolarNotifEtaCambioWOS: ' + e); return 0; }
+}
+
 function _alertarBackordersPendientes(cas) {
   try {
     var casKey = String(cas || '').trim().toUpperCase();
@@ -467,6 +506,18 @@ function _normEtaVal(v) {
   var s = String(v == null ? '' : v).trim();
   if (!s || s === '0') return '';
   return s;
+}
+
+// Parsea una ETA ya normalizada por _normEtaVal ("dd/MM/yyyy") a Date, para poder comparar
+// si una fecha nueva es POSTERIOR a la anterior (retraso real, no solo un texto distinto).
+function _smEtaToDate(s) {
+  s = String(s || '').trim();
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+  var dd = parseInt(m[1], 10), mm = parseInt(m[2], 10) - 1, yy = parseInt(m[3], 10);
+  if (yy < 100) yy += 2000;
+  var dt = new Date(yy, mm, dd);
+  return isNaN(dt.getTime()) ? null : dt;
 }
 
 function cruzarComprasExternas() {
@@ -656,32 +707,50 @@ function sincronizarItemsCAS(cas) {
     var dCD     = hojaCD.getDataRange().getValues();
     // Normaliza cualquier fila a WIDTH columnas (rellena filas viejas de 6 col con '')
     function _padRow(r) { r = r.slice(0, WIDTH); while (r.length < WIDTH) r.push(''); return r; }
-    var recibMap = {};
+    var recibMap = {}, etaAnteriorMap = {};
     var rowsKeep = [HEADER]; // encabezado canónico de 8 columnas
     for (var ri2 = 1; ri2 < dCD.length; ri2++) {
       var rCas = String(dCD[ri2][CD.ID_CAS] || '').trim().toUpperCase();
       if (rCas === casKey) {
-        // guardar recibido por SKU, descartar la fila (se reemplaza)
+        // guardar recibido y ETA previa por SKU, descartar la fila (se reemplaza)
         var rSku = String(dCD[ri2][CD.SKU] || '').trim().toUpperCase();
-        recibMap[rSku] = parseInt(dCD[ri2][CD.CANTIDAD_RECIBIDA]) || 0;
+        recibMap[rSku]      = parseInt(dCD[ri2][CD.CANTIDAD_RECIBIDA]) || 0;
+        etaAnteriorMap[rSku] = _normEtaVal(dCD[ri2][CD.FECHA_ETA]);
       } else {
         rowsKeep.push(_padRow(dCD[ri2])); // otras CAS: conservar, normalizadas a 8 col
       }
     }
 
-    // Agregar nuevas filas con datos del sheet externo (incluye ETA + N° AIR por línea)
+    // Agregar nuevas filas con datos del sheet externo (incluye ETA + N° AIR por línea).
+    // De paso, detectar RETRASOS reales (ETA nueva posterior a la anterior) para avisar a
+    // los resellers que tengan una reserva activa de ese CAS/SKU — ver _encolarNotifEtaCambioWOS.
+    var retrasos = [];
     for (var xi = 0; xi < extItems.length; xi++) {
       var xIt  = extItems[xi];
       var xRec = recibMap[xIt.sku] || 0;
       var xEst = xRec >= xIt.cantidad ? 'Recibido' : (xRec > 0 ? 'Parcial' : 'Pendiente');
       rowsKeep.push([casKey, xIt.sku, xIt.desc, xIt.cantidad, xRec, xEst, xIt.eta || '', xIt.air || '']);
+
+      var etaAnt = etaAnteriorMap[xIt.sku] || '';
+      if (etaAnt && xIt.eta && etaAnt !== xIt.eta) {
+        var dAnt = _smEtaToDate(etaAnt), dNva = _smEtaToDate(xIt.eta);
+        if (dAnt && dNva && dNva.getTime() > dAnt.getTime()) {
+          retrasos.push({ sku: xIt.sku, desc: xIt.desc, etaAnterior: etaAnt, etaNueva: xIt.eta });
+        }
+      }
     }
 
     hojaCD.clearContents();
     hojaCD.getRange(1, 1, rowsKeep.length, WIDTH).setValues(rowsKeep);
     invalidateSheetValues(SCHEMA.SHEETS.COMPRAS_DETALLE);
     SpreadsheetApp.flush();
-    return { ok: true, cas: casKey, items: extItems.length };
+
+    var notificaciones = 0;
+    if (retrasos.length) {
+      try { notificaciones = _encolarNotifEtaCambioWOS(casKey, retrasos) || 0; }
+      catch(eNot) { Logger.log('sincronizarItemsCAS notif ETA: ' + eNot); }
+    }
+    return { ok: true, cas: casKey, items: extItems.length, retrasosSku: retrasos.length, notificaciones: notificaciones };
   } catch(e) {
     Logger.log('sincronizarItemsCAS: ' + e);
     return { ok: false, error: e.toString() };
