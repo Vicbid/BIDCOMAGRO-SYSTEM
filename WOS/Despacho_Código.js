@@ -1,4 +1,4 @@
-// @version 3.24
+// @version 3.25
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
   if (page === 'manual') {
@@ -1771,6 +1771,30 @@ function WOS_cargarUbicacionesPedido(skus) {
 // Lista principal desde CARMEN (hoja STOCK: A=SKU, B=nombre, C=stock).
 // Metadatos adicionales (min, ubicacion, modelos) desde STOCK_REPUESTOS en MASTER.
 // q: filtro de búsqueda (SKU o descripción), vacío = todos.
+// Fotos del catálogo unificado (hoja TODO, misma spreadsheet que usa Portal Reseller
+// como LISTA_PRECIOS_SS_ID y Stock Manager para cargar las fotos faltantes — col B =
+// código corto, col H = link de Drive). Cache 5 min, mismo criterio que el stockMap
+// de Carmen en WOS_getEnCaminoMap — el catálogo de fotos no cambia a cada minuto.
+function _wosFotoMapCatalogo() {
+  var map = {};
+  try {
+    var cache  = CacheService.getScriptCache();
+    var cached = cache.get('wos_fotos_catalogo_v1');
+    if (cached) return JSON.parse(cached);
+    var hoja = SpreadsheetApp.openById(CATALOGO_REPUESTOS_ID).getSheetByName('TODO');
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var cod  = String(d[i][1] || '').trim().toUpperCase(); // col B = código corto
+        var foto = String(d[i][7] || '').trim();               // col H = imagen
+        if (cod && foto) map[cod] = foto;
+      }
+    }
+    try { cache.put('wos_fotos_catalogo_v1', JSON.stringify(map), 300); } catch(eCp) {}
+  } catch(e) { Logger.log('_wosFotoMapCatalogo: ' + e); }
+  return map;
+}
+
 function WOS_cargarStock(q) {
   try {
     // Lista principal: CARMEN hoja STOCK (A=SKU, B=nombre, C=stock actual)
@@ -1852,6 +1876,9 @@ function WOS_cargarStock(q) {
       if (ecRes.ok) enCaminoMap = ecRes.map;
     } catch(eEC) { Logger.log('WOS_cargarStock enCamino: ' + eEC); }
 
+    // Fotos del catálogo (hoja TODO) — para mostrar/ver la imagen de los ítems que ya tienen
+    var fotoMap = _wosFotoMapCatalogo();
+
     var datos  = hojaCarmen.getDataRange().getValues();
     var filtro = String(q || '').trim().toLowerCase();
     var out    = [];
@@ -1899,7 +1926,8 @@ function WOS_cargarStock(q) {
         enCamino:    ecTotal,
         enCaminoOcs: ecOcs,
         enCaminoETA: ecData ? (ecData.etaMin || '') : '',
-        enCaminoReservado: ecData ? (ecData.reservado || 0) : 0
+        enCaminoReservado: ecData ? (ecData.reservado || 0) : 0,
+        foto:        fotoMap[codKey] || ''
       });
     }
 

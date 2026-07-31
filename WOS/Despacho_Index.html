@@ -1,4 +1,4 @@
-<!-- @version 3.45 -->
+<!-- @version 3.46 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4450,6 +4450,7 @@ function imprimirTicket() {
 var _stkItems   = [];   // todos los ítems cargados
 var _stkFiltroE = '';   // estado filtrado: '' | 'CRITICO' | 'BAJO' | 'OK'
 var _stkCargado = false;
+var _stkListaActual = []; // última lista renderizada (post-filtro), para abrir la foto por índice sin re-escapar el código en el onclick
 
 function abrirStock() {
   document.getElementById('stk-overlay').style.display = 'flex';
@@ -4509,6 +4510,7 @@ function _renderStock() {
     if (!q) return true;
     return it.codigo.toLowerCase().indexOf(q) >= 0 || it.descripcion.toLowerCase().indexOf(q) >= 0;
   });
+  _stkListaActual = lista;
 
   var critico = 0, bajo = 0, ok = 0;
   for (var k = 0; k < _stkItems.length; k++) {
@@ -4548,10 +4550,14 @@ function _renderStock() {
     var claseCell = it.clase
       ? '<span style="display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#fff;background:' + (claseColors[it.clase] || '#8590a2') + '">' + escH(it.clase) + '</span>'
       : '<span style="color:var(--tx-d)">—</span>';
+    var fotoCell = it.foto
+      ? '<img src="' + escH(_wosDriveThumb(it.foto, 44)) + '" onclick="_stkVerFoto(' + i + ')" style="width:30px;height:30px;object-fit:cover;border-radius:4px;cursor:zoom-in;border:1px solid var(--brd);display:block;margin:0 auto" title="Ver foto">'
+      : '<span style="color:var(--tx-d)">—</span>';
     rows +=
       '<tr>' +
       '<td><span class="stk-badge ' + it.estado + '">' + it.estado + '</span></td>' +
       '<td style="text-align:center">' + claseCell + '</td>' +
+      '<td style="text-align:center">' + fotoCell + '</td>' +
       '<td><span class="stk-sku">' + escH(it.codigo) + '</span></td>' +
       '<td style="max-width:240px">' + escH(it.descripcion) + '</td>' +
       '<td class="stk-num ' + cls + '">' + it.stockActual + '</td>' +
@@ -4565,13 +4571,55 @@ function _renderStock() {
   document.getElementById('stk-content').innerHTML =
     '<table class="stk-table">' +
       '<thead><tr>' +
-        '<th>Estado</th><th style="text-align:center">Clase</th><th>SKU</th><th>Descripción</th>' +
+        '<th>Estado</th><th style="text-align:center">Clase</th><th style="text-align:center">Foto</th><th>SKU</th><th>Descripción</th>' +
         '<th style="text-align:center">Stock</th><th style="text-align:center">Mín.</th>' +
         '<th style="text-align:center">En camino</th>' +
         '<th>Ubicación</th><th>Modelos</th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>';
+}
+
+// Convierte un link de Drive (/file/d/FILEID/view o ?id=FILEID) al formato directo
+// usable en <img> (mismo criterio que Portal Reseller: RS_Repuestos.js _driveUrlToImg).
+// `size`, si viene, pide un thumbnail de ese ancho (=sNN) en vez de la imagen completa.
+function _wosDriveThumb(url, size) {
+  if (!url) return '';
+  var id = '';
+  var m = url.match(/\/file\/d\/([A-Za-z0-9_-]+)/);
+  if (m) id = m[1];
+  else { m = url.match(/[?&]id=([A-Za-z0-9_-]+)/); if (m) id = m[1]; }
+  if (!id) return url; // URL directa (no-Drive) — devolver tal cual
+  return 'https://lh3.googleusercontent.com/d/' + id + (size ? '=s' + size : '');
+}
+
+// Visor de foto del stock: overlay simple creado on-demand (mismo patrón que otros
+// overlays dinámicos del archivo, ej. _wzRenderChecklist). idx = índice en _stkListaActual
+// (evita tener que escapar el código/URL dentro del atributo onclick de la fila).
+function _stkVerFoto(idx) {
+  var it = _stkListaActual[idx];
+  if (!it || !it.foto) return;
+  var ov = document.getElementById('stk-foto-ov');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'stk-foto-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(20,28,38,.78);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
+    ov.onclick = function(e) { if (e.target === ov) _stkCerrarFoto(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML =
+    '<div style="max-width:min(90vw,560px);max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:10px" onclick="event.stopPropagation()">' +
+      '<img src="' + escH(_wosDriveThumb(it.foto)) + '" style="max-width:100%;max-height:78vh;border-radius:var(--rm);box-shadow:0 12px 40px rgba(0,0,0,.4);background:#fff">' +
+      '<div style="display:flex;align-items:center;gap:12px;color:#fff">' +
+        '<span style="font-family:var(--f-mono);font-weight:700">' + escH(it.codigo) + '</span>' +
+        '<button class="btn btn-ghost" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.3)" onclick="_stkCerrarFoto()">✕ Cerrar</button>' +
+      '</div>' +
+    '</div>';
+  ov.style.display = 'flex';
+}
+function _stkCerrarFoto() {
+  var ov = document.getElementById('stk-foto-ov');
+  if (ov) ov.style.display = 'none';
 }
 
 function abrirManual() {

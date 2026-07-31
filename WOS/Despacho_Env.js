@@ -1,8 +1,9 @@
-// @version 1.2
+// @version 1.3
 var NOTAS_SS_ID            = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var PLANIF_SS_ID           = '1GxqNYGq9Uf4hyo2fobuyY5BF9h9Uox1N8wUv2BhUuy0';
+var CATALOGO_REPUESTOS_ID  = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0'; // catálogo unificado (hoja TODO, col H = foto) — mismo ID que LISTA_PRECIOS_SS_ID de Portal Reseller
 var CARMEN_UBICACIONES_TAB = 'UBICACIONES'; // tab WMS en Carmen
 var HOJA_PEDIDOS    = 'Pedidos_resellers';
 var HOJA_PEDIDOS_OT = 'Pedidos_OTs'; // mismo schema (COL) que Pedidos_resellers — repuestos de reparaciones (HUB PRO)
