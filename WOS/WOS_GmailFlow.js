@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.34
+// @version 2.35
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -2102,26 +2102,28 @@ function WOS_notificarCambiosEta() {
 
   var procesadas = 0;
   for (var p = 0; p < peds.length; p++) {
-    var numero = peds[p], resultado = '';
-    try { resultado = _wosNotificarCambioEtaPedido(numero, porPedido[numero]); }
-    catch(eP) { Logger.log('WOS_notificarCambiosEta [' + numero + ']: ' + eP); }
-    if (!resultado) continue;   // '' → reintentar en la próxima corrida
+    var numero = peds[p], res = { ok: false, msg: 'error_desconocido' };
+    try { res = _wosNotificarCambioEtaPedido(numero, porPedido[numero]); }
+    catch(eP) { res = { ok: false, msg: 'excepcion: ' + eP }; Logger.log('WOS_notificarCambiosEta [' + numero + ']: ' + eP); }
+    // Siempre dejamos el motivo en RESULTADO (aunque sea un reintento) para poder
+    // diagnosticar sin depender de los logs de ejecución de Apps Script.
     for (var rI = 0; rI < porPedido[numero].rows.length; rI++) {
       var fila = porPedido[numero].rows[rI] + 1;
-      hoja.getRange(fila, 9).setValue('Notificado');
-      hoja.getRange(fila, 10).setValue(resultado);
+      if (res.ok) hoja.getRange(fila, 9).setValue('Notificado');
+      hoja.getRange(fila, 10).setValue(res.msg);
     }
-    procesadas += porPedido[numero].rows.length;
+    if (res.ok) procesadas += porPedido[numero].rows.length;
   }
   if (procesadas) SpreadsheetApp.flush();
   return { ok: true, procesadas: procesadas };
 }
 
 // Manda UN mail al reseller de `numero` con todos los SKUs de `info.items` que se atrasaron
-// (antes/ahora). Devuelve el resultado ('' = error, se reintenta en la próxima corrida).
+// (antes/ahora). Devuelve { ok, msg }: ok=false con msg de diagnóstico se reintenta en la
+// próxima corrida (queda visible en RESULTADO sin marcar 'Notificado').
 function _wosNotificarCambioEtaPedido(numero, info) {
   var hoja = _getHojaPorNumero(numero);
-  if (!hoja) return 'pedido_no_encontrado';
+  if (!hoja) return { ok: false, msg: 'pedido_no_encontrado' };
   var datos = hoja.getDataRange().getValues();
   var reseller = info.reseller, threadId = '';
   for (var i = 1; i < datos.length; i++) {
@@ -2130,11 +2132,11 @@ function _wosNotificarCambioEtaPedido(numero, info) {
     if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
     break;
   }
-  if (!reseller) return 'pedido_no_encontrado';
+  if (!reseller) return { ok: false, msg: 'pedido_no_encontrado' };
 
   var email = '';
   try { email = _wosGetEmailReseller(reseller); } catch(eEm) {}
-  if (!threadId && !email) return 'sin_contacto';
+  if (!threadId && !email) return { ok: false, msg: 'sin_contacto' };
 
   var filas = '';
   for (var it = 0; it < info.items.length; it++) {
@@ -2174,12 +2176,12 @@ function _wosNotificarCambioEtaPedido(numero, info) {
   try {
     var ok = _wosReplyHiloOriginal(threadId, plain, opts, [email]);
     if (!ok && email) GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts);
-    else if (!ok && !email) return 'sin_contacto';
+    else if (!ok && !email) return { ok: false, msg: 'sin_contacto' };
   } catch(eS) {
-    if (email) { try { GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts); } catch(eS2) { Logger.log('notifCambioEta mail [' + numero + ']: ' + eS2); return ''; } }
-    else return 'sin_contacto';
+    if (email) { try { GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts); } catch(eS2) { Logger.log('notifCambioEta mail [' + numero + ']: ' + eS2); return { ok: false, msg: 'excepcion_mail: ' + eS2 }; } }
+    else return { ok: false, msg: 'sin_contacto' };
   }
-  return 'avisado';
+  return { ok: true, msg: 'avisado' };
 }
 
 
