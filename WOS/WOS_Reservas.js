@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Reservas de unidades en camino (compras DJI) + ETA.
 //  Extraído de Despacho_Código.js 3.26 el 2026-07-30 — reorganización
@@ -243,6 +243,11 @@ function _wosReservarEnCamino(numero, reseller) {
     }
 
     var nuevas = [], ahora = new Date(), totalRes = 0, etaProx = '', etaProxDt = null;
+    var porEtaMap = {};   // eta (string) → cantidad reservada con esa fecha — un pedido con
+                           // varios SKUs faltantes puede reservar de lotes con ETAs distintas;
+                           // "etaProx" (la más próxima) solo alcanza para avisar de UNA fecha,
+                           // hace falta el desglose para no decirle al reseller que TODO llega
+                           // en la fecha más próxima cuando en realidad una parte llega después.
     for (var s in needBySku) {
       var need = needBySku[s] - (yaRes[s] || 0);   // descuenta lo ya reservado para este pedido
       if (need <= 0) continue;
@@ -254,6 +259,8 @@ function _wosReservarEnCamino(numero, reseller) {
         if (take <= 0) continue;
         nuevas.push([ahora, numero, reseller || '', s, bt.cas, bt.air || '', bt.eta || '', take, 'Activa']);
         need -= take; totalRes += take;
+        var etaKey = bt.eta || '(sin ETA)';
+        porEtaMap[etaKey] = (porEtaMap[etaKey] || 0) + take;
         var _dt = _wosEtaToDate(bt.eta);
         if (_dt && (!etaProxDt || _dt < etaProxDt)) { etaProxDt = _dt; etaProx = bt.eta; }
       }
@@ -264,9 +271,35 @@ function _wosReservarEnCamino(numero, reseller) {
       SpreadsheetApp.flush();
       _wosInvalidarReservasCache();
     }
-    return { ok: true, reservas: nuevas.length, cantidad: totalRes, etaProx: etaProx };
+    var porEta = Object.keys(porEtaMap).map(function(k) {
+      return { eta: k, cantidad: porEtaMap[k], _dt: _wosEtaToDate(k) };
+    }).sort(function(a, b) {
+      var ta = a._dt ? a._dt.getTime() : Infinity;
+      var tb = b._dt ? b._dt.getTime() : Infinity;
+      return ta - tb;
+    }).map(function(x) { return { eta: x.eta, cantidad: x.cantidad }; });
+    return { ok: true, reservas: nuevas.length, cantidad: totalRes, etaProx: etaProx, porEta: porEta };
   } catch(e) { Logger.log('_wosReservarEnCamino: ' + e); return { ok: false, error: e.toString() }; }
   finally { try { lock.releaseLock(); } catch(eR) {} }
+}
+
+// Arma el fragmento HTML de confirmación de reservas para el mail al reseller (usado por
+// WOS_detectarRespuestasResellers y WOS_procesarRespuestaManual, Opción A). BUG que arregla:
+// antes se mostraba una sola fecha (la más próxima, "etaProx") como si TODO lo reservado
+// llegara ese día — con un pedido de varios SKUs faltantes, cada uno reservado de un lote
+// distinto, eso era falso (ej: 1 u. llega ~04/08 pero otras 5 u. llegan ~16/08 y ~24/08).
+// Con 1 sola ETA entre todo lo reservado se muestra 1 línea igual que antes; con más de una,
+// se desglosa por fecha (r.porEta ya viene ordenado ascendente por _wosReservarEnCamino).
+function _wosMsgReservas(r) {
+  if (!r || !r.reservas || !r.porEta || !r.porEta.length) return '';
+  if (r.porEta.length === 1) {
+    return "<br><strong style='color:#3730a3'>Reservamos " + r.cantidad + " u. del lote que llega ~" + r.porEta[0].eta + ".</strong>";
+  }
+  var out = "<br><strong style='color:#3730a3'>Reservamos " + r.cantidad + " u., en distintos lotes:</strong>";
+  for (var i = 0; i < r.porEta.length; i++) {
+    out += "<br>&nbsp;&nbsp;• " + r.porEta[i].cantidad + " u. llega ~" + r.porEta[i].eta;
+  }
+  return out;
 }
 
 

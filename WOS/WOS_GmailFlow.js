@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.31
+// @version 2.32
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -934,11 +934,41 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       var _rfFalta = Math.max(0, (Number(faltantes[_rf].cantSol) || 0) - (Number(faltantes[_rf].cantDisp) || 0));
       _repMap[_rfSku] = _faltReposicion(_rfSku, _rfFalta);
     }
-    // ETA más próxima entre todos los faltantes (para el bloque OPCIÓN A)
-    var _etaProx = '', _etaProxDt = null;
+    // ETA de reposición para el bloque OPCIÓN A: antes se tomaba una sola fecha (la más
+    // próxima entre TODOS los faltantes), lo cual era engañoso apenas había más de un SKU
+    // faltante con lotes de ETAs distintas — mostraba "~04/08" como si TODO llegara ese día
+    // cuando en realidad una parte llegaba 16/08 y otra 24/08 (bug reportado). Ahora se arma
+    // un desglose por fecha (mismo criterio que _wosMsgReservas para el mail de confirmación).
+    var _etaMap = {};
     for (var _pk in _repMap) {
-      var _peDt = _wosEtaToDate(_repMap[_pk].etaProx);
-      if (_peDt && (!_etaProxDt || _peDt < _etaProxDt)) { _etaProxDt = _peDt; _etaProx = _repMap[_pk].etaProx; }
+      var _lineas = _repMap[_pk].lineas || [];
+      for (var _li = 0; _li < _lineas.length; _li++) {
+        var _le = _lineas[_li].eta || '';
+        if (!_le) continue;
+        _etaMap[_le] = (_etaMap[_le] || 0) + (_lineas[_li].qty || 0);
+      }
+    }
+    var _etaDesglose = Object.keys(_etaMap).map(function(k) {
+      return { eta: k, cantidad: _etaMap[k], _dt: _wosEtaToDate(k) };
+    }).sort(function(a, b) {
+      var ta = a._dt ? a._dt.getTime() : Infinity;
+      var tb = b._dt ? b._dt.getTime() : Infinity;
+      return ta - tb;
+    });
+    var _etaHtml = '';
+    if (_etaDesglose.length === 1) {
+      _etaHtml = "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Según las compras en curso, la reposición llegaría aprox. el <strong>~" + _etaDesglose[0].eta + "</strong>.</p>";
+    } else if (_etaDesglose.length > 1) {
+      _etaHtml = "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Según las compras en curso:</p>" +
+        "<ul style='margin:2px 0 0;padding-left:18px;font-size:12px;color:#3730a3'>" +
+        _etaDesglose.map(function(d) { return "<li>" + d.cantidad + " u. llegarían aprox. el ~" + d.eta + "</li>"; }).join('') +
+        "</ul>";
+    }
+    var _etaPlain = '';
+    if (_etaDesglose.length === 1) {
+      _etaPlain = ' (reposición estimada ~' + _etaDesglose[0].eta + ')';
+    } else if (_etaDesglose.length > 1) {
+      _etaPlain = ' (reposición estimada: ' + _etaDesglose.map(function(d) { return d.cantidad + 'u ~' + d.eta; }).join(', ') + ')';
     }
 
     // ── Tabla de faltantes ────────────────────────────────────
@@ -1040,7 +1070,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         ? "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
             "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar y consolidar en un solo env\xedo</p>" +
             "<p style='margin:0;font-size:12px;color:#4a5568'>Retenemos tambi\xe9n lo que ya est\xe1 disponible. Cuando llegue el resto, se despacha/entrega todo junto — un solo env\xedo.</p>" +
-            (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
+            _etaHtml +
           "</div>" +
           "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
             "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Despachar ahora lo disponible</p>" +
@@ -1049,7 +1079,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         : "<div style='border:1px solid #c7d2fe;border-radius:8px;padding:14px 18px;margin-bottom:8px;background:#eef2ff'>" +
             "<p style='margin:0 0 4px;font-size:13px;color:#3730a3;font-weight:700'>OPCI\xd3N A — Esperar el faltante (segundo env\xedo)</p>" +
             "<p style='margin:0;font-size:12px;color:#4a5568'>Los \xedtems faltantes quedan pendientes. Cuando ingresen al stock los despachamos en un segundo env\xedo.</p>" +
-            (_etaProx ? "<p style='margin:8px 0 0;font-size:12px;color:#3730a3;font-weight:600'>&#128666; Seg\xfan las compras en curso, la reposici\xf3n llegar\xeda aprox. el <strong>~" + _etaProx + "</strong>.</p>" : '') +
+            _etaHtml +
           "</div>" +
           "<div style='border:1px solid #ffba7b;border-radius:8px;padding:14px 18px;margin-bottom:16px;background:#fff3e0'>" +
             "<p style='margin:0 0 4px;font-size:13px;color:#7c3c00;font-weight:700'>OPCI\xd3N B — Cancelar el faltante</p>" +
@@ -1076,7 +1106,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         (hayDisponible ? 'Todav\xeda no despachamos nada de este pedido. ' : '') +
         'Por favor indicanos c\xf3mo prefer\xeds recibirlo:\n\n' +
         'OPCI\xd3N A: Esperar y consolidar en un solo env\xedo (retenemos tambi\xe9n lo disponible).' +
-        (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
+        _etaPlain + '\n' +
         'OPCI\xd3N B: Despachar ahora lo disponible; el resto llega despu\xe9s (no se cancela nada).\n\n' +
         'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
         '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===')
@@ -1085,7 +1115,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         (hayDisponible ? 'Vamos a despachar lo disponible. ' : '') +
         'Por favor indicanos qué hacer con los ítems faltantes:\n\n' +
         'OPCI\xd3N A: Esperar el faltante y recibirlo en un segundo env\xedo cuando el stock est\xe9 disponible.' +
-        (_etaProx ? ' (reposici\xf3n estimada ~' + _etaProx + ')' : '') + '\n' +
+        _etaPlain + '\n' +
         'OPCI\xd3N B: Cancelar definitivamente los \xedtems faltantes.\n\n' +
         'Respond\xe9 este correo con tu elecci\xf3n (escrib\xed "Opci\xf3n A" u "Opci\xf3n B").\n\n' +
         '===WOSDATA===\n' + wosDataJson + '\n===ENDWOSDATA===');
@@ -1300,9 +1330,7 @@ function WOS_detectarRespuestasResellers() {
         if (esA) {
           try {
             var _rSumD = _wosReservarEnCamino(numero, info.reseller);
-            if (_rSumD && _rSumD.reservas && _rSumD.etaProx) {
-              confMensaje += "<br><strong style='color:#3730a3'>Reservamos " + _rSumD.cantidad + " u. del lote que llega ~" + _rSumD.etaProx + ".</strong>";
-            }
+            confMensaje += _wosMsgReservas(_rSumD);
           } catch(eRs) { Logger.log('detector reservar [' + numero + ']: ' + eRs); }
         } else if (esB) {
           try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('detector liberar [' + numero + ']: ' + eRl); }
@@ -1691,9 +1719,7 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
     if (op === 'A') {
       try {
         var _rSumM = _wosReservarEnCamino(numero, reseller);
-        if (_rSumM && _rSumM.reservas && _rSumM.etaProx) {
-          confMensaje += "<br><strong style='color:#3730a3'>Reservamos " + _rSumM.cantidad + " u. del lote que llega ~" + _rSumM.etaProx + ".</strong>";
-        }
+        confMensaje += _wosMsgReservas(_rSumM);
       } catch(eRs) { Logger.log('procesarRespuestaManual reservar [' + numero + ']: ' + eRs); }
     } else if (!esOT) {
       try { _wosCerrarReservas(numero, '', 'Cancelada'); } catch(eRl) { Logger.log('procesarRespuestaManual liberar [' + numero + ']: ' + eRl); }
