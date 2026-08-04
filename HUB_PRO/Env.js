@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.7
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
@@ -15,7 +15,8 @@ var SCHEMA = {
     USUARIOS: 'Usuarios_Internos',
     DEUDA_RESELLERS: 'DEUDA_RESELLERS',
     PRECIOS_MANO_OBRA: 'Precios_mano_obra',
-    RESERVAS: 'RESERVAS_STOCK'
+    RESERVAS: 'RESERVAS_STOCK',
+    RECEPCIONES_EQUIPO: 'RECEPCIONES_EQUIPO'
   },
   OT: {
     FECHA_INGRESO: 0,
@@ -44,10 +45,15 @@ var SCHEMA = {
     ULTIMA_MODIFICACION: 25,
     ORIGEN_REPUESTO: 26,   // AA: quién pone el repuesto — "Adelantado" | "Stock reseller" | ""
     CIERRE_TIPO: 27,       // AB: cómo cerramos — "Reposicion" | "NC" | ""
-    REPUESTOS_ENVIO_WOS: 28 // AC: marca de texto que deja WOS al despachar completo un pedido
+    REPUESTOS_ENVIO_WOS: 28, // AC: marca de texto que deja WOS al despachar completo un pedido
                              // de repuestos de esta OT (fecha + nº de nota) — WOS NO toca el
                              // ESTADO (col E) directamente, esto es solo un aviso para que un
                              // humano decida pasar el estado a "Repuestos enviados" acá en HUB_PRO
+    RECEPCION_FECHA: 29      // AD: flag de recepción de equipo (circuito Taller). Vacío = no
+                             // recepcionada todavía; con fecha = ya se registró la recepción
+                             // (ver HUB_Recepcion.js). El detalle completo (accesorios, usuario,
+                             // observaciones) vive en la hoja RECEPCIONES_EQUIPO, esta columna es
+                             // solo el flag barato que consulta el gate de actualizarOrden().
   },
   RESELLERS: {
     NOMBRE: 0,

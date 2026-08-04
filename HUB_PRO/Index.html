@@ -1,4 +1,4 @@
-<!-- @version 2.20 -->
+<!-- @version 2.21 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -358,6 +358,19 @@ textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
 .st-step.done{background:var(--blue-b);border-color:rgba(0,163,224,.18);color:rgba(0,163,224,.6)}
 .st-step.active{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600}
 
+/* ── RECEPCIÓN DE EQUIPO ───────────────────── */
+.acc-card{background:var(--surf);border:2px solid var(--brd);border-radius:var(--rm);padding:12px 8px;cursor:pointer;transition:all .13s;text-align:center;user-select:none}
+.acc-card:hover{border-color:var(--brd2);background:var(--raise)}
+.acc-card.selected{border-color:var(--indigo);background:rgba(99,102,241,.14)}
+.acc-card i{font-size:18px;margin-bottom:6px;display:block;color:var(--tx-d)}
+.acc-card.selected i{color:var(--indigo)}
+.acc-card .acc-name{font-size:11px;font-weight:600;color:var(--tx-m)}
+.acc-card.selected .acc-name{color:var(--indigo)}
+.bat-seg-opt{flex:1;text-align:center;padding:10px 6px;border:2px solid var(--brd);border-radius:var(--rm);cursor:pointer;font-size:13px;font-weight:700;color:var(--tx-d);background:var(--surf);transition:all .13s;user-select:none}
+.bat-seg-opt:hover{border-color:var(--brd2)}
+.bat-seg-opt.selected{border-color:var(--indigo);background:rgba(99,102,241,.14);color:var(--indigo)}
+#recepcion-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 14px;margin-bottom:16px;display:none}
+
 /* ── REPUESTOS ──────────────────────────── */
 .rp-head{display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .rp-lbl{font-size:11px;font-weight:600;color:var(--tx-m);text-transform:uppercase;letter-spacing:.05em}
@@ -601,6 +614,77 @@ body.compact tbody td{padding:6px 14px!important}
         <button type="button" id="btn-piezas-recv-ok" class="btn btn-primary" onclick="_confirmarPiezasRecibidas()"
           style="background:var(--orange);border-color:var(--orange)">
           <i class="fa fa-check" style="margin-right:6px"></i>Confirmar recepción
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECEPCIÓN DE EQUIPO (circuito Taller — obligatorio antes de "En Revision") -->
+<div class="modal fade" id="modal-recepcion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+    <div class="modal-content">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <h5 class="modal-title"><i class="fa fa-clipboard-check" style="color:var(--indigo);margin-right:8px"></i>Recepción de equipo</h5>
+        <button class="btn-cm" data-bs-dismiss="modal"><i class="fa fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px">
+        <p style="font-size:12px;color:var(--tx-d);margin:0 0 14px;line-height:1.6">
+          Registrá con qué llegó el equipo. Es obligatorio antes de pasar a "En Revision" o asignar técnico.
+        </p>
+
+        <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">Tipo de equipo</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+          <div class="acc-card" id="rt-dron" onclick="_selRecepTipo('Dron')">
+            <i class="fa fa-helicopter"></i><div class="acc-name">Dron</div>
+          </div>
+          <div class="acc-card" id="rt-bateria" onclick="_selRecepTipo('Bateria')">
+            <i class="fa fa-battery-full"></i><div class="acc-name">Batería</div>
+          </div>
+          <div class="acc-card" id="rt-control" onclick="_selRecepTipo('Control')">
+            <i class="fa fa-gamepad"></i><div class="acc-name">Control remoto</div>
+          </div>
+        </div>
+
+        <div id="recep-acc-block">
+          <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">Baterías</label>
+          <div id="recep-bat-seg" style="display:flex;gap:6px;margin-bottom:16px">
+            <div class="bat-seg-opt" data-n="0" onclick="_setRecepBaterias(0)">0</div>
+            <div class="bat-seg-opt" data-n="1" onclick="_setRecepBaterias(1)">1</div>
+            <div class="bat-seg-opt" data-n="2" onclick="_setRecepBaterias(2)">2</div>
+            <div class="bat-seg-opt" data-n="3" onclick="_setRecepBaterias(3)">3</div>
+          </div>
+
+          <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">Accesorios</label>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+            <div class="acc-card" id="ra-control" onclick="_toggleRecepAcc(this,'controlRemoto')">
+              <i class="fa fa-gamepad"></i><div class="acc-name">Control</div>
+            </div>
+            <div class="acc-card" id="ra-cooling" onclick="_toggleRecepAcc(this,'coolingBox')">
+              <i class="fa fa-snowflake"></i><div class="acc-name">Cooling Box</div>
+            </div>
+            <div class="acc-card" id="ra-cargador" onclick="_toggleRecepAcc(this,'cargador')">
+              <i class="fa fa-plug"></i><div class="acc-name">Cargador</div>
+            </div>
+            <div class="acc-card" id="ra-helices" onclick="_toggleRecepAcc(this,'helices')">
+              <i class="fa fa-fan"></i><div class="acc-name">Hélices</div>
+            </div>
+          </div>
+
+          <input type="text" id="recep-otros" class="form-control" placeholder="Otros accesorios (opcional)"
+            style="font-size:13px;margin-bottom:14px;border-color:var(--brd);background:var(--surf);color:var(--tx)">
+        </div>
+
+        <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">Observaciones (opcional)</label>
+        <textarea id="recep-obs" rows="2" class="form-control" placeholder="Ej: caja golpeada, sin funda..."
+          style="font-size:13px;resize:vertical;border-color:var(--brd);background:var(--surf);color:var(--tx)"></textarea>
+        <p id="recep-err" style="display:none;font-size:11px;color:var(--red);margin:8px 0 0"></p>
+      </div>
+      <div class="modal-footer" style="padding:12px 20px;gap:8px">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="btn-recepcion-ok" class="btn btn-primary" onclick="_confirmarRecepcion()"
+          style="background:var(--indigo);border-color:var(--indigo)">
+          <i class="fa fa-check" style="margin-right:6px"></i>Confirmar Recepción
         </button>
       </div>
     </div>
@@ -1059,6 +1143,9 @@ body.compact tbody td{padding:6px 14px!important}
         <button id="btn-piezas-recv" class="btn-rem" onclick="abrirModalPiezasRecibidas()" style="display:none;border-color:var(--orange);color:var(--orange)">
           <i class="fa fa-box-open"></i> Piezas Recibidas
         </button>
+        <button id="btn-recepcion" class="btn-rem" onclick="abrirModalRecepcion()" style="display:none;border-color:var(--indigo);color:var(--indigo)">
+          <i class="fa fa-clipboard-check"></i> Confirmar Recepción
+        </button>
         <button id="btn-factura" class="btn-rem" onclick="solicitarFacturaManual()" style="display:none;border-color:var(--blue);color:var(--blue)">
           <i class="fa fa-file-invoice-dollar"></i> Solicitar Factura
         </button>
@@ -1104,6 +1191,7 @@ body.compact tbody td{padding:6px 14px!important}
 
         <div class="pip-lbl">Estado de la orden</div>
         <div id="est-cont"></div>
+        <div id="recepcion-card"></div>
         <!-- Aviso de envío registrado por WOS — WOS ya NO cambia el estado de la OT directamente
              (ver VERSIONS.md), solo deja esta marca; el paso a "Repuestos enviados" lo hace un
              humano acá, con el stepper de arriba. -->
@@ -1326,8 +1414,8 @@ var tecDisponibles=[];
 var manoObraCache=[], manoObraSeleccionada=[];
 var isDirty=false, histCargado=false;
 
-var EST_T    = ['Abierto','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
-var EST_T_IW = ['Abierto','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
+var EST_T    = ['Abierto','Recepcionado','En Revision','Presupuesto enviado','Presupuesto rechazado','Presupuesto aceptado','Espera de repuestos','En reparacion','Finalizado','Entregado'];
+var EST_T_IW = ['Abierto','Recepcionado','En Revision','Espera de repuestos','En reparacion','Finalizado','Entregado'];
 var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
 var EST_RP = ['Abierto','Pedido de repuesto para reparar','En reparacion','Aprobado DJI · Repuestos en preparación','En cierre','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
 var EST_BAT = ['Abierto','Caso Enviado','Aprobado por DJI','Rechazado DJI','Scrap Enviado (Evidencias)','Bateria enviada a reseller','Sin respuesta · Cerrado','Finalizado'];
@@ -1975,6 +2063,7 @@ function abrirLista(c) {
       _renderThreadHUB(det.mensajes || '', false);
       _renderTimeline(det.historialEstados || [], c);
       cargarDiagnostico(c.equipo, det.trabajo, c.ot);
+      actual.recepcion = det.recepcion || null; // recepción de equipo (circuito Taller) — ver HUB_Recepcion.js
       dispararLogicaDeFlujoAutomatico(); // re-evalúa flujo con todos los datos cargados
       actual.ultimaModificacion = det.ultimaModificacion || 0;
       isDirty = false;
@@ -2522,9 +2611,167 @@ function renderEst(){
   var ai=list.indexOf(estadoAct),h='';
   for(var i=0;i<list.length;i++){
     var cls='st-step'+(list[i]===estadoAct?' active':(i<ai?' done':''));
-    h+='<div class="'+cls+'" onclick="setE(this,\''+list[i].replace(/'/g,"\\'")+'\')">'+list[i]+'</div>';
+    h+='<div class="'+cls+'" onclick="clickEst(this,\''+list[i].replace(/'/g,"\\'")+'\')">'+list[i]+'</div>';
   }
   document.getElementById('est-cont').innerHTML=h;
+  renderRecepcion(v, list);
+}
+
+// ── RECEPCIÓN OBLIGATORIA DE EQUIPO (circuito Taller) ─────────
+// Mientras la OT esté en "Abierto" y no tenga recepción registrada, no se puede avanzar el
+// stepper más allá de "Recepcionado" — clickear cualquier paso posterior abre el modal en vez
+// de aplicar el cambio. No es retroactivo: una OT que ya esté más allá de "Abierto" (o que ya
+// tenga actual.recepcion cargado) nunca pasa por acá.
+function _recepcionPendiente(circ){
+  return circ === 'Taller' && estadoAct === 'Abierto' && !(actual && actual.recepcion);
+}
+
+function clickEst(el,val){
+  var v = document.getElementById('f-circ').value;
+  if (_recepcionPendiente(v)) {
+    var list = esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T)));
+    if (val === 'Recepcionado' || list.indexOf(val) > list.indexOf('Recepcionado')) {
+      abrirModalRecepcion();
+      return;
+    }
+  }
+  setE(el,val);
+}
+
+// Botón "Confirmar Recepción" en la toolbar + tarjeta de historial (solo lectura) en la ficha.
+function renderRecepcion(circ, list){
+  var btn = document.getElementById('btn-recepcion');
+  if (btn) btn.style.display = _recepcionPendiente(circ) ? 'inline-flex' : 'none';
+
+  var card = document.getElementById('recepcion-card');
+  if (!card) return;
+  if (actual && actual.recepcion) {
+    card.style.display = 'block';
+    card.innerHTML = _recepcionCardHtml(actual.recepcion);
+  } else {
+    card.style.display = 'none';
+    card.innerHTML = '';
+  }
+}
+
+function _recepcionItemsTxt(rec){
+  var items = [];
+  if (rec.tipoEquipo === 'Dron') {
+    items.push('Drone');
+    items.push((rec.baterias||0) + ' batería' + (rec.baterias === 1 ? '' : 's'));
+    if (rec.controlRemoto) items.push('Control remoto');
+    if (rec.coolingBox)    items.push('Cooling Box');
+    if (rec.cargador)      items.push('Cargador');
+    if (rec.helices)       items.push('Hélices');
+  } else if (rec.tipoEquipo === 'Bateria') {
+    items.push('Batería');
+  } else {
+    items.push('Control remoto');
+  }
+  if (rec.otros) items.push(rec.otros);
+  return items;
+}
+
+function _recepcionCardHtml(rec){
+  var d = rec.fecha ? new Date(rec.fecha) : null;
+  var fechaStr = d ? (('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)) : '—';
+  var items = _recepcionItemsTxt(rec);
+  var chips = items.map(function(x){
+    return '<span style="display:inline-block;background:rgba(99,102,241,.14);color:var(--indigo);font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;margin:0 4px 4px 0">'+_escHtml(x)+'</span>';
+  }).join('');
+  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+      '<i class="fa fa-clipboard-check" style="color:var(--indigo)"></i>' +
+      '<span style="font-size:12px;font-weight:700;color:var(--tx-m)">Recepcionado el '+fechaStr+' por '+_escHtml(rec.usuario||'')+'</span>' +
+    '</div>' +
+    '<div style="margin-bottom:'+(rec.observaciones?'8px':'0')+'">'+chips+'</div>' +
+    (rec.observaciones ? '<div style="font-size:12px;color:var(--tx-d);font-style:italic">"'+_escHtml(rec.observaciones)+'"</div>' : '');
+}
+
+var _recepTipoSel = 'Dron';
+var _recepAcc = { controlRemoto:false, coolingBox:false, cargador:false, helices:false };
+var _recepBaterias = 0;
+
+function _selRecepTipo(tipo){
+  _recepTipoSel = tipo;
+  var map = { Dron:'rt-dron', Bateria:'rt-bateria', Control:'rt-control' };
+  ['rt-dron','rt-bateria','rt-control'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('selected');
+  });
+  var sel = document.getElementById(map[tipo]);
+  if (sel) sel.classList.add('selected');
+  var block = document.getElementById('recep-acc-block');
+  if (block) block.style.display = (tipo === 'Dron') ? '' : 'none';
+}
+
+function _setRecepBaterias(n){
+  _recepBaterias = n;
+  var opts = document.querySelectorAll('#recep-bat-seg .bat-seg-opt');
+  for (var i=0;i<opts.length;i++) opts[i].classList.toggle('selected', parseInt(opts[i].getAttribute('data-n'),10) === n);
+}
+
+function _toggleRecepAcc(el, key){
+  _recepAcc[key] = !_recepAcc[key];
+  el.classList.toggle('selected', _recepAcc[key]);
+}
+
+function abrirModalRecepcion(){
+  if (!actual) return;
+  _recepAcc = { controlRemoto:false, coolingBox:false, cargador:false, helices:false };
+  ['ra-control','ra-cooling','ra-cargador','ra-helices'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('selected');
+  });
+  _selRecepTipo(actual.esBateria === true ? 'Bateria' : 'Dron');
+  _setRecepBaterias(0);
+  var otros = document.getElementById('recep-otros'); if (otros) otros.value = '';
+  var obs   = document.getElementById('recep-obs');   if (obs)   obs.value   = '';
+  var err   = document.getElementById('recep-err');   if (err)   err.style.display = 'none';
+  var btn   = document.getElementById('btn-recepcion-ok');
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Confirmar Recepción'; }
+  var m = new bootstrap.Modal(document.getElementById('modal-recepcion'));
+  m.show();
+}
+
+function _confirmarRecepcion(){
+  if (!actual || !actual.fila) return;
+  var btn = document.getElementById('btn-recepcion-ok');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin" style="margin-right:6px"></i>Guardando...'; }
+  var payload = {
+    fila: actual.fila,
+    ot: actual.ot,
+    tipoEquipo: _recepTipoSel,
+    baterias: _recepBaterias,
+    controlRemoto: _recepAcc.controlRemoto,
+    coolingBox: _recepAcc.coolingBox,
+    cargador: _recepAcc.cargador,
+    helices: _recepAcc.helices,
+    otros: (document.getElementById('recep-otros').value || '').trim(),
+    observaciones: (document.getElementById('recep-obs').value || '').trim()
+  };
+  google.script.run
+    .withSuccessHandler(function(r){
+      if (r && r.resultado === 'OK') {
+        actual.recepcion = r.recepcion;
+        actual.estado = 'Recepcionado';
+        if (r.ultimaModificacion) actual.ultimaModificacion = r.ultimaModificacion;
+        estadoAct = 'Recepcionado';
+        var modalEl = document.getElementById('modal-recepcion');
+        var inst = bootstrap.Modal.getInstance(modalEl);
+        if (inst) inst.hide();
+        toast('Recepción registrada', 'ok');
+        renderEst();
+      } else {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Confirmar Recepción'; }
+        var err = document.getElementById('recep-err');
+        if (err) { err.textContent = (r && r.resultado) || 'Error al registrar la recepción.'; err.style.display = 'block'; }
+      }
+    })
+    .withFailureHandler(function(e){
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Confirmar Recepción'; }
+      toast('Error de conexión', 'err');
+    })
+    .confirmarRecepcionEquipo(payload);
 }
 
 // ── DETECCIÓN DE FLUJO (Batería / Reseller / Taller) ─────────

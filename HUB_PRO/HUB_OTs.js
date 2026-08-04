@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -437,7 +437,8 @@ function obtenerDetalleOT(fila) {
       mensajes:            String(f[11]||""),
       historialEstados:    historial,
       ultimaModificacion:  (rawUM instanceof Date) ? rawUM.getTime() : 0,
-      repuestosEnvioWos:   String(f[SCHEMA.OT.REPUESTOS_ENVIO_WOS]||"")
+      repuestosEnvioWos:   String(f[SCHEMA.OT.REPUESTOS_ENVIO_WOS]||""),
+      recepcion:           _obtenerRecepcionEquipo(String(f[SCHEMA.OT.OT]||"").trim())
     };
   } catch(e) {
     Logger.log("obtenerDetalleOT ERROR fila=" + fila + " : " + e);
@@ -460,12 +461,28 @@ function actualizarOrden(data) {
 
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var fila = parseInt(data.fila);
-    var old  = hoja.getRange(fila, 1, 1, 26).getValues()[0];
+
+    // getRange NO auto-expande columnas: asegurar que existan hasta AD (RECEPCION_FECHA) antes
+    // de leer/escribir — incluye lo que antes cubría el chequeo de AA/AB (CIERRE_TIPO).
+    var _maxCol = hoja.getMaxColumns();
+    if (_maxCol < SCHEMA.OT.RECEPCION_FECHA + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.RECEPCION_FECHA + 1) - _maxCol);
+
+    var old  = hoja.getRange(fila, 1, 1, SCHEMA.OT.RECEPCION_FECHA + 1).getValues()[0];
     var estadoAnterior = String(old[SCHEMA.OT.ESTADO] || "");
 
-    // getRange NO auto-expande columnas: asegurar que existan AA/AB antes de escribirlas.
-    var _maxCol = hoja.getMaxColumns();
-    if (_maxCol < SCHEMA.OT.CIERRE_TIPO + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.CIERRE_TIPO + 1) - _maxCol);
+    // ── RECEPCIÓN OBLIGATORIA (circuito Taller) ─────────────────
+    // Mientras la OT siga en "Abierto" y no tenga recepción registrada (RECEPCION_FECHA vacío),
+    // no se puede avanzar el estado más allá de "Recepcionado" ni asignar técnico. Una vez que
+    // confirmarRecepcionEquipo() corre (HUB_Recepcion.js), estadoAnterior deja de ser "Abierto"
+    // en el siguiente guardado y este guard nunca vuelve a activarse para esta OT — no es
+    // retroactivo, las OTs que hoy ya están más allá de "Abierto" quedan exentas.
+    if (data.circuito === 'Taller' && estadoAnterior === 'Abierto' && !old[SCHEMA.OT.RECEPCION_FECHA]) {
+      var _avanzaSinRecepcion    = (data.estado !== 'Abierto' && data.estado !== 'Recepcionado');
+      var _asignaTecnicoSinRecep = String(data.tecnico || '').trim() !== '';
+      if (_avanzaSinRecepcion || _asignaTecnicoSinRecep) {
+        return { resultado: 'Primero tenés que registrar la recepción del equipo.', ot: data.ot || '' };
+      }
+    }
 
     // ── CONTROL DE CONCURRENCIA OPTIMISTA ──────────────────────
     var rawUM = old[SCHEMA.OT.ULTIMA_MODIFICACION];
