@@ -1,4 +1,15 @@
-// @version 1.3
+// @version 1.4
+// URL fija del Web App, en vez de resolverla con ScriptApp.getService().getUrl() en cada mail.
+// Causa raíz de "los botones de decisión del reseller no funcionan" (reportado por el usuario):
+// getUrl() llamado desde una ejecución por TRIGGER (cron, no una request HTTP real — que es como
+// corren WOS_notificarFaltante/_wosNotificarIngresoPedido/etc.) no devuelve confiablemente la URL
+// del deployment activo — un mail real capturado por el usuario tenía un link a un deployment ID
+// que ya no existe (404 al probarlo). El deployment real y estable es el que mantiene Redeploy.ps1
+// vía `clasp deploy --deploymentId <id de WOS/.deploy-id>` — mismo ID en cada redeploy, por eso
+// hardcodearlo acá es seguro y elimina la ambigüedad de raíz. Si alguna vez se recrea el deployment
+// desde cero (excepcional, no un redeploy normal), hay que actualizar este valor a mano.
+var WOS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby2yOABl8kMtMzzFPezQX-MlBSVikm9d16L_4XxqEeaHD_JrSBvdfeh4jmzwEdpSunvDQ/exec';
+
 var NOTAS_SS_ID            = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID           = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var MASTER_SS_ID           = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';

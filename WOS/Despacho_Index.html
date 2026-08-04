@@ -1,4 +1,4 @@
-<!-- @version 3.48 -->
+<!-- @version 3.49 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -935,6 +935,8 @@ body{overflow:hidden}
     <div class="rsm-controls">
       <button class="btn btn-ghost" id="btn-rsm-print" onclick="imprimirResumen()" style="display:none">🖨 Imprimir</button>
       <button class="btn btn-primary" id="btn-rsm-email" onclick="enviarResumenEmail()" style="display:none">📧 Enviar por email</button>
+      <button class="btn btn-primary" id="btn-rsm-email-lote" onclick="enviarResumenEmailLote()" style="display:none">📧 Enviar a todos</button>
+      <button class="btn btn-primary" id="btn-rsm-xls-lote" onclick="descargarResumenExcelLote()" style="display:none">⬇ Descargar Excel (todos)</button>
       <button class="btn btn-ghost" onclick="cerrarResumen()">✕ Cerrar</button>
     </div>
   </div>
@@ -942,13 +944,13 @@ body{overflow:hidden}
     <div class="rsm-filters no-print">
       <div>
         <label>Reseller</label>
-        <select id="rsm-reseller" style="min-width:180px"></select>
+        <select id="rsm-reseller" style="min-width:180px" onchange="_rsmModoChange()"></select>
       </div>
       <div>
         <label>Mes</label>
         <input type="month" id="rsm-mes">
       </div>
-      <button class="btn btn-primary" onclick="cargarResumen()">Cargar</button>
+      <button class="btn btn-primary" id="btn-rsm-cargar" onclick="cargarResumen()">Cargar</button>
     </div>
     <div id="rsm-content"></div>
   </div>
@@ -5574,10 +5576,11 @@ document.addEventListener('keydown', function(e) {
 var _rsmData = null;
 
 function abrirResumen() {
-  // Poblar select de resellers con los que hay en _pedidos
+  // Poblar select de resellers con los que hay en _pedidos — "Todos" primero, para mandar/
+  // descargar el resumen de todos de una en vez de tener que ir reseller por reseller.
   var sel = document.getElementById('rsm-reseller');
   var visto = {};
-  sel.innerHTML = '';
+  sel.innerHTML = '<option value="__TODOS__">— Todos los resellers —</option>';
   for (var i = 0; i < _pedidos.length; i++) {
     var r = _pedidos[i].reseller || '';
     if (r && !visto[r]) { visto[r] = true; sel.innerHTML += '<option value="' + escH(r) + '">' + escH(r) + '</option>'; }
@@ -5587,12 +5590,10 @@ function abrirResumen() {
   var mm   = ('0' + (hoy.getMonth() + 1)).slice(-2);
   var yyyy = hoy.getFullYear();
   document.getElementById('rsm-mes').value = yyyy + '-' + mm;
-  document.getElementById('rsm-content').innerHTML = '<div class="rsm-empty">Seleccioná un reseller y un mes, luego hacé clic en Cargar.</div>';
-  document.getElementById('btn-rsm-print').style.display = 'none';
-  document.getElementById('btn-rsm-email').style.display = 'none';
   document.getElementById('rsm-print-zone').innerHTML = '';
   _rsmData = null;
   document.getElementById('rsm-overlay').style.display = 'flex';
+  _rsmModoChange(); // arranca en "Todos" (1ª opción) → pinta el panel de acciones en lote
 }
 
 function cerrarResumen() {
@@ -5600,10 +5601,25 @@ function cerrarResumen() {
   _rsmData = null;
 }
 
+// Alterna entre el modo "1 reseller" (preview + Cargar + Enviar/Imprimir individual) y el
+// modo "Todos los resellers" (sin preview, 2 botones directos: mail en lote o Excel combinado).
+function _rsmModoChange() {
+  var esTodos = document.getElementById('rsm-reseller').value === '__TODOS__';
+  document.getElementById('btn-rsm-cargar').style.display     = esTodos ? 'none' : '';
+  document.getElementById('btn-rsm-print').style.display      = 'none';
+  document.getElementById('btn-rsm-email').style.display      = 'none';
+  document.getElementById('btn-rsm-email-lote').style.display = esTodos ? '' : 'none';
+  document.getElementById('btn-rsm-xls-lote').style.display   = esTodos ? '' : 'none';
+  _rsmData = null;
+  document.getElementById('rsm-content').innerHTML = esTodos
+    ? '<div class="rsm-empty">Elegí el mes y usá los botones de arriba: mandan el resumen por mail a cada reseller que tuvo envíos ese mes, o descargan un Excel con todos juntos.</div>'
+    : '<div class="rsm-empty">Seleccioná un reseller y un mes, luego hacé clic en Cargar.</div>';
+}
+
 function cargarResumen() {
   var reseller = (document.getElementById('rsm-reseller').value || '').trim();
   var mesAnio  = (document.getElementById('rsm-mes').value      || '').trim();
-  if (!reseller || !mesAnio) { toast('Seleccioná reseller y mes', 'err'); return; }
+  if (!reseller || reseller === '__TODOS__' || !mesAnio) { toast('Seleccioná reseller y mes', 'err'); return; }
   document.getElementById('rsm-content').innerHTML = '<div class="rsm-empty">Cargando…</div>';
   document.getElementById('btn-rsm-print').style.display = 'none';
   document.getElementById('btn-rsm-email').style.display = 'none';
@@ -5680,6 +5696,45 @@ function enviarResumenEmail() {
     })
     .withFailureHandler(function(e) { sp(false); toast('Error de conexi\xf3n: ' + e.message, 'err'); })
     .WOS_enviarResumenEnvios(_rsmData.reseller, _rsmData.mesAnio, 'resum_' + _rsmData.reseller + '_' + _rsmData.mesAnio);
+}
+
+function enviarResumenEmailLote() {
+  var mesAnio = (document.getElementById('rsm-mes').value || '').trim();
+  if (!mesAnio) { toast('Seleccioná el mes', 'err'); return; }
+  if (!confirm('¿Enviás el resumen de envíos de TODOS los resellers (' + mesAnio + ') por email? Se manda 1 mail a cada reseller que haya tenido envíos ese mes.')) return;
+  sp(true, 'Enviando res\xfamenes por email…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
+      var msg = res.enviados + ' enviado' + (res.enviados !== 1 ? 's' : '') +
+        (res.saltados ? ' · ' + res.saltados + ' sin env\xedos ese mes' : '') +
+        (res.errores  ? ' · ' + res.errores  + ' con error' : '');
+      toast(msg, res.errores ? 'err' : 'ok');
+    })
+    .withFailureHandler(function(e) { sp(false); toast('Error de conexi\xf3n: ' + e.message, 'err'); })
+    .WOS_enviarResumenEnviosLote(mesAnio, 'resumlote_' + mesAnio + '_' + Date.now());
+}
+
+function descargarResumenExcelLote() {
+  var mesAnio = (document.getElementById('rsm-mes').value || '').trim();
+  if (!mesAnio) { toast('Seleccioná el mes', 'err'); return; }
+  sp(true, 'Generando Excel…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
+      var mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      var a = document.createElement('a');
+      a.href = 'data:' + mime + ';base64,' + res.base64;
+      a.download = res.nombre;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast('Excel descargado', 'ok');
+    })
+    .withFailureHandler(function(e) { sp(false); toast('Error de conexi\xf3n: ' + e.message, 'err'); })
+    .WOS_exportarResumenEnviosXLS(mesAnio);
 }
 
 // ── Respuesta Telefónica ──────────────────────────────────────

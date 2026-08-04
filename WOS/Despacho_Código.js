@@ -1,4 +1,4 @@
-// @version 3.27
+// @version 3.28
 // ============================================================
 //  WOS — Router HTTP (doGet) + utilidades de sesión/log
 //  El resto de la lógica se reorganizó (2026-07-30, sin cambios
@@ -326,7 +326,7 @@ function _rfHtml(ok, titulo, mensaje) {
 
 
 function WOS_getManualUrl() {
-  return ScriptApp.getService().getUrl() + '?page=manual';
+  return WOS_WEBAPP_URL + '?page=manual';
 }
 
 

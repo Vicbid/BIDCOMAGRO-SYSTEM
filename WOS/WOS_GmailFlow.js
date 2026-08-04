@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.38
+// @version 2.39
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -601,8 +601,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 
     // Confirmación de recepción con botones (mide la "precisión de resultado"). Los links van al
     // webapp ?page=confirma_entrega → _doGetConfirmaEntrega registra ok/problema en WOS_QA.
-    var _confUrl = '';
-    try { _confUrl = ScriptApp.getService().getUrl(); } catch(eCU) { Logger.log('WOS confirmar URL: ' + eCU); }
+    var _confUrl = WOS_WEBAPP_URL;
     var _urlOk   = _confUrl ? _confUrl + '?page=confirma_entrega&num=' + encodeURIComponent(numero) + '&r=ok'   : '';
     var _urlProb = _confUrl ? _confUrl + '?page=confirma_entrega&num=' + encodeURIComponent(numero) + '&r=prob' : '';
     var confirmEntregaHtml = _confUrl
@@ -1078,8 +1077,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
               "<span style='font-size:12px;color:#4a5568'>Por favor indicanos cómo querés proceder:</span>" +
             "</p>");
 
-    var _wosUrl = '';
-    try { _wosUrl = ScriptApp.getService().getUrl(); } catch(eUrl) { Logger.log('WOS URL error: ' + eUrl); }
+    var _wosUrl = WOS_WEBAPP_URL;
     var _itemsStr = '';
     for (var fi = 0; fi < faltantes.length; fi++) {
       if (_itemsStr) _itemsStr += ',';
@@ -2002,8 +2000,7 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
         "<th style='padding:6px 10px;font-size:11px;text-align:center'>Reposici\xf3n estim.</th>" +
       '</tr></thead><tbody>' + filasFalta + '</tbody></table>';
 
-  var urlBase = '';
-  try { urlBase = ScriptApp.getService().getUrl(); } catch(eU) { Logger.log('notifIngreso URL: ' + eU); }
+  var urlBase = WOS_WEBAPP_URL;
   var urlA = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=A' : '';
   var urlB = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=B' : '';
   var botones = urlA
@@ -2333,8 +2330,7 @@ function _wosRecordarIngresoPedido(numero) {
         '</tr></thead><tbody>' + filas + '</tbody></table>'
     : '';
 
-  var urlBase = '';
-  try { urlBase = ScriptApp.getService().getUrl(); } catch(eU) {}
+  var urlBase = WOS_WEBAPP_URL;
   var urlA = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=A' : '';
   var urlB = urlBase ? urlBase + '?page=resp_ingreso&num=' + encodeURIComponent(numero) + '&op=B' : '';
   var botones = urlA

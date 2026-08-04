@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  WOS — Reportes: resumen de envíos por reseller/mes + reporte
 //  de backorder (demanda perdida) por mail + su trigger.
@@ -158,6 +158,119 @@ function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
     return { ok: false, error: e.toString() };
   }
  });
+}
+
+
+// Lista de resellers con email válido cargado en la hoja Resellers del MASTER — misma fuente
+// que _wosGetEmailReseller (WOS_GmailFlow.js), leída una sola vez acá para poder iterar TODOS
+// los resellers (antes solo existía "elegir 1 reseller" en el modal de Resumen de Envíos).
+function _wosListaResellersConEmail() {
+  try {
+    var d = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Resellers').getDataRange().getValues();
+    var out = [];
+    for (var i = 1; i < d.length; i++) {
+      var nombre = String(d[i][COL_RS.NOMBRE] || '').trim();
+      var email  = String(d[i][COL_RS.EMAIL]  || '').trim();
+      if (nombre && email && email.indexOf('@') !== -1) out.push({ nombre: nombre, email: email });
+    }
+    return out;
+  } catch(e) { Logger.log('_wosListaResellersConEmail: ' + e); return []; }
+}
+
+// ── Resumen de envíos EN LOTE — manda el mail de todos los resellers de una, en vez de
+// 1 por 1. Mismo patrón que WOS_despacharBatch (WOS_Stock.js): loop con try/catch por ítem
+// (un reseller con error no aborta el resto) + token de idempotencia derivado por ítem.
+// Reusa WOS_enviarResumenEnvios tal cual (mismo mail, mismo log) — acá solo se itera.
+function WOS_enviarResumenEnviosLote(mesAnio, reqToken) {
+  try {
+    if (!mesAnio) return { ok: false, error: 'Falta el mes.' };
+    var resellers = _wosListaResellersConEmail();
+    if (!resellers.length) return { ok: false, error: 'No se encontraron resellers con email cargado.' };
+
+    var resultados = [];
+    for (var i = 0; i < resellers.length; i++) {
+      var nombre = resellers[i].nombre;
+      try {
+        var itemToken = reqToken ? (reqToken + '::' + nombre) : '';
+        var res = WOS_enviarResumenEnvios(nombre, mesAnio, itemToken);
+        if (res && res.ok) {
+          resultados.push({ reseller: nombre, ok: true, enviados: res.enviados });
+        } else {
+          // "No hay envíos para ese reseller y mes" no es un error real, es la mayoría de los
+          // casos (no todos los resellers despacharon ese mes) — se cuenta aparte.
+          var sinEnvios = res && /No hay env/i.test(res.error || '');
+          resultados.push({ reseller: nombre, ok: false, skip: !!sinEnvios, error: (res && res.error) || 'Error desconocido' });
+        }
+      } catch(eI) {
+        resultados.push({ reseller: nombre, ok: false, skip: false, error: eI.toString() });
+      }
+    }
+    var enviados = 0, saltados = 0, errores = 0;
+    for (var j = 0; j < resultados.length; j++) {
+      if (resultados[j].ok) enviados++;
+      else if (resultados[j].skip) saltados++;
+      else errores++;
+    }
+    Logger.log('WOS_enviarResumenEnviosLote: ' + mesAnio + ' → ' + enviados + ' enviados, ' + saltados + ' sin envíos, ' + errores + ' con error');
+    return { ok: true, resultados: resultados, enviados: enviados, saltados: saltados, errores: errores };
+  } catch(e) {
+    Logger.log('WOS_enviarResumenEnviosLote ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// ── Excel descargable con el resumen de envíos de TODOS los resellers de un mes ──
+// Mismo patrón que CC_exportarXLS (PORTAL_RESELLER/RS_CuentaCorriente.js): crea una
+// spreadsheet temporal, la exporta como blob XLSX, la borra y devuelve el base64 para que
+// el cliente arme la descarga con un data: URI (sin re-auth: WOS ya usa DriveApp/SpreadsheetApp
+// para los PDFs de nota de entrega, mismo scope ya concedido).
+function WOS_exportarResumenEnviosXLS(mesAnio) {
+  var ssTemp = null;
+  try {
+    if (!mesAnio) return { ok: false, error: 'Falta el mes.' };
+    var resellers = _wosListaResellersConEmail();
+    var filas = [];
+    var totalCosto = 0, totalPeso = 0;
+    var mesLabel = mesAnio;
+
+    for (var i = 0; i < resellers.length; i++) {
+      var res = WOS_getResumenEnvios(resellers[i].nombre, mesAnio);
+      if (!res || !res.ok || !res.envios.length) continue;
+      mesLabel = res.mesLabel || mesLabel;
+      for (var j = 0; j < res.envios.length; j++) {
+        var ev = res.envios[j];
+        filas.push([
+          resellers[i].nombre, ev.fecha, ev.numero, ev.notaEntrega,
+          ev.transportista || '', ev.tracking || '', ev.pesoEnvio || 0, ev.costoEnvio || 0
+        ]);
+        totalCosto += Number(ev.costoEnvio) || 0;
+        totalPeso  += Number(ev.pesoEnvio)  || 0;
+      }
+    }
+    if (!filas.length) return { ok: false, error: 'No hay envíos registrados para ese mes.' };
+
+    ssTemp = SpreadsheetApp.create('WOS_resumen_envios_' + new Date().getTime());
+    var hoja = ssTemp.getActiveSheet();
+    hoja.setName('Resumen Envíos');
+    hoja.appendRow(['Reseller', 'Fecha', 'Pedido', 'Nota de Entrega', 'Transportista', 'Tracking', 'Peso (kg)', 'Costo Envío']);
+    for (var k = 0; k < filas.length; k++) hoja.appendRow(filas[k]);
+    hoja.appendRow([]);
+    hoja.appendRow(['', '', '', '', '', 'TOTAL', Math.round(totalPeso * 100) / 100, totalCosto]);
+    hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#00a3e0').setFontColor('#ffffff');
+    hoja.autoResizeColumns(1, 8);
+
+    var file   = DriveApp.getFileById(ssTemp.getId());
+    var blob   = file.getAs(MimeType.MICROSOFT_EXCEL);
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    file.setTrashed(true);
+    ssTemp = null;
+
+    return { ok: true, base64: base64, nombre: 'ResumenEnvios_' + String(mesLabel).replace(/\s+/g, '_') + '.xlsx' };
+  } catch(e) {
+    Logger.log('WOS_exportarResumenEnviosXLS ERROR: ' + e);
+    if (ssTemp) { try { DriveApp.getFileById(ssTemp.getId()).setTrashed(true); } catch(eT) {} }
+    return { ok: false, error: e.toString() };
+  }
 }
 
 
