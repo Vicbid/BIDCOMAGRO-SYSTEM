@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Pedidos: CRUD, estado, maestro de artículos/bolsas,
 //  preparación con seriales, backorder por pedido.
@@ -764,6 +764,7 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
             _wosPortalFoot('Pedido ' + numero + ' · ' + reseller + '.');
           var plain = 'Hola ' + reseller + ',\n\nEl stock de ' + skuUp + ' llegó y estamos preparando tu pedido ' + numero + ' para el despacho. Te avisaremos cuando sea enviado.';
           // Reply al hilo apuntando a los destinatarios ORIGINALES (no a una conversación aparte).
+          var _asuntoStock = 'Stock disponible — Pedido ' + numero;
           var _notifOk = _wosReplyHiloOriginal(threadId, plain, {
             htmlBody: html,
             name:     'BIDCOMAGRO · Portal Resellers',
@@ -771,9 +772,19 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
           }, [_wosGetEmailReseller(reseller)]);
           if (!_notifOk) {
             var _emNotif = _wosGetEmailReseller(reseller);
-            if (_emNotif) GmailApp.sendEmail(_emNotif, 'Stock disponible — Pedido ' + numero, plain, { htmlBody: html, name: 'BIDCOMAGRO · Portal Resellers', replyTo: _wosConfig().emailSoporte });
+            if (_emNotif) {
+              GmailApp.sendEmail(_emNotif, _asuntoStock, plain, { htmlBody: html, name: 'BIDCOMAGRO · Portal Resellers', replyTo: _wosConfig().emailSoporte });
+              _wosRegistrarEmailLog(numero, _emNotif, 'Stock disponible', _asuntoStock, 'OK-FALLBACK', '');
+            } else {
+              _wosRegistrarEmailLog(numero, '', 'Stock disponible', _asuntoStock, 'OMITIDO: sin email', '');
+            }
+          } else {
+            _wosRegistrarEmailLog(numero, _wosGetEmailReseller(reseller), 'Stock disponible', _asuntoStock, 'OK-THREAD', threadId);
           }
-        } catch(eN) { Logger.log('WOS_recibirMercaderia notif [' + numero + ']: ' + eN); }
+        } catch(eN) {
+          Logger.log('WOS_recibirMercaderia notif [' + numero + ']: ' + eN);
+          _wosRegistrarEmailLog(numero, '', 'Stock disponible', 'Stock disponible — Pedido ' + numero, 'ERROR: ' + String(eN).substring(0, 150), '');
+        }
       }
       reactivados.push(numero);
     }
