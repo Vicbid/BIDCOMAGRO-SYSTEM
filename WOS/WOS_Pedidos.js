@@ -88,9 +88,12 @@ function WOS_getEtiquetaData(numero) {
 // ── Email fallback: cancela sin threadId (nuevo email) ───────
 function _enviarEmailEstado(numero, reseller, obs) {
   var email = _wosGetEmailReseller(reseller);
-  if (!email) { Logger.log('_enviarEmailEstado: sin email para ' + reseller); return; }
-
   var asunto = 'Tu pedido ' + numero + ' fue cancelado — BIDCOMAGRO';
+  if (!email) {
+    Logger.log('_enviarEmailEstado: sin email para ' + reseller);
+    _wosRegistrarEmailLog(numero, '', 'Pedido cancelado', asunto, 'OMITIDO: sin email', '');
+    return;
+  }
   var html = _wosPortalHead('Pedido cancelado — ' + numero) +
     "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + "</strong>:</p>" +
     "<p style='font-size:13px;color:#555;margin:0 0 14px'>Tu pedido <strong style='color:#e74c3c'>" + numero + "</strong> fue <strong>cancelado</strong>.</p>" +
@@ -104,9 +107,11 @@ function _enviarEmailEstado(numero, reseller, obs) {
       name:     'BIDCOMAGRO \xb7 Portal Resellers',
       replyTo:  _wosConfig().emailSoporte
     });
+    _wosRegistrarEmailLog(numero, email, 'Pedido cancelado', asunto, 'OK', '');
     Logger.log('WOS email [cancelado fallback] → ' + email + ' pedido ' + numero);
   } catch(e) {
     Logger.log('_enviarEmailEstado ERROR: ' + e);
+    _wosRegistrarEmailLog(numero, email, 'Pedido cancelado', asunto, 'ERROR: ' + String(e).substring(0, 150), '');
   }
 }
 

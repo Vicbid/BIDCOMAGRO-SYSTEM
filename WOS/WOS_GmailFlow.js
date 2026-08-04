@@ -216,6 +216,23 @@ function _wosReplyHiloOriginal(threadId, plainBody, opts, mustCc) {
   return true;
 }
 
+// Deja rastro de cada mail que intenta mandar WOS en la MISMA hoja EMAIL_LOGS que ya usan
+// HUB_PRO y Portal Reseller (las 3 comparten MASTER_SS_ID como spreadsheet física) — mismo
+// schema de columnas, así los envíos/fallos de WOS aparecen en el visor que ya tiene HUB_PRO
+// (HUB_Supervisor.js → obtenerEmailLogs) sin construir nada nuevo. Best-effort: nunca tira,
+// para no voltear el flujo de mail que lo llama si el log en sí falla.
+function _wosRegistrarEmailLog(numero, destinatario, tipo, asunto, estado, threadId) {
+  try {
+    var ssLog = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja  = ssLog.getSheetByName('EMAIL_LOGS');
+    if (!hoja) {
+      hoja = ssLog.insertSheet('EMAIL_LOGS');
+      hoja.appendRow(["Fecha","OT","Destinatario","Rol","Asunto","Estado","ThreadID"]);
+    }
+    hoja.appendRow([new Date(), numero || '', destinatario || '', tipo || '', asunto || '', estado || '', threadId || '']);
+  } catch(e) { Logger.log('_wosRegistrarEmailLog: ' + e); }
+}
+
 
 // Lookup de metadata del reseller desde hoja master
 function _wosGetResellerMeta(nombre) {
@@ -770,11 +787,20 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         var _destFallback = email || EMAIL_FACTURACION;
         Logger.log('WOS_despacharCompleto: hilo no disponible (' + ped.threadId + '), enviando email nuevo → ' + _destFallback);
         GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
+        _wosRegistrarEmailLog(numero, _destFallback, 'Despacho', tituloEmail, 'OK-FALLBACK', '');
+      } else {
+        _wosRegistrarEmailLog(numero, (email || EMAIL_FACTURACION), 'Despacho', tituloEmail, 'OK-THREAD', ped.threadId);
       }
     } catch(eThread) {
       var _destFallback = email || EMAIL_FACTURACION;
       Logger.log('WOS_despacharCompleto reply hilo error (' + ped.threadId + '): ' + eThread + ' → email nuevo a ' + _destFallback);
-      try { GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts); } catch(eSE) { Logger.log('WOS_despacharCompleto fallback sendEmail: ' + eSE); }
+      try {
+        GmailApp.sendEmail(_destFallback, tituloEmail + ' — Pedido ' + numero, plainCombinado, replyOpts);
+        _wosRegistrarEmailLog(numero, _destFallback, 'Despacho', tituloEmail, 'OK-FALLBACK', '');
+      } catch(eSE) {
+        Logger.log('WOS_despacharCompleto fallback sendEmail: ' + eSE);
+        _wosRegistrarEmailLog(numero, _destFallback, 'Despacho', tituloEmail, 'ERROR: ' + String(eSE).substring(0, 150), '');
+      }
     }
 
     // ── Estado final por ítem ────────────────────────────────────
@@ -1152,16 +1178,27 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
         if (email) {
           Logger.log('WOS_notificarFaltante: hilo no disponible (' + ped.threadId + '), enviando email nuevo → ' + email);
           GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+          _wosRegistrarEmailLog(numero, email, 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'OK-FALLBACK', '');
         } else {
           Logger.log('WOS_notificarFaltante: hilo no disponible y sin email (cliente externo) → se omite el aviso; los estados igual cambian');
+          _wosRegistrarEmailLog(numero, '', 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'OMITIDO: sin email (cliente externo)', '');
         }
+      } else {
+        _wosRegistrarEmailLog(numero, email, 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'OK-THREAD', ped.threadId);
       }
     } catch(eThread) {
       if (email) {
         Logger.log('WOS_notificarFaltante reply hilo error (' + ped.threadId + '): ' + eThread + ' → email nuevo → ' + email);
-        try { GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts); } catch(eSE) { Logger.log('WOS_notificarFaltante fallback: ' + eSE); }
+        try {
+          GmailApp.sendEmail(email, 'Faltante de stock — Pedido ' + numero, plainBody, faltOpts);
+          _wosRegistrarEmailLog(numero, email, 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'OK-FALLBACK', '');
+        } catch(eSE) {
+          Logger.log('WOS_notificarFaltante fallback: ' + eSE);
+          _wosRegistrarEmailLog(numero, email, 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'ERROR: ' + String(eSE).substring(0, 150), '');
+        }
       } else {
         Logger.log('WOS_notificarFaltante: sin hilo y sin email (cliente externo) → se omite el aviso');
+        _wosRegistrarEmailLog(numero, '', 'Faltante de stock', 'Faltante de stock — Pedido ' + numero, 'OMITIDO: sin email (cliente externo)', '');
       }
     }
 
@@ -1908,11 +1945,29 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
       '. Tu pedido queda completo: lo estamos preparando y te lo despachamos. No ten\xe9s que hacer nada.';
     var optsC = { htmlBody: htmlC, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
     if (threadId || email) {
+      var _asuntoIC = '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero;
       try {
         var okC = _wosReplyHiloOriginal(threadId, plainC, optsC, [email]);
-        if (!okC && email) GmailApp.sendEmail(email, '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero, plainC, optsC);
+        if (!okC && email) {
+          GmailApp.sendEmail(email, _asuntoIC, plainC, optsC);
+          _wosRegistrarEmailLog(numero, email, 'Ingreso completo', _asuntoIC, 'OK-FALLBACK', '');
+        } else if (okC) {
+          _wosRegistrarEmailLog(numero, email, 'Ingreso completo', _asuntoIC, 'OK-THREAD', threadId);
+        } else {
+          _wosRegistrarEmailLog(numero, '', 'Ingreso completo', _asuntoIC, 'OMITIDO: sin email', '');
+        }
       } catch(eSc) {
-        if (email) { try { GmailApp.sendEmail(email, '\xa1Lleg\xf3 lo que faltaba! — Pedido ' + numero, plainC, optsC); } catch(eS2) { Logger.log('notifIngreso mail completo [' + numero + ']: ' + eS2); } }
+        if (email) {
+          try {
+            GmailApp.sendEmail(email, _asuntoIC, plainC, optsC);
+            _wosRegistrarEmailLog(numero, email, 'Ingreso completo', _asuntoIC, 'OK-FALLBACK', '');
+          } catch(eS2) {
+            Logger.log('notifIngreso mail completo [' + numero + ']: ' + eS2);
+            _wosRegistrarEmailLog(numero, email, 'Ingreso completo', _asuntoIC, 'ERROR: ' + String(eS2).substring(0, 150), '');
+          }
+        } else {
+          _wosRegistrarEmailLog(numero, '', 'Ingreso completo', _asuntoIC, 'ERROR: ' + String(eSc).substring(0, 150), '');
+        }
       }
       return 'auto_completo';
     }
@@ -1987,13 +2042,34 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
     (urlA ? 'Despachar ahora: ' + urlA + '\nEsperar todo junto: ' + urlB + '\n' : 'Respond\xe9 este correo con tu preferencia.\n');
 
   var optsP = { htmlBody: htmlP, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  var _asuntoIP = 'Lleg\xf3 parte de tu pedido — ' + numero;
   try {
     var okP = _wosReplyHiloOriginal(threadId, plainP, optsP, [email]);
-    if (!okP && email) GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP);
-    else if (!okP && !email) { _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false); return 'sin_contacto_alertado'; }
+    if (!okP && email) {
+      GmailApp.sendEmail(email, _asuntoIP, plainP, optsP);
+      _wosRegistrarEmailLog(numero, email, 'Ingreso parcial', _asuntoIP, 'OK-FALLBACK', '');
+    } else if (!okP && !email) {
+      _wosRegistrarEmailLog(numero, '', 'Ingreso parcial', _asuntoIP, 'OMITIDO: sin email', '');
+      _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false);
+      return 'sin_contacto_alertado';
+    } else {
+      _wosRegistrarEmailLog(numero, email, 'Ingreso parcial', _asuntoIP, 'OK-THREAD', threadId);
+    }
   } catch(eSp) {
-    if (email) { try { GmailApp.sendEmail(email, 'Lleg\xf3 parte de tu pedido — ' + numero, plainP, optsP); } catch(eS3) { Logger.log('notifIngreso mail parcial [' + numero + ']: ' + eS3); return ''; } }
-    else { _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false); return 'sin_contacto_alertado'; }
+    if (email) {
+      try {
+        GmailApp.sendEmail(email, _asuntoIP, plainP, optsP);
+        _wosRegistrarEmailLog(numero, email, 'Ingreso parcial', _asuntoIP, 'OK-FALLBACK', '');
+      } catch(eS3) {
+        Logger.log('notifIngreso mail parcial [' + numero + ']: ' + eS3);
+        _wosRegistrarEmailLog(numero, email, 'Ingreso parcial', _asuntoIP, 'ERROR: ' + String(eS3).substring(0, 150), '');
+        return '';
+      }
+    } else {
+      _wosRegistrarEmailLog(numero, '', 'Ingreso parcial', _asuntoIP, 'ERROR: ' + String(eSp).substring(0, 150), '');
+      _wosAlertarSinContacto(numero, reseller, llegaron, faltan, false);
+      return 'sin_contacto_alertado';
+    }
   }
   try { _wosLogAccion('Aviso de ingreso parcial enviado (\xbfdespachar ahora o esperar?)', numero, reseller, 'auto_ingreso', ''); } catch(eLg) {}
   return 'pregunta_enviada';
@@ -2017,7 +2093,11 @@ function _wosAlertarSinContacto(numero, reseller, llegaron, faltan, completo) {
       'Contactalo manualmente (tel\xe9fono / WhatsApp)' +
       (completo ? ' para avisarle que se lo despachamos.' : ' y pregunt\xe1le si despachamos ahora lo disponible o espera a que llegue todo junto.');
     GmailApp.sendEmail(_wosConfig().emailSoporte, asunto, cuerpo);
-  } catch(e) { Logger.log('_wosAlertarSinContacto: ' + e); }
+    _wosRegistrarEmailLog(numero, _wosConfig().emailSoporte, 'Alerta interna (sin contacto)', asunto, 'OK', '');
+  } catch(e) {
+    Logger.log('_wosAlertarSinContacto: ' + e);
+    _wosRegistrarEmailLog(numero, '', 'Alerta interna (sin contacto)', asunto, 'ERROR: ' + String(e).substring(0, 150), '');
+  }
 }
 
 
@@ -2179,13 +2259,32 @@ function _wosNotificarCambioEtaPedido(numero, info) {
   plain += '\nNo ten\xe9s que hacer nada, es solo un aviso.';
 
   var opts = { htmlBody: html, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  var _asuntoEta = 'Cambio de fecha estimada — Pedido ' + numero;
   try {
     var ok = _wosReplyHiloOriginal(threadId, plain, opts, [email]);
-    if (!ok && email) GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts);
-    else if (!ok && !email) return { ok: false, msg: 'sin_contacto' };
+    if (!ok && email) {
+      GmailApp.sendEmail(email, _asuntoEta, plain, opts);
+      _wosRegistrarEmailLog(numero, email, 'Cambio ETA', _asuntoEta, 'OK-FALLBACK', '');
+    } else if (!ok && !email) {
+      _wosRegistrarEmailLog(numero, '', 'Cambio ETA', _asuntoEta, 'OMITIDO: sin email', '');
+      return { ok: false, msg: 'sin_contacto' };
+    } else {
+      _wosRegistrarEmailLog(numero, email, 'Cambio ETA', _asuntoEta, 'OK-THREAD', threadId);
+    }
   } catch(eS) {
-    if (email) { try { GmailApp.sendEmail(email, 'Cambio de fecha estimada — Pedido ' + numero, plain, opts); } catch(eS2) { Logger.log('notifCambioEta mail [' + numero + ']: ' + eS2); return { ok: false, msg: 'excepcion_mail: ' + eS2 }; } }
-    else return { ok: false, msg: 'sin_contacto' };
+    if (email) {
+      try {
+        GmailApp.sendEmail(email, _asuntoEta, plain, opts);
+        _wosRegistrarEmailLog(numero, email, 'Cambio ETA', _asuntoEta, 'OK-FALLBACK', '');
+      } catch(eS2) {
+        Logger.log('notifCambioEta mail [' + numero + ']: ' + eS2);
+        _wosRegistrarEmailLog(numero, email, 'Cambio ETA', _asuntoEta, 'ERROR: ' + String(eS2).substring(0, 150), '');
+        return { ok: false, msg: 'excepcion_mail: ' + eS2 };
+      }
+    } else {
+      _wosRegistrarEmailLog(numero, '', 'Cambio ETA', _asuntoEta, 'ERROR: ' + String(eS).substring(0, 150), '');
+      return { ok: false, msg: 'sin_contacto' };
+    }
   }
   return { ok: true, msg: 'avisado' };
 }
@@ -2258,13 +2357,31 @@ function _wosRecordarIngresoPedido(numero) {
     (urlA ? 'Despachar ahora: ' + urlA + '\nEsperar todo junto: ' + urlB + '\n' : '');
 
   var opts = { htmlBody: html, name: 'BIDCOMAGRO \xb7 Portal Resellers', replyTo: _wosConfig().emailSoporte };
+  var _asuntoRec = '\xbfSeguimos esperando? — Pedido ' + numero;
   try {
     var ok = _wosReplyHiloOriginal(info.threadId, plain, opts, [info.email]);
-    if (!ok && info.email) GmailApp.sendEmail(info.email, '\xbfSeguimos esperando? — Pedido ' + numero, plain, opts);
-    else if (!ok && !info.email) return false;
+    if (!ok && info.email) {
+      GmailApp.sendEmail(info.email, _asuntoRec, plain, opts);
+      _wosRegistrarEmailLog(numero, info.email, 'Recordatorio ingreso', _asuntoRec, 'OK-FALLBACK', '');
+    } else if (!ok && !info.email) {
+      _wosRegistrarEmailLog(numero, '', 'Recordatorio ingreso', _asuntoRec, 'OMITIDO: sin email', '');
+      return false;
+    } else {
+      _wosRegistrarEmailLog(numero, info.email, 'Recordatorio ingreso', _asuntoRec, 'OK-THREAD', info.threadId);
+    }
   } catch(e) {
-    if (info.email) { try { GmailApp.sendEmail(info.email, '\xbfSeguimos esperando? — Pedido ' + numero, plain, opts); } catch(e2) { return false; } }
-    else return false;
+    if (info.email) {
+      try {
+        GmailApp.sendEmail(info.email, _asuntoRec, plain, opts);
+        _wosRegistrarEmailLog(numero, info.email, 'Recordatorio ingreso', _asuntoRec, 'OK-FALLBACK', '');
+      } catch(e2) {
+        _wosRegistrarEmailLog(numero, info.email, 'Recordatorio ingreso', _asuntoRec, 'ERROR: ' + String(e2).substring(0, 150), '');
+        return false;
+      }
+    } else {
+      _wosRegistrarEmailLog(numero, '', 'Recordatorio ingreso', _asuntoRec, 'ERROR: ' + String(e).substring(0, 150), '');
+      return false;
+    }
   }
   try { _wosLogAccion('Recordatorio de ingreso parcial enviado', numero, info.reseller, 'auto_recordatorio', ''); } catch(eLg) {}
   return true;
@@ -2280,7 +2397,14 @@ function _wosEscalarIngresoPedido(numero) {
     _NI_ESCALAR_DIAS + '+ d\xedas y el reseller no contest\xf3 (ni click ni respuesta al mail).\n\n' +
     'Pendiente:\n' + (filasTxt || '(sin detalle)') + '\n\n' +
     'Contactalo manualmente para definir: despachar ahora lo disponible o seguir esperando.';
-  try { GmailApp.sendEmail(_wosConfig().emailSoporte, asunto, cuerpo); } catch(e) { Logger.log('_wosEscalarIngresoPedido mail: ' + e); return false; }
+  try {
+    GmailApp.sendEmail(_wosConfig().emailSoporte, asunto, cuerpo);
+    _wosRegistrarEmailLog(numero, _wosConfig().emailSoporte, 'Escalado sin respuesta', asunto, 'OK', '');
+  } catch(e) {
+    Logger.log('_wosEscalarIngresoPedido mail: ' + e);
+    _wosRegistrarEmailLog(numero, '', 'Escalado sin respuesta', asunto, 'ERROR: ' + String(e).substring(0, 150), '');
+    return false;
+  }
   try { _wosLogAccion('Escalado a soporte: sin respuesta al aviso de ingreso', numero, info.reseller, 'auto_escalado', ''); } catch(eLg) {}
   return true;
 }

@@ -141,17 +141,20 @@ function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
     plainBody += '========================================\n' +
       'Total: $ ' + res.totalCosto.toFixed(2) + (res.totalPeso > 0 ? ' · Peso total: ' + res.totalPeso + ' kg' : '');
 
-    GmailApp.sendEmail(email, 'Resumen de envíos — ' + reseller + ' — ' + res.mesLabel, plainBody, {
+    var _asuntoResumen = 'Resumen de envíos — ' + reseller + ' — ' + res.mesLabel;
+    GmailApp.sendEmail(email, _asuntoResumen, plainBody, {
       htmlBody: htmlBody,
       name:     'BIDCOMAGRO · Portal Resellers',
       replyTo:  _wosConfig().emailSoporte,
       cc:       _wosConfig().emailFact
     });
+    _wosRegistrarEmailLog(reseller + ' · ' + res.mesLabel, email, 'Resumen de envíos', _asuntoResumen, 'OK', '');
 
     Logger.log('WOS_enviarResumenEnvios OK: ' + reseller + ' ' + mesAnio + ' (' + res.envios.length + ' envíos)');
     return { ok: true, enviados: res.envios.length };
   } catch(e) {
     Logger.log('WOS_enviarResumenEnvios ERROR: ' + e);
+    _wosRegistrarEmailLog(reseller + ' · ' + mesAnio, (typeof email !== 'undefined' ? email : ''), 'Resumen de envíos', 'Resumen de envíos — ' + reseller, 'ERROR: ' + String(e).substring(0, 150), '');
     return { ok: false, error: e.toString() };
   }
  });
@@ -283,9 +286,11 @@ function WOS_reporteBackorder() {
     var html     = _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr);
     var asunto   = 'Backorder WOS — ' + sinCubrir.length + ' ítem' + (sinCubrir.length !== 1 ? 's' : '') + ' sin cobertura DJI';
     GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
+    _wosRegistrarEmailLog('REPORTE_BACKORDER', destinatarios.join(', '), 'Reporte backorder', asunto, 'OK', '');
     Logger.log('WOS_reporteBackorder enviado a: ' + destinatarios.join(', ') + ' | sin cobertura: ' + sinCubrir.length + ', cubiertos: ' + cubiertos.length);
   } catch(e) {
     Logger.log('WOS_reporteBackorder ERROR: ' + e);
+    _wosRegistrarEmailLog('REPORTE_BACKORDER', '', 'Reporte backorder', 'Backorder WOS', 'ERROR: ' + String(e).substring(0, 150), '');
   }
 }
 

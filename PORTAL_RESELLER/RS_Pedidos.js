@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.7
+// @version 2.8
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1677,6 +1677,13 @@ function _buscarThreadIdEnLogs(numero) {
 }
 
 // ── Email interno con GmailThread — responde en hilo si ya existe ─
+// Validación de formato antes de usar un email como destinatario/CC — ver nota en el
+// bloque de armado de ccList más abajo (un solo CC con formato inválido tira abajo TODO
+// el envío de Gmail, no solo esa dirección).
+function _esEmailValido(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
 function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl, resellerMeta, envio, formaPago, descInfo) {
   var _dPct    = (descInfo && typeof descInfo.pct === 'number') ? descInfo.pct : 40;
   var _dTotLbl = _dPct > 0 ? ('precio reseller c/' + _dPct + '% dto.') : 'precio reseller (sin descuento)';
@@ -1843,23 +1850,40 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
     }
 
     if (!existingThread) {
-      // CC: reseller + RTV del reseller + usuarios internos con columna E = 'si'
+      // CC: reseller + RTV del reseller + usuarios internos con columna E = 'si'.
+      // Se valida el formato ANTES de sumar cada dirección: un solo CC roto (ej. RTV dado de
+      // baja y reemplazado por un nombre en la planilla, no por un mail) tira abajo el envío
+      // ENTERO — Gmail rechaza el mail completo si cualquier destinatario/CC es inválido, así
+      // que el supervisor y el reseller tampoco lo reciben. Mejor descartar esa dirección
+      // puntual y dejar rastro en el log que perder el mail para todos.
       var ccList = [];
-      if (emailReseller && emailReseller !== PORTAL_CONFIG.EMAIL_SUPERVISOR) ccList.push(emailReseller);
+      var ccInvalidos = [];
+      if (emailReseller && emailReseller !== PORTAL_CONFIG.EMAIL_SUPERVISOR) {
+        if (_esEmailValido(emailReseller)) ccList.push(emailReseller);
+        else ccInvalidos.push('reseller: ' + emailReseller);
+      }
       // RTV: viene en resellerMeta; si no se pasó (call legacy) hacer lookup
       try {
         var _meta   = resellerMeta || _lookupResellerMeta(reseller);
         var _rtv    = String(_meta.emailRtv || '').trim();
-        if (_rtv && _rtv !== PORTAL_CONFIG.EMAIL_SUPERVISOR && ccList.indexOf(_rtv) === -1) ccList.push(_rtv);
+        if (_rtv && _rtv !== PORTAL_CONFIG.EMAIL_SUPERVISOR && ccList.indexOf(_rtv) === -1) {
+          if (_esEmailValido(_rtv)) ccList.push(_rtv);
+          else ccInvalidos.push('RTV: ' + _rtv);
+        }
       } catch(eRtv) { Logger.log('_enviarEmailPedidoPortal CC RTV: ' + eRtv); }
       try {
         var dUs = getSheetValues(SCHEMA.SHEETS.USUARIOS);
         for (var ui = 1; ui < dUs.length; ui++) {
           var uEmail = String(dUs[ui][1] || '').trim();
           var uNotif = String(dUs[ui][4] || '').trim().toLowerCase();
-          if (uEmail && uNotif === 'si' && uEmail !== PORTAL_CONFIG.EMAIL_SUPERVISOR) ccList.push(uEmail);
+          if (uEmail && uNotif === 'si' && uEmail !== PORTAL_CONFIG.EMAIL_SUPERVISOR) {
+            if (_esEmailValido(uEmail)) ccList.push(uEmail);
+            else ccInvalidos.push('interno: ' + uEmail);
+          }
         }
       } catch(eUs) { Logger.log('_enviarEmailPedidoPortal CC internos: ' + eUs); }
+      if (ccInvalidos.length) Logger.log('_enviarEmailPedidoPortal CC descartados por email inválido: ' + ccInvalidos.join(' | '));
+      var ccNota = ccInvalidos.length ? (' (CC descartado por email inválido: ' + ccInvalidos.join(' | ') + ')') : '';
       var opts = { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR };
       if (ccList.length) opts.cc = ccList.join(',');
       var emailEnviado = false;
@@ -1867,7 +1891,7 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
         var draft   = GmailApp.createDraft(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, '', opts);
         var sentMsg = draft.send();
         emailEnviado = true;
-        estadoLog    = 'OK';
+        estadoLog    = ('OK' + ccNota).substring(0, 200);
         try {
           threadIdLog = sentMsg.getThread().getId();
         } catch(eThread) {
@@ -1878,7 +1902,7 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
         if (!emailEnviado) {
           try {
             GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, '', opts);
-            estadoLog = 'OK-FALLBACK';
+            estadoLog = ('OK-FALLBACK' + ccNota).substring(0, 200);
           } catch(eSend) {
             estadoLog = 'ERROR: ' + String(eSend).substring(0, 100);
             Logger.log('_enviarEmailPedidoPortal sendEmail: ' + eSend);
