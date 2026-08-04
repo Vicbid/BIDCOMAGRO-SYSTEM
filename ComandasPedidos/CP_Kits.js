@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.2
 // ============================================================
 //  COMANDAS — Detección de kits + carga de comandas (CP_getComandas).
 //  Extraído de CP_Código.js 1.43 el 2026-07-30 — reorganización sin
@@ -331,11 +331,15 @@ function CP_getComandas() {
           return { sku: sk, descripcion: descBy[sk] || '', cantidad: _fmtCant(_num(e.productos[sk])) };
         });
         var mailErr = (e.estado && e.estado.indexOf('MAIL ERROR') === 0) ? e.estado.replace(/^MAIL ERROR · /, '') : '';
+        // tieneGuia = ya autorizado en Masterchief (tiene N° de seguimiento) — NO implica que
+        // ya salió. despachado = col F de Comandas Master dice DESPACHADO, recién ahí sale el
+        // mail al reseller (ver _cpEnvioListoDespacho en CP_Datos.js).
+        var despachado = _cpEnvioListoDespacho(parts, masterMap).listo;
         return {
           envio: e.envio, comanda: e.comanda, fechaStr: e.fechaStr, fechaTs: e.fechaTs, operador: e.operador,
           items: items, guiasLinks: links, estadoDespacho: estados.join(', '),
-          transportista: (transs.length ? transs.join(', ') : e.transportista), tieneGuia: tieneGuia,
-          mailReseller: e.mailReseller, mailAprob: e.mailAprob, mailError: mailErr,
+          transportista: (transs.length ? transs.join(', ') : e.transportista), tieneGuia: tieneGuia, despachado: despachado,
+          mailReseller: e.mailReseller, mailAutorizado: e.mailAutorizado, mailAprob: e.mailAprob, mailError: mailErr,
           notaAprob: e.notaAprob, notaReseller: e.notaReseller, pdfs: pdfs
         };
       });

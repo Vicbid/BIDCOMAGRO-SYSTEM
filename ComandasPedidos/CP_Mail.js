@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 2.1
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -26,7 +26,7 @@ function _cpDestinatariosEnvio(det, cfg, resellerMap, rtvMap) {
 
 
 // VISTA PREVIA del mail al reseller de un envío (NO envía, NO marca nada).
-// Devuelve { ok, html, asunto, destinatarios, a, sinGuia, sinDestino }.
+// Devuelve { ok, html, asunto, destinatarios, a, noDespachado, sinDestino }.
 function CP_previewMailEnvio(idVenta, envio) {
   try {
     idVenta = _s(idVenta); envio = _num(envio);
@@ -37,12 +37,8 @@ function CP_previewMailEnvio(idVenta, envio) {
 
     var master = _cpMasterMap();
     var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
-    var guias = [], transs = [], tieneGuia = parts.length > 0;
-    parts.forEach(function(p) {
-      var m = master[p.toUpperCase()];
-      if (!m || !m.guia) tieneGuia = false;
-      if (m) { if (m.guia) guias.push(m.guia); if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista); }
-    });
+    var chk = _cpEnvioListoDespacho(parts, master);
+    var guias = chk.guias, transs = chk.transs;
 
     var cfg = _cpConfig();
     var det = _cpDetalleVenta(idVenta);
@@ -63,7 +59,7 @@ function CP_previewMailEnvio(idVenta, envio) {
     return {
       ok: true, html: html, asunto: asunto,
       destinatarios: dest.to.join(', '), a: dest.detalle.join(' + '),
-      cc: cc, bcc: bcc, sinGuia: !tieneGuia, sinDestino: !dest.to.length
+      cc: cc, bcc: bcc, noDespachado: !chk.listo, sinDestino: !dest.to.length
     };
   } catch (e) {
     return { ok: false, mensaje: String(e && e.message ? e.message : e) };
@@ -94,13 +90,9 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
     var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
     if (!parts.length) return { ok: false, mensaje: 'El envío no tiene comanda.' };
 
-    var guias = [], transs = [], tieneGuia = true;
-    parts.forEach(function(p) {
-      var m = master[p.toUpperCase()];
-      if (!m || !m.guia) tieneGuia = false;
-      if (m) { if (m.guia) guias.push(m.guia); if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista); }
-    });
-    if (!tieneGuia) return { ok: false, mensaje: 'Este envío todavía no tiene número de seguimiento (guía) en Comandas Master.' };
+    var chk = _cpEnvioListoDespacho(parts, master);
+    var guias = chk.guias, transs = chk.transs;
+    if (!chk.listo) return { ok: false, mensaje: 'Este envío todavía no está marcado como DESPACHADO en Comandas Master (col F) — la guía ya cargada solo significa que está autorizado.' };
 
     var cfg = _cpConfig();
     var det = _cpDetalleVenta(idVenta);
@@ -116,16 +108,23 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
     var pend = _cpPendingVenta(det, arr);                    // lo que todavía falta de la venta
     var ocaBase = cfg['OCA_TRACKING_URL'] || '';
 
+    // Si esta venta ya tiene un hilo (del mail #1 "autorizado" de este mismo envío, o de
+    // cualquier mail de OTRO envío de la venta), este va como REPLY ahí — así el reseller ve
+    // toda la conversación de una venta en un solo lugar en vez de un mail nuevo por cada uno.
+    // Si no hay hilo previo, sale como mail nuevo y su hilo queda guardado para encadenar los próximos.
+    var hiloPrevio = '';
+    arr.forEach(function(x) { if (!hiloPrevio && x.threadIdReseller) hiloPrevio = x.threadIdReseller; });
+
     // Adjuntos: el PDF de la comanda de ESTE envío siempre; los "documentos definidos"
-    // (carpeta CP_DOCS_FOLDER_ID) SOLO en el primer envío de la venta. "Primer envío" =
-    // ningún otro envío de la venta se mandó todavía al reseller (robusto ante borrados/reintentos).
-    var esPrimerEnvio = !arr.some(function(x) { return x.envio !== e.envio && x.mailReseller; });
-    var docsArch = esPrimerEnvio ? _cpDocsDefinidosArchivos() : [];   // 1 solo listado de la carpeta
+    // (carpeta CP_DOCS_FOLDER_ID) SOLO en el primer mail de TODA la venta (sea el #1
+    // "autorizado" o este #2 "despachado", lo que se haya mandado primero) — si ya hay hilo
+    // previo es porque ya se adjuntaron antes.
+    var docsArch = !hiloPrevio ? _cpDocsDefinidosArchivos() : [];   // 1 solo listado de la carpeta
     var docNames = docsArch.map(function(a) { return a.name; });      // nombres para el cuerpo del mail
 
     var asunto = (cfg['MAIL_ASUNTO'] || 'Despacho {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
       .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
-    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames);
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'despachado');
 
     var opts = { htmlBody: html, name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO' };
     if (cfg['MAIL_CC'])  opts.cc  = cfg['MAIL_CC'];
@@ -134,13 +133,6 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
     var adjuntos = _cpPdfBlobs(parts);
     docsArch.forEach(function(a) { try { adjuntos.push(DriveApp.getFileById(a.id).getBlob()); } catch (eD) { Logger.log('adjuntar doc ' + a.name + ': ' + eD); } });
     if (adjuntos.length) opts.attachments = adjuntos;
-
-    // Si otro envío de esta misma venta ya le mandó mail al reseller, este va como REPLY en
-    // ese mismo hilo (así el reseller ve todos los envíos de una venta en una sola conversación
-    // en vez de un mail nuevo por cada uno). Si no hay hilo previo (es el primero, o el anterior
-    // falló), sale como mail nuevo y su hilo queda guardado para encadenar los próximos.
-    var hiloPrevio = '';
-    arr.forEach(function(x) { if (!hiloPrevio && x.envio !== envio && x.threadIdReseller) hiloPrevio = x.threadIdReseller; });
 
     var threadResultante;
     try {
@@ -169,6 +161,102 @@ function _cpMarcarMailEnvio(rowIdx, guia, transportista, threadId) {
     h.getRange(rowIdx, 9).setValue(CP_DESPACHADO);
     h.getRange(rowIdx, 11).setValue('SÍ · ' + _fmtTs(new Date()));
     if (threadId) h.getRange(rowIdx, 14).setValue(threadId);
+  } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   MAIL #1 AL RESELLER — "PEDIDO AUTORIZADO": se manda apenas Comandas Master le asigna
+   código de seguimiento (guía) al envío. Todavía NO significa que salió físicamente — eso
+   lo avisa el mail #2 (_cpEnviarEnvioCore / "DESPACHADO"), que sigue esperando la col F.
+   Mismo contenido completo que el mail #2 (chips, guía, PDF adjunto, documentos definidos,
+   nota al reseller) — usa el mismo _cpMailHtml con tipo='autorizado", solo cambia el
+   encabezado/intro. Mismo criterio de destinatarios/hilo/rate-limit.
+════════════════════════════════════════════════════════════ */
+
+// Core del mail #1. force=false → NO reenvía si ya se mandó.
+function _cpEnviarMailAutorizadoCore(idVenta, envio, force) {
+  try {
+    idVenta = _s(idVenta); envio = _num(envio);
+    if (!idVenta) return { ok: false, mensaje: 'Falta el ID de la venta.' };
+    var arr = _cpEnviosMap()[idVenta.toUpperCase()] || [];
+    var e = null;
+    arr.forEach(function(x) { if (x.envio === envio) e = x; });
+    if (!e) return { ok: false, mensaje: 'No se encontró el envío.' };
+    if (!force && e.mailAutorizado) return { ok: false, yaEnviado: true, mensaje: 'El mail de autorización de este envío ya fue enviado (' + e.mailAutorizado + ').' };
+
+    var master = _cpMasterMap();
+    var parts = e.comanda.split('/').map(function(s) { return s.trim(); }).filter(Boolean);
+    if (!parts.length) return { ok: false, mensaje: 'El envío no tiene comanda.' };
+
+    var chk = _cpEnvioAutorizado(parts, master);
+    var guias = chk.guias, transs = chk.transs;
+    if (!chk.autorizado) return { ok: false, mensaje: 'Este envío todavía no tiene código de seguimiento (guía) en Comandas Master.' };
+
+    var cfg = _cpConfig();
+    var det = _cpDetalleVenta(idVenta);
+    var dest = _cpDestinatariosEnvio(det, cfg);
+    var to = dest.to, detalleDest = dest.detalle;
+    if (!to.length) return { ok: false, mensaje: 'No hay destinatarios: falta el mail del reseller (Resellers), del RTV (hoja RTV) o MAIL_DESTINATARIOS en _CONFIG.' };
+
+    var pdfs = [];
+    parts.forEach(function(p) { var pdf = _cpBuscarPdf(p); if (pdf) pdfs.push({ comanda: p, url: pdf.url, name: pdf.name }); });
+    var detEnv = _cpDetalleEnvio(det, e.productos);
+    var pend = _cpPendingVenta(det, arr);
+    var ocaBase = cfg['OCA_TRACKING_URL'] || '';
+
+    // Mismo criterio de hilo que el mail de despacho: si la venta ya tiene uno (de otro
+    // envío, por ejemplo), este va como reply ahí. "Documentos definidos" solo si este es
+    // el primer mail de TODA la venta (sin hilo previo) — igual que en _cpEnviarEnvioCore.
+    var hiloPrevio = '';
+    arr.forEach(function(x) { if (!hiloPrevio && x.threadIdReseller) hiloPrevio = x.threadIdReseller; });
+    var docsArch = !hiloPrevio ? _cpDocsDefinidosArchivos() : [];
+    var docNames = docsArch.map(function(a) { return a.name; });
+
+    var asunto = (cfg['MAIL_ASUNTO_AUTORIZADO'] || 'Pedido autorizado {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
+      .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'autorizado');
+
+    var opts = { htmlBody: html, name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO' };
+    if (cfg['MAIL_CC'])  opts.cc  = cfg['MAIL_CC'];
+    if (cfg['MAIL_BCC']) opts.bcc = cfg['MAIL_BCC'];
+
+    var adjuntos = _cpPdfBlobs(parts);
+    docsArch.forEach(function(a) { try { adjuntos.push(DriveApp.getFileById(a.id).getBlob()); } catch (eD) { Logger.log('adjuntar doc ' + a.name + ': ' + eD); } });
+    if (adjuntos.length) opts.attachments = adjuntos;
+
+    var threadResultante;
+    try {
+      threadResultante = _cpEnviarDespachoReseller(hiloPrevio, to.join(','), asunto, 'Envío ' + envio + ' · comanda ' + parts.join('/') + ' — autorizado, ver versión HTML.', opts);
+    } catch (se) {
+      return { ok: false, mailError: true, mensaje: 'No se pudo enviar el mail: ' + String(se && se.message ? se.message : se) };
+    }
+    _cpMarcarMailAutorizado(e.rowIdx, threadResultante);
+    _cpAuditar('Mail autorizado reseller', idVenta, envio, 'a ' + to.join(', ') + (hiloPrevio ? ' · reply en hilo existente' : ''));
+    return { ok: true, destinatarios: to.join(', '), a: detalleDest.join(' + '), envio: envio };
+  } catch (e) {
+    return { ok: false, mensaje: String(e && e.message ? e.message : e) };
+  }
+}
+
+
+// Mail #1 al reseller de UN envío ("autorizado"). Manual: force=true → reenvía aunque ya se haya mandado.
+function CP_enviarMailAutorizado(idVenta, envio) {
+  var _auth = _cpUsuarioAutorizado();
+  if (!_auth.ok) return { ok: false, noAutorizado: true, mensaje: _auth.mensaje };
+  return _cpEnviarMailAutorizadoCore(_s(idVenta), _num(envio), true);
+}
+
+
+function _cpMarcarMailAutorizado(rowIdx, threadId) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(8000); } catch (e) {}
+  try {
+    var h = _cpEnviosHoja();
+    h.getRange(rowIdx, 15).setValue('SÍ · ' + _fmtTs(new Date()));
+    // El hilo (col N) lo fija el PRIMER mail que se manda de la venta, sea el #1 o el #2 —
+    // no pisar uno que ya exista (podría venir de otro envío de la misma venta).
+    if (threadId && !_s(h.getRange(rowIdx, 14).getValue())) h.getRange(rowIdx, 14).setValue(threadId);
   } finally { try { lock.releaseLock(); } catch (e) {} }
 }
 
@@ -216,28 +304,35 @@ function _cpBuscarThreadRecienEnviado(subject) {
 }
 
 
-// AUTOMÁTICO (trigger horario). Manda el mail de los envíos que ya tienen guía y aún no se enviaron.
-// Solo actúa si en _CONFIG está AUTO_MAIL_DESPACHO = SI.
+// AUTOMÁTICO (trigger horario). Manda los 2 mails al reseller que correspondan por envío:
+// #1 "autorizado" apenas Comandas Master le asigna guía, #2 "despachado" cuando col F dice
+// DESPACHADO. Mismo interruptor para los 2 (AUTO_MAIL_DESPACHO=SI) — no tiene sentido activar
+// uno sin el otro.
 function CP_autoMailEnvios() {
   var cfg = _cpConfig();
   var v = _s(cfg['AUTO_MAIL_DESPACHO']).toUpperCase();
   if (v.indexOf('SI') !== 0 && v.indexOf('SÍ') !== 0) { Logger.log('AUTO_MAIL_DESPACHO desactivado en _CONFIG.'); return; }
-  var mapAll = _cpEnviosMap(), enviados = 0;
+  var mapAll = _cpEnviosMap(), enviados = 0, enviadosAutorizado = 0;
   Object.keys(mapAll).forEach(function(k) {
     mapAll[k].forEach(function(e) {
-      if (e.mailReseller) return;
-      var r = _cpEnviarEnvioCore(k, e.envio, false);
-      if (r && r.ok) enviados++;
+      if (!e.mailAutorizado) {
+        var ra = _cpEnviarMailAutorizadoCore(k, e.envio, false);
+        if (ra && ra.ok) enviadosAutorizado++;
+      }
+      if (!e.mailReseller) {
+        var r = _cpEnviarEnvioCore(k, e.envio, false);
+        if (r && r.ok) enviados++;
+      }
     });
   });
-  Logger.log('CP_autoMailEnvios: ' + enviados + ' mail(s) enviado(s).');
+  Logger.log('CP_autoMailEnvios: ' + enviadosAutorizado + ' mail(s) de autorización + ' + enviados + ' mail(s) de despacho enviado(s).');
 }
 
 // Alias por si quedó instalado el trigger viejo.
 function CP_autoMailDespacho() { return CP_autoMailEnvios(); }
 
 
-// Reintenta manualmente TODOS los envíos con guía cuyo mail al reseller aún no salió
+// Reintenta manualmente TODOS los envíos con algún mail (autorizado o despacho) pendiente
 // (incluye los que quedaron en "MAIL ERROR"). Independiente de AUTO_MAIL_DESPACHO.
 // Devuelve { ok, enviados, fallidos:[{idVenta, envio, mensaje}] }.
 function CP_reintentarFallidos() {
@@ -247,8 +342,12 @@ function CP_reintentarFallidos() {
     var mapAll = _cpEnviosMap(), enviados = 0, fallidos = [];
     Object.keys(mapAll).forEach(function(k) {
       mapAll[k].forEach(function(e) {
-        if (e.mailReseller) return;                 // ya salió
         if (!_s(e.comanda)) return;                 // sin comanda → no aplica
+        if (!e.mailAutorizado) {
+          var ra = _cpEnviarMailAutorizadoCore(k, e.envio, false);
+          if (ra && ra.ok) enviados++;
+        }
+        if (e.mailReseller) return;                 // despacho ya salió
         var r = _cpEnviarEnvioCore(k, e.envio, false);
         if (r && r.ok) enviados++;
         else if (r && r.mailError) fallidos.push({ idVenta: k, envio: e.envio, mensaje: r.mensaje || 'error' });
@@ -263,8 +362,10 @@ function CP_reintentarFallidos() {
 }
 
 
-// Recordatorio a Sole cada X horas (RECORDATORIO_HORAS, def 24) para comandas que
-// siguen SIN despacharse (sin guía). Usa ScriptProperties para no repetir antes de X horas.
+// Recordatorio a Sole cada X horas (RECORDATORIO_HORAS, def 24) para comandas que siguen
+// SIN autorizar en Masterchief (sin guía todavía) — una vez que tiene guía, ya hizo su parte
+// (autorizar), aunque el despacho físico y el mail al reseller recién pasen después (ver
+// _cpEnvioListoDespacho). Usa ScriptProperties para no repetir antes de X horas.
 function CP_recordatoriosSole() {
   var cfg = _cpConfig();
   var sole = cfg['MAIL_APROBACION'];
@@ -281,7 +382,7 @@ function CP_recordatoriosSole() {
       if (!parts.length) return;
       var tieneGuia = true;
       parts.forEach(function(p) { var m = master[p.toUpperCase()]; if (!m || !m.guia) tieneGuia = false; });
-      if (tieneGuia) return;                              // ya despachado → no molestar a Sole
+      if (tieneGuia) return;                              // ya autorizado → no molestar a Sole
       if ((now - e.fechaTs) / 3600000 < horas) return;   // todavía no cumple X horas
       var pk = 'rem_' + k + '_' + e.envio;
       var last = _num(props.getProperty(pk));
@@ -362,9 +463,18 @@ function _cpPendBloqueHtml(pendientes, esc, titulo) {
 }
 
 
-// Mail al reseller: un ENVÍO (lo despachado en este envío + guía + lo que queda pendiente).
-function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs, itemsEnviados, notaReseller, pendientes, envioNum, docsAdjuntos) {
+// Mail al reseller de un ENVÍO — mismo contenido completo (chips, guía, PDF, adjuntos) para
+// los 2 mails de la venta; lo único que cambia es el encabezado/intro según `tipo`:
+// 'autorizado' (mail #1, apenas hay guía) o 'despachado' (mail #2, default, cuando ya salió).
+function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs, itemsEnviados, notaReseller, pendientes, envioNum, docsAdjuntos, tipo) {
   function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); }
+  var esAutorizado = (tipo === 'autorizado');
+  var headerColor = esAutorizado ? '#6b7280' : '#00a3e0';
+  var headerLabel = esAutorizado ? 'BIDCOMAGRO · PEDIDO AUTORIZADO' : 'BIDCOMAGRO · DESPACHO · EN CAMINO';
+  var tituloTxt   = esAutorizado ? ' autorizada' : ' en camino';
+  var introTxt    = esAutorizado
+    ? 'Tu pedido ya fue autorizado y tiene código de seguimiento asignado. Te va a llegar otro aviso apenas salga físicamente.'
+    : 'Tu pedido ya salió y está en camino. Guardá este mail para el seguimiento.';
   // Sección explícita de adjuntos: la(s) comanda(s) de este envío + los documentos definidos (1er envío).
   var adjItems = [];
   (pdfs||[]).forEach(function(p){ adjItems.push('📄 Comanda ' + esc(p.comanda) + (p.name ? ' <span style="color:#888">('+esc(p.name)+')</span>' : '')); });
@@ -391,11 +501,12 @@ function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs
   // comanda. El seguimiento de pendientes sigue vivo en la UI y en PENDIENTES_ENTREGA.
   return ''+
   '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1f2e">'+
-    '<div style="background:#00a3e0;color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">'+
-      '<div style="font-size:12px;opacity:.85;letter-spacing:.05em">BIDCOMAGRO · DESPACHO' + (envioNum ? ' · ENVÍO ' + esc(envioNum) : '') + '</div>'+
-      '<div style="font-size:20px;font-weight:800;margin-top:2px">Comanda '+esc((comandas||[]).join(' / '))+' cargada</div>'+
+    '<div style="background:'+headerColor+';color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">'+
+      '<div style="font-size:12px;opacity:.85;letter-spacing:.05em">'+headerLabel + (envioNum ? ' · ENVÍO ' + esc(envioNum) : '') + '</div>'+
+      '<div style="font-size:20px;font-weight:800;margin-top:2px">Comanda '+esc((comandas||[]).join(' / '))+esc(tituloTxt)+'</div>'+
     '</div>'+
     '<div style="border:1px solid #e0e3e8;border-top:none;border-radius:0 0 10px 10px;padding:20px 22px">'+
+      '<p style="margin:0 0 14px;font-size:13.5px">'+esc(introTxt)+'</p>'+
       notaBloque+
       '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">'+
         chip('ID Venta', esc(idVenta))+

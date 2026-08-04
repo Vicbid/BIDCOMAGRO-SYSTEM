@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.2
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -41,6 +41,43 @@ function _cpMasterMap() {
     }
     return m;
   } catch (e) { Logger.log('_cpMasterMap error: ' + e); return {}; }
+}
+
+
+// Un envío está "listo" para el mail de despacho al reseller cuando TODAS sus comandas
+// (parts, ej. "123/456") están marcadas DESPACHADO en Comandas Master col F (estado).
+// OJO: que ya tengan guía/código de seguimiento (col K) NO alcanza — eso significa que
+// Masterchief ya autorizó y va a despachar pronto, no que ya salió físicamente. El código
+// viejo usaba la guía como proxy de "despachado" y mandaba el mail antes de tiempo.
+function _cpEnvioListoDespacho(parts, master) {
+  var guias = [], transs = [], listo = !!(parts && parts.length);
+  (parts || []).forEach(function(p) {
+    var m = master[p.toUpperCase()];
+    if (!m || m.estado !== 'DESPACHADO') listo = false;
+    if (m) {
+      if (m.guia) guias.push(m.guia);
+      if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista);
+    }
+  });
+  return { listo: listo, guias: guias, transs: transs };
+}
+
+
+// Un envío está "autorizado" (Masterchief ya lo procesó y le asignó código de seguimiento)
+// cuando TODAS sus comandas tienen guía en Comandas Master col K — esto es ANTERIOR al
+// despacho físico (ver _cpEnvioListoDespacho arriba). Dispara el mail #1 al reseller
+// ("autorizado, en breve se despacha"); el #2 ("despachado") sigue siendo el de col F.
+function _cpEnvioAutorizado(parts, master) {
+  var guias = [], transs = [], autorizado = !!(parts && parts.length);
+  (parts || []).forEach(function(p) {
+    var m = master[p.toUpperCase()];
+    if (!m || !m.guia) autorizado = false;
+    if (m) {
+      if (m.guia) guias.push(m.guia);
+      if (m.transportista && transs.indexOf(m.transportista) === -1) transs.push(m.transportista);
+    }
+  });
+  return { autorizado: autorizado, guias: guias, transs: transs };
 }
 
 

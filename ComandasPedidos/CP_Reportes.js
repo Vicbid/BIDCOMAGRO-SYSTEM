@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  COMANDAS — Reporte de tiempos + herramientas CP_debug*/CP_diag*
 //  (diagnóstico genérico, no atado a un incidente puntual).
@@ -262,8 +262,8 @@ function CP_diagAutoMail() {
   var ventaMap    = _cpVentaResellerRtvMap();   // { IDVENTA: {reseller, rtv} } (1 lectura de Ventas)
   var resellerMap = _cpResellerMap();           // 1 lectura de Resellers
   var rtvMap      = _cpRtvMailMap();            // 1 lectura de RTV
-  var total = 0, yaMail = 0, sinComanda = 0, sinGuia = 0, sinDest = 0, listos = 0;
-  var detListos = [], detSinGuia = [], detSinDest = [];
+  var total = 0, yaMail = 0, sinComanda = 0, sinDespachar = 0, sinDest = 0, listos = 0;
+  var detListos = [], detSinDespachar = [], detSinDest = [];
 
   Object.keys(mapAll).forEach(function(k) {
     mapAll[k].forEach(function(e) {
@@ -271,8 +271,8 @@ function CP_diagAutoMail() {
       if (e.mailReseller) { yaMail++; return; }
       var parts = _s(e.comanda).split('/').map(function(s){ return s.trim(); }).filter(Boolean);
       if (!parts.length) { sinComanda++; return; }
-      var tieneGuia = parts.every(function(p){ var m = master[p.toUpperCase()]; return m && m.guia; });
-      if (!tieneGuia) { sinGuia++; if (detSinGuia.length < 8) detSinGuia.push(k + ' env' + e.envio + ' (' + e.comanda + ')'); return; }
+      var listo = _cpEnvioListoDespacho(parts, master).listo;
+      if (!listo) { sinDespachar++; if (detSinDespachar.length < 8) detSinDespachar.push(k + ' env' + e.envio + ' (' + e.comanda + ')'); return; }
       var vi = ventaMap[k.toUpperCase()] || {};
       var det = { reseller: vi.reseller || '', rtv: vi.rtv || '' };
       var dest = _cpDestinatariosEnvio(det, cfg, resellerMap, rtvMap);
@@ -283,12 +283,12 @@ function CP_diagAutoMail() {
 
   out.push('ENVÍOS: ' + total + ' total · ' + yaMail + ' con mail ya enviado · ' + (total - yaMail) + ' sin mail.');
   out.push('  De los que están sin mail:');
-  out.push('    ⏳ ' + sinGuia + ' esperan la guía (número de seguimiento) en Comandas Master.');
+  out.push('    ⏳ ' + sinDespachar + ' esperan que Comandas Master (col F) diga DESPACHADO (tener guía no alcanza, solo significa autorizado).');
   out.push('    🔴 ' + sinDest + ' listos pero SIN destinatarios (falta mail del reseller/RTV o MAIL_DESTINATARIOS).');
   out.push('    ⚠️ ' + sinComanda + ' sin comanda cargada.');
-  out.push('    ✅ ' + listos + ' LISTOS para enviar (con guía y destinatarios).');
+  out.push('    ✅ ' + listos + ' LISTOS para enviar (DESPACHADO y con destinatarios).');
   if (detListos.length)  out.push('       listos: ' + detListos.join(' | '));
-  if (detSinGuia.length) out.push('       sin guía: ' + detSinGuia.join(' | '));
+  if (detSinDespachar.length) out.push('       sin despachar: ' + detSinDespachar.join(' | '));
   if (detSinDest.length) out.push('       sin dest: ' + detSinDest.join(' | '));
 
   // Veredicto

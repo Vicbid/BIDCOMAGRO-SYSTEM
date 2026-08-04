@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.18 -->
+<!-- @version 2.20 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -792,8 +792,8 @@ function render(){
   if (_sy != null) window.scrollTo(0, _sy);   // preservar la vista tras un refresh
   _keepScroll = false;
 }
-// ¿el envío está listo para mandar el mail al reseller? (guía OK, sin mandar, con destinatario)
-function esReady(c, e){ return !!(e.tieneGuia && !e.mailReseller && c.tieneDestino); }
+// ¿el envío está listo para mandar el mail al reseller? (DESPACHADO en Comandas Master, sin mandar, con destinatario)
+function esReady(c, e){ return !!(e.despachado && !e.mailReseller && c.tieneDestino); }
 
 // set { 'idVenta#envio': true } de los envíos listos para enviar (para avisar los nuevos)
 function readyKeys(){
@@ -998,9 +998,18 @@ function envioBlockHTML(c, e, idJ){
   }).join('');
 
   var sinDestino = c.destino && !c.tieneDestino;
+  // mail #1 "autorizado": aparece apenas hay guía, independiente del despacho físico.
+  var autBtn = '';
+  if (sinDestino) {
+    // sin destinatario ya se explica en mailBtn más abajo, no lo repetimos acá.
+  } else if (e.tieneGuia && e.mailAutorizado) {
+    autBtn = '<button class="btn-mail sent" onclick="enviarMailAutorizado(\''+idJ+'\','+e.envio+',true,this)" title="Ya enviado: '+esc(e.mailAutorizado)+'"><i class="fa-solid fa-paper-plane"></i> Reenviar aviso</button>';
+  } else if (e.tieneGuia) {
+    autBtn = '<button class="btn-mail" style="background:#6b7280" onclick="enviarMailAutorizado(\''+idJ+'\','+e.envio+',false,this)"><i class="fa-solid fa-paper-plane"></i> Enviar aviso de autorizado</button>';
+  }
   var mailBtn, prevBtn = '';
-  if (!e.tieneGuia){
-    mailBtn = '<button class="btn-mail" disabled><i class="fa-solid fa-clock"></i> Esperando guía</button>';
+  if (!e.despachado){
+    mailBtn = '<button class="btn-mail" disabled><i class="fa-solid fa-clock"></i> '+(e.tieneGuia ? 'Esperando despacho' : 'Esperando guía')+'</button>';
   } else if (sinDestino){
     mailBtn = '<button class="btn-mail" disabled title="Cargá el mail del reseller (Resellers) o del RTV (hoja RTV)"><i class="fa-solid fa-paper-plane"></i> Sin destinatario</button>';
   } else if (e.mailReseller){
@@ -1008,12 +1017,12 @@ function envioBlockHTML(c, e, idJ){
   } else {
     mailBtn = '<button class="btn-mail" onclick="enviarMailEnvio(\''+idJ+'\','+e.envio+',false,this)"><i class="fa-solid fa-paper-plane"></i> Enviar al reseller + RTV</button>';
   }
-  // vista previa disponible siempre que haya guía y destinatario (antes de enviar o para revisar un reenvío)
-  if (e.tieneGuia && !sinDestino){
+  // vista previa disponible siempre que esté DESPACHADO y con destinatario (antes de enviar o para revisar un reenvío)
+  if (e.despachado && !sinDestino){
     prevBtn = '<button class="btn-prev" onclick="previewMail(\''+idJ+'\','+e.envio+','+(e.mailReseller?'true':'false')+')"><i class="fa-solid fa-eye"></i> Vista previa</button>';
   }
-  var ready = e.tieneGuia && !e.mailReseller && !sinDestino;   // guía OK, falta el click del mail
-  // reenviar la aprobación a Sole (por si no la vio); solo mientras no se despachó
+  var ready = e.despachado && !e.mailReseller && !sinDestino;   // DESPACHADO, falta el click del mail
+  // reenviar la aprobación a Sole (por si no la vio); solo mientras no autorizó (sin guía todavía)
   var resendBtn = !e.tieneGuia
     ? '<button class="btn-resend" onclick="reenviarAprobacion(\''+idJ+'\','+e.envio+',this)" title="Reenviar el mail de aprobación a Sole"><i class="fa-solid fa-user-check"></i> Reenviar a Sole</button>'
     : '';
@@ -1028,7 +1037,10 @@ function envioBlockHTML(c, e, idJ){
       '<span class="env-fecha">'+esc(e.fechaStr||'')+'</span>' +
       (e.operador ? '<span class="env-oper"><i class="fa-solid fa-user"></i> '+esc(e.operador)+'</span>' : '') +
       (ready ? '<span class="b-ready"><i class="fa-solid fa-paper-plane"></i> Listo para enviar</span>'
-             : (e.tieneGuia ? '<span class="b-desp">Con guía</span>' : '<span class="env-wait"><i class="fa-regular fa-clock"></i> sin guía</span>')) +
+             : (e.despachado ? '<span class="b-desp">Despachado</span>'
+               : (e.tieneGuia
+                   ? (e.mailAutorizado ? '<span class="b-desp">Autorizado · aviso enviado</span>' : '<span class="b-desp">Autorizado · aviso pendiente</span>')
+                   : '<span class="env-wait"><i class="fa-regular fa-clock"></i> sin guía</span>'))) +
     '</div>' +
     '<div class="cc-list env-items">'+items+'</div>' +
     (e.tieneGuia
@@ -1036,6 +1048,7 @@ function envioBlockHTML(c, e, idJ){
           (e.estadoDespacho ? '<div class="desp-row"><span class="desp-lbl">Estado MC</span><span>'+esc(e.estadoDespacho)+'</span></div>' : '') +
           '<div class="desp-row"><span class="desp-lbl">Transportista</span><span>'+esc(e.transportista||'—')+'</span></div>' +
           '<div class="desp-row"><span class="desp-lbl">Guía OCA</span><span>'+guiasHtml+((e.guiasLinks&&e.guiasLinks.length)?copyChip(e.guiasLinks.map(function(g){return g.guia;}).join(' '),'guía'):'')+'</span></div>' +
+          (!e.despachado ? '<div class="bq-note" style="margin-top:6px"><i class="fa-solid fa-hourglass-half"></i> Autorizado, todavía no está marcado DESPACHADO en Comandas Master — el mail al reseller sale recién ahí.</div>' : '') +
         '</div>'
       : '<div class="desp-wait" style="margin-top:8px"><i class="fa-regular fa-clock"></i> Este envío todavía no tiene N° de seguimiento en Comandas Master'+(e.estadoDespacho?' · estado: '+esc(e.estadoDespacho):'')+'.<div class="bq-note"><i class="fa-solid fa-hourglass-half"></i> La guía puede tardar hasta ~30 min en aparecer (sincroniza por BigQuery).</div></div>') +
     (e.notaAprob ? '<div class="nota-ro" style="margin-top:8px"><span class="nota-lbl">Nota al aprobador</span>'+esc(e.notaAprob)+'</div>' : '') +
@@ -1043,7 +1056,8 @@ function envioBlockHTML(c, e, idJ){
       '<div class="nota-edit"><textarea class="nota-reseller-ed" rows="2" placeholder="Opcional…">'+esc(e.notaReseller||'')+'</textarea>' +
       '<button class="nota-save" onclick="guardarNotaResellerEnvio(\''+idJ+'\','+e.envio+',this)">Guardar</button></div></div>' +
     (e.mailError ? '<div class="mail-err"><i class="fa-solid fa-circle-exclamation"></i> <span><b>Falló el envío del mail:</b> '+esc(e.mailError)+' — usá <b>Enviar</b> para reintentar.</span></div>' : '') +
-    '<div class="env-actions">' + (pdfHtml||'') + prevBtn + mailBtn + resendBtn + borrarBtn +
+    '<div class="env-actions">' + (pdfHtml||'') + prevBtn + autBtn + mailBtn + resendBtn + borrarBtn +
+      (e.mailAutorizado ? '<span class="mail-ok" style="opacity:.75"><i class="fa-solid fa-check"></i> Aviso enviado</span>' : '') +
       (e.mailReseller ? '<span class="mail-ok"><i class="fa-solid fa-check"></i> Mail enviado</span>' : '') +
     '</div>' +
   '</div>';
@@ -1053,9 +1067,11 @@ function envioBlockHTML(c, e, idJ){
 function envioCardHTML(c, e){
   var idJ = jsq(c.idVenta);
   var cliente = c.razonSocial || c.reseller || '—';
-  var right = e.tieneGuia
-    ? (e.mailReseller ? '<span class="b-cargado"><i class="fa-solid fa-circle-check"></i> mail ok</span>' : '<span class="b-desp">Con guía</span>')
-    : '<span class="aging none"><i class="fa-regular fa-clock"></i> sin guía</span>';
+  var right = e.despachado
+    ? (e.mailReseller ? '<span class="b-cargado"><i class="fa-solid fa-circle-check"></i> mail ok</span>' : '<span class="b-desp">Despachado</span>')
+    : (e.tieneGuia
+        ? (e.mailAutorizado ? '<span class="b-desp">Autorizado · aviso ok</span>' : '<span class="b-desp">Autorizado</span>')
+        : '<span class="aging none"><i class="fa-regular fa-clock"></i> sin guía</span>');
   return '<div class="cmd" data-key="e:'+esc(c.idVenta)+'#'+e.envio+'">' +
     '<div class="cmd-head" onclick="toggle(this)">' +
       '<div class="cmd-sum"><div class="cmd-sum-top">' +
@@ -1430,6 +1446,25 @@ function enviarMailEnvio(idVenta, envio, yaEnviado, btn){
   });
 }
 
+// mail #1 ("autorizado" — apenas hay guía, antes del despacho físico)
+function enviarMailAutorizado(idVenta, envio, yaEnviado, btn){
+  var msg = yaEnviado ? '⚠️ El aviso de autorización YA se envió. ¿Reenviarlo igual?' : '¿Enviar el aviso de "pedido autorizado" al reseller y RTV?';
+  uiConfirm(msg, { danger: !!yaEnviado, yes: yaEnviado ? 'Reenviar' : 'Enviar' }).then(function(ok){
+    if (!ok) return;
+    var orig = btn ? btn.innerHTML : '';
+    if (btn){ btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Enviando…'; }
+    var restore = function(){ if (btn){ btn.classList.remove('loading'); btn.innerHTML = orig; } };
+    toast('Enviando aviso…', '', '✉️');
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (r && r.ok){ toast('Aviso enviado ('+(r.a||'destinatarios')+') → '+(r.destinatarios||''), 'ok', '✅'); cargar(); }
+        else { toast((r && r.mensaje) || 'No se pudo enviar', 'err', '✕'); restore(); }
+      })
+      .withFailureHandler(function(e){ toast('Error: '+((e&&e.message)||''), 'err', '✕'); restore(); })
+      .CP_enviarMailAutorizado(idVenta, envio);
+  });
+}
+
 // vista previa del mail al reseller (no envía)
 var _pv = { id:'', envio:0, ya:false };
 function previewMail(idVenta, envio, yaEnviado){
@@ -1449,10 +1484,10 @@ function previewMail(idVenta, envio, yaEnviado){
       var m = '<b>Asunto:</b> '+esc(r.asunto||'—')+'<br><b>Para:</b> '+esc(r.destinatarios||'—')+(r.a?' <span style="color:var(--tx-d)">('+esc(r.a)+')</span>':'');
       if (r.cc)  m += '<br><b>CC:</b> '+esc(r.cc);
       if (r.bcc) m += '<br><b>CCO:</b> '+esc(r.bcc);
-      if (r.sinGuia)    m += '<br><span class="pv-warn"><i class="fa-solid fa-triangle-exclamation"></i> Sin guía todavía — no se podrá enviar.</span>';
+      if (r.noDespachado) m += '<br><span class="pv-warn"><i class="fa-solid fa-triangle-exclamation"></i> Todavía no está marcado DESPACHADO en Comandas Master — no se podrá enviar.</span>';
       if (r.sinDestino) m += '<br><span class="pv-warn"><i class="fa-solid fa-triangle-exclamation"></i> Sin destinatarios cargados.</span>';
       meta.innerHTML = m;
-      send.disabled = !!(r.sinGuia || r.sinDestino);
+      send.disabled = !!(r.noDespachado || r.sinDestino);
     })
     .withFailureHandler(function(e){ meta.innerHTML = '<span class="pv-warn">Error: '+esc((e&&e.message)||'')+'</span>'; })
     .CP_previewMailEnvio(idVenta, envio);

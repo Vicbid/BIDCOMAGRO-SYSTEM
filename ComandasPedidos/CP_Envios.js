@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  COMANDAS — Envíos: CRUD/pendientes de entrega, trigger onEdit,
 //  snapshot, log de estado.
@@ -189,18 +189,24 @@ function _cpEnviosHoja() {
   var h = ss.getSheetByName(CP_ENVIOS_TAB);
   if (!h) {
     h = ss.insertSheet(CP_ENVIOS_TAB);
-    h.getRange(1, 1, 1, 14).setValues([[
+    h.getRange(1, 1, 1, 15).setValues([[
       'ID_Venta', 'Envío', 'Comanda', 'Fecha', 'Operador', 'Productos',
       'Guía', 'Transportista', 'Estado', 'Mail Aprobador', 'Mail Reseller', 'Nota Aprobador', 'Nota Reseller',
-      'Thread ID Reseller'
+      'Thread ID Reseller', 'Mail Autorizado Reseller'
     ]]);
     h.setFrozenRows(1);
-    h.getRange('A1:N1').setFontWeight('bold');
-  } else if (!_s(h.getRange(1, 14).getValue())) {
-    // Migración de hojas ya existentes: agrega la col N con la que se encadenan los mails
-    // de despacho de una misma venta en un solo hilo (ver CP_Mail.js).
-    if (h.getMaxColumns() < 14) h.insertColumnsAfter(h.getMaxColumns(), 14 - h.getMaxColumns());
-    h.getRange(1, 14).setValue('Thread ID Reseller').setFontWeight('bold');
+    h.getRange('A1:O1').setFontWeight('bold');
+  } else {
+    // Migración de hojas ya existentes: agrega las columnas que se fueron sumando sin romper
+    // lo que ya había (ver CP_Mail.js: col N = hilo de Gmail, col O = mail #1 "autorizado").
+    if (!_s(h.getRange(1, 14).getValue())) {
+      if (h.getMaxColumns() < 14) h.insertColumnsAfter(h.getMaxColumns(), 14 - h.getMaxColumns());
+      h.getRange(1, 14).setValue('Thread ID Reseller').setFontWeight('bold');
+    }
+    if (!_s(h.getRange(1, 15).getValue())) {
+      if (h.getMaxColumns() < 15) h.insertColumnsAfter(h.getMaxColumns(), 15 - h.getMaxColumns());
+      h.getRange(1, 15).setValue('Mail Autorizado Reseller').setFontWeight('bold');
+    }
   }
   return h;
 }
@@ -216,7 +222,8 @@ function _cpProductosJson(obj) {
 
 
 // Mapa { IDVENTA: [ {envio, comanda, fecha, fechaStr, fechaTs, operador, productos, guia,
-//                    transportista, estado, mailAprob, mailReseller, notaAprob, notaReseller, rowIdx} ] }
+//                    transportista, estado, mailAprob, mailReseller, notaAprob, notaReseller,
+//                    threadIdReseller, mailAutorizado, rowIdx} ] }
 function _cpEnviosMap() {
   try {
     var ss = _cpSS(CP_LOG_SS_ID);
@@ -245,6 +252,7 @@ function _cpEnviosMap() {
         notaAprob:     _s(d[i][11]),
         notaReseller:  _s(d[i][12]),
         threadIdReseller: _s(d[i][13]),
+        mailAutorizado:   _s(d[i][14]),
         rowIdx:        i + 1
       };
       if (!m[key]) m[key] = [];
