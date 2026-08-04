@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -135,15 +135,23 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
     docsArch.forEach(function(a) { try { adjuntos.push(DriveApp.getFileById(a.id).getBlob()); } catch (eD) { Logger.log('adjuntar doc ' + a.name + ': ' + eD); } });
     if (adjuntos.length) opts.attachments = adjuntos;
 
+    // Si otro envío de esta misma venta ya le mandó mail al reseller, este va como REPLY en
+    // ese mismo hilo (así el reseller ve todos los envíos de una venta en una sola conversación
+    // en vez de un mail nuevo por cada uno). Si no hay hilo previo (es el primero, o el anterior
+    // falló), sale como mail nuevo y su hilo queda guardado para encadenar los próximos.
+    var hiloPrevio = '';
+    arr.forEach(function(x) { if (!hiloPrevio && x.envio !== envio && x.threadIdReseller) hiloPrevio = x.threadIdReseller; });
+
+    var threadResultante;
     try {
-      _cpGmailSend(to.join(','), asunto, 'Envío ' + envio + ' · comanda ' + parts.join('/') + ' — ver versión HTML.', opts);
+      threadResultante = _cpEnviarDespachoReseller(hiloPrevio, to.join(','), asunto, 'Envío ' + envio + ' · comanda ' + parts.join('/') + ' — ver versión HTML.', opts);
     } catch (se) {
       // registrar el error en la hoja (col Estado) para que quede visible; el auto-trigger reintentará.
       try { _cpEnviosHoja().getRange(e.rowIdx, 9).setValue('MAIL ERROR · ' + _fmtTs(new Date()) + ' · ' + String(se && se.message ? se.message : se)); } catch (_) {}
       return { ok: false, mailError: true, mensaje: 'No se pudo enviar el mail: ' + String(se && se.message ? se.message : se) };
     }
-    _cpMarcarMailEnvio(e.rowIdx, guias.join('/'), transs.join(', '));
-    _cpAuditar('Mail reseller', idVenta, envio, 'a ' + to.join(', '));
+    _cpMarcarMailEnvio(e.rowIdx, guias.join('/'), transs.join(', '), threadResultante);
+    _cpAuditar('Mail reseller', idVenta, envio, 'a ' + to.join(', ') + (hiloPrevio ? ' · reply en hilo del envío anterior' : ''));
     return { ok: true, destinatarios: to.join(', '), a: detalleDest.join(' + '), envio: envio };
   } catch (e) {
     return { ok: false, mensaje: String(e && e.message ? e.message : e) };
@@ -151,7 +159,7 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
 }
 
 
-function _cpMarcarMailEnvio(rowIdx, guia, transportista) {
+function _cpMarcarMailEnvio(rowIdx, guia, transportista, threadId) {
   var lock = LockService.getScriptLock();
   try { lock.waitLock(8000); } catch (e) {}
   try {
@@ -160,7 +168,51 @@ function _cpMarcarMailEnvio(rowIdx, guia, transportista) {
     if (transportista) h.getRange(rowIdx, 8).setValue(transportista);
     h.getRange(rowIdx, 9).setValue(CP_DESPACHADO);
     h.getRange(rowIdx, 11).setValue('SÍ · ' + _fmtTs(new Date()));
+    if (threadId) h.getRange(rowIdx, 14).setValue(threadId);
   } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+
+
+// Manda el mail de despacho al reseller encadenado con los envíos previos de la misma venta:
+// si `threadIdPrevio` viene y el hilo todavía existe, hace REPLY ahí (mismo asunto/conversación
+// para el reseller); si no, manda un mail nuevo (mismo chokepoint _cpGmailSend: rate-limit,
+// modo prueba, conversión de emojis a ASCII). Devuelve el threadId a guardar para el PRÓXIMO
+// envío de esta venta (el del reply si hubo, o el recién creado si se mandó nuevo).
+// En modo prueba SIEMPRE manda nuevo: replyAll no admite redirigir el destinatario como sendEmail,
+// así que encadenar ahí mandaría el mail de prueba al reseller real.
+function _cpEnviarDespachoReseller(threadIdPrevio, to, subject, plain, opts) {
+  var prueba = _s(_cpConfig()['EMAIL_PRUEBA']);
+  if (threadIdPrevio && !prueba) {
+    try {
+      var thread = GmailApp.getThreadById(threadIdPrevio);
+      var msgs = thread && thread.getMessages();
+      if (msgs && msgs.length) {
+        if (!_cpRateLimitOk()) throw new Error('Límite de envío de mails alcanzado (' + _cpMailCap() + ' por 10 min, anti-abuso). Reintentá en unos minutos.');
+        var o = {}; for (var k in opts) if (opts.hasOwnProperty(k)) o[k] = opts[k];
+        if (o.htmlBody) o.htmlBody = _cpHtmlAscii(o.htmlBody);
+        msgs[msgs.length - 1].replyAll(plain, o);
+        _cpRateLimitInc();
+        return threadIdPrevio;
+      }
+    } catch (eR) {
+      Logger.log('_cpEnviarDespachoReseller: reply en hilo ' + threadIdPrevio + ' falló (' + eR + ') → mando mail nuevo');
+    }
+  }
+  _cpGmailSend(to, subject, plain, opts);
+  return _cpBuscarThreadRecienEnviado(subject);
+}
+
+
+// Busca en "Enviados" el hilo del mail que se acaba de mandar (por asunto exacto, que incluye
+// IDVENTA+comanda y es único) para guardar su threadId y poder encadenar los próximos envíos
+// de la misma venta. Best-effort: si el índice de Gmail todavía no lo indexó, devuelve '' y
+// simplemente no se pudo encadenar — el próximo envío manda un mail nuevo en vez de reply.
+function _cpBuscarThreadRecienEnviado(subject) {
+  try {
+    var q = 'in:sent subject:"' + String(subject || '').replace(/"/g, '') + '"';
+    var threads = GmailApp.search(q, 0, 3);
+    return (threads && threads.length) ? threads[0].getId() : '';
+  } catch (e) { Logger.log('_cpBuscarThreadRecienEnviado: ' + e); return ''; }
 }
 
 
@@ -356,10 +408,6 @@ function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs
         chip('PDF comanda', pdfHtml)+
       '</table>'+
       adjBloque+
-      '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin:6px 0 8px">Detalle despachado (este envío)</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e0e3e8;border-radius:8px;overflow:hidden">'+
-        (_cpMailItemsRows(itemsEnviados, esc) || '<tr><td style="padding:8px;color:#999">Sin detalle</td></tr>')+
-      '</table>'+
       '<div style="margin-top:18px;font-size:11px;color:#aaa">Enviado automáticamente desde Comandas · Carga Masterchief.</div>'+
     '</div>'+
   '</div>';

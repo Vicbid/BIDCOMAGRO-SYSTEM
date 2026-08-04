@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  COMANDAS — Envíos: CRUD/pendientes de entrega, trigger onEdit,
 //  snapshot, log de estado.
@@ -189,12 +189,18 @@ function _cpEnviosHoja() {
   var h = ss.getSheetByName(CP_ENVIOS_TAB);
   if (!h) {
     h = ss.insertSheet(CP_ENVIOS_TAB);
-    h.getRange(1, 1, 1, 13).setValues([[
+    h.getRange(1, 1, 1, 14).setValues([[
       'ID_Venta', 'Envío', 'Comanda', 'Fecha', 'Operador', 'Productos',
-      'Guía', 'Transportista', 'Estado', 'Mail Aprobador', 'Mail Reseller', 'Nota Aprobador', 'Nota Reseller'
+      'Guía', 'Transportista', 'Estado', 'Mail Aprobador', 'Mail Reseller', 'Nota Aprobador', 'Nota Reseller',
+      'Thread ID Reseller'
     ]]);
     h.setFrozenRows(1);
-    h.getRange('A1:M1').setFontWeight('bold');
+    h.getRange('A1:N1').setFontWeight('bold');
+  } else if (!_s(h.getRange(1, 14).getValue())) {
+    // Migración de hojas ya existentes: agrega la col N con la que se encadenan los mails
+    // de despacho de una misma venta en un solo hilo (ver CP_Mail.js).
+    if (h.getMaxColumns() < 14) h.insertColumnsAfter(h.getMaxColumns(), 14 - h.getMaxColumns());
+    h.getRange(1, 14).setValue('Thread ID Reseller').setFontWeight('bold');
   }
   return h;
 }
@@ -238,6 +244,7 @@ function _cpEnviosMap() {
         mailResellerTs:(function() { var dt = _cpParseFechaAr(d[i][10]); return dt ? dt.getTime() : null; })(),
         notaAprob:     _s(d[i][11]),
         notaReseller:  _s(d[i][12]),
+        threadIdReseller: _s(d[i][13]),
         rowIdx:        i + 1
       };
       if (!m[key]) m[key] = [];
