@@ -1,4 +1,4 @@
-<!-- @version 3.49 -->
+<!-- @version 3.50 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -483,6 +483,17 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .stk-ubic{font-size:11px;color:var(--tx-m);background:var(--surf);border:1px solid var(--brd);border-radius:var(--r);padding:2px 8px;display:inline-block;font-weight:500}
 .stk-modelos{font-size:10px;color:var(--tx-d);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stk-empty{text-align:center;padding:60px 20px;color:var(--tx-d);font-size:13px}
+.stk-vista-tog{display:flex;gap:2px;background:var(--surf);border:1.5px solid var(--brd);border-radius:var(--rm);padding:2px}
+.stk-vista-tog button{height:30px;padding:0 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--tx-m);font-family:var(--f);display:flex;align-items:center;gap:5px;transition:all .13s}
+.stk-vista-tog button.active{background:var(--panel);color:var(--tx);box-shadow:var(--shd)}
+.stk-foto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.stk-foto-card{background:var(--panel);border:1.5px solid var(--brd);border-radius:var(--rl);padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shd)}
+.stk-foto-thumb{width:100%;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--surf);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:26px;border:1px dashed var(--brd2)}
+.stk-foto-thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+.stk-foto-sku{font-family:var(--f-mono);font-weight:700;color:var(--blue);font-size:12px}
+.stk-foto-desc{font-size:11px;color:var(--tx-m);line-height:1.4;min-height:30px}
+.stk-foto-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto}
+.stk-foto-more{grid-column:1/-1;text-align:center;padding:14px;color:var(--tx-d);font-size:12px}
 
 /* ── RESUMEN ENVIOS ───────────────────────────────────── */
 .rsm-overlay{position:fixed;inset:0;background:rgba(238,242,247,.98);z-index:250;display:flex;flex-direction:column}
@@ -873,6 +884,10 @@ body{overflow:hidden}
       <button class="stk-f f-critico" data-f="CRITICO" onclick="setFiltroStock(this,'CRITICO')">Crítico</button>
       <button class="stk-f f-bajo" data-f="BAJO" onclick="setFiltroStock(this,'BAJO')">Bajo</button>
       <button class="stk-f f-ok" data-f="OK" onclick="setFiltroStock(this,'OK')">OK</button>
+    </div>
+    <div class="stk-vista-tog" id="stk-vista-tog">
+      <button id="stk-vt-tabla" onclick="setVistaStock('tabla')"><i class="fa fa-table-list"></i> Tabla</button>
+      <button id="stk-vt-fotos" onclick="setVistaStock('fotos')"><i class="fa fa-image"></i> Fotos</button>
     </div>
     <button class="btn btn-ghost" onclick="cerrarStock()" style="flex-shrink:0;margin-left:6px">✕ Cerrar</button>
   </div>
@@ -4623,14 +4638,32 @@ var _stkItems   = [];   // todos los ítems cargados
 var _stkFiltroE = '';   // estado filtrado: '' | 'CRITICO' | 'BAJO' | 'OK'
 var _stkCargado = false;
 var _stkListaActual = []; // última lista renderizada (post-filtro), para abrir la foto por índice sin re-escapar el código en el onclick
+// Vista elegida: 'tabla' (todo el detalle) o 'fotos' (grilla tipo Stock Manager, 20 a la vez con
+// buscador). Se recuerda entre sesiones — pedido del usuario: "que pueda seleccionar cuál usar".
+var _stkVista = localStorage.getItem('wos_stk_vista') || 'tabla';
+var STK_FOTOS_MAX = 20;
 
 function abrirStock() {
   document.getElementById('stk-overlay').style.display = 'flex';
   document.getElementById('btn-stock').classList.add('loading');
+  _stkAplicarTogVista();
   if (!_stkCargado) {
     _cargarStockRemoto('');
   }
   setTimeout(function() { document.getElementById('stk-q').focus(); }, 120);
+}
+
+function setVistaStock(v) {
+  _stkVista = v;
+  try { localStorage.setItem('wos_stk_vista', v); } catch(e) {}
+  _stkAplicarTogVista();
+  if (_stkCargado) _renderStock();
+}
+function _stkAplicarTogVista() {
+  var bT = document.getElementById('stk-vt-tabla');
+  var bF = document.getElementById('stk-vt-fotos');
+  if (bT) bT.classList.toggle('active', _stkVista === 'tabla');
+  if (bF) bF.classList.toggle('active', _stkVista === 'fotos');
 }
 
 function cerrarStock() {
@@ -4700,6 +4733,8 @@ function _renderStock() {
     return;
   }
 
+  if (_stkVista === 'fotos') { _renderStockFotos(lista); return; }
+
   var rows = '';
   for (var i = 0; i < lista.length; i++) {
     var it  = lista[i];
@@ -4750,6 +4785,42 @@ function _renderStock() {
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>';
+}
+
+// Vista alternativa tipo "Fotos" de Stock Manager: grilla de tarjetas con imagen, pedida por
+// el usuario para escanear visualmente el catálogo en vez de leer una tabla. Muestra hasta
+// STK_FOTOS_MAX ítems del resultado filtrado (mismo _stkItems/búsqueda/filtro que la tabla,
+// ver _renderStock) — si hay más, se pide acotar la búsqueda en vez de listarlos todos de una,
+// para no cargar cientos de miniaturas de golpe.
+function _renderStockFotos(lista) {
+  var claseColors = { 'A':'#0052cc','B':'#00875a','C':'#f79009','D':'#8590a2' };
+  var mostrar = lista.slice(0, STK_FOTOS_MAX);
+  var h = '<div class="stk-foto-grid">';
+  for (var i = 0; i < mostrar.length; i++) {
+    var it  = mostrar[i];
+    var cls = it.stockActual <= 0 ? 'critico' : (it.stockActual <= it.stockMinimo ? 'bajo' : 'ok');
+    var thumb = it.foto
+      ? '<img src="' + escH(_wosDriveThumb(it.foto, 220)) + '" onclick="_stkVerFoto(' + i + ')" title="Ver foto">'
+      : '<i class="fa fa-image"></i>';
+    var claseTag = it.clase
+      ? '<span style="display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-weight:800;letter-spacing:.05em;color:#fff;background:' + (claseColors[it.clase] || '#8590a2') + '">' + escH(it.clase) + '</span>'
+      : '';
+    h +=
+      '<div class="stk-foto-card">' +
+        '<div class="stk-foto-thumb">' + thumb + '</div>' +
+        '<div class="stk-foto-sku">' + escH(it.codigo) + '</div>' +
+        '<div class="stk-foto-desc">' + escH(it.descripcion || '—') + '</div>' +
+        '<div class="stk-foto-meta">' +
+          '<span class="stk-num ' + cls + '" style="font-size:16px">' + it.stockActual + '</span>' +
+          claseTag +
+        '</div>' +
+      '</div>';
+  }
+  if (lista.length > STK_FOTOS_MAX) {
+    h += '<div class="stk-foto-more">Mostrando ' + STK_FOTOS_MAX + ' de ' + lista.length + ' — refiná la búsqueda para ver otros.</div>';
+  }
+  h += '</div>';
+  document.getElementById('stk-content').innerHTML = h;
 }
 
 // Convierte un link de Drive (/file/d/FILEID/view o ?id=FILEID) al formato directo
