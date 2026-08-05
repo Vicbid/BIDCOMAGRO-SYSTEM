@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.68 -->
+<!-- @version 1.69 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5880,7 +5880,7 @@ function _catAgregar(btn, sku) {
   }
   if (found) {
     _pedAgregarItem(found[0], found[1], _pedEstMap[found[3]] || 'consultar_Backorder', found[4] || 0, found[2] || '',
-                    (found[5] !== undefined && found[5] >= 0) ? found[5] : undefined, found[7] || '');
+                    (found[5] !== undefined && found[5] >= 0) ? found[5] : undefined, found[7] || '', found[11] || '');
   } else {
     // No está en la lista de precios → "a consultar" pero agregable
     var nombre = sku;
@@ -6071,7 +6071,7 @@ function _pedBuscarLocal(q) {
   var qL = _normText(q);
   var matches = [];
   for (var i = 0; i < _pedIndice.length; i++) {
-    var it = _pedIndice[i]; // [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs]
+    var it = _pedIndice[i]; // [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs, foto]
     var nSku = it[8] || '', nDesc = it[9] || '', nDescEs = it[10] || '';
     if (nSku.indexOf(qL) === -1 && nDesc.indexOf(qL) === -1 && nDescEs.indexOf(qL) === -1) continue;
     var score;
@@ -6079,7 +6079,7 @@ function _pedBuscarLocal(q) {
     else if (nSku.indexOf(qL) === 0)                        score = 6;
     else if (nDesc.indexOf(qL) === 0 || nDescEs.indexOf(qL) === 0) score = 4;
     else                                                     score = 1;
-    matches.push({ sku: it[0], descripcion: it[1], descripcionEs: it[6] || '', modelos: it[2], estado: _pedEstMap[it[3]] || 'consultar_Backorder', precio: it[4] || 0, stockActual: (it[5] !== undefined && it[5] >= 0) ? it[5] : null, reemplazadoPor: it[7] || '', _score: score });
+    matches.push({ sku: it[0], descripcion: it[1], descripcionEs: it[6] || '', modelos: it[2], estado: _pedEstMap[it[3]] || 'consultar_Backorder', precio: it[4] || 0, stockActual: (it[5] !== undefined && it[5] >= 0) ? it[5] : null, reemplazadoPor: it[7] || '', foto: it[11] || '', _score: score });
   }
   matches.sort(function(a, b) { return b._score - a._score; });
   var results = matches.slice(0, 15);
@@ -6219,6 +6219,7 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
         precio  = ni[4] || 0;
         stkVal  = (ni[5] !== undefined && ni[5] >= 0) ? ni[5] : null;
         remplz  = ni[7] || '';  // reemplazante del reemplazante (raro, pero posible)
+        foto    = ni[11] || ''; // la foto del SKU nuevo, no la del viejo que llegó como parámetro
         break;
       }
     }
@@ -6234,7 +6235,7 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
       if (!compSku) continue;
       var compQty = qty * (kitComps[kc].cantidadPorKit || 1);
       // Datos del componente desde el índice (desc, precio, stock, estado)
-      var cDesc = compSku, cEst = 'consultar_Backorder', cPrec = 0, cMod = '', cStk = null, cRem = '';
+      var cDesc = compSku, cEst = 'consultar_Backorder', cPrec = 0, cMod = '', cStk = null, cRem = '', cFoto = '';
       if (_pedIndice) {
         var cUp = compSku.toUpperCase();
         for (var ci = 0; ci < _pedIndice.length; ci++) {
@@ -6246,6 +6247,7 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
             cMod  = cix[2] || '';
             cStk  = (cix[5] !== undefined && cix[5] >= 0) ? cix[5] : null;
             cRem  = cix[7] || '';
+            cFoto = cix[11] || '';
             break;
           }
         }
@@ -6255,7 +6257,7 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
         if (cart[mi].sku === compSku) { cart[mi].cantidad += compQty; mergedC = true; break; }
       }
       if (!mergedC) {
-        cart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem });
+        cart.push({ sku: compSku, descripcion: cDesc, estado: cEst, cantidad: compQty, precio: cPrec, modelos: cMod, stockActual: cStk, reemplazadoPor: cRem, foto: cFoto });
       }
       agregados.push(compSku);
     }
@@ -6276,9 +6278,7 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
       return;
     }
   }
-  // Si hubo auto-sustitución (skuViejo truthy), `foto` sigue siendo la del SKU viejo (el que
-  // llegó como parámetro) — no corresponde mostrarla para el SKU nuevo que terminó en el carrito.
-  cart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz, foto: skuViejo ? '' : (foto || '') });
+  cart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz, foto: foto || '' });
   _repRender();
   _pedLimpiarBusqueda();
   if (skuViejo) {

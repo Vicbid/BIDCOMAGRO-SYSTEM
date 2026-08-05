@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.12
+// @version 2.13
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1252,6 +1252,7 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
       if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
     }
     var priceMap = _buildPriceMap(_factor);
+    var fotoMap  = _repFotoMapCatalogo();
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
     var items = [];
@@ -1271,7 +1272,8 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
         priceMap[skuUp] || 0,
         stockMap[skuUp] !== undefined ? stockMap[skuUp] : -1,
         descEs, remplz,
-        _normText(sku), _normText(desc), _normText(descEs)
+        _normText(sku), _normText(desc), _normText(descEs),
+        fotoMap[skuUp] || ''   // índice 11 — ver _pedBuscarLocal en Index.html
       ]);
     }
 
@@ -1293,7 +1295,8 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
             aPvp,
             stockMap[aSkuUp] !== undefined ? stockMap[aSkuUp] : -1,
             '', '',
-            _normText(aSku), _normText(aDesc), ''
+            _normText(aSku), _normText(aDesc), '',
+            fotoMap[aSkuUp] || ''
           ]);
         }
       }
