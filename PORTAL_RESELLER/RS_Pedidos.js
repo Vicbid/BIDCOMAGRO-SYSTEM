@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.9
+// @version 2.11
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -636,6 +636,28 @@ function confirmarPedidoPortal(params) {
       // "Pedidos_resellers", el pedido se escribía en la pestaña equivocada.
       notasHoja = SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
     } catch(eNS) { Logger.log('confirmarPedidoPortal openNotasSS: ' + eNS); }
+    // FIX reportado por el usuario: "la fila no aparece en la hoja Pedidos_resellers". Causa
+    // más probable: si getSheetByName no encuentra la pestaña, devuelve null SIN tirar
+    // excepción (no cae en el catch de arriba) — y nada de lo que sigue chequeaba notasHoja,
+    // así que el pedido se "creaba" igual (PDF, mail, fila en PEDIDOS_REPUESTOS) sin dejar
+    // NINGÚN rastro en Pedidos_resellers, que es la hoja que usa WOS para despachar.
+    // DECISIÓN EXPLÍCITA DEL USUARIO (no abortar): a diferencia de otros casos similares en
+    // este sistema (ej. WOS con el descuento de stock en Carmen), acá se prefiere que el
+    // pedido se siga creando igual — mail y PDF al reseller sin que note nada — aunque la fila
+    // en Pedidos_resellers quede pendiente de reconstruir a mano después. Lo único que se
+    // agrega es una alerta a soporte para que el problema no pase inadvertido.
+    if (!notasHoja) {
+      Logger.log('confirmarPedidoPortal: NO se pudo abrir "Pedidos_resellers" en ' + NOTAS_SS_ID + ' — el pedido ' +
+        '(' + reseller + ') sigue su curso normal, pero esta fila NO va a quedar registrada ahí. Revisar RS_debugNotasHoja().');
+      try {
+        GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR,
+          '[Portal Reseller] Pedido sin registrar en Pedidos_resellers',
+          'No se pudo abrir la hoja "Pedidos_resellers" (planilla ' + NOTAS_SS_ID + ') al confirmar un pedido de "' + reseller + '".\n\n' +
+          'El pedido se creó igual (mail y PDF salieron normal), pero no va a aparecer en esa hoja hasta que se reconstruya a mano.\n' +
+          'Los datos completos del pedido quedan respaldados en PEDIDOS_REPUESTOS (columna "Items JSON").\n\n' +
+          'Ejecutá RS_debugNotasHoja() desde el editor de Apps Script para ver el detalle del error.');
+      } catch(eAlert) { Logger.log('confirmarPedidoPortal alerta notasHoja: ' + eAlert); }
+    }
 
     var hojaDesc = getSheet(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
     var sinCatalogo = [];
@@ -696,11 +718,6 @@ function confirmarPedidoPortal(params) {
           formaPago,                         // M: Método de pago
           obs                                // N: Observaciones
         ]);
-        // % de descuento aplicado a ESTE pedido (0-100) → col AC (29). WOS lo lee para mostrarlo
-        // en la Nota de Entrega (_wosGenerarPDF) y reconstruir el PVP real, en vez del 40% fijo
-        // que asumía antes. Mismo valor para todos los ítems del pedido (descuento es por reseller,
-        // no por línea).
-        try { notasHoja.getRange(newRow, 29).setValue(descInfo.pct); } catch(eDp) {}
       }
 
     }
@@ -751,6 +768,61 @@ function confirmarPedidoPortal(params) {
   } finally {
     try { lock.releaseLock(); } catch(eL) { Logger.log('confirmarPedidoPortal releaseLock: ' + eL); }
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DEBUG — diagnóstico manual reportado por el usuario: "RS_Pedidos no está escribiendo
+//  en Pedidos_resellers" (última fila real: 3/8/2026 19:33:58, nada desde entonces).
+//  Corré esta función desde el editor de Apps Script (seleccionarla → Ejecutar) y mirá
+//  Ver → Registros de ejecución. Prueba, en orden: abrir la planilla, listar sus pestañas,
+//  encontrar "Pedidos_resellers", leer la última fila real, y por último ESCRIBIR una fila
+//  de prueba y borrarla enseguida — para confirmar si el problema es de PERMISOS/ACCESO
+//  (la escritura de prueba también fallaría) o de otra cosa (la prueba manual funciona,
+//  pero algo puntual en confirmarPedidoPortal no llega a ejecutarla).
+// ─────────────────────────────────────────────────────────────
+function RS_debugNotasHoja() {
+  var NOTAS_SS_ID = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+  var out = { notasSsId: NOTAS_SS_ID, pasos: [] };
+  try {
+    var ss = SpreadsheetApp.openById(NOTAS_SS_ID);
+    out.pasos.push('openById OK: "' + ss.getName() + '"');
+    out.tabs = ss.getSheets().map(function(s) { return s.getName(); });
+
+    var hoja = ss.getSheetByName('Pedidos_resellers');
+    if (!hoja) {
+      out.pasos.push('getSheetByName("Pedidos_resellers") devolvió null. Mirá "tabs" arriba — ¿está el nombre exacto ahí?');
+      Logger.log(JSON.stringify(out, null, 2));
+      return out;
+    }
+    out.pasos.push('getSheetByName("Pedidos_resellers") OK');
+
+    var lastRow = hoja.getLastRow();
+    out.lastRow = lastRow;
+    out.ultimaFila = lastRow > 0 ? hoja.getRange(lastRow, 1, 1, 14).getValues()[0] : '(hoja vacía)';
+    out.pasos.push('Lectura OK. Última fila real (con datos) es la ' + lastRow + ' — mirá "ultimaFila" para ver la fecha/pedido.');
+
+    try {
+      var testRow = lastRow + 1;
+      var marca   = 'TEST_DIAGNOSTICO_' + new Date().getTime();
+      hoja.getRange(testRow, 1).setValue(marca);
+      SpreadsheetApp.flush();
+      var releido = hoja.getRange(testRow, 1).getValue();
+      out.escrituraTest = (releido === marca)
+        ? 'OK — escribí "' + marca + '" en la fila ' + testRow + ' y lo pude releer sin problema.'
+        : 'RARO — escribí "' + marca + '" pero al releer la celda dio "' + releido + '".';
+      hoja.getRange(testRow, 1).clearContent();
+      SpreadsheetApp.flush();
+      out.pasos.push('Prueba de escritura terminada y limpiada (no queda basura en la hoja).');
+    } catch (eW) {
+      out.escrituraTestError = eW.toString();
+      out.pasos.push('LA ESCRITURA DE PRUEBA FALLÓ — esto es lo importante: ' + eW);
+    }
+  } catch (e) {
+    out.errorFatal = e.toString();
+    out.pasos.push('ERROR abriendo la planilla (ni siquiera llegó a la pestaña): ' + e);
+  }
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
 }
 
 // ── Generar pedido directo (legacy / sin revisión) ────────────
