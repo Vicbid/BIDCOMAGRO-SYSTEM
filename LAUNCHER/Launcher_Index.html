@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.7 -->
+<!-- @version 1.8 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -903,6 +903,48 @@ function runTool(toolId, resultId, btn) {
     .ejecutarHerramienta(toolId);
 }
 
+function recuperarPedidosRun() {
+  var input = document.getElementById('rec-ped-spec');
+  var spec  = input.value.trim();
+  var btn   = document.getElementById('rec-ped-btn');
+  var resEl = document.getElementById('res-recuperar-pedidos');
+  var card  = document.getElementById('tc-recuperar-pedidos');
+  if (!spec) {
+    resEl.className = 'tool-result err';
+    resEl.textContent = 'Escribí al menos un número de pedido.';
+    return;
+  }
+  if (!confirm('¿Recuperar estos pedidos?\n\n' + spec + '\n\nSe agregan filas nuevas en Pedidos_resellers solo para los que falten (los que ya estén no se tocan).')) return;
+  card.className = 'tool-card running';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i>';
+  resEl.className = 'tool-result';
+  resEl.textContent = '';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      btn.disabled = false;
+      btn.innerHTML = 'Recuperar';
+      if (r && r.ok) {
+        card.className = 'tool-card done-ok';
+        resEl.className = 'tool-result ok';
+        resEl.textContent = r.msg || 'Completado.';
+        input.value = '';
+      } else {
+        card.className = 'tool-card done-err';
+        resEl.className = 'tool-result err';
+        resEl.textContent = (r && r.error) ? r.error : 'Error desconocido.';
+      }
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = 'Recuperar';
+      card.className = 'tool-card done-err';
+      resEl.className = 'tool-result err';
+      resEl.textContent = 'Error de conexión: ' + (e.message || e);
+    })
+    .LAUNCH_recuperarPedidos(spec);
+}
+
 // Auto-refresh cada 2 minutos
 setInterval(load, 120000);
 load();
@@ -1595,6 +1637,19 @@ function pinReset() {
           <div class="tool-result" id="res-threads"></div>
         </div>
         <button class="tool-btn run" onclick="runTool('wos-recuperar-threads','res-threads',this)">Ejecutar</button>
+      </div>
+
+      <div class="tool-card" id="tc-recuperar-pedidos">
+        <div class="tool-icon runnable"><i class="fa fa-undo"></i></div>
+        <div class="tool-body">
+          <div class="tool-name">Recuperar pedidos no registrados</div>
+          <div class="tool-desc">Reconstruye en "Pedidos_resellers" pedidos que se crearon bien (el reseller recibió mail y PDF) pero por algún problema no quedaron registrados ahí — usa el respaldo de PEDIDOS_REPUESTOS. Nunca duplica un pedido que ya esté presente.</div>
+          <div style="display:flex;gap:8px;margin-top:9px">
+            <input type="text" id="rec-ped-spec" placeholder="PR-0100, PR-0102, PR-0105 a PR-0110" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #dde3ea;border-radius:6px;font-size:12px;font-family:inherit">
+            <button class="tool-btn run" id="rec-ped-btn" onclick="recuperarPedidosRun()">Recuperar</button>
+          </div>
+          <div class="tool-result" id="res-recuperar-pedidos"></div>
+        </div>
       </div>
 
       <div class="tool-card">

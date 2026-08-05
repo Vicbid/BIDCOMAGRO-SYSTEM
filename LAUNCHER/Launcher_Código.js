@@ -1,6 +1,7 @@
-// @version 1.5
+// @version 1.6
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
 
 // ── ComandasPedidos · _CONFIG (se edita desde el Launcher) ──
 // Planilla de LOG de ComandasPedidos donde vive la pestaña _CONFIG (clave/valor).
@@ -215,6 +216,151 @@ function _herr_wosRecuperarThreadIds() {
   if (noEncontrados.length) msg += ' No encontrados en Gmail: ' + noEncontrados.join(', ') + '.';
   return { ok: true, recuperados: recuperados, total: numeros.length,
            noEncontrados: noEncontrados, msg: msg };
+}
+
+// ── Recuperar pedidos que no quedaron registrados en Pedidos_resellers ──────
+// Reportado por el usuario: RS_Pedidos (Portal Reseller) dejó de escribir filas en
+// Pedidos_resellers en algún momento — el pedido se creaba igual (mail + PDF al reseller,
+// sin que note nada) pero la fila que WOS necesita para despachar nunca se escribía. La
+// única copia completa que sobrevive es PEDIDOS_REPUESTOS (col "Items JSON"), que SIEMPRE
+// se escribe (paso E de confirmarPedidoPortal, posterior al intento fallido). Esta función
+// reconstruye, a pedido del usuario, las filas faltantes a partir de ese respaldo.
+//
+// spec acepta, mezclados y separados por coma: números sueltos ("PR-0100" o "100", se
+// autocompleta a 4 dígitos) y rangos con la palabra "a" ("PR-0100 a PR-0110"). Ej:
+// "PR-0050, PR-0100 a PR-0110, 200"
+
+// Parsea el texto libre del usuario a una lista de números "PR-####" sin duplicados.
+function _launchParsePedidoSpec(spec) {
+  var out = [], seen = {};
+  function normalizar(s) {
+    s = String(s || '').trim().toUpperCase();
+    if (!s) return '';
+    var m = s.match(/^(?:PR-)?(\d+)$/);
+    if (!m) return '';
+    var n = m[1];
+    while (n.length < 4) n = '0' + n;
+    return 'PR-' + n;
+  }
+  var tokens = String(spec || '').split(',');
+  for (var i = 0; i < tokens.length; i++) {
+    var tok = tokens[i].trim();
+    if (!tok) continue;
+    var rangeM = tok.match(/^(.+?)\s+a\s+(.+)$/i);
+    if (rangeM) {
+      var desde = normalizar(rangeM[1]), hasta = normalizar(rangeM[2]);
+      var dNum  = desde ? parseInt(desde.replace('PR-', ''), 10) : NaN;
+      var hNum  = hasta ? parseInt(hasta.replace('PR-', ''), 10) : NaN;
+      // Tope de 500 para que un typo en el rango no genere miles de filas por accidente.
+      if (!isNaN(dNum) && !isNaN(hNum) && hNum >= dNum && (hNum - dNum) < 500) {
+        for (var n2 = dNum; n2 <= hNum; n2++) {
+          var num2 = String(n2); while (num2.length < 4) num2 = '0' + num2;
+          var full2 = 'PR-' + num2;
+          if (!seen[full2]) { seen[full2] = true; out.push(full2); }
+        }
+      }
+      continue;
+    }
+    var single = normalizar(tok);
+    if (single && !seen[single]) { seen[single] = true; out.push(single); }
+  }
+  return out;
+}
+
+function LAUNCH_recuperarPedidos(spec) {
+  try {
+    var numeros = _launchParsePedidoSpec(spec);
+    if (!numeros.length) return { ok: false, error: 'No pude interpretar ningún número de pedido en "' + spec + '". Formato: PR-0100, PR-0102, PR-0105 a PR-0110' };
+
+    var hojaPed = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('PEDIDOS_REPUESTOS');
+    if (!hojaPed) return { ok: false, error: 'No se encontró la hoja PEDIDOS_REPUESTOS.' };
+    var dPed = hojaPed.getDataRange().getValues();
+    // col: 0 ID · 1 Fecha · 2 Reseller · 3 Email · 4 CantItems · 5 CantSinCatalogo ·
+    //      6 Estado · 7 Observaciones · 8 Items JSON · 9 PDF URL · 10 Total USD · 11 FormaPago · 12 Envio
+    var porNumero = {};
+    for (var i = 1; i < dPed.length; i++) {
+      var id = String(dPed[i][0] || '').trim();
+      if (id && !porNumero[id]) porNumero[id] = dPed[i];
+    }
+
+    var hojaNota = SpreadsheetApp.openById(NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
+    if (!hojaNota) return { ok: false, error: 'No se encontró la hoja Pedidos_resellers.' };
+    var dNota = hojaNota.getDataRange().getValues();
+
+    // Pedidos que YA tienen al menos 1 fila ahí → nunca duplicar, aunque el usuario los
+    // vuelva a pasar por error (rango que se superpone con otro ya recuperado, etc.)
+    var yaExiste = {};
+    for (var j = 1; j < dNota.length; j++) {
+      var numJ = String(dNota[j][0] || '').trim();
+      if (numJ) yaExiste[numJ] = true;
+    }
+
+    // Stock actual (Carmen) para decidir Confirmado/Pendiente_Revision igual que el flujo
+    // normal — best-effort: si falla, todo lo recuperado queda en Pendiente_Revision (más
+    // conservador, alguien lo revisa a mano antes de prepararlo).
+    var stockMap = {};
+    try {
+      var dStock = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('STOCK').getDataRange().getValues();
+      for (var s = 1; s < dStock.length; s++) {
+        var cod = String(dStock[s][0] || '').trim().toUpperCase();
+        if (cod) stockMap[cod] = Number(dStock[s][2]) || 0;
+      }
+    } catch (eStk) { Logger.log('LAUNCH_recuperarPedidos stockMap: ' + eStk); }
+
+    var tz = Session.getScriptTimeZone();
+    var resultado = { recuperados: [], filas: 0, yaExistian: [], noEncontrados: [], sinItems: [] };
+
+    for (var k = 0; k < numeros.length; k++) {
+      var numero = numeros[k];
+      if (yaExiste[numero]) { resultado.yaExistian.push(numero); continue; }
+      var fila = porNumero[numero];
+      if (!fila) { resultado.noEncontrados.push(numero); continue; }
+
+      var items = null;
+      try { items = JSON.parse(String(fila[8] || '')); } catch (eJ) { items = null; }
+      if (!items || !items.length) { resultado.sinItems.push(numero); continue; }
+
+      var reseller  = String(fila[2]  || '');
+      var obs       = String(fila[7]  || '');
+      var formaPago = String(fila[11] || '');
+      var envio     = String(fila[12] || '');
+      var fechaOrig = (fila[1] instanceof Date) ? fila[1] : new Date();
+      var notaObs   = '[Recuperado ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm') + ' desde PEDIDOS_REPUESTOS]' + (obs ? ' ' + obs : '');
+
+      var agregadas = 0;
+      for (var it = 0; it < items.length; it++) {
+        var item  = items[it] || {};
+        var skuUp = String(item.sku || '').trim().toUpperCase();
+        var cant  = Number(item.cantidad) || 0;
+        if (!skuUp && !item.descripcion) continue;   // línea vacía/corrupta en el JSON, se saltea
+        var prec     = Number(item.precio) || 0;
+        var stkH     = stockMap[skuUp] !== undefined ? stockMap[skuUp] : '';
+        var estadoNota = (stkH !== '' && stkH >= cant) ? 'Confirmado' : 'Pendiente_Revision';
+        var newRow = hojaNota.getLastRow() + 1;
+        hojaNota.appendRow([
+          numero, reseller, item.sku || '', item.descripcion || '', cant, 0,
+          '=E' + newRow + '-F' + newRow + '-Z' + newRow,
+          prec, stkH, estadoNota, fechaOrig, envio, formaPago, notaObs
+        ]);
+        agregadas++;
+      }
+      if (agregadas) { resultado.recuperados.push(numero); resultado.filas += agregadas; yaExiste[numero] = true; }
+      else resultado.sinItems.push(numero);
+    }
+
+    if (resultado.filas) SpreadsheetApp.flush();
+
+    var msg = 'Recuperados: ' + resultado.recuperados.length + ' pedido(s), ' + resultado.filas + ' fila(s) nueva(s).';
+    if (resultado.yaExistian.length)    msg += '\nYa existían (sin tocar): ' + resultado.yaExistian.join(', ') + '.';
+    if (resultado.noEncontrados.length) msg += '\nNo encontrados en PEDIDOS_REPUESTOS: ' + resultado.noEncontrados.join(', ') + '.';
+    if (resultado.sinItems.length)      msg += '\nSin ítems recuperables: ' + resultado.sinItems.join(', ') + '.';
+    msg += '\nOjo: quedan sin Thread ID — para que WOS conteste en el hilo original de cada uno, correr después "Recuperar Thread IDs perdidos".';
+
+    return { ok: true, total: numeros.length, resultado: resultado, msg: msg };
+  } catch (e) {
+    Logger.log('LAUNCH_recuperarPedidos: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 // ── Cuota diaria de Gmail restante ───────────────────────────
