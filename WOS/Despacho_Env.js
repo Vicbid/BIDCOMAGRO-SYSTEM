@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // URL fija del Web App, en vez de resolverla con ScriptApp.getService().getUrl() en cada mail.
 // Causa raíz de "los botones de decisión del reseller no funcionan" (reportado por el usuario):
 // getUrl() llamado desde una ejecución por TRIGGER (cron, no una request HTTP real — que es como
@@ -93,6 +93,9 @@ var COL = {
   CANT_CANCEL:        25,  // Z: unidades canceladas por reseller (Opción B) — fórmula CANT_PEND actualizar a =E-F-Z
   UBIC_PREP:          26,  // AA: bins elegidos al preparar, JSON [{bin,cant}] por ítem — descuento WMS se aplica al despachar
   PESO_PREP:          27,  // AB: peso exacto del paquete (kg) capturado al preparar — pre-llena el peso del bulto al despachar
+  DESCUENTO_PCT:      28,  // AC: % de descuento del reseller aplicado a ESTE pedido (0-100), fijado por Portal Reseller
+                           // al crearlo (confirmarPedidoPortal). Vacío = pedido viejo, anterior a este campo (no
+                           // se puede reconstruir con certeza). Se imprime en la Nota de Entrega (_wosGenerarPDF).
 };
 
 var COL_RS = { NOMBRE: 0, EMAIL: 9 };

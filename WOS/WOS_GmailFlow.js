@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.40
+// @version 2.41
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -96,6 +96,7 @@ function _wosLeerPedido(numero) {
     hoja: hoja, datos: datos,
     reseller: '', envio: '', pago: '', obs: '',
     threadId: '', tracking: '',
+    descuentoPct: null,   // % aplicado al pedido (0-100) o null = desconocido (pedido viejo, sin este campo)
     items: []
   };
   for (var i = 1; i < datos.length; i++) {
@@ -107,6 +108,8 @@ function _wosLeerPedido(numero) {
       res.obs      = String(datos[i][COL.OBS]          || '');
       res.threadId = String(datos[i][COL.THREAD_ID]    || '').trim();
       res.tracking = String(datos[i][COL.TRACKING]     || '').trim();
+      var _rawDp = datos[i][COL.DESCUENTO_PCT];
+      res.descuentoPct = (_rawDp === '' || _rawDp === null || _rawDp === undefined) ? null : (Number(_rawDp) || 0);
     }
     res.items.push({
       row:      i + 1,                                        // 1-indexed para getRange
@@ -503,7 +506,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 
     if (!itemsDesp.length) return { ok: false, error: 'Ningún ítem con cantidad > 0.' };
 
-    var pdfResult  = _wosGenerarPDF(numero, notaNumStr, ped.reseller, itemsDesp, fecha, transp, bultos, costo);
+    var pdfResult  = _wosGenerarPDF(numero, notaNumStr, ped.reseller, itemsDesp, fecha, transp, bultos, costo, ped.descuentoPct);
     var pdfBlob    = pdfResult ? pdfResult.blob : null;
     var pdfUrl     = pdfResult ? pdfResult.url  : '';
     var sheetUrl   = pdfResult ? (pdfResult.sheetUrl || '') : '';

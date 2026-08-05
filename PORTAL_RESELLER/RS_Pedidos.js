@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.8
+// @version 2.9
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -696,6 +696,11 @@ function confirmarPedidoPortal(params) {
           formaPago,                         // M: Método de pago
           obs                                // N: Observaciones
         ]);
+        // % de descuento aplicado a ESTE pedido (0-100) → col AC (29). WOS lo lee para mostrarlo
+        // en la Nota de Entrega (_wosGenerarPDF) y reconstruir el PVP real, en vez del 40% fijo
+        // que asumía antes. Mismo valor para todos los ítems del pedido (descuento es por reseller,
+        // no por línea).
+        try { notasHoja.getRange(newRow, 29).setValue(descInfo.pct); } catch(eDp) {}
       }
 
     }

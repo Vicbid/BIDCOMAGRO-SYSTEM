@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Generación del PDF de nota de entrega.
 //  Extraído de WOS_GmailFlow.js 2.30 el 2026-07-30 — reorganización
@@ -9,7 +9,10 @@
 // Genera PDF de Nota de Entrega, lo guarda en Drive y devuelve { blob, url, nombreNota }
 // notaNumStr: "01", "02", etc. (usar _wosNextNotaNum para obtenerlo)
 // transp y costoEnvio son opcionales. bultos = [{tracking, peso}, ...]
-function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bultos, costoEnvio) {
+// descuentoPct: % (0-100) aplicado al pedido, o null/undefined si es desconocido (pedido viejo,
+// anterior a que Portal Reseller empezara a guardarlo) — en ese caso NO se muestra la fila de
+// descuento y el PVP se omite (no hay forma confiable de reconstruirlo).
+function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bultos, costoEnvio, descuentoPct) {
   var tempSs = null;
   try {
     var meta     = _wosGetResellerMeta(reseller);
@@ -20,6 +23,11 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
     var pesoTotal = 0;
     for (var bi = 0; bi < bultos.length; bi++) pesoTotal += Number(bultos[bi].peso) || 0;
     pesoTotal = Math.round(pesoTotal * 1000) / 1000;
+    // Factor para reconstruir el PVP (precio de lista) desde el precio reseller ya con descuento.
+    // null = desconocido → no se puede calcular un PVP confiable, se omite esa columna.
+    var descPctNum = (descuentoPct === null || descuentoPct === undefined || descuentoPct === '') ? null : Number(descuentoPct);
+    if (descPctNum !== null && (isNaN(descPctNum) || descPctNum < 0 || descPctNum > 100)) descPctNum = null;
+    var descFactor = (descPctNum !== null && descPctNum < 100) ? (100 - descPctNum) / 100 : null;
 
     tempSs = SpreadsheetApp.create('TEMP_NE_' + numero);
     var sheet = tempSs.getActiveSheet();
@@ -60,6 +68,9 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
       ['Transportista',         transp         || '—'],
       ['Costo de Envío (ARS)',        costoEnvio > 0 ? '$ ' + _formatMoneda(costoEnvio) : '—']
     ];
+    if (descPctNum !== null) {
+      resellerRows.push(['Descuento Aplicado', descPctNum > 0 ? descPctNum + '% sobre precio de lista' : 'Sin descuento (precio de lista)']);
+    }
     for (var bri = 0; bri < bultos.length; bri++) {
       var bt     = bultos[bri];
       var bLabel = bultos.length > 1 ? 'Bulto ' + (bri + 1) : 'Nº de Seguimiento';
@@ -127,7 +138,7 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
         }
         var cant  = Number(it.cantDesp) || 0;
         var prec  = Number(it.precio)   || 0;
-        var pvp   = prec > 0 ? Math.round(prec / 0.60 * 100) / 100 : 0;
+        var pvp   = (prec > 0 && descFactor) ? Math.round(prec / descFactor * 100) / 100 : 0;
         var sub   = cant * prec;
         total    += sub;
         var rowBg = (altRow % 2 === 0) ? '#ffffff' : '#f5f7fa';
@@ -152,7 +163,7 @@ function _wosGenerarPDF(numero, notaNumStr, reseller, items, fecha, transp, bult
         var it   = items[i];
         var cant = Number(it.cantDesp) || 0;
         var prec = Number(it.precio)   || 0;
-        var pvp  = prec > 0 ? Math.round(prec / 0.60 * 100) / 100 : 0;
+        var pvp  = (prec > 0 && descFactor) ? Math.round(prec / descFactor * 100) / 100 : 0;
         var sub  = cant * prec;
         total   += sub;
         var rowBg = (i % 2 === 0) ? '#ffffff' : '#f5f7fa';
