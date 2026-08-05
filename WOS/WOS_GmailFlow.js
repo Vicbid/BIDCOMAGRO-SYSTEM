@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.39
+// @version 2.40
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -689,7 +689,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     // Forma de pago: OT con DJI aprobado → sin costo; OT sin aprobar → 30 días; PR → campo PAGO
     var _esDJIAprobado = _esNumeroOT(numero) && ped.obs.indexOf('DJI ✓ Aprobado') !== -1;
     var formaPago = _esNumeroOT(numero)
-      ? (_esDJIAprobado ? 'Sin costo — DJI aprobado' : 'A 30 días')
+      ? (_esDJIAprobado ? 'Sin costo — DJI aprobado' : 'A 30 días - Posible garantia')
       : (ped.pago || 'N/E');
     var tituloAdmin = hayDespPrevio
       ? "Facturar 2\xba env\xedo — Pedido " + numero + (hayBackorderPostDesp ? " <span style='font-weight:400;color:#b8860b'>(a\xfan hay pendientes)</span>" : "")
@@ -1492,6 +1492,94 @@ function WOS_detectarRespuestasResellers() {
     Logger.log('WOS_detectarRespuestasResellers ERROR: ' + e);
     return { ok: false, error: e.toString() };
   }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  DEBUG — diagnóstico manual de un pedido puntual que el reseller respondió
+//  ("Opción A"/"Opción B") pero WOS_detectarRespuestasResellers no tomó.
+//  Corré esta función desde el editor de Apps Script (seleccionarla → Ejecutar) pasándole
+//  el número de pedido como argumento por código, o cambiá el default de abajo. Mirá el
+//  resultado en Ver → Registros de ejecución (Logger) — también lo devuelve como objeto.
+//  No modifica nada, es de solo lectura.
+// ─────────────────────────────────────────────────────────────
+function WOS_debugRespuestaPedido(numero) {
+  numero = String(numero || '').trim();
+  var out = { numero: numero, filas: [], threadId: '', mensajes: [], veredicto: '' };
+  var hoja = _wosHoja();
+  if (!hoja) { out.veredicto = 'ERROR: no encontré la hoja Pedidos_resellers'; Logger.log(JSON.stringify(out, null, 2)); return out; }
+  var datos = hoja.getDataRange().getValues();
+
+  var hayEnEspera = false;
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    var est = String(datos[i][COL.ESTADO] || '').trim();
+    if (!out.threadId) out.threadId = String(datos[i][COL.THREAD_ID] || '').trim();
+    out.filas.push({ sku: datos[i][COL.SKU], estado: est, cantSol: datos[i][COL.CANT_SOL], cantDesp: datos[i][COL.CANT_DESP], cantCancel: datos[i][COL.CANT_CANCEL] });
+    if (est === EST.EN_ESPERA) hayEnEspera = true;
+  }
+
+  if (!out.filas.length) { out.veredicto = 'ERROR: no encontré ningún renglón con ese número de pedido'; Logger.log(JSON.stringify(out, null, 2)); return out; }
+  if (!hayEnEspera) {
+    out.veredicto = 'BLOQUEADO: ninguna fila está en estado "' + EST.EN_ESPERA + '" → el detector NI SIQUIERA mira este pedido (lo salta en el filtro inicial), sin importar lo que haya respondido el reseller. Estados actuales de las filas arriba.';
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  }
+  if (!out.threadId) {
+    out.veredicto = 'BLOQUEADO: hay filas en "' + EST.EN_ESPERA + '" pero threadId está vacío → el detector tampoco lo escanea.';
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  }
+
+  var thread = GmailApp.getThreadById(out.threadId);
+  if (!thread) {
+    out.veredicto = 'BLOQUEADO: GmailApp.getThreadById("' + out.threadId + '") no devolvió nada — el hilo no existe o no es accesible desde esta cuenta.';
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  }
+
+  var dominioInterno = '@bidcom.com.ar';
+  var messages = thread.getMessages();
+  var wosDataStr = null, resellerPlain = null, lastExtMsg = null;
+  for (var m = 0; m < messages.length; m++) {
+    var msg   = messages[m];
+    var from  = msg.getFrom().toLowerCase();
+    var plain = msg.getPlainBody();
+    var esInterno = from.indexOf(dominioInterno) >= 0;
+    out.mensajes.push({ from: msg.getFrom(), fecha: msg.getDate(), esInterno: esInterno, preview: plain.substring(0, 200) });
+    if (esInterno) {
+      var matchW = plain.match(/===WOSDATA===\s*([\s\S]*?)\s*===ENDWOSDATA===/);
+      if (matchW) wosDataStr = matchW[1].trim();
+    } else {
+      lastExtMsg    = msg;
+      resellerPlain = plain;
+    }
+  }
+
+  if (!resellerPlain || !lastExtMsg) {
+    out.veredicto = 'BLOQUEADO: el detector no encuentra ningún mensaje externo (from fuera de @bidcom.com.ar) en el hilo — revisá arriba la lista de mensajes y de qué dirección vino la respuesta.';
+    Logger.log(JSON.stringify(out, null, 2));
+    return out;
+  }
+
+  var rLow = resellerPlain.toLowerCase();
+  var esA  = /opci[oó]n\s*a\b/.test(rLow);
+  var esB  = /opci[oó]n\s*b\b/.test(rLow);
+  out.ultimoMensajeExterno = { from: lastExtMsg.getFrom(), textoCompleto: resellerPlain };
+  out.esA = esA;
+  out.esB = esB;
+  out.tieneWosData = !!wosDataStr;
+
+  if (esA && esB) {
+    out.veredicto = 'AMBIGUO: el texto del último mensaje externo contiene TANTO "Opción A" COMO "Opción B" (probablemente porque el reply citó el mail original, que menciona las dos) → el código toma "esA" primero y siempre resolvería Opción A, sea cual sea la intención real.';
+  } else if (!esA && !esB) {
+    out.veredicto = 'NO RECONOCIDO: el texto del último mensaje externo no contiene ni "Opción A" ni "Opción B" literal → el detector lo ignora (exactamente el log "respuesta no reconocida, se ignora"). Mirá "ultimoMensajeExterno.textoCompleto" para ver qué escribió.';
+  } else {
+    out.veredicto = 'DEBERÍA HABER FUNCIONADO: se detectó ' + (esA ? 'Opción A' : 'Opción B') + ' correctamente. Si el pedido sigue sin avanzar, el problema no está en el parseo — puede ser que el trigger de 10 min no esté instalado/corriendo (revisar en el editor de Apps Script → Activadores) o que haya tirado una excepción en esa corrida puntual (revisar Ejecuciones).';
+  }
+
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
 }
 
 
