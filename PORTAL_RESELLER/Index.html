@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.65 -->
+<!-- @version 1.66 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -252,12 +252,20 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 @keyframes sp{to{transform:rotate(360deg)}}
 .spin-t{font-size:11px;color:var(--tx-m);letter-spacing:.06em}
 
+/* Tab Recursos: Documentación técnica + Contacto y soporte lado a lado — antes iban
+   apiladas y "Contacto y soporte" quedaba muy abajo (reportado por resellers que no
+   llegaban a verla sin scrollear mucho). En mobile vuelve a apilarse (ver media query). */
+.rec-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.rec-2col .dji-card{margin-bottom:0}
+
 @media(max-width:600px){
   .tipo-grid{grid-template-columns:1fr 1fr}
   .wrap{padding:14px 12px 50px}
   .dash-row{grid-template-columns:1fr}
   .contacto-grid{grid-template-columns:1fr}
   .tab-btn{padding:5px 10px;font-size:11px}
+  .rec-2col{grid-template-columns:1fr;gap:0}
+  .rec-2col .dji-card{margin-bottom:14px}
 }
 
 /* ── Cuenta Corriente — estilo Mercado Pago ──── */
@@ -1410,66 +1418,68 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       </div>
     </div>
 
-    <div class="dji-card">
-      <div class="dji-card-head"><i class="fa fa-file-alt"></i> Documentación técnica</div>
-      <div class="dji-card-body">
-        <a href="https://docs.google.com/spreadsheets/d/1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0/" target="_blank" class="recurso-card">
-          <div class="recurso-icon" style="background:rgba(26,158,74,.1)"><i class="fa fa-table" style="color:var(--green)"></i></div>
-          <div>
-            <div class="recurso-name">Lista de precios oficial</div>
-            <div class="recurso-desc">Repuestos y accesorios DJI Agriculture — actualizada por BIDCOMAGRO</div>
-          </div>
-          <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-        </a>
-        <a href="https://drive.google.com/drive/folders/1ggC89KI8PnqPv2QZxNRtDSiTehkn2E44" target="_blank" class="recurso-card">
-          <div class="recurso-icon" style="background:rgba(0,163,224,.1)"><i class="fa fa-folder-open" style="color:var(--blue)"></i></div>
-          <div>
-            <div class="recurso-name">Vistas explotadas (Boomview)</div>
-            <div class="recurso-desc">Diagramas técnicos de drones, generadores y esparcidores</div>
-          </div>
-          <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-        </a>
-        <a href="https://usyhrzxlgz5.jp.larksuite.com/app/QkBAbcZA4arDbVsytnXjjfNapxh?pageId=pgee3FO7lbtzWOmh" target="_blank" class="recurso-card">
-          <div class="recurso-icon" style="background:rgba(100,100,255,.1)"><i class="fa fa-book-open" style="color:#6464ff"></i></div>
-          <div>
-            <div class="recurso-name">Documentación Lark</div>
-            <div class="recurso-desc">Base de conocimiento y recursos en Lark Suite</div>
-          </div>
-          <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-        </a>
-        <a href="https://dealersystem-abroad.dji.com/" target="_blank" class="recurso-card">
-          <div class="recurso-icon" style="background:rgba(26,26,26,.07)"><i class="fa fa-store" style="color:var(--tx)"></i></div>
-          <div>
-            <div class="recurso-name">DJI Dealer System</div>
-            <div class="recurso-desc">Portal oficial de distribuidores DJI Agriculture</div>
-          </div>
-          <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-        </a>
-      </div>
-    </div>
-
-    <div class="dji-card">
-      <div class="dji-card-head"><i class="fa fa-headset"></i> Contacto y soporte</div>
-      <div class="dji-card-body">
-        <div class="contacto-grid">
-          <a href="mailto:soporteagrasdji@bidcom.com.ar" class="contacto-item">
-            <i class="fa fa-envelope" style="color:var(--blue)"></i>
+    <div class="rec-2col">
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-file-alt"></i> Documentación técnica</div>
+        <div class="dji-card-body">
+          <a href="https://docs.google.com/spreadsheets/d/1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0/" target="_blank" class="recurso-card">
+            <div class="recurso-icon" style="background:rgba(26,158,74,.1)"><i class="fa fa-table" style="color:var(--green)"></i></div>
             <div>
-              <div style="font-size:12px;font-weight:600;color:var(--tx)">Email de soporte</div>
-              <div style="font-size:10px;color:var(--tx-m)">soporteagrasdji@bidcom.com.ar</div>
+              <div class="recurso-name">Lista de precios oficial</div>
+              <div class="recurso-desc">Repuestos y accesorios DJI Agriculture — actualizada por BIDCOMAGRO</div>
             </div>
+            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
           </a>
-          <a href="https://wa.me/5491130641898" target="_blank" class="contacto-item">
-            <i class="fab fa-whatsapp" style="color:#25d366;font-size:22px"></i>
+          <a href="https://drive.google.com/drive/folders/1ggC89KI8PnqPv2QZxNRtDSiTehkn2E44" target="_blank" class="recurso-card">
+            <div class="recurso-icon" style="background:rgba(0,163,224,.1)"><i class="fa fa-folder-open" style="color:var(--blue)"></i></div>
             <div>
-              <div style="font-size:12px;font-weight:600;color:var(--tx)">WhatsApp soporte</div>
-              <div style="font-size:10px;color:var(--tx-m)">+54 9 11 3064-1898</div>
+              <div class="recurso-name">Vistas explotadas (Boomview)</div>
+              <div class="recurso-desc">Diagramas técnicos de drones, generadores y esparcidores</div>
             </div>
+            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
+          </a>
+          <a href="https://usyhrzxlgz5.jp.larksuite.com/app/QkBAbcZA4arDbVsytnXjjfNapxh?pageId=pgee3FO7lbtzWOmh" target="_blank" class="recurso-card">
+            <div class="recurso-icon" style="background:rgba(100,100,255,.1)"><i class="fa fa-book-open" style="color:#6464ff"></i></div>
+            <div>
+              <div class="recurso-name">Documentación Lark</div>
+              <div class="recurso-desc">Base de conocimiento y recursos en Lark Suite</div>
+            </div>
+            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
+          </a>
+          <a href="https://dealersystem-abroad.dji.com/" target="_blank" class="recurso-card">
+            <div class="recurso-icon" style="background:rgba(26,26,26,.07)"><i class="fa fa-store" style="color:var(--tx)"></i></div>
+            <div>
+              <div class="recurso-name">DJI Dealer System</div>
+              <div class="recurso-desc">Portal oficial de distribuidores DJI Agriculture</div>
+            </div>
+            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
           </a>
         </div>
-        <div style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 14px;margin-top:10px;font-size:12px;color:var(--tx-m)">
-          <i class="fa fa-clock me-1" style="color:var(--blue)"></i>
-          Horario de atención: <strong style="color:var(--tx)">Lunes a Viernes de 08:00 a 17:00 hs</strong>
+      </div>
+
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-headset"></i> Contacto y soporte</div>
+        <div class="dji-card-body">
+          <div class="contacto-grid">
+            <a href="mailto:soporteagrasdji@bidcom.com.ar" class="contacto-item">
+              <i class="fa fa-envelope" style="color:var(--blue)"></i>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--tx)">Email de soporte</div>
+                <div style="font-size:10px;color:var(--tx-m)">soporteagrasdji@bidcom.com.ar</div>
+              </div>
+            </a>
+            <a href="https://wa.me/5491130641898" target="_blank" class="contacto-item">
+              <i class="fab fa-whatsapp" style="color:#25d366;font-size:22px"></i>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--tx)">WhatsApp soporte</div>
+                <div style="font-size:10px;color:var(--tx-m)">+54 9 11 3064-1898</div>
+              </div>
+            </a>
+          </div>
+          <div style="background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 14px;margin-top:10px;font-size:12px;color:var(--tx-m)">
+            <i class="fa fa-clock me-1" style="color:var(--blue)"></i>
+            Horario de atención: <strong style="color:var(--tx)">Lunes a Viernes de 08:00 a 17:00 hs</strong>
+          </div>
         </div>
       </div>
     </div>
