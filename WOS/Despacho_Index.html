@@ -1,4 +1,4 @@
-<!-- @version 3.50 -->
+<!-- @version 3.51 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4739,24 +4739,8 @@ function _renderStock() {
   for (var i = 0; i < lista.length; i++) {
     var it  = lista[i];
     var cls = it.stockActual <= 0 ? 'critico' : (it.stockActual <= it.stockMinimo ? 'bajo' : 'ok');
-    var enCaminoCell;
-    if (it.enCamino > 0) {
-      var _ocList = (it.enCaminoOcs && it.enCaminoOcs.length) ? it.enCaminoOcs.join(' · ') : '';
-      var _tipTxt = it.enCamino + ' u. en camino' + (_ocList ? ' · ' + _ocList : '');
-      var _etaTag = it.enCaminoETA
-        ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(it.enCaminoETA) + '</span>'
-        : '<span style="color:#B54708;font-size:10px;font-weight:600;margin-left:4px" title="Hay unidades en camino pero la compra no tiene ETA cargada — corré el cruce con el sheet externo en Stock Manager → Compras">sin ETA</span>';
-      var _resTag = (it.enCaminoReservado > 0) ? '<span style="color:#7c3c00;font-size:10px;margin-left:4px" title="Unidades ya reservadas a un reseller que aceptó esperar">(' + it.enCaminoReservado + ' reserv.)</span>' : '';
-      enCaminoCell = '<span title="' + escH(_tipTxt) + '" ' +
-        'style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:var(--r);' +
-        'background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + it.enCamino + '</span>' + _etaTag + _resTag;
-    } else {
-      enCaminoCell = '<span style="color:var(--tx-d)">—</span>';
-    }
-    var claseColors = { 'A':'#0052cc','B':'#00875a','C':'#f79009','D':'#8590a2' };
-    var claseCell = it.clase
-      ? '<span style="display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#fff;background:' + (claseColors[it.clase] || '#8590a2') + '">' + escH(it.clase) + '</span>'
-      : '<span style="color:var(--tx-d)">—</span>';
+    var enCaminoCell = _stkEnCaminoHtml(it);
+    var claseCell    = _stkClaseHtml(it);
     var fotoCell = it.foto
       ? '<img src="' + escH(_wosDriveThumb(it.foto, 44)) + '" onclick="_stkVerFoto(' + i + ')" style="width:30px;height:30px;object-fit:cover;border-radius:4px;cursor:zoom-in;border:1px solid var(--brd);display:block;margin:0 auto" title="Ver foto">'
       : '<span style="color:var(--tx-d)">—</span>';
@@ -4787,13 +4771,36 @@ function _renderStock() {
     '</table>';
 }
 
+// Helpers compartidos por _renderStock (tabla) y _renderStockFotos (grilla) — mismo HTML
+// exacto en las 2 vistas, para que "Fotos" muestre TODOS los datos que muestra la tabla
+// (pedido del usuario), no una versión resumida.
+function _stkClaseHtml(it) {
+  var claseColors = { 'A':'#0052cc','B':'#00875a','C':'#f79009','D':'#8590a2' };
+  return it.clase
+    ? '<span style="display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:800;letter-spacing:.05em;color:#fff;background:' + (claseColors[it.clase] || '#8590a2') + '">' + escH(it.clase) + '</span>'
+    : '<span style="color:var(--tx-d)">—</span>';
+}
+function _stkEnCaminoHtml(it) {
+  if (!(it.enCamino > 0)) return '<span style="color:var(--tx-d)">—</span>';
+  var _ocList = (it.enCaminoOcs && it.enCaminoOcs.length) ? it.enCaminoOcs.join(' · ') : '';
+  var _tipTxt = it.enCamino + ' u. en camino' + (_ocList ? ' · ' + _ocList : '');
+  var _etaTag = it.enCaminoETA
+    ? '<span style="color:#1d4ed8;font-size:10px;font-weight:600;margin-left:4px">llega ~' + escH(it.enCaminoETA) + '</span>'
+    : '<span style="color:#B54708;font-size:10px;font-weight:600;margin-left:4px" title="Hay unidades en camino pero la compra no tiene ETA cargada — corré el cruce con el sheet externo en Stock Manager → Compras">sin ETA</span>';
+  var _resTag = (it.enCaminoReservado > 0) ? '<span style="color:#7c3c00;font-size:10px;margin-left:4px" title="Unidades ya reservadas a un reseller que aceptó esperar">(' + it.enCaminoReservado + ' reserv.)</span>' : '';
+  return '<span title="' + escH(_tipTxt) + '" ' +
+    'style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:var(--r);' +
+    'background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:11px;font-weight:700">&#9992; ' + it.enCamino + '</span>' + _etaTag + _resTag;
+}
+
 // Vista alternativa tipo "Fotos" de Stock Manager: grilla de tarjetas con imagen, pedida por
 // el usuario para escanear visualmente el catálogo en vez de leer una tabla. Muestra hasta
 // STK_FOTOS_MAX ítems del resultado filtrado (mismo _stkItems/búsqueda/filtro que la tabla,
 // ver _renderStock) — si hay más, se pide acotar la búsqueda en vez de listarlos todos de una,
-// para no cargar cientos de miniaturas de golpe.
+// para no cargar cientos de miniaturas de golpe. Trae TODOS los datos que muestra la tabla
+// (estado, clase, stock, mínimo, en camino, ubicación, modelos) — pedido explícito del usuario,
+// no es una versión resumida de la tabla.
 function _renderStockFotos(lista) {
-  var claseColors = { 'A':'#0052cc','B':'#00875a','C':'#f79009','D':'#8590a2' };
   var mostrar = lista.slice(0, STK_FOTOS_MAX);
   var h = '<div class="stk-foto-grid">';
   for (var i = 0; i < mostrar.length; i++) {
@@ -4802,18 +4809,25 @@ function _renderStockFotos(lista) {
     var thumb = it.foto
       ? '<img src="' + escH(_wosDriveThumb(it.foto, 220)) + '" onclick="_stkVerFoto(' + i + ')" title="Ver foto">'
       : '<i class="fa fa-image"></i>';
-    var claseTag = it.clase
-      ? '<span style="display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-weight:800;letter-spacing:.05em;color:#fff;background:' + (claseColors[it.clase] || '#8590a2') + '">' + escH(it.clase) + '</span>'
-      : '';
+    var ubicHtml = it.ubicacion
+      ? '<span class="stk-ubic">' + escH(it.ubicacion) + '</span>'
+      : '<span style="color:var(--tx-d)">—</span>';
     h +=
       '<div class="stk-foto-card">' +
         '<div class="stk-foto-thumb">' + thumb + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+          '<span class="stk-badge ' + it.estado + '">' + it.estado + '</span>' +
+          _stkClaseHtml(it) +
+        '</div>' +
         '<div class="stk-foto-sku">' + escH(it.codigo) + '</div>' +
         '<div class="stk-foto-desc">' + escH(it.descripcion || '—') + '</div>' +
-        '<div class="stk-foto-meta">' +
-          '<span class="stk-num ' + cls + '" style="font-size:16px">' + it.stockActual + '</span>' +
-          claseTag +
+        '<div style="display:flex;gap:16px;align-items:baseline">' +
+          '<div><span style="font-size:9px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.05em;display:block">Stock</span><span class="stk-num ' + cls + '" style="font-size:17px">' + it.stockActual + '</span></div>' +
+          '<div><span style="font-size:9px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.05em;display:block">Mín.</span><span style="font-size:13px;font-weight:700;color:var(--tx-m)">' + it.stockMinimo + '</span></div>' +
         '</div>' +
+        '<div style="font-size:11px"><span style="color:var(--tx-d)">En camino:</span> ' + _stkEnCaminoHtml(it) + '</div>' +
+        '<div style="font-size:11px"><span style="color:var(--tx-d)">Ubicación:</span> ' + ubicHtml + '</div>' +
+        '<div class="stk-modelos" style="white-space:normal;max-width:none" title="' + escH(it.modelos) + '"><span style="color:var(--tx-d)">Modelos:</span> ' + escH(it.modelos || '—') + '</div>' +
       '</div>';
   }
   if (lista.length > STK_FOTOS_MAX) {
