@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  WOS — Reportes: resumen de envíos por reseller/mes + reporte
 //  de backorder (demanda perdida) por mail + su trigger.
@@ -254,7 +254,8 @@ function WOS_exportarResumenEnviosXLS(mesAnio) {
     hoja.setName('Resumen Envíos');
     hoja.appendRow(['Reseller', 'Fecha', 'Pedido', 'Nota de Entrega', 'Transportista', 'Tracking', 'Peso (kg)', 'Costo Envío']);
     for (var k = 0; k < filas.length; k++) hoja.appendRow(filas[k]);
-    hoja.appendRow([]);
+    hoja.appendRow(['']); // fila en blanco como separador — appendRow([]) (array VACÍO) tira
+                          // "No se puede pasar un valor de rowContents vacío a appendRow()"
     hoja.appendRow(['', '', '', '', '', 'TOTAL', Math.round(totalPeso * 100) / 100, totalCosto]);
     hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#00a3e0').setFontColor('#ffffff');
     hoja.autoResizeColumns(1, 8);
