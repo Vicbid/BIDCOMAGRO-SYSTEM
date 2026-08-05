@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Stock: consulta para operarios, despacho parcial/batch,
 //  ubicaciones de picking. (Distinto de WOS_StockSnapshot.js, que
@@ -175,6 +175,33 @@ function _wosFotoMapCatalogo() {
 }
 
 
+// Total de unidades despachadas históricamente por SKU, desde el log "Entregados" de Carmen
+// (cada despacho de WOS_despacharCompleto agrega ahí 1 fila por SKU con la cantidad — ver
+// WOS_GmailFlow.js). Se usa como "más vendido" para ordenar la vista Fotos del Stock (pedido
+// del usuario: "los primeros 20 artículos que muestre quiero que sean los más vendidos").
+// Cache 30 min — no hace falta al segundo, solo decide qué mostrar primero por default.
+function _wosVentasMap() {
+  var map = {};
+  try {
+    var cache  = CacheService.getScriptCache();
+    var cached = cache.get('wos_ventas_map_v1');
+    if (cached) return JSON.parse(cached);
+    var hoja = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName('Entregados');
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var sku  = String(d[i][0] || '').trim().toUpperCase();
+        var cant = Number(d[i][2]) || 0;
+        if (!sku || cant <= 0) continue;
+        map[sku] = (map[sku] || 0) + cant;
+      }
+    }
+    try { cache.put('wos_ventas_map_v1', JSON.stringify(map), 1800); } catch(eCp) {}
+  } catch(e) { Logger.log('_wosVentasMap: ' + e); }
+  return map;
+}
+
+
 function WOS_cargarStock(q) {
   try {
     // Lista principal: CARMEN hoja STOCK (A=SKU, B=nombre, C=stock actual)
@@ -259,6 +286,9 @@ function WOS_cargarStock(q) {
     // Fotos del catálogo (hoja TODO) — para mostrar/ver la imagen de los ítems que ya tienen
     var fotoMap = _wosFotoMapCatalogo();
 
+    // Unidades despachadas históricamente por SKU — "más vendido" para la vista Fotos
+    var ventasMap = _wosVentasMap();
+
     var datos  = hojaCarmen.getDataRange().getValues();
     var filtro = String(q || '').trim().toLowerCase();
     var out    = [];
@@ -307,7 +337,8 @@ function WOS_cargarStock(q) {
         enCaminoOcs: ecOcs,
         enCaminoETA: ecData ? (ecData.etaMin || '') : '',
         enCaminoReservado: ecData ? (ecData.reservado || 0) : 0,
-        foto:        fotoMap[codKey] || ''
+        foto:        fotoMap[codKey] || '',
+        ventas:      ventasMap[codKey] || 0
       });
     }
 

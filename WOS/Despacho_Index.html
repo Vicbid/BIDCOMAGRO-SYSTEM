@@ -1,4 +1,4 @@
-<!-- @version 3.51 -->
+<!-- @version 3.52 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4801,7 +4801,14 @@ function _stkEnCaminoHtml(it) {
 // (estado, clase, stock, mínimo, en camino, ubicación, modelos) — pedido explícito del usuario,
 // no es una versión resumida de la tabla.
 function _renderStockFotos(lista) {
-  var mostrar = lista.slice(0, STK_FOTOS_MAX);
+  // Pedido del usuario: los primeros 20 que se muestran (con o sin búsqueda) tienen que ser
+  // "los más vendidos" — se reordena por unidades despachadas históricamente (it.ventas, ver
+  // _wosVentasMap en WOS_Stock.js) antes de recortar, sin tocar el orden de la tabla ni de
+  // `lista`/`_stkItems` (esa ordenación es solo para esta vista).
+  var mostrar = lista.slice().sort(function(a, b) { return (b.ventas || 0) - (a.ventas || 0); }).slice(0, STK_FOTOS_MAX);
+  // _stkListaActual pasa a apuntar a ESTOS 20 en ESTE orden — _stkVerFoto(i) indexa por
+  // posición renderizada, no por la del array `lista` original (que quedó reordenado acá).
+  _stkListaActual = mostrar;
   var h = '<div class="stk-foto-grid">';
   for (var i = 0; i < mostrar.length; i++) {
     var it  = mostrar[i];
