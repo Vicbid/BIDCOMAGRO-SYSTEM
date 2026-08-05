@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.69 -->
+<!-- @version 1.70 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -201,7 +201,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .rep-item:last-child{border-bottom:none}
 .rep-item:hover{background:var(--raise)}
 .rep-thumb{width:32px;height:32px;border-radius:6px;overflow:hidden;background:var(--panel);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:13px;flex-shrink:0}
-.rep-thumb img{width:100%;height:100%;object-fit:cover}
+.rep-thumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
 .rep-code{font-size:11px;font-weight:700;color:var(--blue)}
 .rep-name{font-size:11px;color:var(--tx-m);margin-top:1px}
 .rep-qty{width:54px;background:#fff;border:1px solid var(--brd);color:var(--tx);border-radius:var(--r);padding:4px 6px;font-size:13px;text-align:center;flex-shrink:0}
@@ -6119,7 +6119,7 @@ function _pedRenderResultados(r) {
     var remplzE    = _escHtml(it.reemplazadoPor || '');
     var fotoE      = _escHtml(it.foto || '');
     var thumbHtml  = it.foto
-      ? '<img src="' + fotoE + '" loading="lazy">'
+      ? '<img src="' + fotoE + '" loading="lazy" onclick="event.stopPropagation();_repVerFoto(this)">'
       : '<i class="fa fa-image"></i>';
     html +=
       '<div class="rep-item" data-ped-sku="' + skuE + '" data-ped-desc="' + descE + '" data-ped-est="' + it.estado + '" data-ped-precio="' + (it.precio || 0) + '" data-ped-modelos="' + modE + '" data-ped-stock="' + stkActual + '" data-ped-remplz="' + remplzE + '" data-ped-foto="' + fotoE + '">' +
@@ -6195,6 +6195,31 @@ function _pedProgressBar(estado) {
   }
   html += '</div>';
   return html;
+}
+
+// Visor de foto ampliada — click en cualquier miniatura .rep-thumb (buscador o carrito).
+// Overlay creado on-demand, mismo patrón que _stkVerFoto de WOS (WOS/Despacho_Index.html).
+function _repVerFoto(imgEl) {
+  var src = imgEl && imgEl.src;
+  if (!src) return;
+  var ov = document.getElementById('rep-foto-ov');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'rep-foto-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(20,28,38,.78);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
+    ov.onclick = function(e) { if (e.target === ov) _repCerrarFoto(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML =
+    '<div style="max-width:min(90vw,560px);max-height:90vh;display:flex;flex-direction:column;align-items:center;gap:10px" onclick="event.stopPropagation()">' +
+      '<img src="' + _escHtml(src) + '" style="max-width:100%;max-height:82vh;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);background:#fff">' +
+      '<button class="btn-out" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.3)" onclick="_repCerrarFoto()">✕ Cerrar</button>' +
+    '</div>';
+  ov.style.display = 'flex';
+}
+function _repCerrarFoto() {
+  var ov = document.getElementById('rep-foto-ov');
+  if (ov) ov.style.display = 'none';
 }
 
 function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reemplazadoPor, foto) {
@@ -6362,7 +6387,7 @@ function _pedRenderCarrito() {
     var subtotal = p * it.cantidad;
     if (p > 0) total += subtotal;
     var cartThumb = it.foto
-      ? '<img src="' + _escHtml(it.foto) + '" loading="lazy">'
+      ? '<img src="' + _escHtml(it.foto) + '" loading="lazy" onclick="event.stopPropagation();_repVerFoto(this)">'
       : '<i class="fa fa-image"></i>';
     html +=
       '<div style="display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid var(--brd);gap:8px;font-size:12px">' +
