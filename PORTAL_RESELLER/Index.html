@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.67 -->
+<!-- @version 1.68 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -200,6 +200,8 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .rep-item{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s;gap:10px}
 .rep-item:last-child{border-bottom:none}
 .rep-item:hover{background:var(--raise)}
+.rep-thumb{width:32px;height:32px;border-radius:6px;overflow:hidden;background:var(--panel);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;color:var(--tx-d);font-size:13px;flex-shrink:0}
+.rep-thumb img{width:100%;height:100%;object-fit:cover}
 .rep-code{font-size:11px;font-weight:700;color:var(--blue)}
 .rep-name{font-size:11px;color:var(--tx-m);margin-top:1px}
 .rep-qty{width:54px;background:#fff;border:1px solid var(--brd);color:var(--tx);border-radius:var(--r);padding:4px 6px;font-size:13px;text-align:center;flex-shrink:0}
@@ -6115,9 +6117,14 @@ function _pedRenderResultados(r) {
     var pvpDisp    = _pedPvpDesde(it.precio);
     var stkActual  = (it.stockActual !== null && it.stockActual !== undefined) ? it.stockActual : -1;
     var remplzE    = _escHtml(it.reemplazadoPor || '');
+    var fotoE      = _escHtml(it.foto || '');
+    var thumbHtml  = it.foto
+      ? '<img src="' + fotoE + '" loading="lazy">'
+      : '<i class="fa fa-image"></i>';
     html +=
-      '<div class="rep-item" data-ped-sku="' + skuE + '" data-ped-desc="' + descE + '" data-ped-est="' + it.estado + '" data-ped-precio="' + (it.precio || 0) + '" data-ped-modelos="' + modE + '" data-ped-stock="' + stkActual + '" data-ped-remplz="' + remplzE + '">' +
-        '<div>' +
+      '<div class="rep-item" data-ped-sku="' + skuE + '" data-ped-desc="' + descE + '" data-ped-est="' + it.estado + '" data-ped-precio="' + (it.precio || 0) + '" data-ped-modelos="' + modE + '" data-ped-stock="' + stkActual + '" data-ped-remplz="' + remplzE + '" data-ped-foto="' + fotoE + '">' +
+        '<div class="rep-thumb">' + thumbHtml + '</div>' +
+        '<div style="flex:1;min-width:0">' +
           '<div class="rep-code">' + skuE + '</div>' +
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
           (it.descripcionEs && it.descripcionEs !== it.descripcion ? '<div style="font-size:10px;color:var(--tx-d);margin-top:1px">' + _escHtml(it.descripcionEs) + '</div>' : '') +
@@ -6141,7 +6148,7 @@ function _pedRenderResultados(r) {
   resDiv.onclick = function(e) {
     var row = e.target.closest('[data-ped-sku]');
     if (!row) return;
-    _pedAgregarItem(row.dataset.pedSku, row.dataset.pedDesc, row.dataset.pedEst, parseFloat(row.dataset.pedPrecio) || 0, row.dataset.pedModelos || '', parseFloat(row.dataset.pedStock), row.dataset.pedRemplz || '');
+    _pedAgregarItem(row.dataset.pedSku, row.dataset.pedDesc, row.dataset.pedEst, parseFloat(row.dataset.pedPrecio) || 0, row.dataset.pedModelos || '', parseFloat(row.dataset.pedStock), row.dataset.pedRemplz || '', row.dataset.pedFoto || '');
   };
 }
 
@@ -6190,7 +6197,7 @@ function _pedProgressBar(estado) {
   return html;
 }
 
-function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reemplazadoPor) {
+function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reemplazadoPor, foto) {
   var ids  = _repIds();
   var cart = _repCartActivo();
   var qty    = parseInt(document.getElementById(ids.qtyId).value) || 1;
@@ -6269,7 +6276,9 @@ function _pedAgregarItem(sku, desc, estado, precio, modelos, stockActual, reempl
       return;
     }
   }
-  cart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz });
+  // Si hubo auto-sustitución (skuViejo truthy), `foto` sigue siendo la del SKU viejo (el que
+  // llegó como parámetro) — no corresponde mostrarla para el SKU nuevo que terminó en el carrito.
+  cart.push({ sku: sku, descripcion: desc, estado: estado, cantidad: qty, precio: precio || 0, modelos: modelos || '', stockActual: stkVal, reemplazadoPor: remplz, foto: skuViejo ? '' : (foto || '') });
   _repRender();
   _pedLimpiarBusqueda();
   if (skuViejo) {
@@ -6352,8 +6361,12 @@ function _pedRenderCarrito() {
     var p        = Number(it.precio) || 0;
     var subtotal = p * it.cantidad;
     if (p > 0) total += subtotal;
+    var cartThumb = it.foto
+      ? '<img src="' + _escHtml(it.foto) + '" loading="lazy">'
+      : '<i class="fa fa-image"></i>';
     html +=
       '<div style="display:flex;align-items:center;padding:9px 13px;border-bottom:1px solid var(--brd);gap:8px;font-size:12px">' +
+        '<div class="rep-thumb">' + cartThumb + '</div>' +
         '<div style="flex:0 0 130px;font-family:monospace;font-size:11px;font-weight:700;color:var(--blue);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _escHtml(it.sku) + '">' + _escHtml(it.sku || '—') + '</div>' +
         '<div style="flex:1;min-width:0">' +
           '<div style="color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _escHtml(it.descripcion) + '">' + _escHtml(it.descripcion) + '</div>' +

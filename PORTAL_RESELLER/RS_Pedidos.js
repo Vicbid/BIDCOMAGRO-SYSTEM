@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.11
+// @version 2.12
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -155,6 +155,7 @@ function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
     }
 
     var priceMap = _buildPriceMap(_factor);
+    var fotoMap  = _repFotoMapCatalogo();
 
     var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
     var D   = SCHEMA.DB_REPUESTOS;
@@ -194,6 +195,7 @@ function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
         precio:         priceMap[skuUp] || 0,
         stockActual:    stockMap[skuUp] !== undefined ? stockMap[skuUp] : null,
         reemplazadoPor: remplz,
+        foto:           fotoMap[skuUp] || '',
         _score:         score
       });
     }
@@ -226,6 +228,7 @@ function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
             precio:         Math.round((Number(accRows2[ai2][3]) || 0) * _factor * 100) / 100,
             stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
             reemplazadoPor: '',
+            foto:           fotoMap[aSkuUp2] || '',
             _score:         aScore2
           });
         }

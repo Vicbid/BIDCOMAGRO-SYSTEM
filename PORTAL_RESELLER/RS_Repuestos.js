@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.8
+// @version 1.9
 //  PORTAL RESELLER BIDCOM — Repuestos, cotizaciones y catálogo
 // ============================================================
 
@@ -251,6 +251,58 @@ function _driveUrlToImg(url) {
   m = url.match(/[?&]id=([A-Za-z0-9_-]+)/);
   if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
   return url; // URL directa (CDN, etc.) — devolver tal cual
+}
+
+// SKU (mayúsculas) → URL de foto, desde la misma hoja TODO que usa RS_getListaPrecios (misma
+// spreadsheet LISTA_PRECIOS_SS_ID, mismo manejo de rich-text/chips en col H). Se separa de
+// RS_getListaPrecios porque esa devuelve el catálogo entero (descripciones, precios, etc.) y
+// su cache puede no entrar en el límite de 90KB de CacheService para catálogos grandes — este
+// mapa es mucho más chico (solo SKU + foto) así siempre cachea. Pedido del usuario: mostrar una
+// miniatura en el buscador de "Carrito de Repuestos" y en el carrito.
+function _repFotoMapCatalogo() {
+  var CKEY  = 'rep_foto_map_v1';
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(CKEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch(e) {}
+  }
+  var map = {};
+  try {
+    var ss      = SpreadsheetApp.openById(LISTA_PRECIOS_SS_ID);
+    var sheet   = ss.getSheetByName('TODO');
+    var lastRow = sheet ? sheet.getLastRow() : 0;
+    if (sheet && lastRow > 1) {
+      var rows     = sheet.getRange(1, 1, lastRow, 8).getValues();
+      var richColH = sheet.getRange(2, 8, lastRow - 1, 1).getRichTextValues();
+      for (var i = 1; i < rows.length; i++) {
+        var sku = String(rows[i][1] || '').trim().toUpperCase();
+        if (!sku) continue;
+        var fotoPlain = String(rows[i][7] || '').trim();
+        var fotoUrl   = (fotoPlain.indexOf('http') === 0) ? fotoPlain : '';
+        if (!fotoUrl) {
+          try {
+            var richCell = richColH[i - 1] && richColH[i - 1][0];
+            if (richCell) {
+              fotoUrl = richCell.getLinkUrl() || '';
+              if (!fotoUrl) {
+                var runs = richCell.getRuns();
+                for (var r = 0; r < runs.length; r++) {
+                  var ru = runs[r].getLinkUrl();
+                  if (ru) { fotoUrl = ru; break; }
+                }
+              }
+            }
+          } catch(eFoto) {}
+        }
+        if (fotoUrl) map[sku] = _driveUrlToImg(fotoUrl);
+      }
+    }
+  } catch(e) { Logger.log('_repFotoMapCatalogo: ' + e); }
+  try {
+    var payload = JSON.stringify(map);
+    if (payload.length < 90000) cache.put(CKEY, payload, 3600);
+  } catch(eCa) {}
+  return map;
 }
 
 function RS_getListaPrecios() {
