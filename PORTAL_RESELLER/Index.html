@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.64 -->
+<!-- @version 1.65 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -777,7 +777,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <i class="fa fa-bullhorn"></i> Novedades
       <span class="tab-badge" id="badge-nov" style="background:var(--red);color:#fff">0</span>
     </button>
-    <button class="tab-btn" id="tb-curso" onclick="pedirPinCurso()">
+    <button class="tab-btn" id="tb-curso" onclick="pedirPinCurso()" style="display:none">
       <i class="fa fa-graduation-cap"></i> Curso
       <span class="tab-badge" id="badge-curso" style="display:none;background:var(--red);color:#fff">!</span>
     </button>
@@ -2426,6 +2426,10 @@ function _cursoAplicarBadge(evs) {
   for (var i = 0; i < evs.length; i++) if (!evs[i].miInscripcion) pend++;
   var badge = document.getElementById('badge-curso');
   var tab   = document.getElementById('tb-curso');
+  // La pestaña entera solo se muestra si hay al menos 1 evento activo (obtenerEventosPortal ya
+  // filtra por _evActivo del lado del servidor) — antes quedaba visible siempre, mostrando "No
+  // hay cursos ni eventos abiertos por ahora" al entrar, aunque el único curso estuviera desactivado.
+  if (tab) tab.style.display = evs.length ? '' : 'none';
   if (pend > 0) {
     if (badge) { badge.textContent = pend > 1 ? String(pend) : '!'; badge.style.display = ''; }
     if (tab) tab.classList.add('camp-viva');
