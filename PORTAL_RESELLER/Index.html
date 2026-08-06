@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.71 -->
+<!-- @version 1.72 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -140,6 +140,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .dash-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:4px}
 .dash-dias{font-size:10px;font-weight:700}
 .dash-dias.verde{color:var(--green)}.dash-dias.amarillo{color:var(--yellow)}.dash-dias.rojo{color:var(--red)}
+/* "Mis Reparaciones": la tabla de 9-10 columnas no entra cómoda en un celular
+   (queda con scroll horizontal). En mobile se reemplaza por tarjetas, mismo
+   patrón .dash-ot-card que ya usa la búsqueda por S/N con múltiples resultados. */
+.dash-cards-wrap{display:none}
+.dash-ot-card .dc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px}
+.dash-ot-card .dc-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--tx-d);margin-top:6px;gap:8px}
+.dash-ot-card .dc-meta span:last-child{text-align:right;white-space:nowrap}
 
 /* ── LOGIN MODAL PIN ────────────────────── */
 .pin-modal-body{text-align:center;padding:28px 24px!important}
@@ -293,6 +300,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   .gest-mode-btn{padding:8px 6px;font-size:11px;gap:4px}
 
   .help-bar{flex-wrap:wrap;row-gap:6px}
+
+  /* "Mis Reparaciones": tarjetas en vez de la tabla ancha (ver .dash-cards-wrap) */
+  .dash-table-card{display:none}
+  .dash-cards-wrap{display:block}
 }
 
 /* ── Cuenta Corriente — estilo Mercado Pago ──── */
@@ -357,14 +368,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .gest-mode-btn{flex:1;padding:8px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);font-size:12px;font-weight:600;border-radius:var(--rm);cursor:pointer;transition:all .13s;display:flex;align-items:center;justify-content:center;gap:6px}
 .gest-mode-btn:hover{border-color:var(--brd2);color:var(--tx);background:var(--raise)}
 .gest-mode-btn.active{background:var(--blue-a);border-color:rgba(0,163,224,.35);color:var(--blue)}
-.gest-esc-card{flex:1;background:var(--surf);border:2px solid var(--brd);border-radius:var(--rm);padding:14px 16px;cursor:pointer;transition:all .13s;display:flex;align-items:center;gap:12px}
-.gest-esc-card:hover{border-color:var(--brd2);background:var(--raise)}
-.gest-esc-card.selected{border-color:var(--blue);background:var(--blue-a)}
-.gest-esc-letra{width:36px;height:36px;border-radius:50%;background:var(--brd);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--tx-m);flex-shrink:0;transition:all .13s}
-.gest-esc-card.selected .gest-esc-letra{background:var(--blue);color:#fff}
-.gest-esc-titulo{font-size:12px;font-weight:600;color:var(--tx-m)}
-.gest-esc-card.selected .gest-esc-titulo{color:var(--blue)}
-.gest-esc-desc{font-size:11px;color:var(--tx-d);margin-top:1px}
 .gest-upload-zone{border:2px dashed var(--brd2);border-radius:var(--rm);padding:32px 20px;text-align:center;cursor:pointer;transition:all .13s;background:var(--surf)}
 .gest-upload-zone:hover,.gest-upload-zone.drag{border-color:var(--blue);background:var(--blue-b)}
 .gest-preview-row{border-bottom:1px solid var(--brd)}
@@ -456,6 +459,14 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .gest-mode-btn.cat-nuevo.active .cat-nuevo-badge{background:var(--tx-d)}
 .tab-btn.camp-viva{box-shadow:0 0 0 2px var(--blue-a);border-color:rgba(0,163,224,.25)}
 .tab-btn.camp-viva.active{box-shadow:none;border-color:transparent}
+
+/* "Función nueva": punto que se apaga solo la primera vez que el reseller
+   toca ese elemento (ver NUEVAS_FEATURES / _nfAplicar en el script). A
+   diferencia de camp-viva/cat-nuevo (siempre prendidos), este se acuerda
+   por reseller vía localStorage y no vuelve a aparecer una vez visto. */
+.nf-nuevo{position:relative}
+.nf-nuevo::after{content:'';position:absolute;top:1px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px #fff;animation:nf-pulse 1.6s ease-in-out infinite;pointer-events:none}
+@keyframes nf-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.55}}
 </style>
 
 <!-- SPINNER -->
@@ -1383,7 +1394,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
     <!-- Tabla de órdenes -->
     <div id="dash-grid" style="display:none">
-      <div class="dji-card mb-0" style="overflow:hidden">
+      <div class="dji-card mb-0 dash-table-card" style="overflow:hidden">
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead id="dash-thead">
@@ -1404,6 +1415,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           </table>
         </div>
       </div>
+      <div class="dash-cards-wrap" id="dash-cards"></div>
     </div>
 
     <div id="dash-empty" style="display:none">
@@ -3628,6 +3640,7 @@ function renderDashFiltrado() {
   var tbody  = document.getElementById('dash-tbody');
   var thead  = document.getElementById('dash-thead');
   var cnt    = document.getElementById('dash-count');
+  var cards  = document.getElementById('dash-cards');
   if (!tbody) return;
 
   var esGrupo   = !!grupoActual;
@@ -3658,12 +3671,14 @@ function renderDashFiltrado() {
   if (!filtrados.length) {
     var emptyMsg = esCerrada ? 'No hay órdenes cerradas.' : 'No tenés órdenes activas en este momento.';
     tbody.innerHTML = '<tr><td colspan="' + cols + '" style="padding:28px;text-align:center;color:var(--tx-d);font-size:12px">' + emptyMsg + '</td></tr>';
+    if (cards) cards.innerHTML = '<div style="padding:28px;text-align:center;color:var(--tx-d);font-size:12px">' + emptyMsg + '</div>';
     return;
   }
 
   var semEstados = { 'Finalizado':'var(--green)', 'Entregado':'var(--green)', 'Abierto':'var(--blue)',
                      'Presupuesto enviado':'var(--indigo)', 'Espera de repuestos':'var(--yellow)', 'CANCELADO':'var(--red)' };
-  var h = '';
+  var h      = '';
+  var hCards = '';
   for (var i = 0; i < filtrados.length; i++) {
     var o        = filtrados[i];
     var semDias  = _esTerminal(o.estado) ? 'var(--tx-d)' : (o.dias <= 5 ? 'var(--green)' : (o.dias <= 10 ? 'var(--yellow)' : 'var(--red)'));
@@ -3672,21 +3687,35 @@ function renderDashFiltrado() {
     if (o.msgNoLeido) badges += '<span style="margin-left:4px;background:#e74c3c;color:#fff;font-size:8px;font-weight:700;border-radius:3px;padding:1px 5px">MSG</span>';
     if (o.prioridad)  badges += '<span style="margin-left:4px;background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:3px;padding:1px 5px">URG</span>';
     var fechaCol = esCerrada ? (o.fechaCierre || '—') : (o.fechaIngreso || '—');
-    h += '<tr style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="abrirOTDesdeHistorial(\'' + o.sn.replace(/'/g,"\\'") + '\',\'' + o.ot.replace(/'/g,"\\'") + '\')" onmouseover="this.style.background=\'var(--blue-a)\'" onmouseout="this.style.background=\'\'">';
+    var _ubTxt   = o.circuito === 'Taller' ? '📍 Carmen de Areco' : '📍 En tu taller';
+    var garHtml  = '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + (o.garantia==='IW'?'rgba(26,158,74,.15)':'rgba(255,87,34,.1)') + ';color:' + (o.garantia==='IW'?'var(--green)':'var(--red)') + '">' + o.garantia + '</span>';
+    var onclickAttr = 'abrirOTDesdeHistorial(\'' + o.sn.replace(/'/g,"\\'") + '\',\'' + o.ot.replace(/'/g,"\\'") + '\')';
+
+    h += '<tr style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="' + onclickAttr + '" onmouseover="this.style.background=\'var(--blue-a)\'" onmouseout="this.style.background=\'\'">';
     h += '<td style="padding:10px 12px;font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap">' + o.ot + badges + '</td>';
     h += '<td style="padding:10px 12px;font-size:12px;color:var(--tx)">' + (o.equipo||'—') + '</td>';
     h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-m);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (o.cliente||'') + '">' + (o.cliente || '<span style="color:var(--tx-d)">—</span>') + '</td>';
     h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-d);font-family:monospace">' + (o.sn||'—') + '</td>';
-    h += '<td style="padding:10px 12px"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + (o.garantia==='IW'?'rgba(26,158,74,.15)':'rgba(255,87,34,.1)') + ';color:' + (o.garantia==='IW'?'var(--green)':'var(--red)') + '">' + o.garantia + '</span></td>';
+    h += '<td style="padding:10px 12px">' + garHtml + '</td>';
     h += '<td style="padding:10px 12px"><span style="font-size:11px;font-weight:600;color:' + estColor + '">' + o.estado + '</span></td>';
     h += '<td style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:' + semDias + '">' + o.dias + 'd</td>';
     h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-d);white-space:nowrap">' + fechaCol + '</td>';
-    var _ubTxt = o.circuito === 'Taller' ? '📍 Carmen de Areco' : '📍 En tu taller';
     h += '<td style="padding:10px 12px;font-size:10px;font-weight:600;color:var(--tx-m);white-space:nowrap">' + _ubTxt + '</td>';
     if (esGrupo) h += '<td style="padding:10px 12px;font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis" title="' + (o.sucursal||'') + '">' + (o.sucursal||'—') + '</td>';
     h += '</tr>';
+
+    hCards += '<div class="dash-ot-card' + (esCerrada ? ' fin' : '') + '" onclick="' + onclickAttr + '">' +
+      '<div class="dc-top"><div class="dash-ot-num">' + o.ot + badges + '</div>' + garHtml + '</div>' +
+      '<div class="dash-eq">' + (o.equipo||'—') + '</div>' +
+      (o.cliente ? '<div class="dash-sn">' + o.cliente + '</div>' : '') +
+      '<div class="dash-sn">S/N: ' + (o.sn||'—') + '</div>' +
+      (esGrupo && o.sucursal ? '<div class="dash-sn" style="color:var(--blue);font-weight:600">' + o.sucursal + '</div>' : '') +
+      '<div class="dash-foot"><span class="b-est" style="color:' + estColor + ';border-color:currentColor">' + o.estado + '</span><span class="dash-dias" style="color:' + semDias + '">' + o.dias + 'd</span></div>' +
+      '<div class="dc-meta"><span>' + _ubTxt + '</span><span>' + fechaCol + '</span></div>' +
+    '</div>';
   }
   tbody.innerHTML = h;
+  if (cards) cards.innerHTML = hCards;
 }
 
 function abrirOTDesdeHistorial(sn, ot) {
@@ -8115,6 +8144,55 @@ function _mostrarBotonesLogueado() {
   if (btnPerfil) btnPerfil.style.display = 'inline-block';
   if (tbPerfil)  tbPerfil.style.display  = '';
   _verificarDireccion();
+  _nfAplicar();
+}
+
+// ══════════════════════════════════════════
+//  FUNCIONES NUEVAS — recordarle a cada reseller qué no vio todavía
+// ══════════════════════════════════════════
+// Para avisar de una función nueva: agregar acá un id ÚNICO y PERMANENTE
+// (nunca reusar uno viejo) + el selector del elemento a resaltar (ej. el
+// botón de una pestaña). Aparece un punto rojo pulsante hasta que el
+// reseller toca ese elemento una vez; a partir de ahí queda guardado en
+// localStorage (por reseller) y no vuelve a mostrarse — ni ese día ni
+// cuando vuelva a entrar. No hace falta borrar la entrada después.
+var NUEVAS_FEATURES = [
+  { id: 'fotos-carrito-repuestos-2026-08', selector: '#tb-ped' }
+];
+
+function _nfStorageKey() {
+  return 'rs_nf_vistas::' + (resellerActual || '');
+}
+function _nfVistas() {
+  try { return JSON.parse(localStorage.getItem(_nfStorageKey())) || []; }
+  catch (e) { return []; }
+}
+function _nfMarcarVista(id) {
+  var vistas = _nfVistas();
+  if (vistas.indexOf(id) !== -1) return;
+  vistas.push(id);
+  try { localStorage.setItem(_nfStorageKey(), JSON.stringify(vistas)); } catch (e) {}
+}
+function _nfAplicar() {
+  if (!resellerActual) return;
+  var vistas = _nfVistas();
+  NUEVAS_FEATURES.forEach(function(f) {
+    if (vistas.indexOf(f.id) !== -1) return;
+    var els = document.querySelectorAll(f.selector);
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      el.classList.add('nf-nuevo');
+      if (el._nfClickBound) continue;
+      el._nfClickBound = true;
+      el.addEventListener('click', (function(fid, sel) {
+        return function() {
+          _nfMarcarVista(fid);
+          var vistos = document.querySelectorAll(sel);
+          for (var j = 0; j < vistos.length; j++) vistos[j].classList.remove('nf-nuevo');
+        };
+      })(f.id, f.selector));
+    }
+  });
 }
 
 function abrirPerfil() {
