@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.75 -->
+<!-- @version 1.76 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6198,12 +6198,21 @@ function _pedBuscar(immediate) {
   }, delay);
 }
 
+var _pedIndiceCargando = false; // evita pedir el índice 2 veces en simultáneo (ver abajo)
 function _pedCargarIndice() {
+  // _pedMostrarMain (al abrir "Carrito de Repuestos") y _catCargar (al entrar a
+  // Catálogo) pueden llamar a esto casi al mismo tiempo — sin este guard salían
+  // dos pedidos idénticos en paralelo a obtenerIndiceRepuestosPortal (la parte
+  // más pesada de armar), compitiendo entre sí y atrasando a los dos en vez de
+  // acelerar nada. Con esto, el segundo llamado simplemente no hace nada nuevo.
+  if (_pedIndiceCargando) return;
+  _pedIndiceCargando = true;
   _pedIndice = null;
   var inp = document.getElementById('ped-q');
   if (inp) inp.placeholder = 'Preparando búsqueda rápida…';
   google.script.run
     .withSuccessHandler(function(r) {
+      _pedIndiceCargando = false;
       _pedIndice = (r && r.ok && r.items) ? r.items : [];
       if (r && typeof r.descuentoPct === 'number') _pedDtoPct = r.descuentoPct;
       var inp2 = document.getElementById('ped-q');
@@ -6216,6 +6225,7 @@ function _pedCargarIndice() {
       if (catModal && catModal.style.display === 'block' && _catConjActual) _catAbrir(_catConjActual.id);
     })
     .withFailureHandler(function() {
+      _pedIndiceCargando = false;
       _pedIndice = []; // fallback a búsqueda en servidor
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
