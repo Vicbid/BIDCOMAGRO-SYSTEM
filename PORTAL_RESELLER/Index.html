@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.76 -->
+<!-- @version 1.77 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -809,7 +809,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div style="font-size:13px;font-weight:700;color:var(--tx)">Hay una versión más nueva del portal</div>
       <div style="font-size:12px;color:var(--tx-m);margin-top:2px">Esta pestaña quedó abierta desde antes de la última actualización. Actualizá para ver las últimas mejoras.</div>
     </div>
-    <button onclick="location.reload()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+    <button onclick="_recargarAppFresca()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
       <i class="fa fa-rotate" style="margin-right:5px"></i>Actualizar ahora
     </button>
   </div>
@@ -2310,6 +2310,18 @@ var busTimer;
 var _deployUrl     = '<?= DEPLOY_URL ?>';
 var _portalVersionCargada = '<?= PORTAL_VERSION ?>'; // versión con la que cargó ESTA pestaña — ver _chequearVersionNueva
 
+// Recarga "de verdad" navegando la ventana TOP al web app en vez de location.reload().
+// Mismo motivo que ya documenta cerrarSesion(): el portal corre dentro del iframe
+// sandbox de Apps Script, y location.reload() recarga solo ese frame interno — el
+// contenido real se sirve vía el wrapper de Google, así que queda en blanco. Navegar
+// el top hace un doGet fresco de verdad (con el código ya actualizado).
+function _recargarAppFresca() {
+  try {
+    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
+  } catch (e) {}
+  location.reload();
+}
+
 // ── Detección de pestaña vieja abierta ──────────────────────────────────
 // El reseller suele dejar el portal abierto en una pestaña de Chrome sin
 // cerrar (cargar la dirección de envío es incómodo, así que evitan repetirlo)
@@ -3081,14 +3093,7 @@ function cerrarSesion() {
     sessionStorage.removeItem('portal_session');
     sessionStorage.setItem('portal_logout', '1'); // fuerza el modal de PIN tras recargar
   } catch(e) {}
-  // Recarga limpia navegando la ventana TOP al web app. NO usar location.reload():
-  // dentro del iframe sandbox de Apps Script recarga el frame interno y deja la página
-  // en blanco (el contenido real se sirve vía el wrapper de Google, no es recargable).
-  // Navegar el top hace un doGet fresco → muestra el login. Fallback a reload si no hay URL.
-  try {
-    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
-  } catch(e) {}
-  location.reload();
+  _recargarAppFresca(); // navega el top al web app — ver por qué NO location.reload() ahí mismo
 }
 
 // ══════════════════════════════════════════
