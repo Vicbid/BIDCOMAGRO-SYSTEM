@@ -1,4 +1,4 @@
-// @version 2.1
+// @version 2.2
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -552,10 +552,6 @@ function _cpMailAprobacionHtml(idVenta, comandas, det, pdfs, notaAprob, itemsEnv
         chip('Reseller', esc(det.reseller||'—'))+
         chip('Operación', esc(det.operacion||'—'))+
         chip('PDF comanda', pdfHtml)+
-      '</table>'+
-      '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin:6px 0 8px">Detalle a cargar (este envío)</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e0e3e8;border-radius:8px;overflow:hidden">'+
-        (_cpMailItemsRows(itemsEnviados, esc) || '<tr><td style="padding:8px;color:#999">Sin detalle</td></tr>')+
       '</table>'+
       '<div style="margin-top:18px;font-size:11px;color:#aaa">Enviado automáticamente desde Comandas · Carga Masterchief.</div>'+
     '</div>'+
