@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.43 -->
+<!-- @version 5.44 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -238,6 +238,27 @@ tr:last-child td{border-bottom:none}
 .bin-chip.sel{border-color:var(--orange);background:rgba(212,137,10,.10);color:var(--orange)}
 .bin-chip-lbl{font-family:monospace;font-size:12px;font-weight:700}
 .bin-chip-qty{font-size:11px;color:var(--tx-d)}
+/* Unificar ubicaciones */
+.unif-card{padding:13px 15px}
+.unif-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.unif-sku{font-family:monospace;font-size:10px;color:var(--tx-d);letter-spacing:.02em}
+.unif-title-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:1px}
+.unif-title{font-weight:700;font-size:13.5px;color:var(--tx)}
+.unif-badge-rec{display:inline-flex;align-items:center;gap:3px;background:rgba(212,137,10,.14);color:var(--orange);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.unif-meta{font-size:11px;color:var(--tx-d);margin-top:3px}
+.unif-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.unif-chip{display:inline-flex;align-items:baseline;gap:6px;background:var(--raise);border:1px solid var(--brd);border-radius:var(--r);padding:5px 9px;font-size:11px}
+.unif-chip-bin{font-family:monospace;font-weight:700;color:var(--tx-m)}
+.unif-chip-cant{color:var(--tx-d)}
+.unif-chip-low{background:rgba(212,137,10,.07);border-color:rgba(212,137,10,.35)}
+.unif-chip-low .unif-chip-bin{color:var(--orange)}
+.unif-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--brd)}
+.unif-btn-ghost{background:none;border:1px solid var(--brd);color:var(--tx-d);font-size:11px;padding:6px 11px;border-radius:var(--r);cursor:pointer;font-family:var(--f)}
+.unif-btn-ghost:hover{color:var(--red);border-color:var(--red)}
+.unif-btn-ghost::after{display:inline-block;margin-left:6px;vertical-align:.15em;content:"";border-top:4px solid;border-right:4px solid transparent;border-left:4px solid transparent}
+.unif-dd-menu{font-size:12px;min-width:220px}
+.unif-dd-menu .dropdown-item{padding:8px 14px;white-space:normal;line-height:1.35}
+.unif-desc-fecha{font-size:10px;color:var(--tx-d);margin-top:2px}
 /* Qty stepper */
 .qty-row{display:flex;align-items:center;gap:0;border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;width:max-content}
 .qty-btn{width:36px;height:36px;border:none;background:var(--raise);cursor:pointer;font-size:16px;color:var(--tx-m);transition:background .1s;flex-shrink:0}
@@ -7499,30 +7520,59 @@ function _scEliminar(sku) {
 // ══════════════════════════════════════════
 // Se arma 100% del lado del cliente a partir de stockData (ya trae item.ubicaciones =
 // [{ubicacion,cantidad}] desde Carmen, ver cargarStock en Sm_Stock.js) — no pega al server hasta
-// que el operador confirma una unificación puntual. "No se puede unificar" es solo un descarte
-// de sesión/navegador (localStorage), sin registro server-side — a pedido del usuario.
-var _SM_UNIF_KEY = 'sm_unif_descartados';
+// que el operador confirma una unificación puntual. "No se puede unificar" es solo un descarte de
+// sesión/navegador (localStorage), sin registro server-side — a pedido del usuario, guardado con
+// vencimiento: 30 días (por ahora no, pero puede cambiar pronto) o 6 meses (no entra físicamente
+// en un bin, revisar bastante más adelante). Al vencer, vuelve a aparecer solo.
+var _SM_UNIF_KEY = 'sm_unif_descartados'; // { SKU: timestampMs en que vence el descarte }
+var _SM_UNIF_DIAS_CORTO = 30;
+var _SM_UNIF_DIAS_LARGO = 180; // ~6 meses
 var _smUnifVerDescartados = false;
 // Promedio de unidades por ubicación por debajo del cual se marca "Recomendado": pocas unidades
 // repartidas en muchos lugares es el caso más fácil de unificar (al revés de "no entra físicamente
-// en un solo bin", que es justo lo que el operador puede marcar como "No se puede unificar").
+// en un solo bin", que es justo lo que el operador puede descartar con la opción de 6 meses).
 var _SM_UNIF_PROM_RECOMENDADO = 3;
 var _smUnifDDIdx = -1;
 
-function _smUnifDescartados() {
-  try { return JSON.parse(localStorage.getItem(_SM_UNIF_KEY) || '[]'); } catch(e) { return []; }
+// Total real de un ítem para esta pantalla: la suma de lo que hay en Carmen UBICACIONES, NO
+// item.stockActual (que puede salir de TABLA_POSICIONES/bins y no coincidir con Carmen — mismo
+// número que valida SM_unificarUbicaciones del lado del server, así el total mostrado siempre es
+// el que realmente hay que repartir).
+function _smUnifTotal(it) {
+  var t = 0;
+  for (var i = 0; i < it.ubicaciones.length; i++) t += (parseFloat(it.ubicaciones[i].cantidad) || 0);
+  return t;
 }
-function _smUnifEsDescartado(sku) { return _smUnifDescartados().indexOf(sku) !== -1; }
-function _smUnifDescartarClick(sku) {
-  var arr = _smUnifDescartados();
-  if (arr.indexOf(sku) === -1) arr.push(sku);
-  try { localStorage.setItem(_SM_UNIF_KEY, JSON.stringify(arr)); } catch(e) {}
+
+function _smUnifDescartadosMap() {
+  try {
+    var v = JSON.parse(localStorage.getItem(_SM_UNIF_KEY) || '{}');
+    return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  } catch(e) { return {}; }
+}
+function _smUnifGuardarDescartados(map) {
+  try { localStorage.setItem(_SM_UNIF_KEY, JSON.stringify(map)); } catch(e) {}
+}
+// Descartes vigentes (SKU → vence en ms) — de paso limpia los que ya vencieron.
+function _smUnifDescartadosVigentes() {
+  var map = _smUnifDescartadosMap(), ahora = Date.now(), out = {}, huboVencidos = false;
+  Object.keys(map).forEach(function(sku) {
+    if (map[sku] > ahora) out[sku] = map[sku]; else huboVencidos = true;
+  });
+  if (huboVencidos) _smUnifGuardarDescartados(out);
+  return out;
+}
+function _smUnifDescartar(sku, dias) {
+  var map = _smUnifDescartadosMap();
+  map[sku] = Date.now() + dias * 86400000;
+  _smUnifGuardarDescartados(map);
   var resB = document.getElementById('unif-buscar-resultado'); if (resB) resB.innerHTML = '';
   _smUnifCargar();
 }
 function _smUnifRestaurar(sku) {
-  var arr = _smUnifDescartados().filter(function(s) { return s !== sku; });
-  try { localStorage.setItem(_SM_UNIF_KEY, JSON.stringify(arr)); } catch(e) {}
+  var map = _smUnifDescartadosMap();
+  delete map[sku];
+  _smUnifGuardarDescartados(map);
   var resB = document.getElementById('unif-buscar-resultado'); if (resB) resB.innerHTML = '';
   _smUnifCargar();
 }
@@ -7546,16 +7596,16 @@ function _smUnifCargar() {
     return;
   }
 
-  var descartados = _smUnifDescartados();
+  var descartados = _smUnifDescartadosVigentes();
+  var descSkus = Object.keys(descartados);
   var todos = (stockData || []).filter(function(it) { return it.ubicaciones && it.ubicaciones.length > 1; });
   var items = todos
-    .filter(function(it) { return _smUnifVerDescartados ? descartados.indexOf(it.codigo) !== -1 : descartados.indexOf(it.codigo) === -1; })
+    .filter(function(it) { return _smUnifVerDescartados ? descartados.hasOwnProperty(it.codigo) : !descartados.hasOwnProperty(it.codigo); })
     .sort(_smUnifComparar);
 
   if (link) {
-    var nDesc = descartados.length;
-    link.style.display = (nDesc > 0 || _smUnifVerDescartados) ? '' : 'none';
-    link.textContent = _smUnifVerDescartados ? '← Volver a la lista' : ('Ver descartados (' + nDesc + ')');
+    link.style.display = (descSkus.length > 0 || _smUnifVerDescartados) ? '' : 'none';
+    link.textContent = _smUnifVerDescartados ? '← Volver a la lista' : ('Ver descartados (' + descSkus.length + ')');
   }
 
   if (!items.length) {
@@ -7567,50 +7617,67 @@ function _smUnifCargar() {
   sub.textContent = items.length + ' código' + (items.length !== 1 ? 's' : '') + (_smUnifVerDescartados ? ' descartado' + (items.length !== 1 ? 's' : '') : ' repartido' + (items.length !== 1 ? 's' : '') + ' en más de una ubicación — ordenados por prioridad (pocas unidades en muchos lugares primero)');
 
   var h = '';
-  for (var i = 0; i < items.length; i++) h += _smUnifCardHtml(items[i], _smUnifVerDescartados);
+  for (var i = 0; i < items.length; i++) h += _smUnifCardHtml(items[i], _smUnifVerDescartados, descartados[items[i].codigo]);
   list.innerHTML = h;
 }
 
 // Orden de prioridad: primero el promedio de unidades por ubicación (ascendente — pocas unidades
 // repartidas en muchos lugares primero), y a igual promedio, más ubicaciones primero.
 function _smUnifComparar(a, b) {
-  var promA = a.stockActual / a.ubicaciones.length;
-  var promB = b.stockActual / b.ubicaciones.length;
+  var promA = _smUnifTotal(a) / a.ubicaciones.length;
+  var promB = _smUnifTotal(b) / b.ubicaciones.length;
   if (promA !== promB) return promA - promB;
   return b.ubicaciones.length - a.ubicaciones.length;
 }
 
 // Arma la tarjeta de un SKU (vista, no editor) — la usan tanto la lista automática como el
-// resultado de la búsqueda manual.
-function _smUnifCardHtml(it, esDescartado) {
+// resultado de la búsqueda manual. venceEnMs solo se pasa en la vista de descartados.
+function _smUnifCardHtml(it, esDescartado, venceEnMs) {
   var sku      = it.codigo;
-  var total    = it.stockActual;
+  var total    = _smUnifTotal(it);
   var nUbic    = it.ubicaciones.length;
   var promedio = nUbic ? (total / nUbic) : 0;
   var recomendado = !esDescartado && nUbic > 1 && promedio <= _SM_UNIF_PROM_RECOMENDADO;
+
   var chips = it.ubicaciones.map(function(u) {
-    return '<div class="bin-chip" style="cursor:default"><span class="bin-chip-lbl">' + escH(u.ubicacion) + '</span><span class="bin-chip-qty">' + u.cantidad + ' u.</span></div>';
+    var baja = (parseFloat(u.cantidad) || 0) <= _SM_UNIF_PROM_RECOMENDADO;
+    return '<span class="unif-chip' + (baja ? ' unif-chip-low' : '') + '"><span class="unif-chip-bin">' + escH(u.ubicacion) + '</span><span class="unif-chip-cant">' + u.cantidad + ' u.</span></span>';
   }).join('') || '<div style="font-size:11px;color:var(--tx-d);font-style:italic">Sin ubicaciones registradas</div>';
+
+  var fechaVence = '';
+  if (esDescartado && venceEnMs) {
+    fechaVence = '<div class="unif-desc-fecha"><i class="fa fa-clock" style="margin-right:4px"></i>Vuelve a aparecer el ' + new Date(venceEnMs).toLocaleDateString('es-AR') + '</div>';
+  }
+
   var acciones = esDescartado
-    ? '<button class="btn-s" style="font-size:11px;flex-shrink:0" onclick="_smUnifRestaurar(\'' + sku + '\')"><i class="fa fa-undo" style="margin-right:4px"></i>Restaurar</button>'
-    : '<div style="display:flex;gap:6px;flex-shrink:0">' +
-        '<button class="btn-s" style="font-size:11px" onclick="_smUnifDescartarClick(\'' + sku + '\')">No se puede unificar</button>' +
+    ? '<button class="unif-btn-ghost" style="font-family:var(--f)" onclick="_smUnifRestaurar(\'' + sku + '\')"><i class="fa fa-undo" style="margin-right:4px"></i>Restaurar ahora</button>'
+    : '<div style="display:flex;gap:8px;flex-shrink:0;align-items:center">' +
+        '<div class="dropdown">' +
+          '<button class="unif-btn-ghost dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">No se puede unificar</button>' +
+          '<ul class="dropdown-menu unif-dd-menu">' +
+            '<li><a class="dropdown-item" href="#" onclick="event.preventDefault();_smUnifDescartar(\'' + sku + '\',' + _SM_UNIF_DIAS_CORTO + ')"><i class="fa fa-clock" style="margin-right:6px;color:var(--tx-d)"></i>Por ahora — recordar en 30 días</a></li>' +
+            '<li><a class="dropdown-item" href="#" onclick="event.preventDefault();_smUnifDescartar(\'' + sku + '\',' + _SM_UNIF_DIAS_LARGO + ')"><i class="fa fa-ban" style="margin-right:6px;color:var(--tx-d)"></i>No entra físicamente — recordar en 6 meses</a></li>' +
+          '</ul>' +
+        '</div>' +
         (nUbic ? '<button class="btn-p" style="font-size:11px" onclick="_smUnifAbrirEditor(\'' + sku + '\')"><i class="fa fa-compress-arrows-alt" style="margin-right:4px"></i>Unificar</button>' : '') +
       '</div>';
+
   var badge = recomendado
-    ? '<span style="display:inline-block;background:rgba(212,137,10,.14);color:var(--orange);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle"><i class="fa fa-star" style="margin-right:3px"></i>Recomendado</span>'
+    ? '<span class="unif-badge-rec"><i class="fa fa-star"></i>Recomendado</span>'
     : '';
-  return '<div class="card" style="margin-bottom:10px">' +
-    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">' +
+
+  return '<div class="card unif-card">' +
+    '<div class="unif-card-top">' +
       '<div style="min-width:0">' +
-        '<div style="font-family:monospace;font-size:11px;color:var(--tx-d)">' + escH(sku) + '</div>' +
-        '<div style="font-weight:700;font-size:13px;color:var(--tx-m)">' + escH(it.descripcion) + badge + '</div>' +
-        '<div style="font-size:11px;color:var(--tx-d);margin-top:2px">' + total + ' u. en ' + nUbic + ' ubicaci' + (nUbic === 1 ? 'ón' : 'ones') + (nUbic > 1 ? ' (promedio ' + promedio.toFixed(1) + ' u./ubicación)' : '') + '</div>' +
+        '<div class="unif-sku">' + escH(sku) + '</div>' +
+        '<div class="unif-title-row"><span class="unif-title">' + escH(it.descripcion) + '</span>' + badge + '</div>' +
+        '<div class="unif-meta">' + total + ' u. en ' + nUbic + ' ubicaci' + (nUbic === 1 ? 'ón' : 'ones') + (nUbic > 1 ? ' · promedio ' + promedio.toFixed(1) + ' u./ubicación' : '') + '</div>' +
+        fechaVence +
       '</div>' +
-      acciones +
     '</div>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">' + chips + '</div>' +
-    '<div id="unif-editor-' + sku + '" style="display:none;margin-top:12px;border-top:1px solid var(--brd);padding-top:12px" data-total-original="' + total + '"></div>' +
+    '<div class="unif-chips">' + chips + '</div>' +
+    '<div class="unif-actions">' + acciones + '</div>' +
+    '<div id="unif-editor-' + sku + '" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)" data-total-original="' + total + '"></div>' +
   '</div>';
 }
 
@@ -7682,7 +7749,7 @@ function _smUnifAbrirEditor(sku) {
   if (!it) return;
   var ed = document.getElementById('unif-editor-' + sku);
   if (!ed) return;
-  var h = '<div style="font-size:11px;font-weight:700;color:var(--tx-d);margin-bottom:8px">NUEVA DISTRIBUCIÓN — el total tiene que sumar ' + it.stockActual + ' u.</div>' +
+  var h = '<div style="font-size:11px;font-weight:700;color:var(--tx-d);margin-bottom:8px">NUEVA DISTRIBUCIÓN — el total tiene que sumar ' + _smUnifTotal(it) + ' u.</div>' +
     '<div id="unif-filas-' + sku + '">' +
       it.ubicaciones.map(function(u) { return _smUnifFilaHtml(sku, u.ubicacion, u.cantidad); }).join('') +
     '</div>' +
