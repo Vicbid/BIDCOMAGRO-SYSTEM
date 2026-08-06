@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.72 -->
+<!-- @version 1.73 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -6107,6 +6107,12 @@ function _pedCargarIndice() {
       if (r && typeof r.descuentoPct === 'number') _pedDtoPct = r.descuentoPct;
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
+      // Si el reseller ya había abierto el Catálogo mientras este índice todavía
+      // cargaba, los precios habían quedado en "A consultar" (el mapa de precios
+      // sale de _pedIndice) y solo se corregían cerrando y volviendo a abrir.
+      // Ahora se refresca solo apenas el índice está listo.
+      var catModal = document.getElementById('cat-modal');
+      if (catModal && catModal.style.display === 'block' && _catConjActual) _catAbrir(_catConjActual.id);
     })
     .withFailureHandler(function() {
       _pedIndice = []; // fallback a búsqueda en servidor

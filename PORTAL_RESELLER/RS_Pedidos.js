@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.13
+// @version 2.14
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1244,6 +1244,24 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
     var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
+    // Este índice arma TODO el catálogo (stock + precio + fotos de DB_REPUESTOS
+    // y ACCESORIOS) leyendo varias hojas grandes desde cero — es lo que hace que
+    // abrir "Carrito de Repuestos"/Catálogo tarde ~1 min. El precio es lo único
+    // que depende del reseller (vía el factor de descuento), así que cachear el
+    // resultado ya armado por factor sirve para todos los resellers con el mismo
+    // % de descuento (la gran mayoría, el default). Mismo guard defensivo que
+    // getSheetValues (Env.js): si el catálogo es tan grande que el JSON no entra
+    // en el límite de CacheService (~100KB), cache.put no se llama y la función
+    // sigue funcionando igual que antes, solo sin la ganancia de velocidad.
+    var _cache      = CacheService.getScriptCache();
+    var _cacheKeyId = 'ped_indice_v1_f' + Math.round(_factor * 1000);
+    var _cached     = _cache.get(_cacheKeyId);
+    if (_cached) {
+      try {
+        return { ok: true, items: JSON.parse(_cached), descuentoPct: _descInfo.pct };
+      } catch (eParse) { /* cache corrupto: seguir y reconstruir */ }
+    }
+
     var stockMap = {};
     var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
     var S = SCHEMA.STOCK_INVENTARIO;
@@ -1281,7 +1299,7 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
     try {
       var accSheet = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
       if (accSheet) {
-        var accRows = accSheet.getDataRange().getValues();
+        var accRows = getSheetValues(accSheet); // antes leía sin cache en cada llamada
         for (var ai = 1; ai < accRows.length; ai++) {
           var aSku  = String(accRows[ai][0] || '').trim();
           var aDesc = String(accRows[ai][1] || '').trim();
@@ -1301,6 +1319,11 @@ function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
         }
       }
     } catch(eAcc) { Logger.log('obtenerIndiceRepuestosPortal ACCESORIOS: ' + eAcc); }
+
+    try {
+      var _payload = JSON.stringify(items);
+      if (_payload.length < 90000) _cache.put(_cacheKeyId, _payload, 900); // 15 min
+    } catch (eCache) { /* no cachea, pero la respuesta ya está lista igual */ }
 
     return { ok: true, items: items, descuentoPct: _descInfo.pct };
   } catch(ex) {
