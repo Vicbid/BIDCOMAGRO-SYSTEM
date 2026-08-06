@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 // ══════════════════════════════════════════════════════════════
 //  ETIQUETAS SO — códigos internos para productos SIN N° de serie
 //  El SO funciona como un SN (uno único por unidad). Formato POR SKU:
@@ -398,6 +398,48 @@ function listarLotesSOrecientes(limite) {
       i = j;
     }
     return { ok: true, lotes: lotes };
+  } catch(e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Agrupa las últimas recepciones registradas en Carmen (hoja "Recibidos", ver
+// _escribirEnRecibidos en Sm_Compras.js: col D = Origen/CAS, col E = Fecha) por ingreso, para
+// "retomar" uno viejo y elegir a mano qué ítems todavía necesitan etiqueta SO — para cuando el
+// ingreso quedó bien registrado (el stock ya está actualizado) pero algunos códigos se recibieron
+// sin tildar "🏷 Etiqueta" y no quedó ningún SO generado para reimprimir (ver listarLotesSOrecientes).
+// Agrupa por (Origen, Fecha) — coinciden siempre entre sí porque _escribirEnRecibidos escribe
+// todas las filas de un mismo ingreso en un único for, dentro de la misma ejecución con lock.
+// Devuelve { ok, ingresos:[{ origen, fechaFmt, items:[{sku,descripcion,cantidad}] }] } (más reciente primero).
+function listarIngresosRecientesCarmen(limite) {
+  limite = parseInt(limite, 10) || 20;
+  try {
+    var ss   = _getCarmenSS();
+    var hoja = ss.getSheetByName(CARMEN_RECIBIDOS_TAB);
+    if (!hoja) return { ok: false, error: 'No se encontró la hoja "Recibidos" en Carmen.' };
+    var last = hoja.getLastRow();
+    if (last < 2) return { ok: true, ingresos: [] };
+    var d  = hoja.getRange(2, 1, last - 1, 5).getValues();  // A:SKU B:Desc C:Cant D:Origen E:Fecha
+    var tz = Session.getScriptTimeZone();
+    function fechaKey(v) { return (v instanceof Date) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : String(v || '').trim(); }
+    function fechaFmt(v) { return (v instanceof Date) ? Utilities.formatDate(v, tz, 'dd/MM/yyyy') : (String(v || '').trim() || '(sin fecha)'); }
+
+    var ingresos = [];
+    var i = d.length - 1;
+    while (i >= 0 && ingresos.length < limite) {
+      var origen = String(d[i][3] || '').trim();
+      var fk     = fechaKey(d[i][4]);
+      var j = i, items = [];
+      while (j >= 0 && String(d[j][3] || '').trim() === origen && fechaKey(d[j][4]) === fk) {
+        var sku = String(d[j][0] || '').trim().toUpperCase();
+        if (sku) items.push({ sku: sku, descripcion: String(d[j][1] || ''), cantidad: parseInt(d[j][2], 10) || 0 });
+        j--;
+      }
+      items.reverse();
+      if (items.length) ingresos.push({ origen: origen || '(sin referencia)', fechaFmt: fechaFmt(d[i][4]), items: items });
+      i = j;
+    }
+    return { ok: true, ingresos: ingresos };
   } catch(e) {
     return { ok: false, error: e.toString() };
   }

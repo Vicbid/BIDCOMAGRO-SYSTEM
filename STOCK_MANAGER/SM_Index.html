@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.39 -->
+<!-- @version 5.40 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1641,17 +1641,18 @@ tr:last-child td{border-bottom:none}
 
 <!-- Modal: Imprimir etiquetas SO (productos sin N° de serie) -->
 <div class="modal fade" id="modal-so" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
     <div class="modal-content" style="border-radius:var(--rl);border:1px solid var(--brd2)">
       <div class="modal-header" style="background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px">
         <h6 class="modal-title" style="font-size:13px;font-weight:600"><i class="fa fa-tags" style="color:var(--blue);margin-right:5px"></i>Imprimir etiquetas SO</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px">
-        <div style="display:flex;gap:6px;margin-bottom:14px">
-          <button type="button" id="so-tab-generar" class="btn-p" style="flex:1" onclick="_soModoVista('generar')"><i class="fa fa-plus" style="margin-right:4px"></i>Nuevas</button>
-          <button type="button" id="so-tab-reimprimir" class="btn-s" style="flex:1" onclick="_soModoVista('reimp')"><i class="fa fa-redo" style="margin-right:4px"></i>Por código</button>
-          <button type="button" id="so-tab-lotes" class="btn-s" style="flex:1" onclick="_soModoVista('lotes')"><i class="fa fa-history" style="margin-right:4px"></i>Lotes</button>
+        <div style="display:flex;gap:5px;margin-bottom:14px;font-size:11px">
+          <button type="button" id="so-tab-generar" class="btn-p" style="flex:1;padding:8px 4px" onclick="_soModoVista('generar')"><i class="fa fa-plus" style="margin-right:3px"></i>Nuevas</button>
+          <button type="button" id="so-tab-reimprimir" class="btn-s" style="flex:1;padding:8px 4px" onclick="_soModoVista('reimp')"><i class="fa fa-redo" style="margin-right:3px"></i>Código</button>
+          <button type="button" id="so-tab-lotes" class="btn-s" style="flex:1;padding:8px 4px" onclick="_soModoVista('lotes')"><i class="fa fa-history" style="margin-right:3px"></i>Lotes</button>
+          <button type="button" id="so-tab-ingresos" class="btn-s" style="flex:1;padding:8px 4px" onclick="_soModoVista('ingresos')"><i class="fa fa-inbox" style="margin-right:3px"></i>Ingreso</button>
         </div>
         <div id="so-pane-generar">
         <div style="font-size:11px;color:var(--tx-m);margin-bottom:12px;line-height:1.5">Código interno para productos <strong>sin N° de serie</strong>. Se genera <strong>SO-&lt;SKU&gt;-NNN</strong> y se imprime con código QR para escanear en el picking.</div>
@@ -1707,6 +1708,24 @@ tr:last-child td{border-bottom:none}
         <div id="so-pane-lotes" style="display:none">
           <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;line-height:1.5">Últimos lotes generados juntos (por ejemplo, si el ingreso quedó registrado pero la impresora no sacó las etiquetas). Elegí el lote y reimprimilo entero, sin escanear código por código.</div>
           <div id="so-lotes-list" style="max-height:340px;overflow-y:auto"></div>
+        </div>
+        <div id="so-pane-ingresos" style="display:none">
+          <div id="so-ing-lista">
+            <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;line-height:1.5">Para cuando el ingreso quedó bien registrado (el stock ya está actualizado) pero algún código se recibió <strong>sin tildar etiqueta</strong> y nunca se generó ningún SO. Elegí el ingreso y marcá qué necesita etiqueta ahora.</div>
+            <div id="so-ing-list-items" style="max-height:340px;overflow-y:auto"></div>
+          </div>
+          <div id="so-ing-detalle" style="display:none">
+            <button type="button" class="btn-s" style="margin-bottom:10px" onclick="_soVolverIngresos()"><i class="fa fa-arrow-left" style="margin-right:4px"></i>Volver a la lista</button>
+            <div id="so-ing-detalle-titulo" style="font-size:12px;font-weight:700;margin-bottom:8px"></div>
+            <div id="so-ing-items" style="max-height:280px;overflow-y:auto"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+              <label class="flbl" style="margin:0">Operador</label>
+              <select id="so-ing-op" class="form-select op-select" style="width:auto;min-width:150px">
+                <option>Victor Almao</option><option>Juan Cuaresma</option><option>Jeremías Silvestre</option>
+              </select>
+            </div>
+            <button type="button" class="btn-p" style="width:100%;margin-top:10px" onclick="_soGenerarDesdeIngreso()"><i class="fa fa-print" style="margin-right:4px"></i>Generar e imprimir etiquetas</button>
+          </div>
         </div>
       </div>
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px">
@@ -3566,6 +3585,8 @@ var _soMode = 'unidad';  // 'unidad' = 1 código por unidad · 'bolsa' = 1 códi
 var _soSkuSel = '';        // SKU confirmado (elegido de la lista o match exacto)
 var _soLastMatches = [];   // últimos resultados del buscador (para Enter)
 var _soLotes = [];         // últimos lotes generados juntos (pestaña "Lotes"), cargados on-demand
+var _soIngresos = [];      // últimos ingresos de Carmen (pestaña "Ingreso"), cargados on-demand
+var _soIngresoSel = null;  // ingreso actualmente abierto en el detalle ({origen, fechaFmt, items})
 
 function abrirImprimirSO(cod, desc) {
   _soSkuSel = '';
@@ -3603,15 +3624,18 @@ function _soSetMode(mode) {
   if (wb) wb.style.display = (mode === 'bolsa')  ? 'block' : 'none';
 }
 
-// Alterna la vista del modal SO entre "Generar nuevas", "Reimprimir por código" y "Lotes"
-// (últimos lotes generados juntos, para reimprimirlos enteros sin escanear código por código).
+// Alterna la vista del modal SO entre "Generar nuevas", "Reimprimir por código", "Lotes"
+// (últimos lotes generados juntos, para reimprimirlos enteros sin escanear código por código) e
+// "Ingreso" (retomar un ingreso viejo de Carmen y elegir qué generar por primera vez).
 function _soModoVista(v) {
   var paneG = document.getElementById('so-pane-generar');
   var paneR = document.getElementById('so-pane-reimprimir');
   var paneL = document.getElementById('so-pane-lotes');
-  if (paneG) paneG.style.display = (v === 'generar') ? '' : 'none';
-  if (paneR) paneR.style.display = (v === 'reimp')   ? '' : 'none';
-  if (paneL) paneL.style.display = (v === 'lotes')   ? '' : 'none';
+  var paneI = document.getElementById('so-pane-ingresos');
+  if (paneG) paneG.style.display = (v === 'generar')  ? '' : 'none';
+  if (paneR) paneR.style.display = (v === 'reimp')    ? '' : 'none';
+  if (paneL) paneL.style.display = (v === 'lotes')    ? '' : 'none';
+  if (paneI) paneI.style.display = (v === 'ingresos') ? '' : 'none';
   var btnP = document.getElementById('so-print-btn');
   var btnR = document.getElementById('so-reimp-btn');
   if (btnP) btnP.style.display = (v === 'generar') ? '' : 'none';
@@ -3619,11 +3643,18 @@ function _soModoVista(v) {
   var tabG = document.getElementById('so-tab-generar');
   var tabR = document.getElementById('so-tab-reimprimir');
   var tabL = document.getElementById('so-tab-lotes');
-  if (tabG) tabG.className = (v === 'generar') ? 'btn-p' : 'btn-s';
-  if (tabR) tabR.className = (v === 'reimp')   ? 'btn-p' : 'btn-s';
-  if (tabL) tabL.className = (v === 'lotes')   ? 'btn-p' : 'btn-s';
-  if (v === 'reimp')  setTimeout(function() { var t = document.getElementById('so-reimp-codigos'); if (t) t.focus(); }, 150);
-  if (v === 'lotes')  _soCargarLotes();
+  var tabI = document.getElementById('so-tab-ingresos');
+  if (tabG) tabG.className = (v === 'generar')  ? 'btn-p' : 'btn-s';
+  if (tabR) tabR.className = (v === 'reimp')    ? 'btn-p' : 'btn-s';
+  if (tabL) tabL.className = (v === 'lotes')    ? 'btn-p' : 'btn-s';
+  if (tabI) tabI.className = (v === 'ingresos') ? 'btn-p' : 'btn-s';
+  if (v === 'reimp')    setTimeout(function() { var t = document.getElementById('so-reimp-codigos'); if (t) t.focus(); }, 150);
+  if (v === 'lotes')    _soCargarLotes();
+  if (v === 'ingresos') {
+    document.getElementById('so-ing-lista').style.display   = '';
+    document.getElementById('so-ing-detalle').style.display = 'none';
+    _soCargarIngresos();
+  }
 }
 
 // Carga (siempre fresco, cada vez que se entra a la pestaña) los últimos lotes generados juntos.
@@ -3694,6 +3725,99 @@ function _soReimprimirLote(idx) {
       toast('Error: ' + (e && e.message ? e.message : e), 'err');
     })
     .reimprimirSOs(l.sos.join(' '));
+}
+
+// ── PESTAÑA "INGRESO" — retomar un ingreso viejo de Carmen para generar etiquetas faltantes ──
+
+// Carga (siempre fresco) los últimos ingresos registrados en Carmen ("Recibidos").
+function _soCargarIngresos() {
+  var cont = document.getElementById('so-ing-list-items');
+  if (!cont) return;
+  cont.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Buscando ingresos recientes…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _soIngresos = (r && r.ok) ? (r.ingresos || []) : [];
+      _soRenderIngresos(r && !r.ok ? r.error : '');
+    })
+    .withFailureHandler(function(e) {
+      _soIngresos = [];
+      _soRenderIngresos(e && e.message ? e.message : e);
+    })
+    .listarIngresosRecientesCarmen(20);
+}
+
+// Pinta la lista de ingresos ya cargada en _soIngresos (o el error, si falló la carga).
+function _soRenderIngresos(error) {
+  var cont = document.getElementById('so-ing-list-items');
+  if (!cont) return;
+  if (error) { cont.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);font-size:12px">' + escH(error) + '</div>'; return; }
+  if (!_soIngresos.length) { cont.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">No hay ingresos registrados en Carmen.</div>'; return; }
+  var h = '';
+  for (var i = 0; i < _soIngresos.length; i++) {
+    var ing = _soIngresos[i];
+    h += '<div style="border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" onclick="_soAbrirIngreso(' + i + ')">' +
+      '<div style="min-width:0">' +
+        '<div style="font-weight:700;font-size:12px">' + escH(ing.origen) + '</div>' +
+        '<div style="font-size:11px;color:var(--tx-d)">' + escH(ing.fechaFmt) + ' · ' + ing.items.length + ' ítem' + (ing.items.length === 1 ? '' : 's') + '</div>' +
+      '</div>' +
+      '<i class="fa fa-chevron-right" style="color:var(--tx-d);flex-shrink:0"></i>' +
+    '</div>';
+  }
+  cont.innerHTML = h;
+}
+
+// Abre el detalle de un ingreso: arma el checklist con _recepRowHTML (misma fila/lógica que la
+// recepción en vivo: pre-tilda "🏷 Etiqueta" en lo ya aprendido, oculta el control en lo con SN).
+// No vuelve a tocar stock ni Carmen — solo genera etiquetas para lo que el operador elija ahora.
+function _soAbrirIngreso(idx) {
+  var ing = _soIngresos[idx];
+  if (!ing) return;
+  _soIngresoSel = ing;
+  document.getElementById('so-ing-lista').style.display   = 'none';
+  document.getElementById('so-ing-detalle').style.display = '';
+  document.getElementById('so-ing-detalle-titulo').textContent = ing.origen + ' — ' + ing.fechaFmt;
+  var cont = document.getElementById('so-ing-items');
+  cont.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</div>';
+  // _etqMap/_bolsasMap/_reqSNMap tienen que estar frescos ANTES de armar las filas (mismo motivo
+  // que en verDetalleCAS: si no, el pre-tildado de "🏷 Etiqueta" no es confiable).
+  _cargarEtiquetaMeta(function() {
+    var h = '';
+    for (var i = 0; i < ing.items.length; i++) {
+      var it = ing.items[i];
+      h += _recepRowHTML(it.sku, it.descripcion, it.cantidad, true);
+    }
+    cont.innerHTML = h || '<div style="font-size:12px;color:var(--tx-d)">Este ingreso no tiene ítems.</div>';
+  });
+}
+
+// Vuelve de la lista de items del ingreso a la lista de ingresos, sin recargar nada.
+function _soVolverIngresos() {
+  _soIngresoSel = null;
+  document.getElementById('so-ing-lista').style.display   = '';
+  document.getElementById('so-ing-detalle').style.display = 'none';
+}
+
+// Junta lo tildado con _recepEtiquetasElegidas (mismo helper que la recepción en vivo) y genera +
+// imprime — sin volver a registrar el ingreso (el stock de este ya se actualizó hace rato).
+function _soGenerarDesdeIngreso() {
+  var etiqItems = _recepEtiquetasElegidas('#so-ing-items');
+  if (!etiqItems.length) { toast('Tildá "🏷 Etiqueta" en al menos un código', 'err'); return; }
+  if (!_confirmarTandaEtq(_recepTotalEtq(etiqItems), 'ingreso retomado')) return;
+  var op = (document.getElementById('so-ing-op') || { value: 'Sistema' }).value;
+
+  var win = window.open('', '_blank', 'width=480,height=640');
+  if (win) win.document.write('<html><body style="font-family:sans-serif;padding:24px;color:#333">Generando etiquetas SO…</body></html>');
+
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) { if (win) win.close(); toast((r && r.error) || 'No se pudieron generar las etiquetas', 'err'); return; }
+      _imprimirEtiquetasSO(win, r.labels);
+      var n = r.labels.length;
+      toast(n + ' etiqueta' + (n === 1 ? '' : 's') + ' SO generada' + (n === 1 ? '' : 's') + ' del ingreso', 'ok');
+      modal('modal-so').hide();
+    })
+    .withFailureHandler(function(e) { if (win) win.close(); toast('Etiquetas: ' + (e && e.message ? e.message : e), 'err'); })
+    .generarSOLote(etiqItems, op);
 }
 
 // Reimprime etiquetas SO ya existentes a partir de los códigos escaneados/pegados (una por línea).
