@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.14
+// @version 2.15
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1239,91 +1239,149 @@ function _diasHabilesEntre(desde, hasta) {
 // Formato: [sku, desc, mod, statusCode, precio, stock, descEs, remplz, normSku, normDesc, normDescEs]
 // statusCode: D=disponible, B=backorder, R=consultar_Backorder
 // indices 8-10: strings pre-normalizados para búsqueda sin llamar _normText en cada keystroke
+// Handle de la hoja ACCESORIOS (otra planilla) memoizado SOLO para esta
+// ejecución — SpreadsheetApp.openById() es la llamada más cara de las cuatro
+// que arman el catálogo, y tanto _pedCatalogoBase como _pedPreciosPorFactor
+// la necesitan; evita abrirla dos veces si ambas corren en la misma llamada
+// (no persiste entre ejecuciones distintas, para eso están los caches de abajo).
+var _pedAccSheetMemo = null;
+function _pedAccesoriosSheet() {
+  if (_pedAccSheetMemo === null) {
+    try { _pedAccSheetMemo = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS') || false; }
+    catch (e) { _pedAccSheetMemo = false; }
+  }
+  return _pedAccSheetMemo || null;
+}
+
+// Catálogo "de base": todo lo que es IGUAL para cualquier reseller (stock,
+// descripciones, fotos de DB_REPUESTOS + ACCESORIOS). El precio queda en 0
+// acá a propósito — lo completa obtenerIndiceRepuestosPortal con
+// _pedPreciosPorFactor. Se cachea UNA sola vez (no por reseller ni por
+// descuento) porque es la parte pesada de armar (varias hojas grandes); antes
+// se recalculaba todo esto de nuevo por cada % de descuento distinto que
+// hubiera entre resellers, duplicando de más lo único que en realidad es
+// igual para todos.
+function _pedCatalogoBase() {
+  var cache = CacheService.getScriptCache();
+  var key   = 'ped_base_v1';
+  var cached = cache.get(key);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (eParse) { /* cache corrupto: reconstruir */ }
+  }
+
+  var stockMap = {};
+  var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
+  var S = SCHEMA.STOCK_INVENTARIO;
+  for (var s = 1; s < dStock.length; s++) {
+    var cod = String(dStock[s][S.CODIGO] || '').trim().toUpperCase();
+    if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
+  }
+  var fotoMap = _repFotoMapCatalogo();
+  var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+  var D   = SCHEMA.DB_REPUESTOS;
+  var items = [];
+  for (var i = 1; i < dDb.length; i++) {
+    var sku    = String(dDb[i][D.CODIGO]          || '').trim();
+    var desc   = String(dDb[i][D.DESCRIPCION]     || '').trim();
+    var mod    = String(dDb[i][D.MODELOS]          || '').trim();
+    var descEs = String(dDb[i][D.DESCRIPCION_ES]  || '').trim();
+    var remplz = String(dDb[i][D.REEMPLAZADO_POR] || '').trim();
+    if (!sku && !desc) continue;
+    var skuUp = sku.toUpperCase();
+    var e = stockMap[skuUp] !== undefined
+            ? (stockMap[skuUp] > 0 ? 'D' : 'B')
+            : 'R';
+    items.push([
+      sku, desc, mod, e,
+      0, // precio: lo completa obtenerIndiceRepuestosPortal según el reseller
+      stockMap[skuUp] !== undefined ? stockMap[skuUp] : -1,
+      descEs, remplz,
+      _normText(sku), _normText(desc), _normText(descEs),
+      fotoMap[skuUp] || ''   // índice 11 — ver _pedBuscarLocal en Index.html
+    ]);
+  }
+
+  // Agregar ítems de hoja ACCESORIOS
+  try {
+    var accSheet = _pedAccesoriosSheet();
+    if (accSheet) {
+      var accRows = getSheetValues(accSheet); // antes leía sin cache en cada llamada
+      for (var ai = 1; ai < accRows.length; ai++) {
+        var aSku  = String(accRows[ai][0] || '').trim();
+        var aDesc = String(accRows[ai][1] || '').trim();
+        if (!aSku && !aDesc) continue;
+        var aSkuUp = aSku.toUpperCase();
+        var aMod   = String(accRows[ai][2] || '').trim();
+        var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
+        items.push([
+          aSku, aDesc, aMod, aE,
+          0,
+          stockMap[aSkuUp] !== undefined ? stockMap[aSkuUp] : -1,
+          '', '',
+          _normText(aSku), _normText(aDesc), '',
+          fotoMap[aSkuUp] || ''
+        ]);
+      }
+    }
+  } catch(eAcc) { Logger.log('_pedCatalogoBase ACCESORIOS: ' + eAcc); }
+
+  try {
+    var payload = JSON.stringify(items);
+    if (payload.length < 90000) cache.put(key, payload, 600); // 10 min
+  } catch (eCache) { /* no cachea, pero se devuelve igual */ }
+
+  return items;
+}
+
+// Mapa sku→precio para un factor de descuento puntual. Es lo ÚNICO que
+// realmente depende del reseller, así que se cachea por separado del
+// catálogo de base — el payload es chico (solo números por sku), barato de
+// tener uno por cada % de descuento distinto que haya entre resellers.
+function _pedPreciosPorFactor(factor) {
+  var cache = CacheService.getScriptCache();
+  var key   = 'ped_precios_v1_f' + Math.round(factor * 1000);
+  var cached = cache.get(key);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (eParse) { /* cache corrupto: reconstruir */ }
+  }
+
+  var precios = _buildPriceMap(factor); // DB_REPUESTOS, vía LISTA_REPUESTOS
+
+  try {
+    var accSheet = _pedAccesoriosSheet();
+    if (accSheet) {
+      var accRows = getSheetValues(accSheet);
+      for (var ai = 1; ai < accRows.length; ai++) {
+        var aSku = String(accRows[ai][0] || '').trim();
+        if (!aSku) continue;
+        precios[aSku.toUpperCase()] = Math.round((Number(accRows[ai][3]) || 0) * factor * 100) / 100;
+      }
+    }
+  } catch (eAcc) { Logger.log('_pedPreciosPorFactor ACCESORIOS: ' + eAcc); }
+
+  try {
+    var payload = JSON.stringify(precios);
+    if (payload.length < 90000) cache.put(key, payload, 600); // 10 min
+  } catch (eCache) { /* no cachea, pero se devuelve igual */ }
+
+  return precios;
+}
+
 function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
   try {
     var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
-    // Este índice arma TODO el catálogo (stock + precio + fotos de DB_REPUESTOS
-    // y ACCESORIOS) leyendo varias hojas grandes desde cero — es lo que hace que
-    // abrir "Carrito de Repuestos"/Catálogo tarde ~1 min. El precio es lo único
-    // que depende del reseller (vía el factor de descuento), así que cachear el
-    // resultado ya armado por factor sirve para todos los resellers con el mismo
-    // % de descuento (la gran mayoría, el default). Mismo guard defensivo que
-    // getSheetValues (Env.js): si el catálogo es tan grande que el JSON no entra
-    // en el límite de CacheService (~100KB), cache.put no se llama y la función
-    // sigue funcionando igual que antes, solo sin la ganancia de velocidad.
-    var _cache      = CacheService.getScriptCache();
-    var _cacheKeyId = 'ped_indice_v1_f' + Math.round(_factor * 1000);
-    var _cached     = _cache.get(_cacheKeyId);
-    if (_cached) {
-      try {
-        return { ok: true, items: JSON.parse(_cached), descuentoPct: _descInfo.pct };
-      } catch (eParse) { /* cache corrupto: seguir y reconstruir */ }
-    }
+    var base    = _pedCatalogoBase();          // stock/desc/fotos — igual para todos
+    var precios = _pedPreciosPorFactor(_factor); // precio — depende del descuento del reseller
 
-    var stockMap = {};
-    var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
-    var S = SCHEMA.STOCK_INVENTARIO;
-    for (var s = 1; s < dStock.length; s++) {
-      var cod = String(dStock[s][S.CODIGO] || '').trim().toUpperCase();
-      if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
+    var items = new Array(base.length);
+    for (var i = 0; i < base.length; i++) {
+      var row   = base[i].slice();
+      var skuUp = String(row[0] || '').toUpperCase();
+      row[4] = precios[skuUp] || 0;
+      items[i] = row;
     }
-    var priceMap = _buildPriceMap(_factor);
-    var fotoMap  = _repFotoMapCatalogo();
-    var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
-    var D   = SCHEMA.DB_REPUESTOS;
-    var items = [];
-    for (var i = 1; i < dDb.length; i++) {
-      var sku    = String(dDb[i][D.CODIGO]          || '').trim();
-      var desc   = String(dDb[i][D.DESCRIPCION]     || '').trim();
-      var mod    = String(dDb[i][D.MODELOS]          || '').trim();
-      var descEs = String(dDb[i][D.DESCRIPCION_ES]  || '').trim();
-      var remplz = String(dDb[i][D.REEMPLAZADO_POR] || '').trim();
-      if (!sku && !desc) continue;
-      var skuUp = sku.toUpperCase();
-      var e = stockMap[skuUp] !== undefined
-              ? (stockMap[skuUp] > 0 ? 'D' : 'B')
-              : 'R';
-      items.push([
-        sku, desc, mod, e,
-        priceMap[skuUp] || 0,
-        stockMap[skuUp] !== undefined ? stockMap[skuUp] : -1,
-        descEs, remplz,
-        _normText(sku), _normText(desc), _normText(descEs),
-        fotoMap[skuUp] || ''   // índice 11 — ver _pedBuscarLocal en Index.html
-      ]);
-    }
-
-    // Agregar ítems de hoja ACCESORIOS
-    try {
-      var accSheet = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
-      if (accSheet) {
-        var accRows = getSheetValues(accSheet); // antes leía sin cache en cada llamada
-        for (var ai = 1; ai < accRows.length; ai++) {
-          var aSku  = String(accRows[ai][0] || '').trim();
-          var aDesc = String(accRows[ai][1] || '').trim();
-          if (!aSku && !aDesc) continue;
-          var aSkuUp = aSku.toUpperCase();
-          var aMod   = String(accRows[ai][2] || '').trim();
-          var aPvp   = Math.round((Number(accRows[ai][3]) || 0) * _factor * 100) / 100;
-          var aE     = stockMap[aSkuUp] !== undefined ? (stockMap[aSkuUp] > 0 ? 'D' : 'B') : 'R';
-          items.push([
-            aSku, aDesc, aMod, aE,
-            aPvp,
-            stockMap[aSkuUp] !== undefined ? stockMap[aSkuUp] : -1,
-            '', '',
-            _normText(aSku), _normText(aDesc), '',
-            fotoMap[aSkuUp] || ''
-          ]);
-        }
-      }
-    } catch(eAcc) { Logger.log('obtenerIndiceRepuestosPortal ACCESORIOS: ' + eAcc); }
-
-    try {
-      var _payload = JSON.stringify(items);
-      if (_payload.length < 90000) _cache.put(_cacheKeyId, _payload, 900); // 15 min
-    } catch (eCache) { /* no cachea, pero la respuesta ya está lista igual */ }
 
     return { ok: true, items: items, descuentoPct: _descInfo.pct };
   } catch(ex) {
