@@ -1,4 +1,4 @@
-<!-- @version 2.22 -->
+<!-- @version 2.23 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -366,6 +366,9 @@ textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
 .acc-card.selected i{color:var(--indigo)}
 .acc-card .acc-name{font-size:11px;font-weight:600;color:var(--tx-m)}
 .acc-card.selected .acc-name{color:var(--indigo)}
+#recep-tipo-grid.locked .acc-card{cursor:default;pointer-events:none}
+#recep-tipo-grid.locked .acc-card:hover{border-color:var(--brd);background:var(--surf)}
+#recep-tipo-grid.locked .acc-card:not(.selected){opacity:.35}
 .bat-seg-opt{flex:1;text-align:center;padding:10px 6px;border:2px solid var(--brd);border-radius:var(--rm);cursor:pointer;font-size:13px;font-weight:700;color:var(--tx-d);background:var(--surf);transition:all .13s;user-select:none}
 .bat-seg-opt:hover{border-color:var(--brd2)}
 .bat-seg-opt.selected{border-color:var(--indigo);background:rgba(99,102,241,.14);color:var(--indigo)}
@@ -633,21 +636,26 @@ body.compact tbody td{padding:6px 14px!important}
           Registrá con qué llegó el equipo. Es obligatorio antes de pasar a "En Revision" o asignar técnico.
         </p>
 
-        <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">Tipo de equipo</label>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-          <div class="acc-card" id="rt-dron" onclick="_selRecepTipo('Dron')">
+        <label style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">
+          Tipo de equipo
+          <span id="recep-tipo-lock-note" style="display:none;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--tx-d);font-size:10px;margin-left:4px">
+            <i class="fa fa-lock" style="margin-right:3px"></i>detectado automáticamente según el equipo de la OT
+          </span>
+        </label>
+        <div id="recep-tipo-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+          <div class="acc-card" id="rt-dron" onclick="_clickRecepTipo('Dron')">
             <i class="fa fa-helicopter"></i><div class="acc-name">Dron</div>
           </div>
-          <div class="acc-card" id="rt-mavic" onclick="_selRecepTipo('Mavic')">
+          <div class="acc-card" id="rt-mavic" onclick="_clickRecepTipo('Mavic')">
             <i class="fa fa-camera"></i><div class="acc-name">Mavic</div>
           </div>
-          <div class="acc-card" id="rt-bateria" onclick="_selRecepTipo('Bateria')">
+          <div class="acc-card" id="rt-bateria" onclick="_clickRecepTipo('Bateria')">
             <i class="fa fa-battery-full"></i><div class="acc-name">Batería</div>
           </div>
-          <div class="acc-card" id="rt-control" onclick="_selRecepTipo('Control')">
+          <div class="acc-card" id="rt-control" onclick="_clickRecepTipo('Control')">
             <i class="fa fa-gamepad"></i><div class="acc-name">Control remoto</div>
           </div>
-          <div class="acc-card" id="rt-generador" onclick="_selRecepTipo('Generador')">
+          <div class="acc-card" id="rt-generador" onclick="_clickRecepTipo('Generador')">
             <i class="fa fa-bolt"></i><div class="acc-name">Generador</div>
           </div>
         </div>
@@ -2698,6 +2706,24 @@ function _recepcionCardHtml(rec){
 var _recepTipoSel = 'Dron';
 var _recepAcc = { controlRemoto:false, coolingBox:false, cargador:false, helices:false };
 var _recepBaterias = 0;
+// true cuando el tipo salió de EQUIPOS con certeza (tipoRecepcionConocido) — ahí el operador ya
+// no puede tocarlo, el sistema ya sabe qué es. Si el equipo no está clasificado en EQUIPOS, queda
+// en false y el selector sigue editable a mano (ver abrirModalRecepcion).
+var _recepTipoLocked = false;
+
+// Único punto de entrada de los clicks en las tarjetas — respeta el bloqueo. La preselección
+// automática de abrirModalRecepcion llama a _selRecepTipo() directo, sin pasar por acá.
+function _clickRecepTipo(tipo){
+  if (_recepTipoLocked) return;
+  _selRecepTipo(tipo);
+}
+
+function _actualizarLockRecepTipo(){
+  var grid = document.getElementById('recep-tipo-grid');
+  var note = document.getElementById('recep-tipo-lock-note');
+  if (grid) grid.classList.toggle('locked', _recepTipoLocked);
+  if (note) note.style.display = _recepTipoLocked ? '' : 'none';
+}
 
 function _selRecepTipo(tipo){
   _recepTipoSel = tipo;
@@ -2731,6 +2757,8 @@ function abrirModalRecepcion(){
     if (el) el.classList.remove('selected');
   });
   _selRecepTipo(actual.tipoRecepcionSugerido || 'Dron');
+  _recepTipoLocked = (actual.tipoRecepcionConocido === true);
+  _actualizarLockRecepTipo();
   _setRecepBaterias(0);
   var otros = document.getElementById('recep-otros'); if (otros) otros.value = '';
   var obs   = document.getElementById('recep-obs');   if (obs)   obs.value   = '';

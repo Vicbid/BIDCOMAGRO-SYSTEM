@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -291,6 +291,9 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
         cierreTipo:     String(f[SCHEMA.OT.CIERRE_TIPO]||"").trim(), // AB: reposición vs NC
         esBateria: mapaBaterias[String(f[5]||'').trim().toLowerCase()] === true,
         tipoRecepcionSugerido: mapaTipoRecepcion[String(f[5]||'').trim().toLowerCase()] || 'Dron',
+        // true solo si el equipo está cargado en EQUIPOS (el tipo se sabe con certeza) — si no,
+        // el modal de Recepción deja elegir a mano en vez de fijar un tipo que es una adivinanza.
+        tipoRecepcionConocido: mapaTipoRecepcion.hasOwnProperty(String(f[5]||'').trim().toLowerCase()),
         dias:      dias,
         diasEstado: diasEstado,
         umMod:     (rawUM instanceof Date) ? rawUM.getTime() : 0
