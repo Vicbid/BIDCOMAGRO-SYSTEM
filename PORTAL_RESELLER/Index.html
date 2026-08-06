@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.80 -->
+<!-- @version 1.81 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -423,7 +423,29 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .ped-chip.consultar_Backorder{background:rgba(212,137,10,.12);color:#d4890a;border:1px solid rgba(212,137,10,.22)}
 .ped-chip.sin_catalogo {background:rgba(214,48,49,.1); color:#d63031;border:1px solid rgba(214,48,49,.2)}
 
-
+/* ── CATÁLOGO EXPLOTADAS en mobile ── */
+/* Reportado por el usuario con captura de un celular: la imagen + la tabla de
+   repuestos van lado a lado (columna izquierda fija + derecha con scroll)
+   pensado para desktop; en una pantalla angosta el "position:sticky" de la
+   imagen queda flotando encima de la lista, y la tabla de 5 columnas
+   (N°/SKU/Repuesto/Precio/Agregar) no entra — la columna "Agregar" quedaba
+   cortada fuera de la pantalla sin forma evidente de llegar al botón.
+   680px porque las dos columnas suman min-width:320px+300px=620px — por
+   debajo de eso ya no entran una al lado de la otra ni con flex-wrap. */
+@media(max-width:680px){
+  .cat-modal-imgwrap{position:static!important;min-width:0!important}
+  .cat-modal-listwrap{min-width:0!important;flex-basis:100%!important;max-height:none!important;overflow:visible!important}
+  /* Tabla → tarjetas: cada <tr> pasa a ser un bloque con sus <td> apilados,
+     cada uno con su etiqueta (data-label, ya viene en el HTML) en vez de la
+     fila de encabezado — así no hace falta ancho para 5 columnas en fila. */
+  .cat-item-table thead{display:none}
+  .cat-item-table, .cat-item-table tbody, .cat-item-table tr{display:block;width:100%}
+  .cat-item-table tr{border-bottom:1px solid var(--brd);padding:6px 0}
+  .cat-item-table td{display:flex!important;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px!important;text-align:left!important;white-space:normal!important}
+  .cat-item-table td::before{content:attr(data-label);font-size:9px;font-weight:700;color:var(--tx-d);text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
+  /* Título del conjunto ("Tren de aterrizaje (1) — DJI Agra...") deja de cortarse con "…" */
+  #cat-modal-title{white-space:normal!important;line-height:1.25}
+}
 </style>
 </head>
 <body>
@@ -5935,11 +5957,11 @@ function _catAbrir(id) {
         ? '<button onclick="_catAbrir(\'' + tgt.id + '\')" title="Ir al conjunto ' + _catEsc(tgt.nombre) + '" style="display:inline-flex;align-items:center;gap:4px;background:var(--surf);border:1px solid var(--blue);color:var(--blue);border-radius:var(--r);padding:4px 9px;font-size:11px;cursor:pointer;font-weight:700;white-space:nowrap">Ver conjunto <i class="fa fa-arrow-right"></i></button>'
         : '<span style="font-size:10px;color:var(--tx-d)">Se pide en otro conjunto</span>';
       rows += '<tr style="border-bottom:1px solid var(--brd);background:rgba(0,163,224,.05)">' +
-        '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
-        '<td style="padding:5px 8px;color:var(--tx-d)">—</td>' +
-        '<td style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(refName) + ' <span style="color:var(--tx-d);font-size:10px">(se pide en su conjunto)</span></td>' +
-        '<td style="padding:5px 8px;text-align:right;color:var(--tx-d)">—</td>' +
-        '<td style="padding:5px 8px;text-align:right">' + accionRef + '</td>' +
+        '<td data-label="N°" style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
+        '<td data-label="SKU" style="padding:5px 8px;color:var(--tx-d)">—</td>' +
+        '<td data-label="Repuesto" style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(refName) + ' <span style="color:var(--tx-d);font-size:10px">(se pide en su conjunto)</span></td>' +
+        '<td data-label="Precio" style="padding:5px 8px;text-align:right;color:var(--tx-d)">—</td>' +
+        '<td data-label="Agregar" style="padding:5px 8px;text-align:right">' + accionRef + '</td>' +
       '</tr>';
       continue;
     }
@@ -5960,11 +5982,11 @@ function _catAbrir(id) {
         '</div>'
       : '<span style="font-size:10px;color:var(--tx-d)">ver otro conjunto</span>';
     rows += '<tr style="border-bottom:1px solid var(--brd)' + (tieneSku ? '' : ';opacity:.55') + '">' +
-      '<td style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
-      '<td style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _catEsc(it.sku || '—') + '</td>' +
-      '<td style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(it.nombre) + '</td>' +
-      '<td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px">' + precioHtml + '</td>' +
-      '<td style="padding:5px 8px">' + accion + '</td>' +
+      '<td data-label="N°" style="padding:5px 8px;text-align:center;font-weight:700;color:var(--blue)">' + _catEsc(it.no) + '</td>' +
+      '<td data-label="SKU" style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _catEsc(it.sku || '—') + '</td>' +
+      '<td data-label="Repuesto" style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _catEsc(it.nombre) + '</td>' +
+      '<td data-label="Precio" style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px">' + precioHtml + '</td>' +
+      '<td data-label="Agregar" style="padding:5px 8px">' + accion + '</td>' +
     '</tr>';
   }
 
@@ -5996,11 +6018,11 @@ function _catAbrir(id) {
   })();
   document.getElementById('cat-modal-body').innerHTML =
     '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
-      // Columna izquierda: imagen (queda fija mientras la lista scrollea)
-      '<div style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
-      // Columna derecha: lista de repuestos con scroll propio + encabezado fijo
-      '<div style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
-        '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+      // Columna izquierda: imagen (queda fija mientras la lista scrollea, solo en desktop — ver .cat-modal-imgwrap en mobile)
+      '<div class="cat-modal-imgwrap" style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
+      // Columna derecha: lista de repuestos con scroll propio + encabezado fijo (en mobile pasa a tarjetas — ver .cat-item-table)
+      '<div class="cat-modal-listwrap" style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+        '<table class="cat-item-table" style="width:100%;border-collapse:collapse"><thead><tr>' +
           '<th style="' + thSt + 'text-align:center">N°</th>' +
           '<th style="' + thSt + 'text-align:left">SKU</th>' +
           '<th style="' + thSt + 'text-align:left">Repuesto</th>' +
