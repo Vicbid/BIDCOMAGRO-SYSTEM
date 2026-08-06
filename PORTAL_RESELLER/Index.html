@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.81 -->
+<!-- @version 1.82 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -431,10 +431,18 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
    (N°/SKU/Repuesto/Precio/Agregar) no entra — la columna "Agregar" quedaba
    cortada fuera de la pantalla sin forma evidente de llegar al botón.
    680px porque las dos columnas suman min-width:320px+300px=620px — por
-   debajo de eso ya no entran una al lado de la otra ni con flex-wrap. */
+   debajo de eso ya no entran una al lado de la otra ni con flex-wrap.
+   Pedido posterior: que la imagen quede fija arriba y sólo las tarjetas de
+   repuestos se desplacen debajo (en vez de que todo scrollee junto dentro
+   de #cat-modal-body). Por eso acá .cat-modal-row pasa a columna con la
+   imagen a altura fija (flex:0 0 auto) y .cat-modal-listwrap como única
+   zona con scroll propio (flex:1 1 auto + min-height:0 para poder achicarse). */
 @media(max-width:680px){
-  .cat-modal-imgwrap{position:static!important;min-width:0!important}
-  .cat-modal-listwrap{min-width:0!important;flex-basis:100%!important;max-height:none!important;overflow:visible!important}
+  #cat-modal-body{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+  .cat-modal-row{display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;flex:1 1 auto;min-height:0;gap:10px!important}
+  .cat-modal-imgwrap{position:static!important;min-width:0!important;flex:0 0 auto!important}
+  .cat-modal-img{max-height:38vh!important}
+  .cat-modal-listwrap{min-width:0!important;flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow:auto!important;-webkit-overflow-scrolling:touch}
   /* Tabla → tarjetas: cada <tr> pasa a ser un bloque con sus <td> apilados,
      cada uno con su etiqueta (data-label, ya viene en el HTML) en vez de la
      fila de encabezado — así no hace falta ancho para 5 columnas en fila. */
@@ -5924,7 +5932,7 @@ function _catAbrir(id) {
   var thumb = c.imagenId ? ('https://drive.google.com/thumbnail?id=' + c.imagenId + '&sz=w1600') : '';
   var img = c.imagenUrl
     ? '<div style="position:relative" onmousemove="_catLens(event,this)" onmouseleave="_catLensHide(this)">' +
-        '<img src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);cursor:crosshair;background:#fff" onerror="_catImgError(this)">' +
+        '<img class="cat-modal-img" src="' + _catEsc(c.imagenUrl) + '" data-thumb="' + _catEsc(thumb) + '" alt="' + _catEsc(c.nombre) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);cursor:crosshair;background:#fff" onerror="_catImgError(this)">' +
         '<div class="cat-lens" style="position:absolute;width:190px;height:190px;border-radius:50%;border:3px solid rgba(255,255,255,.95);box-shadow:0 3px 16px rgba(0,0,0,.4);background-repeat:no-repeat;pointer-events:none;display:none;z-index:5"></div>' +
         '<button onclick="_catZoomAbrir(this.parentNode.querySelector(\'img\').src)" title="Ver a pantalla completa" aria-label="Pantalla completa" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:13px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:6"><i class="fa fa-expand"></i></button>' +
       '</div>' +
@@ -6017,8 +6025,9 @@ function _catAbrir(id) {
     }
   })();
   document.getElementById('cat-modal-body').innerHTML =
-    '<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
-      // Columna izquierda: imagen (queda fija mientras la lista scrollea, solo en desktop — ver .cat-modal-imgwrap en mobile)
+    '<div class="cat-modal-row" style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
+      // Columna izquierda: imagen. Desktop: sticky mientras la lista scrollea al lado.
+      // Mobile (ver media query 680px): altura fija arriba, no scrollea — solo scrollea la lista.
       '<div class="cat-modal-imgwrap" style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
       // Columna derecha: lista de repuestos con scroll propio + encabezado fijo (en mobile pasa a tarjetas — ver .cat-item-table)
       '<div class="cat-modal-listwrap" style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
