@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.70 -->
+<!-- @version 1.71 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -21,6 +21,7 @@
   --r:4px; --rm:8px; --rl:12px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
 body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;font-size:14px;line-height:1.5}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--surf)}
@@ -268,6 +269,30 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   .tab-btn{padding:5px 10px;font-size:11px}
   .rec-2col{grid-template-columns:1fr;gap:0}
   .rec-2col .dji-card{margin-bottom:14px}
+
+  /* Header: con reseller logueado puede haber varios botones a la derecha
+     (Actualizar, Salir, badge, Mi perfil...) — en desktop entran en una fila,
+     en mobile se envuelven en vez de desbordar horizontalmente la página. */
+  .site-header{flex-wrap:wrap;row-gap:8px;padding:10px 14px}
+  .header-actions{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
+
+  /* Evita el zoom automático de iOS Safari al tocar un campo: si el font-size
+     computado es menor a 16px, Safari agranda toda la página al enfocar. */
+  .form-control,.form-select,.rep-qty,.comment-send input{font-size:16px!important}
+
+  /* Objetivos táctiles más grandes para dedo (miniatura de foto, sumar al
+     carrito, quitar ítem) — en desktop el mouse no lo necesita. */
+  .rep-thumb{width:40px;height:40px}
+  .rep-add-btn{width:34px;height:34px;font-size:14px}
+  .rep-item{padding:11px 13px}
+  .carrito-del{padding:6px 9px;font-size:13px}
+  .carrito-item{padding:10px 13px}
+
+  /* Los 3 botones de modo (Buscar SKU / Catálogo / Cargar Excel) quedan muy
+     apretados en una pantalla angosta — se achican para entrar en una fila. */
+  .gest-mode-btn{padding:8px 6px;font-size:11px;gap:4px}
+
+  .help-bar{flex-wrap:wrap;row-gap:6px}
 }
 
 /* ── Cuenta Corriente — estilo Mercado Pago ──── */
@@ -746,7 +771,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div class="header-sub">BIDCOMAGRO · Servicio Técnico Oficial</div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px">
+  <div class="header-actions" style="display:flex;align-items:center;gap:8px">
     <button id="btn-refresh-portal" onclick="actualizarPortal()" style="display:none;background:transparent;border:1px solid rgba(0,163,224,.3);color:var(--blue);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='var(--blue-a)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sync-alt"></i> Actualizar</button>
     <button id="btn-header-logout" onclick="cerrarSesion()" style="display:none;background:transparent;border:1px solid rgba(214,48,49,.35);color:var(--red);border-radius:var(--r);padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;transition:background .13s" onmouseover="this.style.background='rgba(214,48,49,.08)'" onmouseout="this.style.background='transparent'"><i class="fa fa-sign-out-alt"></i> Salir</button>
     <span id="header-reseller-badge" style="display:none;font-size:10px;font-weight:600;color:var(--blue);background:var(--blue-a);border:1px solid rgba(0,163,224,.2);border-radius:var(--r);padding:3px 9px"></span>
