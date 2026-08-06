@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.73 -->
+<!-- @version 1.74 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -252,6 +252,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 #ped-loading-bar-wrap{width:240px;height:5px;background:var(--brd2);border-radius:3px;overflow:hidden;margin:0 auto}
 #ped-loading-bar{height:100%;background:var(--blue);border-radius:3px;width:0%;transition:width .6s cubic-bezier(.4,0,.2,1)}
 #ped-loading-sub{font-size:11px;color:var(--tx-d);margin-top:12px}
+
+/* Barra de progreso al abrir el Catálogo (despieces) — mismo estilo que
+   #ped-loading-bar, pero embebida en el panel en vez de overlay a pantalla
+   completa (ver _catCargar/_catAvanzarProgreso). */
+.cat-load-bar-wrap{width:200px;height:5px;background:var(--brd2);border-radius:3px;overflow:hidden;margin:14px auto 0}
+.cat-load-bar{height:100%;background:var(--blue);border-radius:3px;width:0%;transition:width .5s cubic-bezier(.4,0,.2,1)}
 
 /* ── SPINNER ────────────────────────────── */
 #spin{display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px}
@@ -795,6 +801,18 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
 <!-- CONTENIDO -->
 <div class="wrap">
+
+  <!-- Banner: quedó una pestaña vieja abierta (ver _chequearVersionNueva) -->
+  <div id="banner-nueva-version" style="display:none;align-items:center;gap:12px;background:#eef7ff;border:1.5px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+    <i class="fa fa-rotate" style="color:var(--blue);font-size:18px;flex-shrink:0"></i>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:var(--tx)">Hay una versión más nueva del portal</div>
+      <div style="font-size:12px;color:var(--tx-m);margin-top:2px">Esta pestaña quedó abierta desde antes de la última actualización. Actualizá para ver las últimas mejoras.</div>
+    </div>
+    <button onclick="location.reload()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <i class="fa fa-rotate" style="margin-right:5px"></i>Actualizar ahora
+    </button>
+  </div>
 
   <!-- Banner: dirección faltante -->
   <div id="banner-sin-dir" style="display:none;align-items:center;gap:12px;background:#fff8ed;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:14px">
@@ -2290,6 +2308,35 @@ var flujoActual    = "";
 var carrito        = [];
 var busTimer;
 var _deployUrl     = '<?= DEPLOY_URL ?>';
+var _portalVersionCargada = '<?= PORTAL_VERSION ?>'; // versión con la que cargó ESTA pestaña — ver _chequearVersionNueva
+
+// ── Detección de pestaña vieja abierta ──────────────────────────────────
+// El reseller suele dejar el portal abierto en una pestaña de Chrome sin
+// cerrar (cargar la dirección de envío es incómodo, así que evitan repetirlo)
+// y cuando vuelve puede seguir corriendo una versión vieja — al ser una sola
+// página cargada una vez, no hay forma de que se entere solo de que salió
+// una actualización; hay que preguntarle al servidor cada tanto.
+function _chequearVersionNueva() {
+  var b = document.getElementById('banner-nueva-version');
+  if (b && b.style.display !== 'none') return; // ya avisado, no repetir el llamado
+  google.script.run
+    .withSuccessHandler(function(v) {
+      if (v && _portalVersionCargada && v !== _portalVersionCargada) {
+        var banner = document.getElementById('banner-nueva-version');
+        if (banner) banner.style.display = 'flex';
+      }
+    })
+    .withFailureHandler(function() {})
+    .RS_obtenerVersionActual();
+}
+(function _versionCheckInit() {
+  // Señal más común: vuelve a una pestaña que había dejado abierta.
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _chequearVersionNueva();
+  });
+  // Respaldo por si la deja abierta y en primer plano varias horas seguidas.
+  setInterval(_chequearVersionNueva, 30 * 60 * 1000);
+})();
 var resellerActual = "";  // se llena al autenticarse (PIN o email sesión)
 var grupoActual    = null; // { nombre, resellers:[] } cuando el login es de grupo
 var _otsReseller   = [];  // cache de órdenes para el panel mensajes
@@ -5691,21 +5738,67 @@ function _pedSetMode(mode) {
 var _catData        = null;   // { modelos:[{modelo, modeloNombre, conjuntos}] }
 var _catModeloActual = null;  // el modelo elegido
 var _catConjActual  = null;
+var _catLoadingTimer = null;
 
 function _catEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// Barra de progreso "cosmética" (igual que _pedMostrarCargando): Apps Script no
+// da progreso real de una llamada, así que avanza por pasos fijos hasta que
+// llega la respuesta real, que la completa al 100%.
+function _catAvanzarProgreso() {
+  var pasos = [
+    { pct: 20, msg: 'Cargando catálogo de despieces…' },
+    { pct: 45, msg: 'Buscando diagramas…' },
+    { pct: 70, msg: 'Preparando precios y stock…' },
+    { pct: 90, msg: 'Casi listo…' }
+  ];
+  function aplicar(s) {
+    var bar = document.getElementById('cat-load-bar');
+    var msg = document.getElementById('cat-load-msg');
+    if (!bar) return;
+    bar.style.width = s.pct + '%';
+    if (msg) { msg.style.opacity = '0'; setTimeout(function(){ msg.textContent = s.msg; msg.style.opacity = '1'; }, 150); }
+  }
+  aplicar(pasos[0]);
+  var idx = 1;
+  clearInterval(_catLoadingTimer);
+  _catLoadingTimer = setInterval(function() {
+    if (idx >= pasos.length) { clearInterval(_catLoadingTimer); return; }
+    aplicar(pasos[idx]); idx++;
+  }, 900);
+}
+
 function _catCargar() {
   var wrap = document.getElementById(_repIds().catWrapId);
-  wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i> Cargando catálogo…</div>';
+  wrap.innerHTML =
+    '<div style="padding:26px 20px;text-align:center">' +
+      '<i class="fa fa-circle-notch fa-spin" style="font-size:20px;color:var(--blue);margin-bottom:10px;display:block"></i>' +
+      '<div id="cat-load-msg" style="font-size:12px;color:var(--tx-m);font-weight:600;transition:opacity .3s">Cargando catálogo…</div>' +
+      '<div class="cat-load-bar-wrap"><div class="cat-load-bar" id="cat-load-bar"></div></div>' +
+    '</div>';
+  _catAvanzarProgreso();
+
+  // Aprovecha esta misma espera para adelantar el índice de precios/stock: así,
+  // para cuando el reseller termine de elegir modelo y conjunto, los precios
+  // del catálogo (que salen de ese índice — ver _catAbrir) ya están listos en
+  // vez de mostrar "A consultar" hasta que termine de cargar.
+  if (_pedIndice === null) _pedCargarIndice();
+
   google.script.run
     .withSuccessHandler(function(r) {
+      clearInterval(_catLoadingTimer);
+      var bar = document.getElementById('cat-load-bar');
+      if (bar) bar.style.width = '100%';
       if (!r || !r.ok) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">No se pudo cargar el catálogo.</div>'; return; }
       // Compat: si viniera el formato viejo (un modelo), lo envolvemos
       if (!r.modelos && r.conjuntos) r = { modelos: [{ modelo: r.modelo, modeloNombre: r.modeloNombre, conjuntos: r.conjuntos }] };
       _catData = r;
-      _catRenderModelos();
+      setTimeout(_catRenderModelos, 150); // deja ver la barra llena un instante antes de pasar a los modelos
     })
-    .withFailureHandler(function(e) { wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: ' + ((e && e.message) || e) + '</div>'; })
+    .withFailureHandler(function(e) {
+      clearInterval(_catLoadingTimer);
+      wrap.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px">Error: ' + ((e && e.message) || e) + '</div>';
+    })
     .obtenerCatalogoExplotadas();
 }
 

@@ -1,7 +1,13 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
+
+// Se bumpea a mano junto con "<!-- @version X.Y -->" de Index.html — el cliente
+// la trae embebida al cargar la página y la vuelve a consultar cada tanto
+// (RS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta.
+// Ver _chequearVersionNueva en Index.html.
+var PORTAL_VERSION = '1.74';
 
 var PORTAL_CONFIG = {
   EMAIL_SUPERVISOR:     "soporteagrasdji@bidcom.com.ar",
@@ -87,11 +93,19 @@ function doGet(e) {
     return _paginaResumenCurso(params.t, params.ev);
   }
   var tmpl = HtmlService.createTemplateFromFile('Index');
-  tmpl.DEPLOY_URL = ScriptApp.getService().getUrl();
+  tmpl.DEPLOY_URL     = ScriptApp.getService().getUrl();
+  tmpl.PORTAL_VERSION = PORTAL_VERSION;
   return tmpl.evaluate()
     .setTitle('Portal Resellers — BIDCOMAGRO')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// Consultada por el cliente (Index.html: _chequearVersionNueva) para detectar
+// pestañas viejas abiertas hace rato: si difiere de la versión con la que esa
+// pestaña cargó, se avisa con un banner en vez de seguir operando desactualizado.
+function RS_obtenerVersionActual() {
+  return PORTAL_VERSION;
 }
 
 function _tokenAprobacion(ot, action) {
