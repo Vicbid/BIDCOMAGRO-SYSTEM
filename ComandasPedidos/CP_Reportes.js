@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.5
 // ============================================================
 //  COMANDAS — Reporte de tiempos + herramientas CP_debug*/CP_diag*
 //  (diagnóstico genérico, no atado a un incidente puntual).
@@ -8,13 +8,19 @@
 
 
 /* ════════════════════════════════════════════════════════════
-   REPORTE DE TIEMPOS — CARGAR → comanda cargada
-   delta = fecha del envío (cuando el operador registró la comanda)
-           menos el momento MÁS ANTIGUO en que se marcó CARGAR en la venta.
+   REPORTE DE TIEMPOS — 4 tramos, de punta a punta:
+     1) CARGAR → comanda cargada   (el operador registra el N° de comanda)
+     2) comanda cargada → autorizada (Comandas Master le asigna guía — proxy:
+        el mail #1 "autorizado" al reseller, que sale apenas se detecta)
+     3) autorizada → despachada   (Comandas Master marca DESPACHADO — proxy:
+        el mail #2 "despachado" al reseller)
+     4) TOTAL: CARGAR → despachada (punta a punta, ciclo completo)
+   Los tramos 2 y 3 tienen hasta 30 min de rezago (cadencia del cron
+   CP_autoMailEnvios), igual que ya tenía el tramo 1 con origen 'deteccion'.
    origen 'edit' = exacto | 'deteccion' = aproximado.
 ════════════════════════════════════════════════════════════ */
 
-// Mapa liviano leyendo Ventas una sola vez: { IDVENTA: {idVenta, reseller, cliente} }
+// Mapa liviano leyendo Ventas una sola vez: { IDVENTA: {idVenta, idNegocio, reseller, cliente} }
 function _cpInfoVentasMap() {
   var rows = _cpHoja().getDataRange().getValues();
   var det = _cpDetectar(rows);
@@ -24,9 +30,10 @@ function _cpInfoVentasMap() {
     var idv = _s(col.idVenta > -1 ? rows[i][col.idVenta] : ''); if (!idv) continue;
     var k = idv.toUpperCase();
     if (!m[k]) m[k] = {
-      idVenta:  idv,
-      reseller: _s(col.reseller > -1 ? rows[i][col.reseller] : ''),
-      cliente:  _s(col.razonSocial > -1 ? rows[i][col.razonSocial] : '')
+      idVenta:   idv,
+      idNegocio: _s(col.idNegocio > -1 ? rows[i][col.idNegocio] : ''),
+      reseller:  _s(col.reseller > -1 ? rows[i][col.reseller] : ''),
+      cliente:   _s(col.razonSocial > -1 ? rows[i][col.razonSocial] : '')
     };
   }
   return m;
@@ -44,54 +51,258 @@ function _cpStats(arr) {
 }
 
 
-// Devuelve { ok, rows:[por envío], pendientes:[marcadas CARGAR sin envío], resumen:{primer, todos} }.
-function CP_reporteTiempos() {
-  try {
-    var logMap = _cpLogMap();
-    // CARGAR más antiguo por venta (+ si es exacto)
-    var cargarPorVenta = {};
-    Object.keys(logMap).forEach(function(key) {
-      var idv = key.split('||')[0], reg = logMap[key], cur = cargarPorVenta[idv];
-      if (!cur || reg.ts < cur.ts) cargarPorVenta[idv] = { ts: reg.ts, origen: reg.origen };
-    });
-    var info = _cpInfoVentasMap();
-    var enviosMap = _cpEnviosMap();
-    var rows = [], dPrim = [], dTodos = [], dDesp = [];
-    Object.keys(enviosMap).forEach(function(idvU) {
-      var arr = enviosMap[idvU], carg = cargarPorVenta[idvU];
-      var cargTs = carg ? carg.ts.getTime() : null, exacto = carg ? (carg.origen === 'edit') : false;
-      var iv = info[idvU] || {};
-      arr.forEach(function(e) {
-        if (!e.fechaTs) return;
-        var horas = cargTs != null ? Math.round(((e.fechaTs - cargTs) / 3600000) * 10) / 10 : null;
-        if (horas != null && horas >= 0) { dTodos.push(horas); if (e.envio === 1) dPrim.push(horas); }
-        // tramo despacho: comanda cargada (fecha del envío) → mail al reseller (proxy del despacho)
-        var hDesp = e.mailResellerTs ? Math.round(((e.mailResellerTs - e.fechaTs) / 3600000) * 10) / 10 : null;
-        if (hDesp != null && hDesp >= 0) dDesp.push(hDesp);
-        rows.push({
-          idVenta: iv.idVenta || idvU, reseller: iv.reseller || '', cliente: iv.cliente || '',
-          envio: e.envio, comanda: e.comanda,
-          cargarStr: cargTs != null ? _fmtTs(new Date(cargTs)) : '',
-          origen: carg ? (exacto ? 'exacto' : 'aprox') : 'sin registro',
-          cargadaStr: e.fechaStr || '', operador: e.operador || '',
-          despachoStr: e.mailResellerTs ? _fmtTs(new Date(e.mailResellerTs)) : '',
-          horas: horas, horasDespacho: hDesp, primero: (e.envio === 1)
-        });
+// Diferencia en horas (1 decimal) entre 2 timestamps (ms), o null si negativa/faltante.
+function _cpHoras(msIni, msFin) {
+  if (msIni == null || msFin == null) return null;
+  var h = Math.round(((msFin - msIni) / 3600000) * 10) / 10;
+  return h >= 0 ? h : null;
+}
+
+
+// Lunes 00:00 (hora local del script) de la semana que contiene ts — clave para agrupar la
+// tendencia semana a semana. Semana = lunes a domingo.
+function _cpSemanaKey(ts) {
+  var d = new Date(ts);
+  var dia = d.getDay(); // 0=domingo..6=sábado
+  var diffALunes = (dia === 0 ? -6 : 1) - dia;
+  var lunes = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diffALunes);
+  return lunes.getTime();
+}
+
+
+// Cálculo compartido por CP_reporteTiempos() (UI/CSV) y CP_actualizarHojaTiempos() (hoja TIEMPOS)
+// — una sola fuente de verdad para no tener 2 versiones de la misma cuenta que puedan divergir.
+// Devuelve { rows:[por envío], pendientes:[marcadas CARGAR sin envío], resumen }.
+function _cpTiemposCalc() {
+  var logMap = _cpLogMap();
+  // CARGAR más antiguo por venta (+ si es exacto)
+  var cargarPorVenta = {};
+  Object.keys(logMap).forEach(function(key) {
+    var idv = key.split('||')[0], reg = logMap[key], cur = cargarPorVenta[idv];
+    if (!cur || reg.ts < cur.ts) cargarPorVenta[idv] = { ts: reg.ts, origen: reg.origen };
+  });
+  var info = _cpInfoVentasMap();
+  var enviosMap = _cpEnviosMap();
+  var rows = [], dPrim = [], dTodos = [], dAut = [], dDesp = [], dTotal = [];
+  Object.keys(enviosMap).forEach(function(idvU) {
+    var arr = enviosMap[idvU], carg = cargarPorVenta[idvU];
+    var cargTs = carg ? carg.ts.getTime() : null, exacto = carg ? (carg.origen === 'edit') : false;
+    var iv = info[idvU] || {};
+    arr.forEach(function(e) {
+      if (!e.fechaTs) return;
+      var hCarga = _cpHoras(cargTs, e.fechaTs);
+      if (hCarga != null) { dTodos.push(hCarga); if (e.envio === 1) dPrim.push(hCarga); }
+      var hAut = _cpHoras(e.fechaTs, e.mailAutorizadoTs);
+      if (hAut != null) dAut.push(hAut);
+      var hDesp = _cpHoras(e.mailAutorizadoTs, e.mailResellerTs);
+      if (hDesp != null) dDesp.push(hDesp);
+      var hTotal = _cpHoras(cargTs, e.mailResellerTs);
+      if (hTotal != null) dTotal.push(hTotal);
+      rows.push({
+        idVenta: iv.idVenta || idvU, idNegocio: iv.idNegocio || '', reseller: iv.reseller || '', cliente: iv.cliente || '',
+        envio: e.envio, comanda: e.comanda, operador: e.operador || '',
+        cargarTs: cargTs, cargarStr: cargTs != null ? _fmtTs(new Date(cargTs)) : '',
+        origen: carg ? (exacto ? 'exacto' : 'aprox') : 'sin registro',
+        cargadaTs: e.fechaTs, cargadaStr: e.fechaStr || '',
+        autorizadoTs: e.mailAutorizadoTs || null, autorizadoStr: e.mailAutorizadoTs ? _fmtTs(new Date(e.mailAutorizadoTs)) : '',
+        despachadoTs: e.mailResellerTs || null, despachadoStr: e.mailResellerTs ? _fmtTs(new Date(e.mailResellerTs)) : '',
+        horasCarga: hCarga, horasAutorizar: hAut, horasDespachar: hDesp, horasTotal: hTotal,
+        primero: (e.envio === 1)
       });
     });
-    rows.sort(function(a, b) { return a.idVenta === b.idVenta ? a.envio - b.envio : (a.idVenta < b.idVenta ? -1 : 1); });
-    // pendientes: marcadas CARGAR pero sin ningún envío todavía
-    var now = Date.now(), pend = [];
-    Object.keys(cargarPorVenta).forEach(function(idvU) {
-      if (enviosMap[idvU]) return;
-      var carg = cargarPorVenta[idvU], iv = info[idvU] || {};
-      pend.push({ idVenta: iv.idVenta || idvU, reseller: iv.reseller || '',
-        horasAbierto: Math.round(((now - carg.ts.getTime()) / 3600000) * 10) / 10,
-        origen: (carg.origen === 'edit' ? 'exacto' : 'aprox') });
+  });
+  rows.sort(function(a, b) { return a.idVenta === b.idVenta ? a.envio - b.envio : (a.idVenta < b.idVenta ? -1 : 1); });
+  // pendientes: marcadas CARGAR pero sin ningún envío todavía
+  var now = Date.now(), pend = [];
+  Object.keys(cargarPorVenta).forEach(function(idvU) {
+    if (enviosMap[idvU]) return;
+    var carg = cargarPorVenta[idvU], iv = info[idvU] || {};
+    pend.push({ idVenta: iv.idVenta || idvU, idNegocio: iv.idNegocio || '', reseller: iv.reseller || '',
+      cargarTs: carg.ts.getTime(),
+      horasAbierto: _cpHoras(carg.ts.getTime(), now),
+      origen: (carg.origen === 'edit' ? 'exacto' : 'aprox') });
+  });
+  pend.sort(function(a, b) { return b.horasAbierto - a.horasAbierto; });
+  // Top 5 comandas más lentas de punta a punta — para que el jefe pueda ir directo a preguntar
+  // por casos concretos, no solo mirar un promedio general.
+  var peores = rows.filter(function(x) { return x.horasTotal != null; })
+    .slice().sort(function(a, b) { return b.horasTotal - a.horasTotal; })
+    .slice(0, 5)
+    .map(function(x) {
+      return { idVenta: x.idVenta, idNegocio: x.idNegocio, reseller: x.reseller, comanda: x.comanda,
+        horasCarga: x.horasCarga, horasAutorizar: x.horasAutorizar, horasDespachar: x.horasDespachar, horasTotal: x.horasTotal };
     });
-    pend.sort(function(a, b) { return b.horasAbierto - a.horasAbierto; });
-    return { ok: true, rows: rows, pendientes: pend, resumen: { primer: _cpStats(dPrim), todos: _cpStats(dTodos), despacho: _cpStats(dDesp) } };
+  // Tendencia semana a semana (lunes a domingo, ancladas en la fecha de CARGAR de cada venta)
+  // por etapa — para ver si mejora o empeora, no solo el promedio general acumulado. Últimas 10
+  // semanas con datos (una semana entra si tiene AL MENOS una etapa con dato).
+  var semanas = {};
+  rows.forEach(function(x) {
+    if (x.cargarTs == null) return;
+    var wk = _cpSemanaKey(x.cargarTs);
+    if (!semanas[wk]) semanas[wk] = { carga: [], autorizar: [], despachar: [] };
+    if (x.horasCarga != null) semanas[wk].carga.push(x.horasCarga);
+    if (x.horasAutorizar != null) semanas[wk].autorizar.push(x.horasAutorizar);
+    if (x.horasDespachar != null) semanas[wk].despachar.push(x.horasDespachar);
+  });
+  var _prom1 = function(arr) { return arr.length ? Math.round((arr.reduce(function(a, b) { return a + b; }, 0) / arr.length) * 10) / 10 : null; };
+  var tendencia = Object.keys(semanas).map(Number).sort(function(a, b) { return a - b; })
+    .map(function(wk) {
+      var s = semanas[wk];
+      return {
+        semanaTs: wk, semanaStr: Utilities.formatDate(new Date(wk), 'America/Argentina/Buenos_Aires', 'dd/MM'),
+        carga: _prom1(s.carga), autorizar: _prom1(s.autorizar), despachar: _prom1(s.despachar),
+        nCarga: s.carga.length, nAutorizar: s.autorizar.length, nDespachar: s.despachar.length
+      };
+    })
+    .slice(-10);
+  return {
+    rows: rows, pendientes: pend, peores: peores, tendencia: tendencia,
+    resumen: { primer: _cpStats(dPrim), todos: _cpStats(dTodos), autorizar: _cpStats(dAut), despachar: _cpStats(dDesp), total: _cpStats(dTotal) }
+  };
+}
+
+
+// Devuelve { ok, rows:[por envío], pendientes:[marcadas CARGAR sin envío], peores:[top 5 más lentas],
+//            tendencia:[por semana], resumen:{primer, todos, autorizar, despachar, total} }.
+function CP_reporteTiempos() {
+  try {
+    var c = _cpTiemposCalc();
+    return { ok: true, rows: c.rows, pendientes: c.pendientes, peores: c.peores, tendencia: c.tendencia, resumen: c.resumen };
   } catch (e) { return { ok: false, mensaje: String(e && e.message ? e.message : e) }; }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   HOJA "TIEMPOS" — el mismo cálculo de arriba, pero volcado directo
+   a una pestaña del spreadsheet de log (1 fila por envío, + 1 fila
+   por venta marcada CARGAR que todavía no tiene comanda cargada).
+   Pensada para que el operador la mire/filtre/ordene directo en
+   Sheets sin pasar por la app. Se reescribe entera cada vez (full
+   refresh, no upsert) — determinístico y sin riesgo de filas
+   duplicadas o desincronizadas. Se llama sola: al crear un envío
+   (CP_crearEnvio) y en cada corrida del cron de mails (CP_autoMailEnvios,
+   cada 30 min) — así queda al día sin que el operador tenga que hacer nada,
+   más un botón "Actualizar" en la UI por si quiere forzarlo al toque.
+════════════════════════════════════════════════════════════ */
+
+var CP_TIEMPOS_HEADERS = [
+  'Estado', 'ID Venta', 'N° Negocio', 'Reseller', 'Razón Social', 'Envío', 'Comanda', 'Operador',
+  'Marcado CARGAR', 'Comanda cargada', 'Tiempo en cargar (hs)',
+  'Autorizado', 'Tiempo en autorizar (hs)',
+  'Despachado', 'Tiempo en despachar (hs)',
+  'TIEMPO TOTAL — Cargar→Despacho (hs)'
+];
+var CP_TIEMPOS_COL = {
+  ESTADO: 1, ID_VENTA: 2, ID_NEGOCIO: 3, RESELLER: 4, RAZON_SOCIAL: 5, ENVIO: 6, COMANDA: 7, OPERADOR: 8,
+  CARGAR: 9, CARGADA: 10, H_CARGA: 11, AUTORIZADO: 12, H_AUTORIZAR: 13, DESPACHADO: 14, H_DESPACHAR: 15, H_TOTAL: 16
+};
+
+function _cpTiemposHoja() {
+  var ss = _cpSS(CP_LOG_SS_ID);
+  var h = ss.getSheetByName(CP_TIEMPOS_TAB);
+  if (!h) {
+    h = ss.insertSheet(CP_TIEMPOS_TAB);
+    h.getRange(1, 1, 1, CP_TIEMPOS_HEADERS.length).setValues([CP_TIEMPOS_HEADERS]);
+    h.setFrozenRows(1);
+    h.getRange(1, 1, 1, CP_TIEMPOS_HEADERS.length).setFontWeight('bold').setBackground('#1a1f2e').setFontColor('#ffffff');
+    h.setColumnWidths(1, 1, 190);
+    h.setColumnWidth(CP_TIEMPOS_COL.ID_VENTA, 110);
+    h.setColumnWidth(CP_TIEMPOS_COL.ID_NEGOCIO, 110);
+    h.setColumnWidths(CP_TIEMPOS_COL.RESELLER, 2, 170);
+    h.setColumnWidth(CP_TIEMPOS_COL.ENVIO, 60);
+    h.setColumnWidth(CP_TIEMPOS_COL.COMANDA, 110);
+    h.setColumnWidth(CP_TIEMPOS_COL.OPERADOR, 170);
+    h.setColumnWidths(CP_TIEMPOS_COL.CARGAR, 1, 140);
+    h.setColumnWidths(CP_TIEMPOS_COL.CARGADA, 1, 140);
+    h.setColumnWidth(CP_TIEMPOS_COL.H_CARGA, 130);
+    h.setColumnWidths(CP_TIEMPOS_COL.AUTORIZADO, 1, 140);
+    h.setColumnWidth(CP_TIEMPOS_COL.H_AUTORIZAR, 140);
+    h.setColumnWidths(CP_TIEMPOS_COL.DESPACHADO, 1, 140);
+    h.setColumnWidth(CP_TIEMPOS_COL.H_DESPACHAR, 145);
+    h.setColumnWidth(CP_TIEMPOS_COL.H_TOTAL, 190);
+    try { h.setFrozenColumns(1); } catch (fe) {}
+    try {
+      var FILAS_FMT = 4999; // headroom generoso: no hay que retocar esto cuando crezcan las filas
+      h.setConditionalFormatRules([
+        _cpTiemposHeatRule(h.getRange(2, CP_TIEMPOS_COL.H_CARGA, FILAS_FMT, 1)),
+        _cpTiemposHeatRule(h.getRange(2, CP_TIEMPOS_COL.H_AUTORIZAR, FILAS_FMT, 1)),
+        _cpTiemposHeatRule(h.getRange(2, CP_TIEMPOS_COL.H_DESPACHAR, FILAS_FMT, 1)),
+        _cpTiemposHeatRule(h.getRange(2, CP_TIEMPOS_COL.H_TOTAL, FILAS_FMT, 1))
+      ]);
+    } catch (cfe) { Logger.log('TIEMPOS heatmap: ' + cfe); }
+  }
+  return h;
+}
+
+// Heatmap adaptativo (verde=rápido → rojo=lento) para una columna de horas. Se calibra solo
+// (min/mediana/max de lo que haya en la columna en cada momento, sin umbrales fijos en el
+// código) — pensado para que el jefe (perfil Excel) vea de un vistazo dónde hay problemas
+// con solo abrir la hoja, sin pasar por el programa.
+function _cpTiemposHeatRule(range) {
+  return SpreadsheetApp.newConditionalFormatRule()
+    .setGradientMinpointWithValue('#b7ecc4', SpreadsheetApp.InterpolationType.MIN, '')
+    .setGradientMidpointWithValue('#ffe9a8', SpreadsheetApp.InterpolationType.PERCENTILE, '50')
+    .setGradientMaxpointWithValue('#f3a6a6', SpreadsheetApp.InterpolationType.MAX, '')
+    .setRanges([range])
+    .build();
+}
+
+
+// Reescribe TODA la hoja TIEMPOS a partir de _cpTiemposCalc(). Se llama sola desde
+// CP_crearEnvio() y CP_autoMailEnvios(); también expuesta para un botón manual "Actualizar".
+function CP_actualizarHojaTiempos() {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(8000); } catch (le) {}
+  try {
+    var c = _cpTiemposCalc();
+    var h = _cpTiemposHoja();
+    var filas = [];
+
+    c.rows.forEach(function(x) {
+      var estado = x.despachadoTs ? '🟢 Despachado' : x.autorizadoTs ? '🔵 Esperando despacho' : '🟠 Esperando autorización';
+      filas.push([
+        estado, x.idVenta, x.idNegocio, x.reseller, x.cliente, x.envio, x.comanda, x.operador,
+        x.cargarTs ? new Date(x.cargarTs) : '', x.cargadaTs ? new Date(x.cargadaTs) : '',
+        x.horasCarga != null ? x.horasCarga : '',
+        x.autorizadoTs ? new Date(x.autorizadoTs) : '', x.horasAutorizar != null ? x.horasAutorizar : '',
+        x.despachadoTs ? new Date(x.despachadoTs) : '', x.horasDespachar != null ? x.horasDespachar : '',
+        x.horasTotal != null ? x.horasTotal : ''
+      ]);
+    });
+    c.pendientes.forEach(function(p) {
+      filas.push([
+        '🟡 Esperando carga de comanda', p.idVenta, p.idNegocio, p.reseller, '', '', '', '',
+        p.cargarTs ? new Date(p.cargarTs) : '', '', p.horasAbierto != null ? p.horasAbierto : '',
+        '', '', '', '', ''
+      ]);
+    });
+
+    // más reciente primero (lo que más le interesa al operador es lo que está pasando ahora)
+    filas.sort(function(a, b) {
+      var ta = a[CP_TIEMPOS_COL.CARGAR - 1] instanceof Date ? a[CP_TIEMPOS_COL.CARGAR - 1].getTime() : 0;
+      var tb = b[CP_TIEMPOS_COL.CARGAR - 1] instanceof Date ? b[CP_TIEMPOS_COL.CARGAR - 1].getTime() : 0;
+      return tb - ta;
+    });
+
+    var nCols = CP_TIEMPOS_HEADERS.length;
+    var last = h.getLastRow();
+    if (last > 1) h.getRange(2, 1, last - 1, nCols).clearContent();
+    if (filas.length) {
+      h.getRange(2, 1, filas.length, nCols).setValues(filas);
+      var fmtFecha = 'dd/mm/yyyy hh:mm', fmtHoras = '0.0" hs"';
+      [CP_TIEMPOS_COL.CARGAR, CP_TIEMPOS_COL.CARGADA, CP_TIEMPOS_COL.AUTORIZADO, CP_TIEMPOS_COL.DESPACHADO].forEach(function(c1) {
+        h.getRange(2, c1, filas.length, 1).setNumberFormat(fmtFecha);
+      });
+      [CP_TIEMPOS_COL.H_CARGA, CP_TIEMPOS_COL.H_AUTORIZAR, CP_TIEMPOS_COL.H_DESPACHAR, CP_TIEMPOS_COL.H_TOTAL].forEach(function(c1) {
+        h.getRange(2, c1, filas.length, 1).setNumberFormat(fmtHoras);
+      });
+    }
+    h.getRange(1, nCols + 2).setValue('Actualizado: ' + _fmtTs(new Date()));
+    return { ok: true, filas: filas.length };
+  } catch (e) {
+    Logger.log('CP_actualizarHojaTiempos: ' + e);
+    return { ok: false, mensaje: String(e && e.message ? e.message : e) };
+  } finally { try { lock.releaseLock(); } catch (fe) {} }
 }
 
 

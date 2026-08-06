@@ -1,4 +1,4 @@
-// @version 2.2
+// @version 2.3
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -326,6 +326,7 @@ function CP_autoMailEnvios() {
     });
   });
   Logger.log('CP_autoMailEnvios: ' + enviadosAutorizado + ' mail(s) de autorización + ' + enviados + ' mail(s) de despacho enviado(s).');
+  try { CP_actualizarHojaTiempos(); } catch (te) { Logger.log('actualizarHojaTiempos tras autoMail: ' + te); }
 }
 
 // Alias por si quedó instalado el trigger viejo.

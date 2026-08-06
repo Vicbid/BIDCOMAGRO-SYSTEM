@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  COMANDAS — Envíos: CRUD/pendientes de entrega, trigger onEdit,
 //  snapshot, log de estado.
@@ -129,8 +129,9 @@ function CP_setupTrigger() {
   _cpRtvHoja();
   _cpPendHoja();
   _cpAuditHoja();
+  _cpTiemposHoja();
   try { CP_poblarRtvDesdeResellers(); } catch (e) { Logger.log('poblar RTV: ' + e); }
-  Logger.log('✅ Hojas listas (CARGAR_LOG, ENVIOS, _CONFIG, RTV, PENDIENTES_ENTREGA, AUDITORIA) en el sheet de log.');
+  Logger.log('✅ Hojas listas (CARGAR_LOG, ENVIOS, _CONFIG, RTV, PENDIENTES_ENTREGA, AUDITORIA, TIEMPOS) en el sheet de log.');
 }
 
 
@@ -143,7 +144,7 @@ function CP_selfCheckReadOnly() {
     ok: ok,
     ventas_solo_lectura: CP_SS_ID,
     escribe_en: CP_LOG_SS_ID,
-    hojas_de_escritura: [CP_LOG_TAB, CP_ENVIOS_TAB, CP_CONFIG_TAB, CP_RTV_TAB, CP_PEND_TAB, CP_AUDIT_TAB],
+    hojas_de_escritura: [CP_LOG_TAB, CP_ENVIOS_TAB, CP_CONFIG_TAB, CP_RTV_TAB, CP_PEND_TAB, CP_AUDIT_TAB, CP_TIEMPOS_TAB],
     mensaje: ok ? 'OK: el archivo de Ventas y el de escritura son distintos; nada se escribe sobre Ventas.'
                 : '⚠️ PELIGRO: CP_LOG_SS_ID == CP_SS_ID — la app escribiría sobre la hoja de Ventas.'
   };
@@ -222,8 +223,8 @@ function _cpProductosJson(obj) {
 
 
 // Mapa { IDVENTA: [ {envio, comanda, fecha, fechaStr, fechaTs, operador, productos, guia,
-//                    transportista, estado, mailAprob, mailReseller, notaAprob, notaReseller,
-//                    threadIdReseller, mailAutorizado, rowIdx} ] }
+//                    transportista, estado, mailAprob, mailReseller, mailResellerTs, notaAprob,
+//                    notaReseller, threadIdReseller, mailAutorizado, mailAutorizadoTs, rowIdx} ] }
 function _cpEnviosMap() {
   try {
     var ss = _cpSS(CP_LOG_SS_ID);
@@ -253,6 +254,7 @@ function _cpEnviosMap() {
         notaReseller:  _s(d[i][12]),
         threadIdReseller: _s(d[i][13]),
         mailAutorizado:   _s(d[i][14]),
+        mailAutorizadoTs: (function() { var dt = _cpParseFechaAr(d[i][14]); return dt ? dt.getTime() : null; })(),
         rowIdx:        i + 1
       };
       if (!m[key]) m[key] = [];
@@ -423,6 +425,7 @@ function CP_crearEnvio(idVenta, comanda, productos, notaAprob, notaReseller, for
     if (soleRes && soleRes.ok) { res.mailSole = true; if (soleRes.sinPdf) res.mailSoleSinPdf = true; }
     else { res.mailSole = false; if (soleRes && soleRes.mensaje) res.mailSoleError = soleRes.mensaje; }
     _cpAuditar('Crear envío', idVenta, nextEnvio, 'comanda ' + comanda + ' · ' + Object.keys(envProd).length + ' ítem(s)' + (res.mailSole ? ' · mail Sole' : ''));
+    try { CP_actualizarHojaTiempos(); } catch (te) { Logger.log('actualizarHojaTiempos tras crear envío: ' + te); }
     return res;
   } catch (e) {
     return { ok: false, mensaje: String(e && e.message ? e.message : e) };

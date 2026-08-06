@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  COMANDAS — Detección de kits + carga de comandas (CP_getComandas).
 //  Extraído de CP_Código.js 1.43 el 2026-07-30 — reorganización sin
@@ -87,6 +87,7 @@ function _addCargar(map, orden, sku, desc, cant, noKit) {
 // Aliases (normalizados) para cada campo que necesitamos leer.
 var CP_ALIASES = {
   idVenta:        ['idventa'],
+  idNegocio:      ['idnegocio'],
   idEntrega:      ['identrega'],
   operacion:      ['operacion'],
   sku:            ['sku'],

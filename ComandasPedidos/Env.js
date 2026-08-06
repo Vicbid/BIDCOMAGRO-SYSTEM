@@ -1,4 +1,4 @@
-// @version 1.14
+// @version 1.15
 // ============================================================
 //  COMANDAS · CARGA MASTERCHIEF — Configuración
 // ============================================================
@@ -19,6 +19,7 @@ var CP_CONFIG_TAB    = '_CONFIG';      // parámetros del mail (destinatarios, a
 var CP_RTV_TAB       = 'RTV';          // nombre + mail de cada RTV (para el mail final del Paso 5)
 var CP_PEND_TAB      = 'PENDIENTES_ENTREGA'; // lo que falta enviar: 1 producto por línea
 var CP_AUDIT_TAB     = 'AUDITORIA';    // trazabilidad: quién + cuándo + qué acción (crear/borrar envío, mails)
+var CP_TIEMPOS_TAB   = 'TIEMPOS';      // 1 fila por envío: cuánto tardó cada etapa (CARGAR→comanda→autorización→despacho)
 
 // Sheet de KITS (receta/BOM): traduce el KIT (col C) a sus componentes (col A) a cargar
 //   A = SKU componente | B = Descripción componente | C = KIT | D = Descripción Kit

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.20 -->
+<!-- @version 2.25 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -347,6 +347,45 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);min-height:100vh;
 .rep-warn{color:#a86500}
 @media(max-width:560px){.rep-cards{grid-template-columns:repeat(2,1fr)}}
 
+/* cuello de botella: dónde está la demora */
+.bn-box{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 16px;margin-bottom:18px}
+.bn-head{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:10px}
+.bn-callout{background:rgba(214,48,49,.08);border:1px solid rgba(214,48,49,.28);border-left:3px solid var(--red);border-radius:0 var(--rm) var(--rm) 0;padding:9px 12px;font-size:12.5px;color:var(--tx);margin-bottom:14px;line-height:1.5}
+.bn-callout b{color:var(--red)}
+.bn-row{display:grid;grid-template-columns:130px 1fr 110px;align-items:center;gap:10px;margin-bottom:9px}
+.bn-lbl{font-size:12px;font-weight:700;color:var(--tx-m);white-space:nowrap}
+.bn-bar-wrap{background:var(--bg);border:1px solid var(--brd);border-radius:6px;height:20px;overflow:hidden}
+.bn-bar{height:100%;background:var(--blue);border-radius:6px 0 0 6px;transition:width .4s ease;min-width:4px}
+.bn-bar.bn-worst{background:var(--red)}
+.bn-val{font-size:12px;font-weight:700;color:var(--tx);text-align:right;white-space:nowrap}
+.bn-val .bn-pct{font-weight:600;color:var(--tx-d);font-size:11px}
+.bn-note{font-size:11px;color:var(--tx-d);padding-left:6px}
+@media(max-width:560px){.bn-row{grid-template-columns:100px 1fr 85px;gap:6px}}
+
+/* top comandas más lentas */
+.pt-box{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 16px;margin-bottom:18px}
+.pt-scroll{overflow-x:auto}
+.pt-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.pt-table th{text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--tx-d);padding:6px 8px;border-bottom:1px solid var(--brd);white-space:nowrap}
+.pt-td{padding:7px 8px;border-bottom:1px solid var(--brd);white-space:nowrap;color:var(--tx-m)}
+.pt-comanda{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;color:var(--tx)}
+.pt-reseller{color:var(--tx);font-weight:600}
+.pt-sub{font-size:10px;color:var(--tx-d);font-weight:600;margin-top:1px}
+.pt-max{color:var(--red);font-weight:800}
+.pt-total{font-weight:800;color:var(--tx)}
+.pt-na{color:var(--tx-d)}
+
+/* tendencia semana a semana */
+.tr-box{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 16px;margin-bottom:18px}
+.tr-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px}
+.tr-leg-item{font-size:11.5px;color:var(--tx-m);display:flex;align-items:center;gap:6px}
+.tr-leg-item b{color:var(--tx);font-weight:700}
+.tr-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.tr-mejor{color:var(--green);font-weight:700}
+.tr-peor{color:var(--red);font-weight:700}
+.tr-nd{color:var(--tx-d)}
+.tr-svg{width:100%;height:auto;display:block;margin-top:4px}
+
 /* ── barra fija (sticky) ── */
 .stickyhead{position:sticky;top:56px;z-index:150;background:var(--bg);padding-top:4px}
 
@@ -517,12 +556,12 @@ kbd{background:var(--surf);border:1px solid var(--brd2);border-bottom-width:2px;
     <button class="btn-out" id="btn-send-ready" onclick="enviarTodosListos()" style="display:none" title="Enviar el mail de despacho de todos los envíos que ya tienen guía"><i class="fa-solid fa-paper-plane"></i> Enviar listos</button>
     <button class="btn-out" id="btn-sinmail" onclick="verSinMail()" style="display:none;border-color:rgba(212,137,10,.45);color:var(--yellow)" title="Resellers sin mail cargado (sus avisos quedarían sin destinatario)"><i class="fa-solid fa-user-slash"></i> sin mail</button>
     <button class="btn-out" id="btn-retry-all" onclick="reintentarFallidos()" style="display:none;border-color:rgba(214,48,49,.4);color:var(--red)" title="Reintentar los mails que fallaron"><i class="fa-solid fa-rotate-right"></i> Reintentar fallidos</button>
+    <button class="btn-out" id="btn-tiempos" onclick="reporteTiempos()" style="border-color:rgba(0,122,204,.4);color:var(--blue)" title="Ver en qué etapa se pierde más tiempo: cargar la comanda, autorizar o despachar"><i class="fa-solid fa-stopwatch"></i> Tiempos</button>
     <div class="tools-wrap">
       <button class="btn-out" id="btn-tools" onclick="toggleTools(event)"><i class="fa-solid fa-ellipsis"></i> Herramientas</button>
       <div class="tools-menu" id="tools-menu">
         <button onclick="closeTools();exportarFaltantes()"><i class="fa-solid fa-file-csv"></i> CSV Faltantes</button>
         <button onclick="closeTools();exportarEnvios()"><i class="fa-solid fa-file-csv"></i> CSV Envíos</button>
-        <button onclick="closeTools();reporteTiempos()"><i class="fa-solid fa-stopwatch"></i> Reporte de tiempos</button>
         <div class="tools-sep"></div>
         <button onclick="closeTools();toggleTema()"><i class="fa-solid fa-moon" id="tema-ico"></i> <span id="tema-lbl">Modo oscuro</span></button>
       </div>
@@ -570,12 +609,13 @@ kbd{background:var(--surf);border:1px solid var(--brd2);border-bottom-width:2px;
 <div id="rep-overlay" class="pv-overlay" onclick="if(event.target===this)cerrarReporte()">
   <div class="pv-modal">
     <div class="pv-head">
-      <div class="pv-title"><i class="fa-solid fa-stopwatch"></i> Tiempo CARGAR → comanda cargada</div>
+      <div class="pv-title"><i class="fa-solid fa-stopwatch"></i> Tiempos: CARGAR → comanda → autorización → despacho</div>
       <button class="pv-x" onclick="cerrarReporte()" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="pv-body" id="rep-body" style="padding:18px"></div>
     <div class="pv-foot">
       <button class="btn-out" onclick="cerrarReporte()"><i class="fa-solid fa-arrow-left"></i> Cerrar</button>
+      <button class="btn-out" id="rep-hoja" onclick="actualizarHojaTiempos()" title="Vuelca este mismo detalle a la pestaña TIEMPOS del spreadsheet de log"><i class="fa-solid fa-table"></i> Actualizar hoja TIEMPOS</button>
       <button class="btn-mail" id="rep-csv"><i class="fa-solid fa-file-csv"></i> Descargar CSV</button>
     </div>
   </div>
@@ -1535,25 +1575,187 @@ function renderReporte(r){
         '<div class="rep-card"><div class="rc-n">'+hLegible(s.max)+'</div><div class="rc-l">Máximo</div></div>'+
       '</div>';
   }
-  var html = cards(r.resumen.primer, 'CARGAR → primera comanda (tiempo de arranque)', true)+
-             cards(r.resumen.todos, 'CARGAR → comanda (todas)', false)+
-             cards(r.resumen.despacho, 'Comanda → despacho (guía / mail al reseller)', false);
+  // "¿Dónde está la demora?" — compara el promedio de las 3 etapas (comparables entre sí,
+  // a diferencia de "primer"/"total" que son subconjunto/suma) y marca la más lenta en rojo.
+  function bottleneck(){
+    var etapas = [
+      { s: r.resumen.todos,      icon: '📝', label: 'Cargar comanda' },
+      { s: r.resumen.autorizar,  icon: '🔵', label: 'Autorización' },
+      { s: r.resumen.despachar,  icon: '🟢', label: 'Despacho' }
+    ];
+    var conDatos = etapas.filter(function(e){ return e.s && e.s.n; });
+    if (!conDatos.length) return '';
+    var max  = Math.max.apply(null, conDatos.map(function(e){ return e.s.prom; }));
+    var suma = conDatos.reduce(function(a, e){ return a + e.s.prom; }, 0);
+    var peor = conDatos.slice().sort(function(a, b){ return b.s.prom - a.s.prom; })[0];
+    var filas = etapas.map(function(e){
+      if (!e.s || !e.s.n) {
+        return '<div class="bn-row"><div class="bn-lbl">'+e.icon+' '+e.label+'</div><div class="bn-bar-wrap"></div><div class="bn-val"><span class="bn-note">sin datos</span></div></div>';
+      }
+      var pct = max > 0 ? Math.round((e.s.prom / max) * 100) : 0;
+      var pctTotal = suma > 0 ? Math.round((e.s.prom / suma) * 100) : 0;
+      var esPeor = (e === peor);
+      return '<div class="bn-row">'+
+        '<div class="bn-lbl">'+e.icon+' '+e.label+'</div>'+
+        '<div class="bn-bar-wrap"><div class="bn-bar'+(esPeor?' bn-worst':'')+'" style="width:'+Math.max(pct,4)+'%"></div></div>'+
+        '<div class="bn-val">'+hLegible(e.s.prom)+' <span class="bn-pct">('+pctTotal+'%)</span></div>'+
+      '</div>';
+    }).join('');
+    return '<div class="bn-box">'+
+      '<div class="bn-head">🔍 ¿Dónde está la demora?</div>'+
+      '<div class="bn-callout">⚠️ La etapa más lenta es <b>'+esc(peor.label)+'</b> — en promedio <b>'+hLegible(peor.s.prom)+'</b> por comanda.</div>'+
+      filas+
+      '<div class="rep-note" style="margin-top:2px">Promedio de cada etapa por separado (no son acumulativas). El % es la parte del ciclo total que le toca a esa etapa.</div>'+
+    '</div>';
+  }
+  // Tendencia semana a semana por etapa — ¿mejora o empeora? Es el ángulo que el "promedio
+  // general" y el "top 5" no responden: si un cambio de proceso realmente funcionó o no.
+  function tendenciaChart(){
+    var t = r.tendencia || [];
+    var series = [
+      { key:'carga',      label:'Cargar comanda', color:'var(--blue)' },
+      { key:'autorizar',  label:'Autorización',   color:'var(--yellow)' },
+      { key:'despachar',  label:'Despacho',       color:'var(--green)' }
+    ];
+    var conDatos = t.filter(function(w){ return series.some(function(s){ return w[s.key] != null; }); });
+    if (conDatos.length < 2) {
+      return '<div class="tr-box"><div class="bn-head">📈 Tendencia semana a semana</div>'+
+        '<div class="rep-note">Todavía no hay suficientes semanas con datos para mostrar una tendencia (hacen falta al menos 2 semanas con comandas).</div></div>';
+    }
+    var W=640, H=200, padL=34, padR=12, padT=16, padB=26;
+    var plotW = W-padL-padR, plotH = H-padT-padB, n = conDatos.length;
+    var allVals = [];
+    conDatos.forEach(function(w){ series.forEach(function(s){ if (w[s.key] != null) allVals.push(w[s.key]); }); });
+    var maxVal = allVals.length ? Math.max.apply(null, allVals) : 1;
+    maxVal = maxVal > 0 ? maxVal * 1.15 : 1;
+    function xAt(i){ return n > 1 ? padL + i*(plotW/(n-1)) : padL + plotW/2; }
+    function yAt(v){ return padT + plotH - (v/maxVal)*plotH; }
+
+    var grid = [0,0.5,1].map(function(f){
+      var y = padT + plotH - f*plotH;
+      return '<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="var(--brd)" stroke-width="1" stroke-dasharray="3,3"/>'+
+             '<text x="'+(padL-6)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--tx-d)">'+esc(hLegible(maxVal*f))+'</text>';
+    }).join('');
+
+    var xlabels = conDatos.map(function(w,i){
+      return '<text x="'+xAt(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--tx-d)">'+esc(w.semanaStr)+'</text>';
+    }).join('');
+
+    var lineasHtml = series.map(function(s){
+      var segs = [], cur = [];
+      conDatos.forEach(function(w,i){
+        if (w[s.key] == null) { if (cur.length) { segs.push(cur); cur = []; } return; }
+        cur.push([xAt(i), yAt(w[s.key])]);
+      });
+      if (cur.length) segs.push(cur);
+      var polys = segs.map(function(seg){
+        var pts = seg.map(function(p){ return p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' ');
+        return '<polyline points="'+pts+'" fill="none" stroke="'+s.color+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+      }).join('');
+      var dots = conDatos.map(function(w,i){
+        if (w[s.key] == null) return '';
+        return '<circle cx="'+xAt(i).toFixed(1)+'" cy="'+yAt(w[s.key]).toFixed(1)+'" r="3" fill="'+s.color+'"><title>'+esc(s.label)+' · semana del '+esc(w.semanaStr)+': '+esc(hLegible(w[s.key]))+'</title></circle>';
+      }).join('');
+      return polys+dots;
+    }).join('');
+
+    var svg = '<svg viewBox="0 0 '+W+' '+H+'" class="tr-svg" preserveAspectRatio="xMidYMid meet">'+grid+lineasHtml+xlabels+'</svg>';
+
+    // Veredicto por etapa: última semana con dato vs. la anterior (con dato) — menos horas = mejora.
+    var leyenda = series.map(function(s){
+      var conValor = conDatos.filter(function(w){ return w[s.key] != null; });
+      var verdict = '<span class="tr-nd">sin comparación todavía</span>';
+      if (conValor.length >= 2) {
+        var last = conValor[conValor.length-1][s.key], prev = conValor[conValor.length-2][s.key];
+        if (prev > 0) {
+          var delta = Math.round(((last-prev)/prev)*100);
+          if (delta <= -5)      verdict = '<span class="tr-mejor"><i class="fa-solid fa-arrow-down"></i> '+Math.abs(delta)+'% vs. semana anterior</span>';
+          else if (delta >= 5)  verdict = '<span class="tr-peor"><i class="fa-solid fa-arrow-up"></i> +'+delta+'% vs. semana anterior</span>';
+          else                  verdict = '<span class="tr-nd">≈ estable</span>';
+        }
+      }
+      return '<div class="tr-leg-item"><span class="tr-dot" style="background:'+s.color+'"></span><b>'+esc(s.label)+'</b> '+verdict+'</div>';
+    }).join('');
+
+    return '<div class="tr-box">'+
+      '<div class="bn-head">📈 Tendencia semana a semana</div>'+
+      '<div class="tr-legend">'+leyenda+'</div>'+
+      svg+
+      '<div class="rep-note" style="margin-top:8px">Promedio por semana (agrupada por la fecha en que se marcó CARGAR). La flecha compara la última semana con datos contra la anterior — verde = mejoró (más rápido), rojo = empeoró (más lento).</div>'+
+    '</div>';
+  }
+  // Top 5 comandas más lentas de punta a punta, con el detalle de cada etapa — para ir directo
+  // a un caso concreto en vez de quedarse solo con el promedio general.
+  function peoresTabla(){
+    var p = r.peores || [];
+    if (!p.length) return '';
+    function celda(hVal, esMax){
+      if (hVal == null) return '<td class="pt-td pt-na">—</td>';
+      return '<td class="pt-td'+(esMax?' pt-max':'')+'">'+hLegible(hVal)+'</td>';
+    }
+    var filas = p.map(function(x){
+      var vals = [x.horasCarga, x.horasAutorizar, x.horasDespachar].filter(function(v){ return v != null; });
+      var max = vals.length ? Math.max.apply(null, vals) : null;
+      return '<tr>'+
+        '<td class="pt-td pt-comanda">'+esc(x.comanda||'—')+'</td>'+
+        '<td class="pt-td"><div class="pt-reseller">'+esc(x.reseller||'—')+'</div><div class="pt-sub">'+esc(x.idVenta||'')+(x.idNegocio?' · Neg. '+esc(x.idNegocio):'')+'</div></td>'+
+        celda(x.horasCarga, max != null && x.horasCarga === max)+
+        celda(x.horasAutorizar, max != null && x.horasAutorizar === max)+
+        celda(x.horasDespachar, max != null && x.horasDespachar === max)+
+        '<td class="pt-td pt-total">'+hLegible(x.horasTotal)+'</td>'+
+      '</tr>';
+    }).join('');
+    return '<div class="pt-box">'+
+      '<div class="bn-head">🐢 Top 5 más lentas (ciclo completo)</div>'+
+      '<div class="pt-scroll"><table class="pt-table">'+
+        '<thead><tr><th>Comanda</th><th>Reseller / Venta</th><th>Cargar</th><th>Autorizar</th><th>Despachar</th><th>Total</th></tr></thead>'+
+        '<tbody>'+filas+'</tbody>'+
+      '</table></div>'+
+      '<div class="rep-note" style="margin-top:8px">En rojo, la etapa que más aportó a la demora de esa comanda puntual — para saber a qué caso concreto ir a preguntar.</div>'+
+    '</div>';
+  }
+  var html = tendenciaChart()+
+             bottleneck()+
+             peoresTabla()+
+             cards(r.resumen.primer, '1️⃣ CARGAR → primera comanda (tiempo de arranque)', true)+
+             cards(r.resumen.todos, '1️⃣ CARGAR → comanda (todas)', false)+
+             cards(r.resumen.autorizar, '2️⃣ Comanda → autorización (guía asignada en Masterchief)', false)+
+             cards(r.resumen.despachar, '3️⃣ Autorización → despacho', false)+
+             cards(r.resumen.total, '🏁 TOTAL: CARGAR → despacho (ciclo completo)', true);
   var np = (r.pendientes||[]).length;
   if (np){
     var mx = r.pendientes[0];
     html += '<div class="rep-note rep-warn"><b>'+np+'</b> venta'+(np===1?'':'s')+' marcada'+(np===1?'':'s')+' CARGAR sin cargar la comanda todavía · la más vieja lleva <b>'+hLegible(mx.horasAbierto)+'</b> ('+esc(mx.idVenta)+').</div>';
   }
-  html += '<div class="rep-note" style="margin-top:10px">Se mide desde que se marcó <b>CARGAR</b> hasta que el operador registró la comanda. Los marcados <b>aprox</b> (detección) no son exactos. Descargá el CSV para el detalle por venta.</div>';
+  html += '<div class="rep-note" style="margin-top:10px">Los tramos 2 y 3 se detectan con el cron de mails (corre cada ≤30 min), así que tienen ese margen de error — igual que el tramo 1 cuando el origen es <b>aprox</b> (detección, no edición en vivo). El detalle completo, por comanda, también se guarda directo en la pestaña <b>TIEMPOS</b> del spreadsheet de log (se actualiza sola; podés forzarla con el botón de abajo). Descargá el CSV para este mismo detalle.</div>';
   return html;
 }
 function descargarReporteCSV(r){
-  var rows = [['ID_Venta','Reseller','Razon_Social','Envio','Comanda','CARGAR','Origen','Comanda_cargada','Operador','Horas_carga','Despacho','Horas_despacho','Primer_envio']];
+  var rows = [['ID_Venta','ID_Negocio','Reseller','Razon_Social','Envio','Comanda','Operador','CARGAR','Origen','Comanda_cargada','Horas_carga','Autorizado','Horas_autorizar','Despachado','Horas_despachar','Horas_total','Primer_envio']];
   (r.rows||[]).forEach(function(x){
-    rows.push([x.idVenta, x.reseller, x.cliente, x.envio, x.comanda, x.cargarStr, x.origen, x.cargadaStr, x.operador,
-               (x.horas==null?'':x.horas), x.despachoStr||'', (x.horasDespacho==null?'':x.horasDespacho), (x.primero?'SI':'NO')]);
+    rows.push([x.idVenta, x.idNegocio||'', x.reseller, x.cliente, x.envio, x.comanda, x.operador, x.cargarStr, x.origen, x.cargadaStr,
+               (x.horasCarga==null?'':x.horasCarga), x.autorizadoStr||'', (x.horasAutorizar==null?'':x.horasAutorizar),
+               x.despachadoStr||'', (x.horasDespachar==null?'':x.horasDespachar), (x.horasTotal==null?'':x.horasTotal),
+               (x.primero?'SI':'NO')]);
   });
   descargarCSV(rows, 'reporte_tiempos_');
   toast('Reporte descargado', 'ok', '✅');
+}
+function actualizarHojaTiempos(){
+  var btn = document.getElementById('rep-hoja');
+  var txtOrig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Actualizando…';
+  google.script.run
+    .withSuccessHandler(function(r){
+      btn.disabled = false; btn.innerHTML = txtOrig;
+      if (r && r.ok) toast('Hoja TIEMPOS actualizada (' + r.filas + ' fila' + (r.filas===1?'':'s') + ')', 'ok', '✅');
+      else toast((r && r.mensaje) || 'No se pudo actualizar la hoja', 'error', '❌');
+    })
+    .withFailureHandler(function(e){
+      btn.disabled = false; btn.innerHTML = txtOrig;
+      toast('Error: ' + ((e&&e.message)||''), 'error', '❌');
+    })
+    .CP_actualizarHojaTiempos();
 }
 
 // export CSV de lo pendiente de enviar (1 producto por línea) — se arma en el cliente desde _data
