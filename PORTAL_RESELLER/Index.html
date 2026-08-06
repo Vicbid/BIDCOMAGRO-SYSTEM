@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.77 -->
+<!-- @version 1.78 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1727,7 +1727,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <label class="flbl">Observaciones <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
           <textarea id="ped-obs" class="form-control" placeholder="Notas adicionales para el pedido..." style="min-height:58px;resize:vertical"></textarea>
           <div id="ped-dir-strip" style="margin-top:12px"></div>
-          <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+            <button class="btn-out" id="btn-guardar-borrador" title="Para que otra persona (el dueño de la cuenta, por ejemplo) lo revise y lo confirme después, desde cualquier computadora" onclick="_pedGuardarBorrador()">
+              <i class="fa fa-clock"></i> Guardar para aprobar
+            </button>
             <button class="btn-main" id="btn-generar-pedido" style="width:auto;padding:10px 26px" onclick="_pedGenerarPedido()">
               <i class="fa fa-paper-plane"></i> Generar Pedido
             </button>
@@ -5459,6 +5462,9 @@ function _pedMostrarMain() {
   var esSuper = !!_superPedido;
   var superCard = document.getElementById('ped-super-card');
   if (superCard) superCard.style.display = esSuper ? 'block' : 'none';
+  // "Guardar para aprobar" es para el flujo normal reseller/técnico — no aplica al super-RTV
+  var btnBorrador = document.getElementById('btn-guardar-borrador');
+  if (btnBorrador) btnBorrador.style.display = esSuper ? 'none' : 'inline-flex';
 
   // Modo grupo: mostrar selector de sucursal y poblar opciones (no aplica en modo super)
   var sucCard = document.getElementById('ped-sucursal-card');
@@ -6746,6 +6752,41 @@ function _pedGenerarPedido() {
     })
     .withFailureHandler(function(err) { _pedOcultarCargando(); toast('Error al confirmar: ' + (err.message || err), 'err'); })
     .confirmarPedidoPortal(params);
+}
+
+// Guarda el carrito actual como pedido pendiente de aprobación (ver guardarBorradorPortal
+// en RS_Pedidos.js) — pensado para cuando arma el pedido un técnico y lo tiene que revisar/
+// confirmar otra persona (el dueño de la cuenta, por ejemplo), que puede hacerlo después
+// desde OTRA computadora: al loguearse con el mismo reseller, "Pedidos sin confirmar" se lo
+// va a mostrar solo (_pedCargarBorradores, ya corre en _pedMostrarMain). No pasa por la
+// verificación de dirección/pago obligatorios de _pedGenerarPedido — esos se completan
+// recién al aprobarlo (mismo camino de "Retomar pedido" que ya existía para los borradores).
+function _pedGuardarBorrador() {
+  if (!_pedCart.length) { toast('El carrito está vacío', 'err'); return; }
+  if (_superPedido) return; // no aplica al flujo super-RTV
+  if (!_pedCtxReseller()) { toast('No estás identificado', 'err'); return; }
+
+  var params = {
+    reseller:      _pedCtxReseller(),
+    items:         _pedCart.slice(),
+    observaciones: (document.getElementById('ped-obs').value || '').trim(),
+    formaPago:     (document.getElementById('ped-cart-pago').value || '').trim(),
+    envio:         (document.getElementById('ped-cart-envio').value || '').trim()
+  };
+
+  sp(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res || !res.ok) { toast('Error: ' + (res ? (res.error || '') : ''), 'err'); return; }
+      _pedCart = [];
+      _pedLimpiarStorageCarrito();
+      _pedRenderCarrito();
+      document.getElementById('badge-ped').style.display = 'none';
+      toast('Guardado como ' + res.numero + ' — queda esperando aprobación', 'ok');
+    })
+    .withFailureHandler(function(err) { sp(false); toast('Error al guardar: ' + (err.message || err), 'err'); })
+    .guardarBorradorPortal(params);
 }
 
 function _pedToggleExcluido(idx) {

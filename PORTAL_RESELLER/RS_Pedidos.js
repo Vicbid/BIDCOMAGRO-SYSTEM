@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.15
+// @version 2.16
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -770,6 +770,89 @@ function confirmarPedidoPortal(params) {
     return { ok: false, error: e.toString() };
   } finally {
     try { lock.releaseLock(); } catch(eL) { Logger.log('confirmarPedidoPortal releaseLock: ' + eL); }
+  }
+}
+
+// ── Guardar carrito como pedido pendiente de aprobación ───────────
+// Pedido del usuario: en algunos resellers arma el pedido un técnico y lo
+// tiene que revisar/confirmar otra persona (el dueño de la cuenta) — a veces
+// desde otra computadora. Se guarda la fila en PEDIDOS_REPUESTOS con
+// ESTADO='Borrador' (igual que ya esperaba obtenerBorradoresActivos, que
+// existía desde antes pero nada la alimentaba) — al loguearse con el mismo
+// reseller desde cualquier lado, el modal "Pedidos sin confirmar" ya
+// existente lo va a mostrar (_pedCargarBorradores → showTab 'ped'), y
+// "Retomar pedido" lo manda al mismo flujo de revisión/confirmación de
+// siempre. A propósito NO genera PDF, NO manda el mail de pedido a
+// logística y NO exige forma de pago/dirección — todo eso se completa recién
+// al aprobarlo, para que guardar el borrador sea rápido para quien solo
+// está armando la lista.
+function guardarBorradorPortal(params) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+
+    var reseller  = String(params.reseller || '').trim();
+    var items     = params.items                || [];
+    var obs       = String(params.observaciones || '').trim();
+    var formaPago = String(params.formaPago     || '').trim();
+    var envio     = String(params.envio         || '').trim();
+    if (!reseller || !items.length) return { ok: false, error: 'Datos incompletos.' };
+
+    _asegurarHojasPedidos();
+
+    // Precio de referencia nomás — se vuelve a calcular en serio al aprobar
+    // (por si la lista de precios cambia entre que se guarda y se confirma).
+    var descInfo = _resellerDescuentoInfo(reseller);
+    var priceMap = _buildPriceMap(descInfo.factor);
+    var total = 0;
+    for (var i = 0; i < items.length; i++) {
+      var skuKey = String(items[i].sku || '').trim().toUpperCase();
+      if (skuKey && priceMap[skuKey] !== undefined) items[i].precio = priceMap[skuKey];
+      if ((items[i].precio || 0) > 0) total += items[i].precio * (Number(items[i].cantidad) || 1);
+    }
+
+    var emailReseller = '';
+    try {
+      var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
+      var rLow = reseller.toLowerCase();
+      for (var ri = 1; ri < dRes.length; ri++) {
+        if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
+          emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
+          break;
+        }
+      }
+    } catch(eR) { Logger.log('guardarBorradorPortal email: ' + eR); }
+
+    var numero  = _siguienteNumeroPedido();
+    var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+    if (!hojaPed) return { ok: false, error: 'No se encontró la hoja de pedidos.' };
+    hojaPed.appendRow([
+      numero, new Date(), reseller, emailReseller,
+      items.length, 0, 'Borrador', obs,
+      JSON.stringify(items), '', total > 0 ? total : '',
+      formaPago, envio
+    ]);
+    invalidateSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+
+    // Avisar por mail que hay algo esperando aprobación — igual que con el
+    // resto del sistema, si el mail falla no se aborta el guardado.
+    try {
+      if (emailReseller) {
+        var cuerpo =
+          '<p style="font-size:14px;color:#444;margin:16px 0">Se armó un pedido de repuestos (<strong>' + items.length + ' ítem(s)</strong>) ' +
+          'que está esperando tu aprobación antes de enviarse.</p>' +
+          '<p style="font-size:13px;color:#666;margin:0 0 16px">Entrá al Portal Resellers → "Carrito de Repuestos" — te va a aparecer para revisarlo y confirmarlo.</p>';
+        var html = _construirEmailHTML('Pedido pendiente de aprobación — ' + numero, reseller, cuerpo, 'Portal Resellers BIDCOMAGRO · ' + reseller);
+        GmailApp.sendEmail(emailReseller, 'Pedido pendiente de aprobación — ' + numero, '', { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
+      }
+    } catch(eMail) { Logger.log('guardarBorradorPortal email aviso: ' + eMail); }
+
+    return { ok: true, numero: numero };
+  } catch(e) {
+    Logger.log('guardarBorradorPortal ERROR: ' + e);
+    return { ok: false, error: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 
