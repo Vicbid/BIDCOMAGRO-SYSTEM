@@ -1,6 +1,6 @@
 // ── STOCK MANAGER — Core ─────────────────────────────────────
 // ============================================================
-//  STOCK MANAGER BIDCOMAGRO v4.7 — SM_Core.gs
+//  STOCK MANAGER BIDCOMAGRO v4.8 — SM_Core.gs
 //  Variables globales, Carmen helpers, utilidades base
 // ============================================================
 
@@ -185,10 +185,20 @@ function asegurarHojas() {
   }
 }
 
+// Se bumpea a mano junto con "<!-- @version X.Y -->" de SM_Index.html — el cliente la trae
+// embebida al cargar la página y la vuelve a consultar cada tanto (SM_obtenerVersionActual)
+// para avisar si quedó una pestaña vieja abierta. Ver _smChequearVersionNueva en SM_Index.html.
+var SM_VERSION = '5.43';
+
+function SM_obtenerVersionActual() { return SM_VERSION; }
+
 // ── ENTRY POINT ──────────────────────────────────────────────
 function doGet() {
   asegurarHojas();
-  return HtmlService.createHtmlOutputFromFile('SM_Index')
+  var tmpl = HtmlService.createTemplateFromFile('SM_Index');
+  tmpl.DEPLOY_URL = ScriptApp.getService().getUrl();
+  tmpl.SM_VERSION = SM_VERSION;
+  return tmpl.evaluate()
     .setTitle('Stock Manager - BIDCOMAGRO')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);

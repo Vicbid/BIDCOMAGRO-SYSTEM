@@ -1,4 +1,4 @@
-// @version 3.28
+// @version 3.29
 // ============================================================
 //  WOS — Router HTTP (doGet) + utilidades de sesión/log
 //  El resto de la lógica se reorganizó (2026-07-30, sin cambios
@@ -9,6 +9,14 @@
 //    WOS_Stock.js     — consulta de stock, despacho parcial/batch, ubicaciones
 //    WOS_Reportes.js  — resumen de envíos + reporte de backorder + trigger
 // ============================================================
+
+// Se bumpea a mano junto con "<!-- @version X.Y -->" (la de arriba de todo, línea 1) de
+// Despacho_Index.html — el cliente la trae embebida al cargar la página y la vuelve a consultar
+// cada tanto (WOS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta. Ver
+// _wosChequearVersionNueva en Despacho_Index.html.
+var WOS_VERSION = '3.53';
+
+function WOS_obtenerVersionActual() { return WOS_VERSION; }
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
@@ -26,7 +34,14 @@ function doGet(e) {
   if (page === 'confirma_entrega') {
     return _doGetConfirmaEntrega(e ? e.parameter : {});
   }
-  return HtmlService.createHtmlOutputFromFile('Despacho_Index')
+  var tmpl = HtmlService.createTemplateFromFile('Despacho_Index');
+  // WOS_WEBAPP_URL (hardcodeada, ver Despacho_Env.js) en vez de ScriptApp.getService().getUrl():
+  // ya está documentado en este proyecto que esa función no siempre resuelve bien fuera de una
+  // request HTTP real; acá SÍ estamos en una request real, pero reusar la misma constante
+  // estable evita depender de eso dos veces por motivos distintos.
+  tmpl.DEPLOY_URL   = WOS_WEBAPP_URL;
+  tmpl.WOS_VERSION  = WOS_VERSION;
+  return tmpl.evaluate()
     .setTitle('WOS · Despacho Portal')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

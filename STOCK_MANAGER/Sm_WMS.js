@@ -1,4 +1,5 @@
 // ── STOCK MANAGER — WMS ─────────────────────────────────────
+// @version 1.0
 
 // ── WMS — GESTIÓN DE UBICACIONES EN CARMEN ──────────────────
 function cargarUbicacionesItem(sku) {
@@ -153,6 +154,82 @@ function SM_moverStock(sku, origen, destino, cant) {
     return { ok: true, msg: cant + ' u. movidas de ' + orgKey + ' a ' + dstKey };
   } catch(e) {
     Logger.log('SM_moverStock: ' + e);
+    return { ok: false, error: e.message };
+  }
+}
+
+// Reescribe de una la distribución de un SKU entre ubicaciones de Carmen — pantalla "Unificar
+// ubicaciones" (SM_Index.html, tab WMS/Ubicaciones): el operador ve los códigos repartidos en
+// más de un bin y arma a mano la distribución final (puede vaciar bines, dejar solo uno, agregar
+// uno nuevo, etc.). distribucionFinal = [{ubicacion, cantidad}]. Valida que la suma coincida con
+// el total actualmente registrado para ese SKU antes de tocar nada (protege contra datos
+// desactualizados en el cliente — ej. otra persona movió stock mientras el operador editaba).
+function SM_unificarUbicaciones(sku, distribucionFinal) {
+  try {
+    var codKey = String(sku).trim().toUpperCase();
+    var destino = {};
+    var totalDestino = 0;
+    for (var i = 0; i < (distribucionFinal || []).length; i++) {
+      var u = String(distribucionFinal[i].ubicacion || '').trim().toUpperCase();
+      var c = Math.max(0, parseInt(distribucionFinal[i].cantidad, 10) || 0);
+      if (!u || c <= 0) continue;
+      destino[u] = (destino[u] || 0) + c;
+      totalDestino += c;
+    }
+    if (!Object.keys(destino).length) return { ok: false, error: 'La distribución final no puede quedar vacía.' };
+
+    var lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      var ss   = _getCarmenSS();
+      var hoja = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
+      if (!hoja) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
+      var d = hoja.getDataRange().getValues();
+
+      var filas = []; // { row, ubicacion, cantidad } — filas actuales de este SKU
+      var totalActual = 0;
+      for (var r = 1; r < d.length; r++) {
+        if (String(d[r][0] || '').trim().toUpperCase() !== codKey) continue;
+        var ub = String(d[r][1] || '').trim().toUpperCase();
+        var ca = parseFloat(d[r][2]) || 0;
+        filas.push({ row: r + 1, ubicacion: ub, cantidad: ca });
+        totalActual += ca;
+      }
+      if (!filas.length) return { ok: false, error: 'Este SKU no tiene ubicaciones registradas.' };
+      if (totalDestino !== totalActual) {
+        return { ok: false, error: 'La suma de la nueva distribución (' + totalDestino + ') no coincide con el stock actual en ubicaciones (' + totalActual + '). Actualizá la página e intentá de nuevo.' };
+      }
+
+      // De abajo hacia arriba para poder borrar filas sin romper los índices de las que faltan.
+      var escritas = {};
+      for (var f = filas.length - 1; f >= 0; f--) {
+        var fila  = filas[f];
+        var nueva = destino.hasOwnProperty(fila.ubicacion) ? destino[fila.ubicacion] : 0;
+        if (nueva > 0) {
+          hoja.getRange(fila.row, 3).setValue(nueva);
+          escritas[fila.ubicacion] = true;
+        } else {
+          hoja.deleteRow(fila.row);
+        }
+      }
+      // Ubicaciones nuevas que no existían antes en este SKU.
+      var ubics = Object.keys(destino);
+      for (var k = 0; k < ubics.length; k++) {
+        var uK = ubics[k];
+        if (escritas[uK]) continue;
+        var lr = hoja.getLastRow() + 1;
+        hoja.getRange(lr, 1).setValue(codKey);
+        hoja.getRange(lr, 2).setNumberFormat('@').setValue(uK);
+        hoja.getRange(lr, 3).setValue(destino[uK]);
+      }
+
+      Logger.log('SM_unificarUbicaciones: ' + codKey + ' → ' + JSON.stringify(destino));
+      return { ok: true };
+    } finally {
+      try { lock.releaseLock(); } catch(eL) {}
+    }
+  } catch(e) {
+    Logger.log('SM_unificarUbicaciones: ' + e);
     return { ok: false, error: e.message };
   }
 }

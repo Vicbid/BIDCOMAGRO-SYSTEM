@@ -1,4 +1,4 @@
-<!-- @version 3.52 -->
+<!-- @version 3.53 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -739,6 +739,18 @@ body{overflow:hidden}
     </div>
     <div class="ws-content">
 
+      <!-- Banner: quedó una pestaña vieja abierta (ver _wosChequearVersionNueva) -->
+      <div id="banner-nueva-version" style="display:none;align-items:center;gap:12px;background:var(--blue-l);border:1.5px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <i class="fa fa-rotate" style="color:var(--blue);font-size:18px;flex-shrink:0"></i>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--tx)">Hay una versión más nueva de WOS</div>
+          <div style="font-size:12px;color:var(--tx-m);margin-top:2px">Esta pestaña quedó abierta desde antes de la última actualización. Actualizá para ver las últimas mejoras.</div>
+        </div>
+        <button onclick="_wosRecargarAppFresca()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+          <i class="fa fa-rotate" style="margin-right:5px"></i>Actualizar ahora
+        </button>
+      </div>
+
       <!-- KPI Grid -->
       <div class="kpi-grid">
         <div class="kpi kpi-ok" id="kpi-sla-pill">
@@ -1102,6 +1114,44 @@ body{overflow:hidden}
 </div>
 
 <script>
+var _deployUrl  = '<?= DEPLOY_URL ?>';
+var _wosVersionCargada = '<?= WOS_VERSION ?>'; // versión con la que cargó ESTA pestaña — ver _wosChequearVersionNueva
+
+// Recarga "de verdad" navegando la ventana TOP al web app en vez de location.reload(): WOS corre
+// dentro del iframe sandbox de Apps Script, y location.reload() recarga solo ese frame interno —
+// el contenido real se sirve vía el wrapper de Google, así que queda en blanco. Navegar el top
+// hace un doGet fresco de verdad (con el código ya actualizado). Mismo patrón que
+// _recargarAppFresca en Portal Reseller.
+function _wosRecargarAppFresca() {
+  try {
+    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
+  } catch (e) {}
+  location.reload();
+}
+
+// ── Detección de pestaña vieja abierta ──────────────────────────────────
+// Como el operario suele dejar WOS abierto en una pestaña todo el día, al volver puede seguir
+// corriendo una versión vieja sin enterarse — hay que preguntarle al servidor cada tanto.
+function _wosChequearVersionNueva() {
+  var b = document.getElementById('banner-nueva-version');
+  if (b && b.style.display !== 'none') return; // ya avisado, no repetir el llamado
+  google.script.run
+    .withSuccessHandler(function(v) {
+      if (v && _wosVersionCargada && v !== _wosVersionCargada) {
+        var banner = document.getElementById('banner-nueva-version');
+        if (banner) banner.style.display = 'flex';
+      }
+    })
+    .withFailureHandler(function() {})
+    .WOS_obtenerVersionActual();
+}
+(function _wosVersionCheckInit() {
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _wosChequearVersionNueva();
+  });
+  setInterval(_wosChequearVersionNueva, 30 * 60 * 1000);
+})();
+
 var _pedidos      = [];
 var _lcRows       = [];
 var _pickState    = {}; // { numero: { itemIdx: cantPickeada } } — client-side only, no persistence

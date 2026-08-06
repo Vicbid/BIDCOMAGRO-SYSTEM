@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.40 -->
+<!-- @version 5.43 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -474,9 +474,21 @@ tr:last-child td{border-bottom:none}
     <div class="ws-topbar">
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO <i class="fa fa-chevron-right" style="font-size:9px;opacity:.35;margin:0 3px"></i> Stock Manager WMS</span>
-      <div style="margin-left:auto;font-size:10px;color:var(--tx-d)">v5.4 · WMS</div>
+      <div id="ws-version-lbl" style="margin-left:auto;font-size:10px;color:var(--tx-d)">WMS</div>
     </div>
     <div class="ws-content">
+
+      <!-- Banner: quedó una pestaña vieja abierta (ver _smChequearVersionNueva) -->
+      <div id="banner-nueva-version" style="display:none;align-items:center;gap:12px;background:#eef7ff;border:1.5px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <i class="fa fa-rotate" style="color:var(--blue);font-size:18px;flex-shrink:0"></i>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--tx)">Hay una versión más nueva de Stock Manager</div>
+          <div style="font-size:12px;color:var(--tx-m);margin-top:2px">Esta pestaña quedó abierta desde antes de la última actualización. Actualizá para ver las últimas mejoras.</div>
+        </div>
+        <button onclick="_smRecargarAppFresca()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+          <i class="fa fa-rotate" style="margin-right:5px"></i>Actualizar ahora
+        </button>
+      </div>
 
     <!-- ══ DASHBOARD ══════════════════════════ -->
     <div class="tab-view show" id="tab-dash">
@@ -918,6 +930,10 @@ tr:last-child td{border-bottom:none}
           <i class="fa fa-exclamation-triangle"></i> Sin mapear
           <span id="wms-sm-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:3px"></span>
         </button>
+        <button id="wms-btn-unificar" class="btn-s" style="font-size:11px;flex:1" onclick="_wmsModo('unificar')">
+          <i class="fa fa-compress-arrows-alt"></i> Unificar ubicaciones
+          <span id="wms-unif-badge" style="display:none;background:var(--orange);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:3px"></span>
+        </button>
       </div>
 
       <!-- ══ RECIBIR ══════════════════════════════════════════════ -->
@@ -1159,6 +1175,38 @@ tr:last-child td{border-bottom:none}
       </div>
 
       <!-- ══ SIN MAPEAR ════════════════════════════════════════════ -->
+      <!-- ══ UNIFICAR UBICACIONES ═════════════════════════════════════ -->
+      <div id="wms-panel-unificar" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--tx-d);letter-spacing:.06em;margin-bottom:8px">BUSCAR UN CÓDIGO PUNTUAL PARA UNIFICAR</div>
+          <div style="position:relative">
+            <input type="text" id="unif-buscar" class="form-control" placeholder="Código o descripción…"
+                   oninput="_smUnifBuscar(this.value)" onkeydown="_smUnifBuscarKeyNav(event)" autocomplete="off">
+            <div id="unif-buscar-dd" class="borr-dd" style="display:none"></div>
+          </div>
+          <div id="unif-buscar-resultado" style="margin-top:10px"></div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--tx-m)">Códigos repartidos en más de una ubicación</div>
+              <div style="font-size:11px;color:var(--tx-d)" id="unif-sub">Cargando…</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <a id="unif-ver-descartados" onclick="_smUnifToggleDescartados()" style="display:none;font-size:11px;color:var(--tx-d);cursor:pointer;white-space:nowrap"></a>
+              <button class="btn-s" style="font-size:11px;padding:5px 10px" onclick="_smUnifCargar()">
+                <i class="fa fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
+          <div id="unif-lista">
+            <div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px">
+              <i class="fa fa-circle-notch fa-spin"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="wms-panel-sinmapear" style="display:none">
         <div class="card" style="margin-bottom:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -2262,6 +2310,45 @@ tr:last-child td{border-bottom:none}
 // ══════════════════════════════════════════
 //  ESTADO GLOBAL
 // ══════════════════════════════════════════
+var _deployUrl  = '<?= DEPLOY_URL ?>';
+var _smVersionCargada = '<?= SM_VERSION ?>'; // versión con la que cargó ESTA pestaña — ver _smChequearVersionNueva
+(function() { var el = document.getElementById('ws-version-lbl'); if (el) el.textContent = 'v' + _smVersionCargada + ' · WMS'; })();
+
+// Recarga "de verdad" navegando la ventana TOP al web app en vez de location.reload(): Stock
+// Manager corre dentro del iframe sandbox de Apps Script, y location.reload() recarga solo ese
+// frame interno — el contenido real se sirve vía el wrapper de Google, así que queda en blanco.
+// Navegar el top hace un doGet fresco de verdad (con el código ya actualizado). Mismo patrón que
+// _recargarAppFresca en Portal Reseller.
+function _smRecargarAppFresca() {
+  try {
+    if (_deployUrl) { window.top.location.href = _deployUrl; return; }
+  } catch (e) {}
+  location.reload();
+}
+
+// ── Detección de pestaña vieja abierta ──────────────────────────────────
+// Como el operario suele dejar Stock Manager abierto en una pestaña todo el día, al volver puede
+// seguir corriendo una versión vieja sin enterarse — hay que preguntarle al servidor cada tanto.
+function _smChequearVersionNueva() {
+  var b = document.getElementById('banner-nueva-version');
+  if (b && b.style.display !== 'none') return; // ya avisado, no repetir el llamado
+  google.script.run
+    .withSuccessHandler(function(v) {
+      if (v && _smVersionCargada && v !== _smVersionCargada) {
+        var banner = document.getElementById('banner-nueva-version');
+        if (banner) banner.style.display = 'flex';
+      }
+    })
+    .withFailureHandler(function() {})
+    .SM_obtenerVersionActual();
+}
+(function _smVersionCheckInit() {
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _smChequearVersionNueva();
+  });
+  setInterval(_smChequearVersionNueva, 30 * 60 * 1000);
+})();
+
 var stockData    = [];
 var activeEstante   = '';
 var pronosticoData  = {};
@@ -7132,7 +7219,7 @@ var _scDDTimer = null;
 var _scSkuSel  = '';
 
 function _wmsModo(modo) {
-  var paneles = ['recibir','contar','mover','sinmapear','mapa'];
+  var paneles = ['recibir','contar','mover','sinmapear','mapa','unificar'];
   paneles.forEach(function(p) {
     var el = document.getElementById('wms-panel-' + p);
     if (el) el.style.display = p === modo ? '' : 'none';
@@ -7142,7 +7229,7 @@ function _wmsModo(modo) {
     var el = document.getElementById('wms-task-' + t);
     if (el) el.classList.toggle('active', t === modo);
   });
-  var btns = ['mapa','sinmapear'];
+  var btns = ['mapa','sinmapear','unificar'];
   btns.forEach(function(b) {
     var el = document.getElementById('wms-btn-' + b);
     if (el) el.className = b === modo ? 'btn-p' : 'btn-s';
@@ -7156,6 +7243,7 @@ function _wmsModo(modo) {
   if (modo === 'mover')   setTimeout(function(){ var q=document.getElementById('mv-q'); if(q)q.focus(); }, 80);
   if (modo === 'sinmapear') _smCargar();
   if (modo === 'mapa')      _mapaCargar();
+  if (modo === 'unificar')  _smUnifCargar();
 }
 
 function _cntActualizarHint() {
@@ -7406,6 +7494,282 @@ function _scEliminar(sku) {
 // ══════════════════════════════════════════
 //  WMS — MODO SIN MAPEAR
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+//  UNIFICAR UBICACIONES — códigos repartidos en más de un bin
+// ══════════════════════════════════════════
+// Se arma 100% del lado del cliente a partir de stockData (ya trae item.ubicaciones =
+// [{ubicacion,cantidad}] desde Carmen, ver cargarStock en Sm_Stock.js) — no pega al server hasta
+// que el operador confirma una unificación puntual. "No se puede unificar" es solo un descarte
+// de sesión/navegador (localStorage), sin registro server-side — a pedido del usuario.
+var _SM_UNIF_KEY = 'sm_unif_descartados';
+var _smUnifVerDescartados = false;
+// Promedio de unidades por ubicación por debajo del cual se marca "Recomendado": pocas unidades
+// repartidas en muchos lugares es el caso más fácil de unificar (al revés de "no entra físicamente
+// en un solo bin", que es justo lo que el operador puede marcar como "No se puede unificar").
+var _SM_UNIF_PROM_RECOMENDADO = 3;
+var _smUnifDDIdx = -1;
+
+function _smUnifDescartados() {
+  try { return JSON.parse(localStorage.getItem(_SM_UNIF_KEY) || '[]'); } catch(e) { return []; }
+}
+function _smUnifEsDescartado(sku) { return _smUnifDescartados().indexOf(sku) !== -1; }
+function _smUnifDescartarClick(sku) {
+  var arr = _smUnifDescartados();
+  if (arr.indexOf(sku) === -1) arr.push(sku);
+  try { localStorage.setItem(_SM_UNIF_KEY, JSON.stringify(arr)); } catch(e) {}
+  var resB = document.getElementById('unif-buscar-resultado'); if (resB) resB.innerHTML = '';
+  _smUnifCargar();
+}
+function _smUnifRestaurar(sku) {
+  var arr = _smUnifDescartados().filter(function(s) { return s !== sku; });
+  try { localStorage.setItem(_SM_UNIF_KEY, JSON.stringify(arr)); } catch(e) {}
+  var resB = document.getElementById('unif-buscar-resultado'); if (resB) resB.innerHTML = '';
+  _smUnifCargar();
+}
+function _smUnifToggleDescartados() {
+  _smUnifVerDescartados = !_smUnifVerDescartados;
+  _smUnifCargar();
+}
+
+function _smUnifCargar() {
+  var sub  = document.getElementById('unif-sub');
+  var list = document.getElementById('unif-lista');
+  var link = document.getElementById('unif-ver-descartados');
+  if (!sub || !list) return;
+
+  // Puede llegar acá antes de que termine de cargar stockData (ej. doble click apenas se entra
+  // a la pestaña) — mismo guard que usa _wmsTabAbierto para el resto de las tareas de WMS.
+  if (!stockData.length) {
+    sub.textContent = 'Cargando stock…';
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tx-d);font-size:12px"><i class="fa fa-circle-notch fa-spin"></i></div>';
+    cargarStockTab(function() { _smUnifCargar(); });
+    return;
+  }
+
+  var descartados = _smUnifDescartados();
+  var todos = (stockData || []).filter(function(it) { return it.ubicaciones && it.ubicaciones.length > 1; });
+  var items = todos
+    .filter(function(it) { return _smUnifVerDescartados ? descartados.indexOf(it.codigo) !== -1 : descartados.indexOf(it.codigo) === -1; })
+    .sort(_smUnifComparar);
+
+  if (link) {
+    var nDesc = descartados.length;
+    link.style.display = (nDesc > 0 || _smUnifVerDescartados) ? '' : 'none';
+    link.textContent = _smUnifVerDescartados ? '← Volver a la lista' : ('Ver descartados (' + nDesc + ')');
+  }
+
+  if (!items.length) {
+    sub.textContent = _smUnifVerDescartados ? 'No hay códigos descartados' : (todos.length ? 'Todo lo repartido ya fue revisado' : 'Ningún código está repartido en más de una ubicación ✓');
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--green);font-size:13px;font-weight:700">' +
+      '<i class="fa fa-check-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>Nada pendiente acá</div>';
+    return;
+  }
+  sub.textContent = items.length + ' código' + (items.length !== 1 ? 's' : '') + (_smUnifVerDescartados ? ' descartado' + (items.length !== 1 ? 's' : '') : ' repartido' + (items.length !== 1 ? 's' : '') + ' en más de una ubicación — ordenados por prioridad (pocas unidades en muchos lugares primero)');
+
+  var h = '';
+  for (var i = 0; i < items.length; i++) h += _smUnifCardHtml(items[i], _smUnifVerDescartados);
+  list.innerHTML = h;
+}
+
+// Orden de prioridad: primero el promedio de unidades por ubicación (ascendente — pocas unidades
+// repartidas en muchos lugares primero), y a igual promedio, más ubicaciones primero.
+function _smUnifComparar(a, b) {
+  var promA = a.stockActual / a.ubicaciones.length;
+  var promB = b.stockActual / b.ubicaciones.length;
+  if (promA !== promB) return promA - promB;
+  return b.ubicaciones.length - a.ubicaciones.length;
+}
+
+// Arma la tarjeta de un SKU (vista, no editor) — la usan tanto la lista automática como el
+// resultado de la búsqueda manual.
+function _smUnifCardHtml(it, esDescartado) {
+  var sku      = it.codigo;
+  var total    = it.stockActual;
+  var nUbic    = it.ubicaciones.length;
+  var promedio = nUbic ? (total / nUbic) : 0;
+  var recomendado = !esDescartado && nUbic > 1 && promedio <= _SM_UNIF_PROM_RECOMENDADO;
+  var chips = it.ubicaciones.map(function(u) {
+    return '<div class="bin-chip" style="cursor:default"><span class="bin-chip-lbl">' + escH(u.ubicacion) + '</span><span class="bin-chip-qty">' + u.cantidad + ' u.</span></div>';
+  }).join('') || '<div style="font-size:11px;color:var(--tx-d);font-style:italic">Sin ubicaciones registradas</div>';
+  var acciones = esDescartado
+    ? '<button class="btn-s" style="font-size:11px;flex-shrink:0" onclick="_smUnifRestaurar(\'' + sku + '\')"><i class="fa fa-undo" style="margin-right:4px"></i>Restaurar</button>'
+    : '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button class="btn-s" style="font-size:11px" onclick="_smUnifDescartarClick(\'' + sku + '\')">No se puede unificar</button>' +
+        (nUbic ? '<button class="btn-p" style="font-size:11px" onclick="_smUnifAbrirEditor(\'' + sku + '\')"><i class="fa fa-compress-arrows-alt" style="margin-right:4px"></i>Unificar</button>' : '') +
+      '</div>';
+  var badge = recomendado
+    ? '<span style="display:inline-block;background:rgba(212,137,10,.14);color:var(--orange);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle"><i class="fa fa-star" style="margin-right:3px"></i>Recomendado</span>'
+    : '';
+  return '<div class="card" style="margin-bottom:10px">' +
+    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">' +
+      '<div style="min-width:0">' +
+        '<div style="font-family:monospace;font-size:11px;color:var(--tx-d)">' + escH(sku) + '</div>' +
+        '<div style="font-weight:700;font-size:13px;color:var(--tx-m)">' + escH(it.descripcion) + badge + '</div>' +
+        '<div style="font-size:11px;color:var(--tx-d);margin-top:2px">' + total + ' u. en ' + nUbic + ' ubicaci' + (nUbic === 1 ? 'ón' : 'ones') + (nUbic > 1 ? ' (promedio ' + promedio.toFixed(1) + ' u./ubicación)' : '') + '</div>' +
+      '</div>' +
+      acciones +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">' + chips + '</div>' +
+    '<div id="unif-editor-' + sku + '" style="display:none;margin-top:12px;border-top:1px solid var(--brd);padding-top:12px" data-total-original="' + total + '"></div>' +
+  '</div>';
+}
+
+// ── Buscar un código puntual para unificar a mano (no necesita estar en la lista recomendada) ──
+function _smUnifBuscar(q) {
+  var dd = document.getElementById('unif-buscar-dd');
+  if (!dd) return;
+  if (!q || q.length < 2) { dd.style.display = 'none'; return; }
+  var up = q.toUpperCase(), res = [];
+  for (var i = 0; i < stockData.length && res.length < 8; i++) {
+    var r = stockData[i];
+    if ((r.codigo && r.codigo.toUpperCase().indexOf(up) >= 0) || (r.descripcion && r.descripcion.toUpperCase().indexOf(up) >= 0)) res.push(r);
+  }
+  if (!res.length) { dd.style.display = 'none'; return; }
+  _smUnifDDIdx = -1;
+  var h = '';
+  res.forEach(function(r) {
+    h += '<div class="borrador-ri" style="display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer" data-cod="' + escH(r.codigo) + '">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:11px;font-family:monospace;color:var(--accent)">' + escH(r.codigo) + '</div>' +
+      '<div style="font-size:12px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escH(r.descripcion) + '</div></div>' +
+      '<span style="font-size:11px;color:var(--tx-d)">' + (r.ubicaciones ? r.ubicaciones.length : 0) + ' ubic.</span></div>';
+  });
+  dd.innerHTML = h; dd.style.display = 'block';
+  dd.onclick = function(e) {
+    var row = e.target.closest('[data-cod]');
+    if (!row) return;
+    _smUnifSeleccionarBusqueda(row.dataset.cod);
+  };
+}
+
+function _smUnifBuscarKeyNav(e) {
+  var dd = document.getElementById('unif-buscar-dd'), items = dd ? dd.querySelectorAll('.borrador-ri') : [];
+  if (e.key === 'Enter' && _smUnifDDIdx >= 0 && items[_smUnifDDIdx]) {
+    e.preventDefault();
+    _smUnifSeleccionarBusqueda(items[_smUnifDDIdx].dataset.cod);
+  } else if (e.key === 'ArrowDown' && items.length) { e.preventDefault(); _smUnifDDIdx = Math.min(_smUnifDDIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp' && items.length)   { e.preventDefault(); _smUnifDDIdx = Math.max(_smUnifDDIdx - 1, 0); }
+    else return;
+  items.forEach(function(it, i) { it.style.background = i === _smUnifDDIdx ? 'var(--hover)' : ''; });
+}
+
+function _smUnifSeleccionarBusqueda(cod) {
+  var dd = document.getElementById('unif-buscar-dd'); if (dd) dd.style.display = 'none';
+  var inp = document.getElementById('unif-buscar'); if (inp) inp.value = '';
+  var cont = document.getElementById('unif-buscar-resultado');
+  if (!cont) return;
+  var it = stockData.find(function(x) { return x.codigo === cod; });
+  if (!it) { cont.innerHTML = ''; return; }
+  cont.innerHTML = _smUnifCardHtml(it, false);
+  cont.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Arma la fila editable de una ubicación dentro del editor de unificación.
+function _smUnifFilaHtml(sku, ubic, cant) {
+  return '<div class="unif-fila" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">' +
+    '<input type="text" class="form-control unif-fila-bin" value="' + escH(ubic) + '" placeholder="Bin" ' +
+      'style="flex:1;font-family:monospace;font-size:12px;padding:6px 8px;text-transform:uppercase" ' +
+      'oninput="this.value=this.value.toUpperCase();_smUnifRecalc(\'' + sku + '\')">' +
+    '<input type="number" class="form-control unif-fila-cant" value="' + cant + '" min="0" ' +
+      'style="width:80px;font-size:12px;padding:6px 8px" oninput="_smUnifRecalc(\'' + sku + '\')">' +
+    '<button type="button" class="btn-s" style="padding:6px 9px" title="Quitar esta ubicación" ' +
+      'onclick="this.closest(\'.unif-fila\').remove();_smUnifRecalc(\'' + sku + '\')"><i class="fa fa-times"></i></button>' +
+  '</div>';
+}
+
+// Abre el editor de un SKU: una fila editable por ubicación actual + botón para agregar una nueva.
+function _smUnifAbrirEditor(sku) {
+  var it = (stockData || []).find(function(x) { return x.codigo === sku; });
+  if (!it) return;
+  var ed = document.getElementById('unif-editor-' + sku);
+  if (!ed) return;
+  var h = '<div style="font-size:11px;font-weight:700;color:var(--tx-d);margin-bottom:8px">NUEVA DISTRIBUCIÓN — el total tiene que sumar ' + it.stockActual + ' u.</div>' +
+    '<div id="unif-filas-' + sku + '">' +
+      it.ubicaciones.map(function(u) { return _smUnifFilaHtml(sku, u.ubicacion, u.cantidad); }).join('') +
+    '</div>' +
+    '<button type="button" class="btn-s" style="font-size:11px;margin-top:2px" onclick="_smUnifAgregarFila(\'' + sku + '\')"><i class="fa fa-plus" style="margin-right:4px"></i>Agregar ubicación</button>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--brd);flex-wrap:wrap;gap:8px">' +
+      '<div id="unif-total-' + sku + '" style="font-size:12px;font-weight:700"></div>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button type="button" class="btn-s" style="font-size:11px" onclick="_smUnifCerrarEditor(\'' + sku + '\')">Cancelar</button>' +
+        '<button type="button" class="btn-p" id="unif-confirmar-' + sku + '" style="font-size:11px" disabled onclick="_smUnifConfirmar(\'' + sku + '\')"><i class="fa fa-check" style="margin-right:4px"></i>Confirmar</button>' +
+      '</div>' +
+    '</div>';
+  ed.innerHTML = h;
+  ed.style.display = '';
+  _smUnifRecalc(sku);
+}
+
+function _smUnifCerrarEditor(sku) {
+  var ed = document.getElementById('unif-editor-' + sku);
+  if (ed) { ed.style.display = 'none'; ed.innerHTML = ''; }
+}
+
+function _smUnifAgregarFila(sku) {
+  var cont = document.getElementById('unif-filas-' + sku);
+  if (!cont) return;
+  cont.insertAdjacentHTML('beforeend', _smUnifFilaHtml(sku, '', 0));
+  _smUnifRecalc(sku);
+}
+
+// Recalcula el total de las filas del editor y habilita "Confirmar" solo si coincide con el
+// stock actual del SKU (mismo chequeo que hace SM_unificarUbicaciones del lado del server).
+function _smUnifRecalc(sku) {
+  var ed = document.getElementById('unif-editor-' + sku);
+  var cont = document.getElementById('unif-filas-' + sku);
+  var lbl = document.getElementById('unif-total-' + sku);
+  var btn = document.getElementById('unif-confirmar-' + sku);
+  if (!ed || !cont || !lbl || !btn) return;
+  var original = parseInt(ed.getAttribute('data-total-original'), 10) || 0;
+  var suma = 0;
+  cont.querySelectorAll('.unif-fila').forEach(function(f) {
+    suma += parseInt(f.querySelector('.unif-fila-cant').value, 10) || 0;
+  });
+  var ok = suma === original;
+  lbl.textContent = 'Total: ' + suma + ' / ' + original + ' u.';
+  lbl.style.color = ok ? 'var(--green)' : 'var(--red)';
+  btn.disabled = !ok;
+}
+
+function _smUnifConfirmar(sku) {
+  var cont = document.getElementById('unif-filas-' + sku);
+  if (!cont) return;
+  var distribucion = [];
+  var vista = {};
+  var valido = true;
+  cont.querySelectorAll('.unif-fila').forEach(function(f) {
+    var bin  = (f.querySelector('.unif-fila-bin').value  || '').trim().toUpperCase();
+    var cant = parseInt(f.querySelector('.unif-fila-cant').value, 10) || 0;
+    if (cant <= 0) return;
+    if (!bin) { valido = false; return; }
+    vista[bin] = (vista[bin] || 0) + cant;
+  });
+  if (!valido) { toast('Completá el bin de todas las filas con cantidad', 'err'); return; }
+  Object.keys(vista).forEach(function(u) { distribucion.push({ ubicacion: u, cantidad: vista[u] }); });
+  if (!distribucion.length) { toast('La distribución no puede quedar vacía', 'err'); return; }
+
+  var btn = document.getElementById('unif-confirmar-' + sku);
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok) {
+        toast((r && r.error) || 'No se pudo unificar', 'err');
+        btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:4px"></i>Confirmar';
+        return;
+      }
+      toast('Ubicaciones de ' + sku + ' actualizadas', 'ok');
+      // Refrescar el ítem en stockData con la nueva distribución sin recargar todo el stock.
+      var it = stockData.find(function(x) { return x.codigo === sku; });
+      if (it) it.ubicaciones = distribucion.map(function(d) { return { ubicacion: d.ubicacion, cantidad: d.cantidad }; });
+      var resB = document.getElementById('unif-buscar-resultado'); if (resB) resB.innerHTML = '';
+      _smUnifCargar();
+    })
+    .withFailureHandler(function(e) {
+      toast('Error: ' + (e && e.message ? e.message : e), 'err');
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:4px"></i>Confirmar';
+    })
+    .SM_unificarUbicaciones(sku, distribucion);
+}
+
 var _smCargado = false;
 
 function _smCargar() {
