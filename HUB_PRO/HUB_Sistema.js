@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Sistema: detección/reposición de batería, triggers
 //  (SLA diario + reporte mensual + instalación), diagnóstico general,
@@ -21,6 +21,21 @@ function esBateria(nombreEquipo) {
     }
     return false;
   } catch(e) { return false; }
+}
+
+// Normaliza la columna TIPO de EQUIPOS (valores libres cargados a mano: "Drone", "Generador",
+// "Mavic", "Control Remoto", "bateria"...) a uno de los 5 tipos que maneja la Recepción de equipo
+// (HUB_Recepcion.js): 'Dron' | 'Bateria' | 'Control' | 'Generador' | 'Mavic'. Con esto el modal
+// preselecciona el tipo correcto según el equipo de la OT — antes solo distinguía "es batería"
+// (esBateria) y todo lo demás cae en "Dron" por defecto, que es como un Generador terminaba
+// mandando el mail de "recibimos el Drone".
+function _normalizarTipoRecepcion(tipoRaw) {
+  var t = String(tipoRaw || '').trim().toLowerCase();
+  if (t === 'bateria' || t === 'batería') return 'Bateria';
+  if (t === 'generador') return 'Generador';
+  if (t === 'mavic') return 'Mavic';
+  if (t === 'control remoto' || t === 'control') return 'Control';
+  return 'Dron'; // "drone"/"dron" y cualquier valor no reconocido explícitamente
 }
 
 

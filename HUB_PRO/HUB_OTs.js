@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -199,8 +199,9 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
     // propagación diferida entre ejecuciones y el refresh inmediato ganaba la carrera → obligaba a F5).
     var datosOT = getSheetValues(hojaOT, true);
 
-    // Mapa de equipos tipo Bateria + meses de garantía desde hoja EQUIPOS
-    var mapaBaterias = {}, mesesMap = {};
+    // Mapa de equipos tipo Bateria + meses de garantía + tipo sugerido de recepción, todo desde
+    // la hoja EQUIPOS (una sola lectura/loop para los tres).
+    var mapaBaterias = {}, mesesMap = {}, mapaTipoRecepcion = {};
     var hojaEqBat = getSheet(SCHEMA.SHEETS.EQUIPOS);
     if (hojaEqBat) {
       var dEqBat = getSheetValues(hojaEqBat);
@@ -211,6 +212,7 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
         if (String(dEqBat[eb][1]||"").trim().toLowerCase() === "bateria") {
           mapaBaterias[nomLow] = true;
         }
+        mapaTipoRecepcion[nomLow] = _normalizarTipoRecepcion(dEqBat[eb][1]);
         var mes = parseInt(dEqBat[eb][SCHEMA.EQUIPOS.MESES], 10);
         if (!isNaN(mes) && mes > 0) mesesMap[nomLow] = mes;
       }
@@ -288,6 +290,7 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
         origenRepuesto: _origenRepuestoDe(f),               // AA: quién pone el repuesto (badge)
         cierreTipo:     String(f[SCHEMA.OT.CIERRE_TIPO]||"").trim(), // AB: reposición vs NC
         esBateria: mapaBaterias[String(f[5]||'').trim().toLowerCase()] === true,
+        tipoRecepcionSugerido: mapaTipoRecepcion[String(f[5]||'').trim().toLowerCase()] || 'Dron',
         dias:      dias,
         diasEstado: diasEstado,
         umMod:     (rawUM instanceof Date) ? rawUM.getTime() : 0

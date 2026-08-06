@@ -1,4 +1,4 @@
-<!-- @version 2.21 -->
+<!-- @version 2.22 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -638,11 +638,17 @@ body.compact tbody td{padding:6px 14px!important}
           <div class="acc-card" id="rt-dron" onclick="_selRecepTipo('Dron')">
             <i class="fa fa-helicopter"></i><div class="acc-name">Dron</div>
           </div>
+          <div class="acc-card" id="rt-mavic" onclick="_selRecepTipo('Mavic')">
+            <i class="fa fa-camera"></i><div class="acc-name">Mavic</div>
+          </div>
           <div class="acc-card" id="rt-bateria" onclick="_selRecepTipo('Bateria')">
             <i class="fa fa-battery-full"></i><div class="acc-name">Batería</div>
           </div>
           <div class="acc-card" id="rt-control" onclick="_selRecepTipo('Control')">
             <i class="fa fa-gamepad"></i><div class="acc-name">Control remoto</div>
+          </div>
+          <div class="acc-card" id="rt-generador" onclick="_selRecepTipo('Generador')">
+            <i class="fa fa-bolt"></i><div class="acc-name">Generador</div>
           </div>
         </div>
 
@@ -2656,8 +2662,8 @@ function renderRecepcion(circ, list){
 
 function _recepcionItemsTxt(rec){
   var items = [];
-  if (rec.tipoEquipo === 'Dron') {
-    items.push('Drone');
+  if (rec.tipoEquipo === 'Dron' || rec.tipoEquipo === 'Mavic') {
+    items.push(rec.tipoEquipo === 'Mavic' ? 'Mavic' : 'Drone');
     items.push((rec.baterias||0) + ' batería' + (rec.baterias === 1 ? '' : 's'));
     if (rec.controlRemoto) items.push('Control remoto');
     if (rec.coolingBox)    items.push('Cooling Box');
@@ -2665,6 +2671,8 @@ function _recepcionItemsTxt(rec){
     if (rec.helices)       items.push('Hélices');
   } else if (rec.tipoEquipo === 'Bateria') {
     items.push('Batería');
+  } else if (rec.tipoEquipo === 'Generador') {
+    items.push('Generador');
   } else {
     items.push('Control remoto');
   }
@@ -2693,15 +2701,15 @@ var _recepBaterias = 0;
 
 function _selRecepTipo(tipo){
   _recepTipoSel = tipo;
-  var map = { Dron:'rt-dron', Bateria:'rt-bateria', Control:'rt-control' };
-  ['rt-dron','rt-bateria','rt-control'].forEach(function(id){
+  var map = { Dron:'rt-dron', Mavic:'rt-mavic', Bateria:'rt-bateria', Control:'rt-control', Generador:'rt-generador' };
+  ['rt-dron','rt-mavic','rt-bateria','rt-control','rt-generador'].forEach(function(id){
     var el = document.getElementById(id);
     if (el) el.classList.remove('selected');
   });
   var sel = document.getElementById(map[tipo]);
   if (sel) sel.classList.add('selected');
   var block = document.getElementById('recep-acc-block');
-  if (block) block.style.display = (tipo === 'Dron') ? '' : 'none';
+  if (block) block.style.display = (tipo === 'Dron' || tipo === 'Mavic') ? '' : 'none';
 }
 
 function _setRecepBaterias(n){
@@ -2722,7 +2730,7 @@ function abrirModalRecepcion(){
     var el = document.getElementById(id);
     if (el) el.classList.remove('selected');
   });
-  _selRecepTipo(actual.esBateria === true ? 'Bateria' : 'Dron');
+  _selRecepTipo(actual.tipoRecepcionSugerido || 'Dron');
   _setRecepBaterias(0);
   var otros = document.getElementById('recep-otros'); if (otros) otros.value = '';
   var obs   = document.getElementById('recep-obs');   if (obs)   obs.value   = '';

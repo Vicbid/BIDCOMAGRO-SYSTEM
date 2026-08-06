@@ -1,13 +1,16 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Recepción obligatoria de equipos (circuito Taller)
 //  Registro permanente de con qué accesorios ingresó un equipo al
-//  taller central (dron: baterías/control/cooling box/cargador/
-//  hélices/otros; batería o control remoto: ingresan solos, sin
-//  accesorios). El gate que hace obligatorio este paso vive en
-//  actualizarOrden() (HUB_OTs.js) — acá solo la acción atómica que
-//  lo confirma: guarda el detalle en RECEPCIONES_EQUIPO, marca la
-//  OT como "Recepcionado" y manda el mail al hilo del reseller.
+//  taller central. 5 tipos (ver _normalizarTipoRecepcion en
+//  HUB_Sistema.js, que preselecciona el correcto según la hoja
+//  EQUIPOS): Dron y Mavic entran CON accesorios (baterías/control
+//  remoto/cooling box/cargador/hélices/otros); Batería, Control
+//  remoto y Generador entran solos, sin accesorios. El gate que
+//  hace obligatorio este paso vive en actualizarOrden()
+//  (HUB_OTs.js) — acá solo la acción atómica que lo confirma:
+//  guarda el detalle en RECEPCIONES_EQUIPO, marca la OT como
+//  "Recepcionado" y manda el mail al hilo del reseller.
 // ============================================================
 
 var RECEPCION_HEADERS = ["Fecha", "OT", "Usuario", "Tipo Equipo", "Baterías", "Control Remoto", "Cooling Box", "Cargador", "Hélices", "Otros", "Observaciones"];
@@ -50,8 +53,8 @@ function _obtenerRecepcionEquipo(otNum) {
 
 function _armarEmailRecepcion(data, rec, usuarioNombre) {
   var items = [];
-  if (rec.tipoEquipo === 'Dron') {
-    items.push('Drone');
+  if (rec.tipoEquipo === 'Dron' || rec.tipoEquipo === 'Mavic') {
+    items.push(rec.tipoEquipo === 'Mavic' ? 'Mavic' : 'Drone');
     items.push((rec.baterias || 0) + ' batería' + (rec.baterias === 1 ? '' : 's'));
     if (rec.controlRemoto) items.push('Control remoto');
     if (rec.coolingBox)    items.push('Cooling Box');
@@ -59,6 +62,8 @@ function _armarEmailRecepcion(data, rec, usuarioNombre) {
     if (rec.helices)       items.push('Hélices');
   } else if (rec.tipoEquipo === 'Bateria') {
     items.push('Batería');
+  } else if (rec.tipoEquipo === 'Generador') {
+    items.push('Generador');
   } else {
     items.push('Control remoto');
   }
@@ -89,8 +94,8 @@ function _armarEmailRecepcion(data, rec, usuarioNombre) {
   );
 }
 
-// payload: { fila, ot, tipoEquipo:'Dron'|'Bateria'|'Control', baterias, controlRemoto,
-//            coolingBox, cargador, helices, otros, observaciones }
+// payload: { fila, ot, tipoEquipo:'Dron'|'Bateria'|'Control'|'Generador'|'Mavic', baterias,
+//            controlRemoto, coolingBox, cargador, helices, otros, observaciones }
 function confirmarRecepcionEquipo(payload) {
   var lock = LockService.getScriptLock();
   try {
@@ -119,13 +124,13 @@ function confirmarRecepcionEquipo(payload) {
     var _u       = identificarUsuario();
     var usuarioNombre = (_u && _u.nombre) ? _u.nombre : usuario;
 
-    var tipoEquipo    = (['Dron', 'Bateria', 'Control'].indexOf(payload.tipoEquipo) !== -1) ? payload.tipoEquipo : 'Dron';
-    var esDron        = tipoEquipo === 'Dron';
-    var baterias      = esDron ? (parseInt(payload.baterias) || 0) : 0;
-    var controlRemoto = esDron && !!payload.controlRemoto;
-    var coolingBox    = esDron && !!payload.coolingBox;
-    var cargador      = esDron && !!payload.cargador;
-    var helices       = esDron && !!payload.helices;
+    var tipoEquipo    = (['Dron', 'Bateria', 'Control', 'Generador', 'Mavic'].indexOf(payload.tipoEquipo) !== -1) ? payload.tipoEquipo : 'Dron';
+    var conAccesorios = (tipoEquipo === 'Dron' || tipoEquipo === 'Mavic'); // Batería/Control/Generador entran solos
+    var baterias      = conAccesorios ? (parseInt(payload.baterias) || 0) : 0;
+    var controlRemoto = conAccesorios && !!payload.controlRemoto;
+    var coolingBox    = conAccesorios && !!payload.coolingBox;
+    var cargador      = conAccesorios && !!payload.cargador;
+    var helices       = conAccesorios && !!payload.helices;
     var otros         = String(payload.otros || '').trim();
     var observaciones = String(payload.observaciones || '').trim();
 
@@ -154,7 +159,7 @@ function confirmarRecepcionEquipo(payload) {
 
     // 3. Log de auditoría
     var detalle = 'Recepción: ' + tipoEquipo +
-      (esDron ? ' · ' + baterias + ' batería(s)' +
+      (conAccesorios ? ' · ' + baterias + ' batería(s)' +
         (controlRemoto ? ' · control remoto' : '') +
         (coolingBox    ? ' · cooling box'    : '') +
         (cargador      ? ' · cargador'       : '') +
