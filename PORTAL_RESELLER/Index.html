@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.74 -->
+<!-- @version 1.75 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5897,9 +5897,15 @@ function _catAbrir(id) {
       '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen (revisá que el archivo de Drive esté como “cualquiera con el link”).</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-image" style="font-size:22px;display:block;margin-bottom:8px"></i>Imagen no cargada todavía.</div>';
 
-  // Mapa SKU → registro de la lista de precios del reseller (mismo índice que "Buscar SKU")
+  // Mapa SKU → registro de la lista de precios del reseller (mismo índice que "Buscar SKU").
+  // _pedIndiceListo distingue "todavía está cargando" (null) de "cargó y este SKU
+  // realmente no tiene precio cargado" (array, sin match) — antes ambos casos se
+  // mostraban igual como "A consultar", que confundía "esperá un toque" con
+  // "no tenemos precio de esto". Ver _pedCargarIndice: cuando el índice llega,
+  // si este modal sigue abierto se vuelve a llamar _catAbrir() y esto se corrige solo.
+  var _pedIndiceListo = Array.isArray(_pedIndice);
   var precioMap = {};
-  if (_pedIndice) {
+  if (_pedIndiceListo) {
     for (var pi = 0; pi < _pedIndice.length; pi++) {
       var pk = (_pedIndice[pi][0] || '').toUpperCase();
       if (pk) precioMap[pk] = _pedIndice[pi];
@@ -5932,7 +5938,9 @@ function _catAbrir(id) {
       ? '<span style="color:var(--tx-d)">—</span>'
       : (precio > 0
           ? '<span style="font-weight:700;color:var(--tx)">' + _fmtPedUsd(precio) + '</span>'
-          : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
+          : (!_pedIndiceListo
+              ? '<span style="color:var(--tx-d);font-size:10px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</span>'
+              : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>'));
     var accion = tieneSku
       ? '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end">' +
           '<input type="number" min="1" value="1" class="cat-qty" style="width:52px;text-align:center;padding:3px;border:1px solid var(--brd);border-radius:var(--r);font-size:12px">' +
