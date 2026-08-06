@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.16
+// @version 2.17
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -1582,7 +1582,9 @@ function obtenerBorradoresActivos(resellerName) {
                      : String(fecha || ''),
         cantItems: Number(f[P.CANT_ITEMS])     || 0,
         obs:       String(f[P.OBSERVACIONES]   || ''),
-        itemsJson: String(f[P.ITEMS_JSON]      || '')
+        itemsJson: String(f[P.ITEMS_JSON]      || ''),
+        formaPago: String(f[P.FORMA_PAGO]      || ''),
+        envio:     String(f[P.ENVIO]           || '')
       });
     }
     return { ok: true, borradores: out };

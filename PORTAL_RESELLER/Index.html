@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.78 -->
+<!-- @version 1.80 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5648,26 +5648,27 @@ function _pedRetomarBorrador(idx) {
   var bsModal = bootstrap.Modal.getInstance(modalEl);
   if (bsModal) bsModal.hide();
 
-  sp(true);
-  google.script.run
-    .withSuccessHandler(function(itemsConEstado) {
-      sp(false);
-      _pedCart = [];
-      for (var m = 0; m < items.length; m++) {
-        var itc = items[m];
-        _pedCart.push({ sku: itc.sku, descripcion: itc.descripcion, estado: itc.estado || '', cantidad: itc.cantidad, precio: itc.precio || 0, modelos: itc.modelos || '' });
-      }
-      _pedRevision = { numero: borrador.id, itemsConEstado: itemsConEstado || [], excluidos: {} };
-      document.getElementById('ped-review-num').textContent  = borrador.id;
-      document.getElementById('ped-review-obs').value        = borrador.obs || '';
-      document.getElementById('ped-success').style.display   = 'none';
-      document.getElementById('ped-cart-card').style.display = 'none';
-      document.getElementById('ped-review').style.display    = 'block';
-      _pedRenderRevision();
-      toast('Borrador ' + borrador.id + ' listo para confirmar', 'ok');
-    })
-    .withFailureHandler(function(err) { sp(false); toast('Error al retomar: ' + (err.message || err), 'err'); })
-    .revisarItemsConStock(items);
+  // Carga directo al carrito normal — sin pantalla de disponibilidad/backorder
+  // en el medio (pedido del usuario: quien aprueba no tiene que ver eso). Queda
+  // igual que armar el pedido de cero: mismo carrito, mismo botón "Generar
+  // Pedido". La disponibilidad real la resuelve confirmarPedidoPortal en el
+  // servidor, igual que en cualquier otro pedido.
+  _pedCart = [];
+  for (var m = 0; m < items.length; m++) {
+    var itc = items[m];
+    _pedCart.push({ sku: itc.sku, descripcion: itc.descripcion, estado: itc.estado || '', cantidad: itc.cantidad, precio: itc.precio || 0, modelos: itc.modelos || '' });
+  }
+  var obsInp = document.getElementById('ped-obs');
+  if (obsInp) obsInp.value = borrador.obs || '';
+  var pagoInp = document.getElementById('ped-cart-pago');
+  if (pagoInp && borrador.formaPago) pagoInp.value = borrador.formaPago;
+  var envioInp = document.getElementById('ped-cart-envio');
+  if (envioInp && borrador.envio) envioInp.value = borrador.envio;
+  document.getElementById('ped-success').style.display    = 'none';
+  document.getElementById('ped-review').style.display     = 'none';
+  document.getElementById('ped-cart-card').style.display  = 'block';
+  _pedRenderCarrito();
+  toast('Borrador ' + borrador.id + ' cargado en el carrito', 'ok');
 }
 
 function _pedCancelarBorrador(numero) {
@@ -7489,13 +7490,18 @@ function _pedRepetirPedido(pedidoId) {
       }
       if (!found) {
         var precio = it.precio || 0;
-        if (!precio && _pedIndice) {
+        var foto   = it.foto   || ''; // pedidos viejos (previos a la miniatura de foto) no la tienen guardada
+        if ((!precio || !foto) && _pedIndice) {
           var skuUpR = (it.sku || '').toUpperCase();
           for (var ri = 0; ri < _pedIndice.length; ri++) {
-            if (_pedIndice[ri][0].toUpperCase() === skuUpR) { precio = _pedIndice[ri][4] || 0; break; }
+            if (_pedIndice[ri][0].toUpperCase() === skuUpR) {
+              if (!precio) precio = _pedIndice[ri][4] || 0;
+              if (!foto)   foto   = _pedIndice[ri][11] || '';
+              break;
+            }
           }
         }
-        _pedCart.push({ sku: it.sku || '', descripcion: it.descripcion || '', estado: it.estado || 'consultar_Backorder', cantidad: it.cantidad || 1, precio: precio, modelos: it.modelos || '' });
+        _pedCart.push({ sku: it.sku || '', descripcion: it.descripcion || '', estado: it.estado || 'consultar_Backorder', cantidad: it.cantidad || 1, precio: precio, modelos: it.modelos || '', foto: foto });
       }
       added++;
     }
