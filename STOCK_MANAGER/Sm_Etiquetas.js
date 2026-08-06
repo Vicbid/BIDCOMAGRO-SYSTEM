@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.7
 // ══════════════════════════════════════════════════════════════
 //  ETIQUETAS SO — códigos internos para productos SIN N° de serie
 //  El SO funciona como un SN (uno único por unidad). Formato POR SKU:
@@ -342,6 +342,62 @@ function reimprimirSOs(texto) {
       labels.push(o);
     }
     return { ok: labels.length > 0, labels: labels, faltan: faltan, error: labels.length ? '' : 'No se encontró ninguno de esos códigos SO.' };
+  } catch(e) {
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// Agrupa los últimos lotes generados juntos (misma fecha exacta + mismo operador ⇒ una sola
+// llamada a generarSO/generarBolsasSO/generarSOLote, ya que las filas de un mismo lote se
+// escriben de una con el mismo objeto Date) para poder reimprimirlos enteros sin tener que
+// escanear/tipear cada código SO a mano. Pensado para cuando el ingreso se registró pero la
+// impresora no sacó las etiquetas (o se perdieron antes de pegarlas).
+// Como las filas siempre se agregan al final (appendRow/getRange desde getLastRow()+1), un
+// mismo lote siempre queda en filas contiguas: escanea desde el final y corta por lote.
+// Devuelve { ok, lotes:[{ fecha, fechaFmt, operador, totalEtiquetas, sos:[...],
+//            resumen:[{sku,descripcion,etiquetas,esBolsa,unidadesPorBolsa}] }] } (más reciente primero).
+function listarLotesSOrecientes(limite) {
+  limite = parseInt(limite, 10) || 25;
+  try {
+    var hoja = _getHojaSO();
+    var last = hoja.getLastRow();
+    if (last < 2) return { ok: true, lotes: [] };
+    var d  = hoja.getRange(2, 1, last - 1, 6).getValues();  // sin encabezado
+    var tz = Session.getScriptTimeZone();
+    var lotes = [];
+    var i = d.length - 1;
+    while (i >= 0 && lotes.length < limite) {
+      var fi = d[i][SO_COL.FECHA];
+      var t  = (fi instanceof Date) ? fi.getTime() : null;
+      var op = String(d[i][SO_COL.OPERADOR] || '');
+      var j = i, sos = [], porSku = {}, orden = [];
+      while (j >= 0) {
+        var fj  = d[j][SO_COL.FECHA];
+        var tj  = (fj instanceof Date) ? fj.getTime() : null;
+        var opj = String(d[j][SO_COL.OPERADOR] || '');
+        if (tj !== t || opj !== op) break;
+        var sku  = String(d[j][SO_COL.SKU] || '').trim();
+        var cant = parseInt(d[j][SO_COL.CANTIDAD], 10) || 0;
+        sos.push(String(d[j][SO_COL.SO] || ''));
+        if (!porSku[sku]) {
+          porSku[sku] = { sku: sku, descripcion: String(d[j][SO_COL.DESC] || ''), etiquetas: 0, esBolsa: cant > 0, unidadesPorBolsa: cant > 0 ? cant : 0 };
+          orden.push(sku);
+        }
+        porSku[sku].etiquetas++;
+        j--;
+      }
+      sos.reverse();  // vuelve al orden NNN ascendente en que se generaron
+      lotes.push({
+        fecha: t ? new Date(t).toISOString() : '',
+        fechaFmt: t ? Utilities.formatDate(new Date(t), tz, 'dd/MM/yyyy HH:mm') : '(sin fecha)',
+        operador: op,
+        totalEtiquetas: sos.length,
+        sos: sos,
+        resumen: orden.map(function(sk) { return porSku[sk]; })
+      });
+      i = j;
+    }
+    return { ok: true, lotes: lotes };
   } catch(e) {
     return { ok: false, error: e.toString() };
   }
