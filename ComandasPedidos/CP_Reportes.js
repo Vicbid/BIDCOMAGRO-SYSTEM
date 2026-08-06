@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ============================================================
 //  COMANDAS — Reporte de tiempos + herramientas CP_debug*/CP_diag*
 //  (diagnóstico genérico, no atado a un incidente puntual).
@@ -90,6 +90,10 @@ function _cpTiemposCalc() {
     var iv = info[idvU] || {};
     arr.forEach(function(e) {
       if (!e.fechaTs) return;
+      // Corte de "medición limpia" pedido por el usuario: si la autorización es anterior a
+      // CP_TIEMPOS_DESDE, se excluye el envío ENTERO del reporte (ver comentario en Env.js) —
+      // los nombres de estado en Comandas Master cambiaron con el tiempo y ensuciaban lo viejo.
+      if (e.mailAutorizadoTs != null && e.mailAutorizadoTs < CP_TIEMPOS_DESDE.getTime()) return;
       var hCarga = _cpHoras(cargTs, e.fechaTs);
       if (hCarga != null) { dTodos.push(hCarga); if (e.envio === 1) dPrim.push(hCarga); }
       var hAut = _cpHoras(e.fechaTs, e.mailAutorizadoTs);
@@ -163,11 +167,12 @@ function _cpTiemposCalc() {
 
 
 // Devuelve { ok, rows:[por envío], pendientes:[marcadas CARGAR sin envío], peores:[top 5 más lentas],
-//            tendencia:[por semana], resumen:{primer, todos, autorizar, despachar, total} }.
+//            tendencia:[por semana], desde:'dd/MM/yyyy', resumen:{primer, todos, autorizar, despachar, total} }.
 function CP_reporteTiempos() {
   try {
     var c = _cpTiemposCalc();
-    return { ok: true, rows: c.rows, pendientes: c.pendientes, peores: c.peores, tendencia: c.tendencia, resumen: c.resumen };
+    var desde = Utilities.formatDate(CP_TIEMPOS_DESDE, 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy');
+    return { ok: true, rows: c.rows, pendientes: c.pendientes, peores: c.peores, tendencia: c.tendencia, desde: desde, resumen: c.resumen };
   } catch (e) { return { ok: false, mensaje: String(e && e.message ? e.message : e) }; }
 }
 

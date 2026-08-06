@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.25 -->
+<!-- @version 2.26 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1714,7 +1714,9 @@ function renderReporte(r){
       '<div class="rep-note" style="margin-top:8px">En rojo, la etapa que más aportó a la demora de esa comanda puntual — para saber a qué caso concreto ir a preguntar.</div>'+
     '</div>';
   }
-  var html = tendenciaChart()+
+  var htmlDesde = r.desde ? '<div class="rep-note" style="margin-bottom:14px">📅 Mide desde el <b>'+esc(r.desde)+'</b> en adelante — las autorizaciones anteriores a esa fecha no se incluyen (los nombres de estado en Comandas Master cambiaron con el tiempo y ensuciaban los datos viejos).</div>' : '';
+  var html = htmlDesde+
+             tendenciaChart()+
              bottleneck()+
              peoresTabla()+
              cards(r.resumen.primer, '1️⃣ CARGAR → primera comanda (tiempo de arranque)', true)+

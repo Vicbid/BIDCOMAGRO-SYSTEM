@@ -1,4 +1,4 @@
-// @version 1.15
+// @version 1.16
 // ============================================================
 //  COMANDAS · CARGA MASTERCHIEF — Configuración
 // ============================================================
@@ -20,6 +20,13 @@ var CP_RTV_TAB       = 'RTV';          // nombre + mail de cada RTV (para el mai
 var CP_PEND_TAB      = 'PENDIENTES_ENTREGA'; // lo que falta enviar: 1 producto por línea
 var CP_AUDIT_TAB     = 'AUDITORIA';    // trazabilidad: quién + cuándo + qué acción (crear/borrar envío, mails)
 var CP_TIEMPOS_TAB   = 'TIEMPOS';      // 1 fila por envío: cuánto tardó cada etapa (CARGAR→comanda→autorización→despacho)
+
+// Fecha de arranque del reporte de tiempos: un envío con autorización ANTERIOR a esta fecha se
+// excluye ENTERO del reporte (ninguna etapa, ni siquiera "cargar comanda"). El usuario pidió esto
+// porque los nombres de estado en Comandas Master cambiaron con el tiempo y eso ensuciaba los
+// datos históricos de autorización/despacho — se arranca a medir limpio desde acá en adelante.
+// Para reiniciar la medición de nuevo en el futuro, simplemente actualizá esta fecha.
+var CP_TIEMPOS_DESDE = new Date(2026, 7, 6); // 06/08/2026 (mes 0-indexado: 7 = agosto)
 
 // Sheet de KITS (receta/BOM): traduce el KIT (col C) a sus componentes (col A) a cargar
 //   A = SKU componente | B = Descripción componente | C = KIT | D = Descripción Kit
