@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.38 -->
+<!-- @version 5.39 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5088,7 +5088,6 @@ var _detalleCasData   = null;
 function verDetalleCAS(idCas) {
   _detalleCasActual = idCas;
   _detalleCasData   = null;
-  _cargarEtiquetaMeta();  // refresca bolsa/SN antes de renderizar el manifiesto
   document.getElementById('detalle-cas-title').innerHTML = '<i class="fa fa-boxes" style="color:var(--blue);margin-right:6px"></i>Contenido del Pedido: <strong>' + idCas + '</strong>';
   document.getElementById('detalle-cas-body').innerHTML  = '<div class="empty-state"><i class="fa fa-circle-notch fa-spin"></i></div>';
   document.getElementById('btn-recibir-todo').style.display    = 'none';
@@ -5098,10 +5097,18 @@ function verDetalleCAS(idCas) {
   document.getElementById('recep-ubic-cas-wrap').style.display  = 'none';
   document.getElementById('recep-ubic-cas').value = '';
   modal('modal-detalle-cas').show();
-  google.script.run
-    .withSuccessHandler(function(d) { _detalleCasData = d; _renderDetalleCAS(d); })
-    .withFailureHandler(function(e) { document.getElementById('detalle-cas-body').innerHTML = '<div style="padding:16px;color:var(--red)">Error: '+e.message+'</div>'; })
-    .obtenerDetalleCAS(idCas);
+  // _etqMap/_bolsasMap/_reqSNMap tienen que estar cargados ANTES de armar las filas (_recepRowHTML
+  // los lee para decidir si "🏷 Etiqueta" arranca pre-tildado). Antes se pedían en paralelo con
+  // obtenerDetalleCAS: si esta segunda respuesta llegaba primero (lo más común, es más liviana),
+  // las filas se dibujaban con los mapas todavía vacíos y CUALQUIER código — incluso uno ya
+  // aprendido de una recepción anterior — arrancaba destildado. Encadenado: primero los mapas,
+  // recién después el detalle, así el pre-tildado es siempre confiable.
+  _cargarEtiquetaMeta(function() {
+    google.script.run
+      .withSuccessHandler(function(d) { _detalleCasData = d; _renderDetalleCAS(d); })
+      .withFailureHandler(function(e) { document.getElementById('detalle-cas-body').innerHTML = '<div style="padding:16px;color:var(--red)">Error: '+e.message+'</div>'; })
+      .obtenerDetalleCAS(idCas);
+  });
 }
 
 function _renderDetalleCAS(d) {
@@ -5325,6 +5332,28 @@ function _recepEtiquetasElegidas(sel) {
   return out;
 }
 
+// true si hay alguna fila "Llegó" que podría llevar etiqueta SO (no es N° de serie) pero el
+// operador no tildó "🏷 Etiqueta" — el checkbox arranca destildado la primera vez que se recibe
+// un SKU (recién se pre-tilda solo, aprendido, desde la 2da vez — ver _recepRowHTML), así que es
+// fácil no darse cuenta y confirmar la recepción sin generar ninguna etiqueta. Se usa para avisar
+// antes de confirmar, en vez de dejarlo pasar en silencio.
+function _recepHayElegiblesSinEtiquetar(sel) {
+  var cont = document.querySelector(sel);
+  if (!cont) return false;
+  var hay = false;
+  cont.querySelectorAll('.recep-item').forEach(function(row) {
+    var chk = row.querySelector('.recep-ok');
+    if (chk && !chk.checked) return;                          // no llegó
+    var qi  = row.querySelector('.recep-qty');
+    var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
+    if (qty <= 0) return;
+    var etq = row.querySelector('.recep-etq-ck');
+    if (!etq) return;                                         // fila SN: no corresponde etiqueta
+    if (!etq.checked) hay = true;
+  });
+  return hay;
+}
+
 // Pantalla de recepción (checklist). preCheck=true → arranca todo tildado ("Recibir todo");
 // preCheck=false → arranca vacío para ir tildando ("Recibir parcial").
 function _recepMostrarFilas(titulo, preCheck) {
@@ -5376,6 +5405,8 @@ function confirmarReciboParcial() {
   var op = (document.getElementById('recep-parcial-op') || { value: 'Sistema' }).value;
   var etiqItems = _recepEtiquetasElegidas('#recep-parcial-items');
   if (etiqItems.length && !_confirmarTandaEtq(_recepTotalEtq(etiqItems))) etiqItems = [];  // recibe igual, sin imprimir
+  if (!etiqItems.length && _recepHayElegiblesSinEtiquetar('#recep-parcial-items') &&
+      !confirm('No tildaste "🏷 Etiqueta" en ningún código: esta recepción NO va a generar ninguna etiqueta SO.\n\n¿Confirmás que ninguno de estos repuestos necesita etiqueta?')) return;
   var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
   sp(true);
   google.script.run
@@ -5538,7 +5569,9 @@ function abrirEstadoCAS(cas, estadoActual, etaISO) {
   document.getElementById('est-cas-nuevo').onchange = function() {
     var enDepo = this.value === 'En depósito';
     document.getElementById('recepcion-wrap').style.display = enDepo ? 'block' : 'none';
-    if (enDepo) _cargarManifiestoEnRecepcion(cas);
+    // Igual que en verDetalleCAS: encadenado (no en paralelo) para que _recepRowHTML no dibuje
+    // las filas con los mapas de etiqueta todavía vacíos.
+    if (enDepo) _cargarEtiquetaMeta(function() { _cargarManifiestoEnRecepcion(cas); });
   };
   modal('modal-estado-cas').show();
 }
@@ -5559,6 +5592,9 @@ function confirmarEstadoCAS() {
     var deposito = depSel ? (depSel.value || 'BA') : 'BA';
     var etiqItems = _recepEtiquetasElegidas('#recepcion-items');
     if (etiqItems.length && !_confirmarTandaEtq(_recepTotalEtq(etiqItems))) etiqItems = [];  // recibe igual, sin imprimir
+    if (!etiqItems.length && _recepHayElegiblesSinEtiquetar('#recepcion-items')) {
+      if (!confirm('No tildaste "🏷 Etiqueta" en ningún código: esta recepción NO va a generar ninguna etiqueta SO.\n\n¿Confirmás que ninguno de estos repuestos necesita etiqueta?')) { sp(false); return; }
+    }
     var etiqWin   = _recepAbrirVentanaEtiq(etiqItems);
     google.script.run
       .withSuccessHandler(function(res) {
