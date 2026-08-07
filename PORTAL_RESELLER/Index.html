@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.83 -->
+<!-- @version 1.84 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2327,13 +2327,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 <!-- LIGHTBOX ZOOM del despiece -->
 <div id="cat-zoom" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.92);touch-action:none;user-select:none;overflow:hidden">
   <img id="cat-zoom-img" src="" alt="" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center center;max-width:none;cursor:grab;will-change:transform">
-  <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1"><i class="fa fa-times"></i></button>
+  <button onclick="_catZoomCerrar()" title="Cerrar (Esc)" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1;touch-action:manipulation"><i class="fa fa-times"></i></button>
   <div style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 10px">
-    <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-minus"></i></button>
+    <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;touch-action:manipulation"><i class="fa fa-minus"></i></button>
     <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
-    <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer"><i class="fa fa-plus"></i></button>
-    <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer"><i class="fa fa-compress"></i> 1:1</button>
-    <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Rueda para zoom · arrastrá para mover</span>
+    <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;touch-action:manipulation"><i class="fa fa-plus"></i></button>
+    <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer;touch-action:manipulation"><i class="fa fa-compress"></i> 1:1</button>
+    <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Pellizcá para zoom · arrastrá para mover · tocá afuera para cerrar</span>
   </div>
 </div>
 
@@ -6237,6 +6237,49 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
     im.addEventListener('dblclick', function (e) { e.preventDefault(); _czSetScale(_czScale > 1 ? 1 : 2.4); });
     // clic en el fondo del zoom = cerrar zoom
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) _catZoomCerrar(); });
+    // ── Touch (celular): sin esto, el zoom quedaba "trabado" — todo lo de arriba es mouse y
+    // no se dispara solo desde touch cuando el contenedor tiene touch-action:none (necesario
+    // para poder implementar el pan/pinch a mano en vez del scroll/zoom nativo de la página).
+    // Los botones (cerrar, +/-, 1:1) se arreglan aparte con touch-action:manipulation en su
+    // estilo — así el tap siempre les llega, sin depender de esta lógica de gestos.
+    var _czPinchDist0 = 0, _czPinchScale0 = 1, _czTapT = 0, _czTapX = 0, _czTapY = 0;
+    function _czTouchDist(a, b) { var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY; return Math.sqrt(dx * dx + dy * dy); }
+    im.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        _czPinchDist0  = _czTouchDist(e.touches[0], e.touches[1]);
+        _czPinchScale0 = _czScale;
+        _czDrag = false;
+      } else if (e.touches.length === 1 && _czScale > 1) {
+        _czDrag = true;
+        _czSX = e.touches[0].clientX - _czX;
+        _czSY = e.touches[0].clientY - _czY;
+      }
+    }, { passive: false });
+    im.addEventListener('touchmove', function (e) {
+      if (e.touches.length === 2 && _czPinchDist0 > 0) {
+        e.preventDefault();
+        _czSetScale(_czPinchScale0 * (_czTouchDist(e.touches[0], e.touches[1]) / _czPinchDist0));
+      } else if (_czDrag && e.touches.length === 1) {
+        e.preventDefault();
+        _czX = e.touches[0].clientX - _czSX; _czY = e.touches[0].clientY - _czSY; _czApply();
+      }
+    }, { passive: false });
+    im.addEventListener('touchend', function (e) {
+      if (e.touches.length === 0) { _czPinchDist0 = 0; if (_czDrag) { _czDrag = false; _czApply(); } }
+      // doble-tap = alternar zoom (mismo umbral clásico ~320ms / 30px que un dblclick)
+      var t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      var ahora = Date.now();
+      if (ahora - _czTapT < 320 && Math.abs(t.clientX - _czTapX) < 30 && Math.abs(t.clientY - _czTapY) < 30) {
+        _czSetScale(_czScale > 1 ? 1 : 2.4);
+        _czTapT = 0;
+      } else {
+        _czTapT = ahora; _czTapX = t.clientX; _czTapY = t.clientY;
+      }
+    });
+    // toque en el fondo (fuera de la imagen) = cerrar, igual que el mousedown de arriba
+    ov.addEventListener('touchend', function (e) { if (e.target === ov) _catZoomCerrar(); });
     // clic en el fondo del modal de detalle = cerrar detalle
     var modal = document.getElementById('cat-modal');
     if (modal) modal.addEventListener('mousedown', function (e) { if (e.target === modal) _catCerrarDetalle(); });
