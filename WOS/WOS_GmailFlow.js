@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.41
+// @version 2.43
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -648,6 +648,9 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       }
     }
     var hayBackorder = hayBackorderPostDesp; // alias para Logger y plain text
+    // Este despacho dejó al pedido sin backorder: si tenía un "¿seguimos esperando?" pendiente
+    // de disparar (aviso de ingreso sin responder), cerrarlo — ya no hay nada por lo que preguntar.
+    if (!hayBackorderPostDesp) { try { _wosCerrarAvisoIngresoSiPendiente(numero); } catch(eCai) { Logger.log('cerrarAvisoIngreso: ' + eCai); } }
 
     var etiquetaEnvio = hayDespPrevio ? '2\xba env\xedo' : (hayBackorderPostDesp ? '1\xba env\xedo' : 'Despacho');
 
@@ -2189,6 +2192,31 @@ function _wosAlertarSinContacto(numero, reseller, llegaron, faltan, completo) {
 }
 
 
+// Si el pedido tenía un aviso de ingreso parcial pendiente de respuesta (NOTIF_INGRESOS_WOS en
+// 'pregunta_enviada'/'recordado') y ESTE despacho lo dejó sin backorder, cierra esa fila como
+// 'sin_backorder' (mismo valor que ya usa _wosNotificarIngresoPedido para este caso). Sin esto,
+// un backorder resuelto por una vía distinta a "click en el mail" (ej.: WOS obliga a incluirlo
+// en un pedido nuevo del mismo reseller y despacharlo junto — ver _incluirBackorder en
+// Despacho_Index.html) queda relanzando el recordatorio "¿seguimos esperando?" para siempre,
+// aunque ya no falte nada. Se llama desde WOS_despacharCompleto con hayBackorderPostDesp=false.
+function _wosCerrarAvisoIngresoSiPendiente(numero) {
+  try {
+    var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
+    if (!hoja) return;
+    var d = hoja.getDataRange().getValues();
+    var changed = false;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][2] || '').trim() !== numero) continue;
+      var res = String(d[i][7] || '').trim();
+      if (res !== 'pregunta_enviada' && res !== 'recordado') continue;
+      hoja.getRange(i + 1, 8).setValue('sin_backorder');
+      changed = true;
+    }
+    if (changed) SpreadsheetApp.flush();
+  } catch(e) { Logger.log('_wosCerrarAvisoIngresoSiPendiente: ' + e); }
+}
+
+
 // ═══ RECORDATORIO / ESCALADO — pedidos que no responden al aviso de ingreso parcial ═══════
 // Sin esto, un pedido en "pregunta_enviada" puede quedar esperando indefinidamente si el
 // reseller nunca contesta ni con click ni por mail. A los _NI_RECORDAR_DIAS se reenvía el
@@ -2201,7 +2229,7 @@ var _NI_ESCALAR_DIAS  = 6;
 function WOS_recordarIngresosPendientes() {
   try {
     var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
-    if (!hoja) return { ok: true, recordados: 0, escalados: 0 };
+    if (!hoja) return { ok: true, recordados: 0, escalados: 0, resueltosSolos: 0 };
     var d = hoja.getDataRange().getValues();
     var DIA = 24 * 60 * 60 * 1000, ahoraMs = Date.now();
 
@@ -2219,24 +2247,35 @@ function WOS_recordarIngresosPendientes() {
       if (res === 'recordado') porPedido[ped].etapa = 'recordado';   // ya se recordó una vez → evaluar escalado
     }
 
-    var recordados = 0, escalados = 0;
+    var recordados = 0, escalados = 0, resueltosSolos = 0;
     for (var pedNum in porPedido) {
       var info = porPedido[pedNum];
       var dias = info.fechaMin ? (ahoraMs - info.fechaMin) / DIA : 0;
       if (info.etapa === 'pregunta_enviada' && dias >= _NI_RECORDAR_DIAS) {
-        if (_wosRecordarIngresoPedido(pedNum)) {
+        var r1res = _wosRecordarIngresoPedido(pedNum);
+        if (r1res === 'enviado') {
           for (var r1 = 0; r1 < info.rows.length; r1++) hoja.getRange(info.rows[r1] + 1, 8).setValue('recordado');
           recordados++;
+        } else if (r1res === 'sin_backorder') {
+          // ya no hay backorder — se resolvió mientras esperaba (llegó stock, se despachó,
+          // se canceló, etc.) por una vía que no fue "el reseller contestó este mail". Cerrar
+          // la fila para que no se siga evaluando ni termine escalando algo que ya no existe.
+          for (var r1b = 0; r1b < info.rows.length; r1b++) hoja.getRange(info.rows[r1b] + 1, 8).setValue('sin_backorder');
+          resueltosSolos++;
         }
       } else if (info.etapa === 'recordado' && dias >= _NI_ESCALAR_DIAS) {
-        if (_wosEscalarIngresoPedido(pedNum)) {
+        var r2res = _wosEscalarIngresoPedido(pedNum);
+        if (r2res === 'enviado') {
           for (var r2 = 0; r2 < info.rows.length; r2++) hoja.getRange(info.rows[r2] + 1, 8).setValue('escalado');
           escalados++;
+        } else if (r2res === 'sin_backorder') {
+          for (var r2b = 0; r2b < info.rows.length; r2b++) hoja.getRange(info.rows[r2b] + 1, 8).setValue('sin_backorder');
+          resueltosSolos++;
         }
       }
     }
-    if (recordados || escalados) SpreadsheetApp.flush();
-    return { ok: true, recordados: recordados, escalados: escalados };
+    if (recordados || escalados || resueltosSolos) SpreadsheetApp.flush();
+    return { ok: true, recordados: recordados, escalados: escalados, resueltosSolos: resueltosSolos };
   } catch(e) { Logger.log('WOS_recordarIngresosPendientes: ' + e); return { ok: false, error: e.toString() }; }
 }
 
@@ -2399,9 +2438,20 @@ function _wosPedidoInfoBasico(numero) {
 }
 
 
+// Devuelve 'enviado' (mandó el recordatorio), 'sin_backorder' (ya no hay backorder — no manda
+// nada, el pedido se resolvió por otra vía mientras esperaba respuesta; mismo valor que ya usa
+// _wosNotificarIngresoPedido para este caso) o false (error/sin contacto).
 function _wosRecordarIngresoPedido(numero) {
   var info = _wosPedidoInfoBasico(numero);
   if (!info || !info.reseller || (!info.threadId && !info.email)) return false;
+  // El faltante ya no existe (se despachó/canceló por otra vía mientras el reseller no
+  // contestaba) — mandar este mail sería el bug reportado: "¿seguimos esperando?" sobre algo
+  // que ya no falta, con la tabla de pendientes vacía. No hace falta avisar acá: si se resolvió
+  // por la vía normal (llegó mercadería) ya se le avisó en su momento con el mail de despacho.
+  if (!info.backorder.length) {
+    try { _wosLogAccion('Recordatorio omitido: ya no hay backorder (resuelto por otra vía)', numero, info.reseller, 'auto_recordatorio', ''); } catch(eLg0) {}
+    return 'sin_backorder';
+  }
 
   var filas = '';
   for (var i = 0; i < info.backorder.length; i++) {
@@ -2471,13 +2521,18 @@ function _wosRecordarIngresoPedido(numero) {
     }
   }
   try { _wosLogAccion('Recordatorio de ingreso parcial enviado', numero, info.reseller, 'auto_recordatorio', ''); } catch(eLg) {}
-  return true;
+  return 'enviado';
 }
 
 
+// Mismo contrato de retorno que _wosRecordarIngresoPedido: 'enviado' | 'sin_backorder' | false.
 function _wosEscalarIngresoPedido(numero) {
   var info = _wosPedidoInfoBasico(numero);
   if (!info || !info.reseller) return false;
+  if (!info.backorder.length) {
+    try { _wosLogAccion('Escalado omitido: ya no hay backorder (resuelto por otra vía)', numero, info.reseller, 'auto_escalado', ''); } catch(eLg0) {}
+    return 'sin_backorder';
+  }
   var filasTxt = info.backorder.map(function(b) { return '- ' + b.sku + ' (' + b.desc + ') — ' + b.pend + ' u. pendientes'; }).join('\n');
   var asunto = '[WOS] Sin respuesta \x2014 Pedido ' + numero + ' (' + info.reseller + ')';
   var cuerpo = 'El pedido ' + numero + ' de ' + info.reseller + ' tiene una reposici\xf3n parcial esperando respuesta desde hace ' +
@@ -2493,7 +2548,7 @@ function _wosEscalarIngresoPedido(numero) {
     return false;
   }
   try { _wosLogAccion('Escalado a soporte: sin respuesta al aviso de ingreso', numero, info.reseller, 'auto_escalado', ''); } catch(eLg) {}
-  return true;
+  return 'enviado';
 }
 
 
