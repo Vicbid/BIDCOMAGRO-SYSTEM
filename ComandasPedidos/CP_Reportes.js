@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.8
 // ============================================================
 //  COMANDAS — Reporte de tiempos + herramientas CP_debug*/CP_diag*
 //  (diagnóstico genérico, no atado a un incidente puntual).
@@ -20,21 +20,26 @@
    origen 'edit' = exacto | 'deteccion' = aproximado.
 ════════════════════════════════════════════════════════════ */
 
-// Mapa liviano leyendo Ventas una sola vez: { IDVENTA: {idVenta, idNegocio, reseller, cliente} }
+// Mapa liviano leyendo Ventas una sola vez: { IDVENTA: {idVenta, idNegocio, reseller, cliente, enCargarAhora} }
+// enCargarAhora = tiene HOY, en Ventas, alguna línea con ID_Entrega=CARGAR (a diferencia de
+// CARGAR_LOG, que es un historial que nunca se borra — ver uso en _cpTiemposCalc/"pendientes").
 function _cpInfoVentasMap() {
   var rows = _cpHoja().getDataRange().getValues();
   var det = _cpDetectar(rows);
   if (!det) return {};
-  var col = det.col, m = {};
+  var col = det.col, m = {}, flag = CP_FLAG.toUpperCase();
   for (var i = det.headerRow + 1; i < rows.length; i++) {
     var idv = _s(col.idVenta > -1 ? rows[i][col.idVenta] : ''); if (!idv) continue;
     var k = idv.toUpperCase();
+    var enCargar = col.idEntrega > -1 && _s(rows[i][col.idEntrega]).toUpperCase() === flag;
     if (!m[k]) m[k] = {
       idVenta:   idv,
       idNegocio: _s(col.idNegocio > -1 ? rows[i][col.idNegocio] : ''),
       reseller:  _s(col.reseller > -1 ? rows[i][col.reseller] : ''),
-      cliente:   _s(col.razonSocial > -1 ? rows[i][col.razonSocial] : '')
+      cliente:   _s(col.razonSocial > -1 ? rows[i][col.razonSocial] : ''),
+      enCargarAhora: enCargar
     };
+    else if (enCargar) m[k].enCargarAhora = true; // alcanza con que UNA línea de la venta siga en CARGAR
   }
   return m;
 }
@@ -116,11 +121,18 @@ function _cpTiemposCalc() {
     });
   });
   rows.sort(function(a, b) { return a.idVenta === b.idVenta ? a.envio - b.envio : (a.idVenta < b.idVenta ? -1 : 1); });
-  // pendientes: marcadas CARGAR pero sin ningún envío todavía
+  // Pendientes: marcadas CARGAR y sin ningún envío todavía A TRAVÉS DE ESTA APP. OJO: CARGAR_LOG
+  // es un historial que nunca se borra, así que una venta vieja que se cargó/despachó por otra
+  // vía (sin usar el botón "Cargar comanda" de acá) se queda para siempre en ese log aunque ya
+  // esté resuelta hace rato — por eso NO alcanza con "no tiene envío", hace falta además que la
+  // venta siga HOY con ID_Entrega=CARGAR en Ventas (`enCargarAhora`, ver _cpInfoVentasMap). Sin
+  // este segundo chequeo aparecían como "esperando comanda" ventas ya entregadas hace semanas.
   var now = Date.now(), pend = [];
   Object.keys(cargarPorVenta).forEach(function(idvU) {
     if (enviosMap[idvU]) return;
-    var carg = cargarPorVenta[idvU], iv = info[idvU] || {};
+    var iv = info[idvU] || {};
+    if (!iv.enCargarAhora) return;
+    var carg = cargarPorVenta[idvU];
     pend.push({ idVenta: iv.idVenta || idvU, idNegocio: iv.idNegocio || '', reseller: iv.reseller || '',
       cargarTs: carg.ts.getTime(),
       horasAbierto: _cpHoras(carg.ts.getTime(), now),
@@ -190,6 +202,8 @@ function CP_reporteTiempos() {
    más un botón "Actualizar" en la UI por si quiere forzarlo al toque.
 ════════════════════════════════════════════════════════════ */
 
+// Orden confirmado con el usuario: vuelve al esquema anterior al de "comanda primero" (le
+// gustaba más) — Estado adelante, después identificadores, después las fechas/horas de cada etapa.
 var CP_TIEMPOS_HEADERS = [
   'Estado', 'ID Venta', 'N° Negocio', 'Reseller', 'Razón Social', 'Envío', 'Comanda', 'Operador',
   'Marcado CARGAR', 'Comanda cargada', 'Tiempo en cargar (hs)',
@@ -205,8 +219,14 @@ var CP_TIEMPOS_COL = {
 function _cpTiemposHoja() {
   var ss = _cpSS(CP_LOG_SS_ID);
   var h = ss.getSheetByName(CP_TIEMPOS_TAB);
-  if (!h) {
-    h = ss.insertSheet(CP_TIEMPOS_TAB);
+  var esNueva = !h;
+  if (esNueva) h = ss.insertSheet(CP_TIEMPOS_TAB);
+  // Migración defensiva: si la hoja ya existía con un esquema de columnas viejo (el orden
+  // cambió más de una vez en esta sesión), reescribe encabezado + formato + heatmap para que
+  // no quede desalineado con las filas nuevas que arma CP_actualizarHojaTiempos().
+  var headerActual = esNueva ? [] : h.getRange(1, 1, 1, CP_TIEMPOS_HEADERS.length).getValues()[0];
+  var necesitaFormato = esNueva || JSON.stringify(headerActual) !== JSON.stringify(CP_TIEMPOS_HEADERS);
+  if (necesitaFormato) {
     h.getRange(1, 1, 1, CP_TIEMPOS_HEADERS.length).setValues([CP_TIEMPOS_HEADERS]);
     h.setFrozenRows(1);
     h.getRange(1, 1, 1, CP_TIEMPOS_HEADERS.length).setFontWeight('bold').setBackground('#1a1f2e').setFontColor('#ffffff');
