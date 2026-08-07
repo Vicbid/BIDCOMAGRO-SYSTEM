@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.82 -->
+<!-- @version 1.83 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -161,11 +161,15 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .pin-error{font-size:12px;color:var(--red);min-height:18px;margin-bottom:14px}
 
 /* ── RECURSOS ───────────────────────────── */
-.recurso-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rl);padding:20px;display:flex;align-items:center;gap:16px;margin-bottom:10px;text-decoration:none;color:var(--tx);transition:all .13s}
+/* Tarjetas chicas y cuadradas: solo lo justo (ícono + nombre) para que entren más
+   opciones sin scrollear — la descripción larga pasa a tooltip (title=""). Antes eran
+   filas horizontales grandes; con "Videos de armado y desarmado" sumándose, ya no entraban
+   cómodas. */
+.recurso-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+.recurso-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:88px;text-decoration:none;color:var(--tx);text-align:center;transition:all .13s;cursor:pointer}
 .recurso-card:hover{border-color:var(--blue);background:#fff;box-shadow:0 2px 8px rgba(0,163,224,.1);color:var(--tx)}
-.recurso-icon{width:44px;height:44px;border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
-.recurso-name{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:2px}
-.recurso-desc{font-size:11px;color:var(--tx-m)}
+.recurso-icon{width:36px;height:36px;border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.recurso-name{font-size:11px;font-weight:700;color:var(--tx);line-height:1.25}
 .contacto-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 .contacto-item{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 16px;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--tx);transition:all .13s}
 .contacto-item:hover{border-color:var(--blue);background:#fff;color:var(--tx)}
@@ -481,6 +485,23 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <i class="fa fa-check"></i>Entendido
       </button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL VIDEOS DE ARMADO Y DESARMADO -->
+<div id="vm-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerrarVideosModelos()">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:var(--blue);padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-video" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">Videos de armado y desarmado</div>
+        <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px;letter-spacing:.03em">Material oficial DJI · elegí el modelo</div>
+      </div>
+      <button onclick="cerrarVideosModelos()" style="background:rgba(255,255,255,.15);border:none;width:26px;height:26px;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="vm-modal-body" style="padding:16px 18px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
 <style>
@@ -1496,38 +1517,28 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div class="dji-card">
         <div class="dji-card-head"><i class="fa fa-file-alt"></i> Documentación técnica</div>
         <div class="dji-card-body">
-          <a href="https://docs.google.com/spreadsheets/d/1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0/" target="_blank" class="recurso-card">
-            <div class="recurso-icon" style="background:rgba(26,158,74,.1)"><i class="fa fa-table" style="color:var(--green)"></i></div>
-            <div>
+          <div class="recurso-grid">
+            <a href="https://docs.google.com/spreadsheets/d/1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0/" target="_blank" class="recurso-card" title="Repuestos y accesorios DJI Agriculture — actualizada por BIDCOMAGRO">
+              <div class="recurso-icon" style="background:rgba(26,158,74,.1)"><i class="fa fa-table" style="color:var(--green)"></i></div>
               <div class="recurso-name">Lista de precios oficial</div>
-              <div class="recurso-desc">Repuestos y accesorios DJI Agriculture — actualizada por BIDCOMAGRO</div>
-            </div>
-            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-          </a>
-          <a href="https://drive.google.com/drive/folders/1ggC89KI8PnqPv2QZxNRtDSiTehkn2E44" target="_blank" class="recurso-card">
-            <div class="recurso-icon" style="background:rgba(0,163,224,.1)"><i class="fa fa-folder-open" style="color:var(--blue)"></i></div>
-            <div>
+            </a>
+            <a href="https://drive.google.com/drive/folders/1ggC89KI8PnqPv2QZxNRtDSiTehkn2E44" target="_blank" class="recurso-card" title="Diagramas técnicos de drones, generadores y esparcidores">
+              <div class="recurso-icon" style="background:rgba(0,163,224,.1)"><i class="fa fa-folder-open" style="color:var(--blue)"></i></div>
               <div class="recurso-name">Vistas explotadas (Boomview)</div>
-              <div class="recurso-desc">Diagramas técnicos de drones, generadores y esparcidores</div>
-            </div>
-            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-          </a>
-          <a href="https://usyhrzxlgz5.jp.larksuite.com/app/QkBAbcZA4arDbVsytnXjjfNapxh?pageId=pgee3FO7lbtzWOmh" target="_blank" class="recurso-card">
-            <div class="recurso-icon" style="background:rgba(100,100,255,.1)"><i class="fa fa-book-open" style="color:#6464ff"></i></div>
-            <div>
+            </a>
+            <a href="javascript:void(0)" onclick="abrirVideosModelos()" class="recurso-card" title="Videos oficiales DJI, uno para armar y otro para desarmar cada modelo">
+              <div class="recurso-icon" style="background:rgba(214,48,49,.1)"><i class="fa fa-video" style="color:var(--red)"></i></div>
+              <div class="recurso-name">Videos armado y desarmado</div>
+            </a>
+            <a href="https://usyhrzxlgz5.jp.larksuite.com/app/QkBAbcZA4arDbVsytnXjjfNapxh?pageId=pgee3FO7lbtzWOmh" target="_blank" class="recurso-card" title="Base de conocimiento y recursos en Lark Suite">
+              <div class="recurso-icon" style="background:rgba(100,100,255,.1)"><i class="fa fa-book-open" style="color:#6464ff"></i></div>
               <div class="recurso-name">Documentación Lark</div>
-              <div class="recurso-desc">Base de conocimiento y recursos en Lark Suite</div>
-            </div>
-            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-          </a>
-          <a href="https://dealersystem-abroad.dji.com/" target="_blank" class="recurso-card">
-            <div class="recurso-icon" style="background:rgba(26,26,26,.07)"><i class="fa fa-store" style="color:var(--tx)"></i></div>
-            <div>
+            </a>
+            <a href="https://dealersystem-abroad.dji.com/" target="_blank" class="recurso-card" title="Portal oficial de distribuidores DJI Agriculture">
+              <div class="recurso-icon" style="background:rgba(26,26,26,.07)"><i class="fa fa-store" style="color:var(--tx)"></i></div>
               <div class="recurso-name">DJI Dealer System</div>
-              <div class="recurso-desc">Portal oficial de distribuidores DJI Agriculture</div>
-            </div>
-            <i class="fa fa-external-link-alt" style="color:var(--tx-d);font-size:12px;margin-left:auto;flex-shrink:0"></i>
-          </a>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -3132,6 +3143,46 @@ function cerrarSesion() {
 // ══════════════════════════════════════════
 function abrirGuia() {
   window.open(_deployUrl + '?action=guia', '_blank');
+}
+
+// ── Videos de armado y desarmado (links directos que comparte DJI, 2 por modelo) ──
+// Un solo modal con todos los modelos y sus 2 botones — sin un paso de "elegir modelo"
+// intermedio antes de ver los links: menos clics para llegar al video.
+var _vmData = null;
+function abrirVideosModelos() {
+  document.getElementById('vm-modal').style.display = 'flex';
+  if (_vmData) { _renderVideosModelos(_vmData); return; }
+  var body = document.getElementById('vm-modal-body');
+  body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px"><i class="fa fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:8px"></i>Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _vmData = (r && r.ok) ? (r.modelos || []) : [];
+      _renderVideosModelos(_vmData);
+    })
+    .withFailureHandler(function() {
+      body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--red);font-size:13px">No se pudo cargar. Reintentá más tarde.</div>';
+    })
+    .obtenerVideosModelosPortal();
+}
+function cerrarVideosModelos() { document.getElementById('vm-modal').style.display = 'none'; }
+function _renderVideosModelos(modelos) {
+  var body = document.getElementById('vm-modal-body');
+  if (!modelos || !modelos.length) {
+    body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px">Todavía no hay videos cargados.<br>Volvé a intentar más adelante.</div>';
+    return;
+  }
+  body.innerHTML = modelos.map(function(m) {
+    var btnA = m.armado
+      ? '<a href="' + _catEsc(m.armado) + '" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:12px;font-weight:700"><i class="fa fa-circle-play"></i> Armado</a>'
+      : '';
+    var btnD = m.desarmado
+      ? '<a href="' + _catEsc(m.desarmado) + '" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:12px;font-weight:700"><i class="fa fa-circle-play"></i> Desarmado</a>'
+      : '';
+    return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:11px 13px;margin-bottom:9px">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:8px">' + _catEsc(m.modelo) + '</div>' +
+      '<div style="display:flex;gap:8px">' + btnA + btnD + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function actualizarPortal() {

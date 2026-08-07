@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.7
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -825,6 +825,68 @@ function LAUNCH_getEventoStats(eventoId) {
     return { ok: true, totalPersonas: a.totalPersonas, totalResellers: van, lista: lista };
   } catch(e) { return { ok: false, error: e.toString(), totalPersonas: 0, totalResellers: 0, lista: [] }; }
 }
+
+// ── Videos de armado y desarmado · Portal Reseller ────────────
+// Gestión de links (2 por modelo: armado y desarmado, que DJI comparte directo) desde el
+// Launcher. La hoja vive en el MASTER (misma que usa RS_VideosModelos.js del Portal); el scope
+// 'spreadsheets' ya permite leerla/escribirla — sin re-auth. Mismo patrón que EVENTOS, pero acá
+// el propio nombre del modelo hace de identificador (no hay un ID separado).
+//   VIDEOS_ARMADO_DESARMADO: A=Modelo B=Link armado C=Link desarmado D=Activo (vacío/SI visible)
+var _LAUNCH_VIDEOS_TAB = 'VIDEOS_ARMADO_DESARMADO';
+
+function LAUNCH_getVideosModelos() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
+    var out  = [];
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var modelo = String(d[i][0] || '').trim();
+        if (!modelo) continue;
+        out.push({
+          modelo: modelo, armado: String(d[i][1] || '').trim(), desarmado: String(d[i][2] || '').trim(),
+          activo: _launchEvActivo(d[i][3])
+        });
+      }
+    }
+    out.sort(function(a, b) { return a.modelo.localeCompare(b.modelo); });
+    return { ok: true, modelos: out };
+  } catch(e) { Logger.log('LAUNCH_getVideosModelos: ' + e); return { ok: false, error: e.toString(), modelos: [] }; }
+}
+
+// data = { modelo, armado, desarmado, activo, modeloOriginal }. modeloOriginal (opcional) permite
+// renombrar un modelo sin duplicar la fila — se busca por ese nombre, se guarda con el nuevo.
+function LAUNCH_saveVideoModelo(data) {
+  try {
+    data = data || {};
+    var modelo = String(data.modelo || '').trim();
+    if (!modelo) return { ok: false, error: 'Falta el nombre del modelo.' };
+    var armado    = String(data.armado    || '').trim();
+    var desarmado = String(data.desarmado || '').trim();
+    if (!armado && !desarmado) return { ok: false, error: 'Cargá al menos un link (armado o desarmado).' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
+    if (!hoja) {
+      hoja = ss.insertSheet(_LAUNCH_VIDEOS_TAB);
+      hoja.appendRow(['Modelo', 'Link armado', 'Link desarmado', 'Activo']);
+      hoja.setFrozenRows(1);
+      hoja.getRange(1, 1, 1, 4).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    }
+    var fila = [modelo, armado, desarmado, data.activo === false ? 'NO' : 'SI'];
+    var buscar = String(data.modeloOriginal || modelo).trim().toLowerCase();
+    var d = hoja.getDataRange().getValues();
+    var filaIdx = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() === buscar) { filaIdx = i + 1; break; }
+    }
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 4).setValues([fila]);
+    else             hoja.appendRow(fila);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_saveVideoModelo: ' + e); return { ok: false, error: e.toString() }; }
+}
+
 
 function LAUNCH_getResellersLista() {
   try {
