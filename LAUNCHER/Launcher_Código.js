@@ -1,4 +1,4 @@
-// @version 1.9
+// @version 1.10
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -833,14 +833,36 @@ function LAUNCH_getEventoStats(eventoId) {
 // el propio nombre del modelo hace de identificador (no hay un ID separado).
 //   VIDEOS_ARMADO_DESARMADO: A=Modelo B=Link armado C=Link desarmado D=Activo (vacío/SI visible)
 var _LAUNCH_VIDEOS_TAB = 'VIDEOS_ARMADO_DESARMADO';
+// Drones ya conocidos por el catálogo inicial (agosto 2026) — se usa UNA sola vez, para
+// backfillear 'Es dron' al migrar hojas viejas de 5 columnas. De ahí en más el flag es
+// 100% editable a mano desde el Launcher: un dron nuevo se da de alta tildando el checkbox,
+// sin tocar código — igual que a qué drones sirve cada accesorio (eso nunca se hardcodea,
+// puede variar con el tiempo).
+var _LAUNCH_DRONES_CONOCIDOS = ['T25', 'T25P', 'T50', 'T55', 'T70', 'T70S', 'T100', 'T100S'];
 
 function _launchVideosHoja(ss) {
   var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
   if (!hoja) {
     hoja = ss.insertSheet(_LAUNCH_VIDEOS_TAB);
-    hoja.appendRow(['Modelo', 'Componente', 'Link armado', 'Link desarmado', 'Activo']);
+    hoja.appendRow(['Modelo', 'Componente', 'Link armado', 'Link desarmado', 'Activo', 'Es dron', 'Drones asociados']);
     hoja.setFrozenRows(1);
-    hoja.getRange(1, 1, 1, 5).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.getRange(1, 1, 1, 7).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    return hoja;
+  }
+  // Migración: hojas creadas antes de agrupar por dron tenían solo 5 columnas. Se agregan
+  // 'Es dron'/'Drones asociados' y se backfillea 'Es dron' según los modelos que ya sabíamos
+  // que eran drones — 'Drones asociados' queda vacío a propósito, eso se carga a mano.
+  if (hoja.getLastColumn() < 7) {
+    hoja.getRange(1, 6, 1, 2).setValues([['Es dron', 'Drones asociados']])
+      .setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    var last = hoja.getLastRow();
+    if (last > 1) {
+      var modelos = hoja.getRange(2, 1, last - 1, 1).getValues();
+      var flags = modelos.map(function(r) {
+        return [_LAUNCH_DRONES_CONOCIDOS.indexOf(String(r[0] || '').trim()) >= 0 ? 'SI' : 'NO'];
+      });
+      hoja.getRange(2, 6, flags.length, 1).setValues(flags);
+    }
   }
   return hoja;
 }
@@ -858,7 +880,9 @@ function LAUNCH_getVideosModelos() {
         out.push({
           modelo: modelo, componente: String(d[i][1] || '').trim(),
           armado: String(d[i][2] || '').trim(), desarmado: String(d[i][3] || '').trim(),
-          activo: _launchEvActivo(d[i][4])
+          activo: _launchEvActivo(d[i][4]),
+          esDron: String(d[i][5] || '').trim().toUpperCase() === 'SI',
+          dronesAsociados: String(d[i][6] || '').split(';').map(function(s) { return s.trim(); }).filter(function(s) { return s; })
         });
       }
     }
@@ -870,10 +894,13 @@ function LAUNCH_getVideosModelos() {
   } catch(e) { Logger.log('LAUNCH_getVideosModelos: ' + e); return { ok: false, error: e.toString(), modelos: [] }; }
 }
 
-// data = { modelo, componente, armado, desarmado, activo, modeloOriginal, componenteOriginal }.
+// data = { modelo, componente, armado, desarmado, activo, esDron, dronesAsociados, modeloOriginal, componenteOriginal }.
 // La clave real es (modelo, componente) — un modelo con varias piezas (ej. T100: Aeronave /
 // Sistema de siembra / Sistema de elevación) tiene una fila por componente. *Original (opcional)
 // permite renombrar sin duplicar la fila — se busca por esos valores, se guarda con los nuevos.
+// esDron: true si la fila es una pieza propia de un dron. dronesAsociados: array de nombres
+// de dron para los que sirve este accesorio (solo aplica si esDron=false) — un mismo cargador
+// o generador puede servir para varios modelos, se guarda separado por ';'.
 function LAUNCH_saveVideoModelo(data) {
   try {
     data = data || {};
@@ -883,9 +910,11 @@ function LAUNCH_saveVideoModelo(data) {
     var armado     = String(data.armado     || '').trim();
     var desarmado  = String(data.desarmado  || '').trim();
     if (!armado && !desarmado) return { ok: false, error: 'Cargá al menos un link (armado o desarmado).' };
+    var esDron = !!data.esDron;
+    var dronesAsociados = (!esDron && Array.isArray(data.dronesAsociados)) ? data.dronesAsociados : [];
     var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
     var hoja = _launchVideosHoja(ss);
-    var fila = [modelo, componente, armado, desarmado, data.activo === false ? 'NO' : 'SI'];
+    var fila = [modelo, componente, armado, desarmado, data.activo === false ? 'NO' : 'SI', esDron ? 'SI' : 'NO', dronesAsociados.join(';')];
     var buscarModelo     = String(data.modeloOriginal     || modelo).trim().toLowerCase();
     var buscarComponente = String(data.componenteOriginal != null ? data.componenteOriginal : componente).trim().toLowerCase();
     var d = hoja.getDataRange().getValues();
@@ -895,7 +924,7 @@ function LAUNCH_saveVideoModelo(data) {
       if (String(d[i][1] || '').trim().toLowerCase() !== buscarComponente) continue;
       filaIdx = i + 1; break;
     }
-    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 5).setValues([fila]);
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 7).setValues([fila]);
     else             hoja.appendRow(fila);
     SpreadsheetApp.flush();
     return { ok: true };
@@ -958,7 +987,8 @@ function LAUNCH_seedVideosModelosDji() {
       var modelo = filas[f][0], componente = filas[f][1];
       var key = modelo.trim().toLowerCase() + '||' + componente.trim().toLowerCase();
       if (existentes[key]) { saltados++; continue; }
-      hoja.appendRow([modelo, componente, CDN + filas[f][2], CDN + filas[f][3], 'SI']);
+      var esDronSeed = _LAUNCH_DRONES_CONOCIDOS.indexOf(modelo.trim()) >= 0 ? 'SI' : 'NO';
+      hoja.appendRow([modelo, componente, CDN + filas[f][2], CDN + filas[f][3], 'SI', esDronSeed, '']);
       existentes[key] = true;
       agregados++;
     }

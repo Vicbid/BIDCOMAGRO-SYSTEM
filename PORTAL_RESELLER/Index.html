@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.88 -->
+<!-- @version 1.89 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3202,23 +3202,40 @@ function abrirVideosModelos() {
     .obtenerVideosModelosPortal();
 }
 function cerrarVideosModelos() { document.getElementById('vm-modal').style.display = 'none'; }
-// Un modelo puede tener varios componentes (ej: T100 = Aeronave + Sistema de siembra +
-// Sistema de elevación) — el backend ya viene ordenado por modelo/componente, acá se agrupan
-// en bloques. Si un modelo tiene un solo componente se ve igual que siempre (una fila
-// compacta con el nombre del modelo); si tiene varios, aparece un encabezado con el modelo
-// y una fila chica por componente debajo.
+// Cada fila es o bien una pieza propia de un dron (esDron=true — ej. T100 → Aeronave,
+// Sistema de siembra, Sistema de elevación) o un accesorio (esDron=false — batería,
+// cargador, generador, control...) que puede servir para varios drones a la vez
+// (dronesAsociados, configurado a mano desde el Launcher). Acá se agrupa por dron: cada
+// accesorio compartido aparece debajo de CADA dron al que sirve (ej. un mismo generador
+// bajo el T55 y el T70S), así no hay que saber de memoria la compatibilidad. Lo que no
+// tiene ningún dron asociado todavía va aparte, en "Accesorios generales".
 function _renderVideosModelos(items) {
   var body = document.getElementById('vm-modal-body');
   if (!items || !items.length) {
     body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px">Todavía no hay videos cargados.<br>Volvé a intentar más adelante.</div>';
     return;
   }
-  var grupos = [], porModelo = {};
+  var drones = [], porDron = {};
+  var accesorios = [], porAccesorio = {};
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
-    if (!porModelo[it.modelo]) { porModelo[it.modelo] = { modelo: it.modelo, items: [] }; grupos.push(porModelo[it.modelo]); }
-    porModelo[it.modelo].items.push(it);
+    if (it.esDron) {
+      if (!porDron[it.modelo]) { porDron[it.modelo] = { modelo: it.modelo, items: [] }; drones.push(porDron[it.modelo]); }
+      porDron[it.modelo].items.push(it);
+    } else {
+      if (!porAccesorio[it.modelo]) { porAccesorio[it.modelo] = { modelo: it.modelo, items: [], dronesAsociados: it.dronesAsociados || [] }; accesorios.push(porAccesorio[it.modelo]); }
+      porAccesorio[it.modelo].items.push(it);
+    }
   }
+  // Orden natural (T25, T25P, T50, T55, T70, T70S, T100, T100S) en vez de alfabético puro.
+  drones.sort(function(a, b) {
+    var pa = a.modelo.match(/^(\D*)(\d+)(.*)$/), pb = b.modelo.match(/^(\D*)(\d+)(.*)$/);
+    if (pa && pb && pa[1] === pb[1]) {
+      var n = parseInt(pa[2], 10) - parseInt(pb[2], 10);
+      return n !== 0 ? n : pa[3].localeCompare(pb[3]);
+    }
+    return a.modelo.localeCompare(b.modelo);
+  });
   function _vmFila(it, label) {
     var btnA = it.armado
       ? '<a href="' + _catEsc(it.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
@@ -3232,16 +3249,37 @@ function _renderVideosModelos(items) {
       '<div style="display:flex;gap:6px;flex-shrink:0">' + btnA + btnD + '</div>' +
     '</div>';
   }
-  body.innerHTML = grupos.map(function(g) {
-    if (g.items.length === 1) {
-      return '<div style="border:1px solid var(--brd);border-radius:var(--r);padding:6px 8px 6px 11px;margin-bottom:5px">' + _vmFila(g.items[0], '') + '</div>';
-    }
-    var subfilas = g.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
+  // Un accesorio: una fila si es de una sola pieza, encabezado + subfilas si tiene varias
+  // (ej. generador en Parte 1 / Parte 2).
+  function _vmAccesorio(acc) {
+    if (acc.items.length === 1) return _vmFila(acc.items[0], acc.modelo);
+    var sub = acc.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
+    return '<div style="margin:2px 0">' +
+      '<div style="font-size:11.5px;font-weight:700;color:var(--tx-m);padding:4px 0 0">' + _catEsc(acc.modelo) + '</div>' +
+      sub +
+    '</div>';
+  }
+  var html = drones.map(function(d) {
+    var propios = d.items.length === 1
+      ? _vmFila(d.items[0], '')
+      : d.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
+    var compartidos = accesorios.filter(function(a) { return a.dronesAsociados.indexOf(d.modelo) >= 0; });
+    var accHtml = compartidos.length
+      ? '<div style="border-top:1px dashed var(--brd);margin-top:4px;padding-top:2px">' + compartidos.map(_vmAccesorio).join('') + '</div>'
+      : '';
     return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px;margin-bottom:8px">' +
-      '<div style="font-size:12.5px;font-weight:700;color:var(--tx);margin-bottom:1px">' + _catEsc(g.modelo) + '</div>' +
-      subfilas +
+      '<div style="font-size:12.5px;font-weight:700;color:var(--tx);margin-bottom:1px">' + _catEsc(d.modelo) + '</div>' +
+      propios + accHtml +
     '</div>';
   }).join('');
+  var generales = accesorios.filter(function(a) { return !a.dronesAsociados.length; });
+  if (generales.length) {
+    html += '<div style="font-size:10.5px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;margin:12px 2px 6px">Accesorios generales</div>' +
+      '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px">' +
+        generales.map(_vmAccesorio).join('<div style="border-top:1px solid var(--brd);margin:4px 0"></div>') +
+      '</div>';
+  }
+  body.innerHTML = html;
 }
 
 function actualizarPortal() {

@@ -1,10 +1,15 @@
-// @version 1.1
+// @version 1.2
 // ══════════════════════════════════════════════════════════════
 //  VIDEOS DE ARMADO Y DESARMADO — links directos que comparte DJI.
 //  Un modelo puede tener VARIOS componentes (ej: T100 = Aeronave +
 //  Sistema de siembra + Sistema de elevación), cada uno con su propio
 //  par armado/desarmado — de ahí la columna Componente (vacía cuando
 //  el modelo es de una sola pieza, ej. una batería o un control).
+//  Cada fila es una "pieza de dron" (esDron=true) o un "accesorio"
+//  (esDron=false) que puede servir para varios drones a la vez
+//  (dronesAsociados) — el Portal agrupa por dron al dibujar
+//  (_renderVideosModelos, Index.html), mostrando cada accesorio
+//  compartido debajo de cada dron al que sirve.
 //  Solo lectura desde el Portal: el equipo interno carga/edita los
 //  modelos y links desde el LAUNCHER (LAUNCH_getVideosModelos/
 //  LAUNCH_saveVideoModelo, Launcher_Código.js), mismo patrón que
@@ -12,18 +17,19 @@
 //
 //  Hoja VIDEOS_ARMADO_DESARMADO (self-provisioning, vive en el MASTER):
 //    A=Modelo · B=Componente · C=Link armado · D=Link desarmado · E=Activo (vacío/SI = visible; NO = oculto)
+//    F=Es dron (SI/NO) · G=Drones asociados (solo si F=NO, separado por ';')
 // ══════════════════════════════════════════════════════════════
 
-var _VM_COL = { MODELO: 0, COMPONENTE: 1, ARMADO: 2, DESARMADO: 3, ACTIVO: 4 };
+var _VM_COL = { MODELO: 0, COMPONENTE: 1, ARMADO: 2, DESARMADO: 3, ACTIVO: 4, ES_DRON: 5, DRONES: 6 };
 
 function _asegurarHojaVideosModelos() {
   var ss   = getDb();
   var hoja = ss.getSheetByName(SCHEMA.SHEETS.VIDEOS_MODELOS);
   if (!hoja) {
     hoja = ss.insertSheet(SCHEMA.SHEETS.VIDEOS_MODELOS);
-    hoja.appendRow(['Modelo', 'Componente', 'Link armado', 'Link desarmado', 'Activo']);
+    hoja.appendRow(['Modelo', 'Componente', 'Link armado', 'Link desarmado', 'Activo', 'Es dron', 'Drones asociados']);
     hoja.setFrozenRows(1);
-    hoja.getRange(1, 1, 1, 5).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.getRange(1, 1, 1, 7).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
     hoja.setColumnWidth(3, 320); hoja.setColumnWidth(4, 320);
   }
   return hoja;
@@ -55,7 +61,9 @@ function obtenerVideosModelosPortal() {
       out.push({
         modelo: modelo,
         componente: String(d[i][C.COMPONENTE] || '').trim(),
-        armado: armado, desarmado: desarmado
+        armado: armado, desarmado: desarmado,
+        esDron: String(d[i][C.ES_DRON] || '').trim().toUpperCase() === 'SI',
+        dronesAsociados: String(d[i][C.DRONES] || '').split(';').map(function(s) { return s.trim(); }).filter(function(s) { return s; })
       });
     }
     out.sort(function(a, b) {

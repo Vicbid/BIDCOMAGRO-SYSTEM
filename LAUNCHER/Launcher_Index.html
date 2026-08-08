@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.11 -->
+<!-- @version 1.12 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -685,6 +685,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         </div>
       </div>
       <div style="font-size:10px;color:#9ba5b4;margin-top:-8px">Dejalo vacío si el modelo es de una sola pieza (batería, control, cargador, etc.)</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1a1f2e;cursor:pointer;width:fit-content">
+        <input type="checkbox" id="videos-es-dron" onchange="_videosToggleTipo()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--blue)">
+        Es un dron (aeronave — tiene componentes propios)
+      </label>
+      <div id="videos-drones-assoc-wrap">
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">¿Para qué drones sirve este accesorio?</label>
+        <div id="videos-drones-assoc" style="display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 12px;background:#fafbfc;border:1px solid #e0e3e8;border-radius:8px;font-size:12px;color:#1a1f2e">
+          <span style="color:#c0c8d4;font-style:italic">Cargá al menos un dron primero.</span>
+        </div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Podés tildar varios — ej. un mismo generador puede servir para 2 modelos. Dejalo vacío si no es específico de ningún dron (aparece en "Accesorios generales").</div>
+      </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-circle-play" style="color:var(--green);margin-right:4px"></i>Link de armado</label>
         <input id="videos-link-armado" type="url" placeholder="https://…" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
@@ -1504,8 +1515,46 @@ function _videosRenderChips() {
   cont.innerHTML = _videosModelos.map(function(m) {
     var key   = _videosKey(m.modelo, m.componente);
     var label = m.componente ? (m.modelo + ' — ' + m.componente) : m.modelo;
+    var sinAsociar = !m.esDron && (!m.dronesAsociados || !m.dronesAsociados.length);
     return '<span onclick="videosEditarDesdeChip(\'' + _videosEsc(key).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' +
-      (m.activo ? 'rgba(0,120,220,.1);color:var(--blue)' : '#f0f2f5;color:#9ba5b4') + '">' + _videosEsc(label) + (m.activo ? '' : ' (oculto)') + '</span>';
+      (m.activo ? 'rgba(0,120,220,.1);color:var(--blue)' : '#f0f2f5;color:#9ba5b4') + '">' + _videosEsc(label) + (m.activo ? '' : ' (oculto)') + (sinAsociar ? ' <i class="fa fa-triangle-exclamation" style="color:#f39c12" title="Sin dron asociado"></i>' : '') + '</span>';
+  }).join('');
+}
+// Modelos ya marcados 'Es dron', en orden natural (T25, T25P, T50… en vez de alfabético
+// puro) — arma el checklist de "¿para qué drones sirve?" de los accesorios.
+function _videosDronesConocidos() {
+  var out = [], visto = {};
+  for (var i = 0; i < _videosModelos.length; i++) {
+    var m = _videosModelos[i];
+    if (m.esDron && !visto[m.modelo]) { visto[m.modelo] = true; out.push(m.modelo); }
+  }
+  out.sort(function(a, b) {
+    var pa = a.match(/^(\D*)(\d+)(.*)$/), pb = b.match(/^(\D*)(\d+)(.*)$/);
+    if (pa && pb && pa[1] === pb[1]) {
+      var n = parseInt(pa[2], 10) - parseInt(pb[2], 10);
+      return n !== 0 ? n : pa[3].localeCompare(pb[3]);
+    }
+    return a.localeCompare(b);
+  });
+  return out;
+}
+function _videosToggleTipo() {
+  var esDron = document.getElementById('videos-es-dron').checked;
+  document.getElementById('videos-drones-assoc-wrap').style.display = esDron ? 'none' : 'block';
+}
+function _videosRenderAsociados(seleccionados) {
+  seleccionados = seleccionados || [];
+  var cont = document.getElementById('videos-drones-assoc');
+  var drones = _videosDronesConocidos();
+  if (!drones.length) {
+    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic">Todavía no hay ningún modelo marcado como "Es un dron".</span>';
+    return;
+  }
+  cont.innerHTML = drones.map(function(d) {
+    var checked = seleccionados.indexOf(d) >= 0 ? 'checked' : '';
+    return '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600">' +
+      '<input type="checkbox" class="videos-drone-chk" value="' + _videosEsc(d) + '" ' + checked + ' style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue)">' + _videosEsc(d) +
+    '</label>';
   }).join('');
 }
 function videosEditarDesdeChip(key) {
@@ -1544,6 +1593,9 @@ function videosNuevo() {
   document.getElementById('videos-link-armado').value     = '';
   document.getElementById('videos-link-desarmado').value  = '';
   document.getElementById('videos-activo').checked = true;
+  document.getElementById('videos-es-dron').checked = false;
+  _videosToggleTipo();
+  _videosRenderAsociados([]);
 }
 function videosCargarModelo() {
   var v = document.getElementById('videos-modelo-sel').value;
@@ -1557,6 +1609,9 @@ function videosCargarModelo() {
   document.getElementById('videos-link-armado').value     = m.armado;
   document.getElementById('videos-link-desarmado').value  = m.desarmado;
   document.getElementById('videos-activo').checked = !!m.activo;
+  document.getElementById('videos-es-dron').checked = !!m.esDron;
+  _videosToggleTipo();
+  _videosRenderAsociados(m.dronesAsociados || []);
 }
 function videosGuardar() {
   var st = document.getElementById('videos-status');
@@ -1567,9 +1622,13 @@ function videosGuardar() {
   var desarmado = document.getElementById('videos-link-desarmado').value.trim();
   if (!armado && !desarmado) { st.textContent = '✗ Cargá al menos un link'; st.style.color = 'var(--red)'; return; }
   st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var dronesAsociados = [];
+  document.querySelectorAll('.videos-drone-chk:checked').forEach(function(chk) { dronesAsociados.push(chk.value); });
   var data = {
     modelo: modelo, componente: componente, armado: armado, desarmado: desarmado,
     activo: document.getElementById('videos-activo').checked,
+    esDron: document.getElementById('videos-es-dron').checked,
+    dronesAsociados: dronesAsociados,
     modeloOriginal:     document.getElementById('videos-modelo-original').value.trim(),
     componenteOriginal: document.getElementById('videos-componente-original').value.trim()
   };
