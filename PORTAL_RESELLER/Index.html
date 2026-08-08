@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.89 -->
+<!-- @version 1.90 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -501,7 +501,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       </div>
       <button onclick="cerrarVideosModelos()" style="background:rgba(255,255,255,.15);border:none;width:26px;height:26px;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-times"></i></button>
     </div>
-    <div id="vm-modal-body" style="padding:16px 18px;overflow-y:auto;flex:1"></div>
+    <div style="padding:10px 18px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <div style="position:relative">
+        <i class="fa fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx-m);font-size:12px"></i>
+        <input id="vm-search" type="text" placeholder="Buscar modelo o accesorio…" oninput="_vmFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:9px 12px 9px 30px;border:1px solid var(--brd);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surf);color:var(--tx)">
+      </div>
+    </div>
+    <div id="vm-modal-body" style="padding:12px 18px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
 <style>
@@ -3188,6 +3194,8 @@ function abrirGuia() {
 var _vmData = null;
 function abrirVideosModelos() {
   document.getElementById('vm-modal').style.display = 'flex';
+  var buscador = document.getElementById('vm-search');
+  if (buscador) buscador.value = '';
   if (_vmData) { _renderVideosModelos(_vmData); return; }
   var body = document.getElementById('vm-modal-body');
   body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px"><i class="fa fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:8px"></i>Cargando…</div>';
@@ -3205,10 +3213,94 @@ function cerrarVideosModelos() { document.getElementById('vm-modal').style.displ
 // Cada fila es o bien una pieza propia de un dron (esDron=true — ej. T100 → Aeronave,
 // Sistema de siembra, Sistema de elevación) o un accesorio (esDron=false — batería,
 // cargador, generador, control...) que puede servir para varios drones a la vez
-// (dronesAsociados, configurado a mano desde el Launcher). Acá se agrupa por dron: cada
-// accesorio compartido aparece debajo de CADA dron al que sirve (ej. un mismo generador
-// bajo el T55 y el T70S), así no hay que saber de memoria la compatibilidad. Lo que no
-// tiene ningún dron asociado todavía va aparte, en "Accesorios generales".
+// (dronesAsociados, configurado a mano desde el Launcher). Se arma un acordeón por dron
+// (colapsado si tiene varias piezas/accesorios, para no llenar la pantalla de scroll) más
+// un buscador arriba que filtra por nombre y auto-expande lo que matchea — así se
+// encuentra un ítem puntual sin tener que abrir uno por uno. Lo que no tiene ningún dron
+// asociado todavía va aparte, en "Otros accesorios".
+var _vmGrupos = [];
+var _vmAbiertos = {};
+var _vmQuery = '';
+
+function _vmMatch(txt, q) { return String(txt || '').toLowerCase().indexOf(q) >= 0; }
+
+function _vmFila(it, label) {
+  var btnA = it.armado
+    ? '<a href="' + _catEsc(it.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
+    : '';
+  var btnD = it.desarmado
+    ? '<a href="' + _catEsc(it.desarmado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Desarmado</a>'
+    : '';
+  var estilo = label ? 'font-size:11.5px;font-weight:600;color:var(--tx-m)' : 'font-size:12px;font-weight:700;color:var(--tx)';
+  return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">' +
+    '<div style="flex:1;min-width:0;' + estilo + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _catEsc(label || it.modelo) + '</div>' +
+    '<div style="display:flex;gap:6px;flex-shrink:0">' + btnA + btnD + '</div>' +
+  '</div>';
+}
+// Un accesorio: una fila si es de una sola pieza, encabezado + subfilas si tiene varias
+// (ej. generador en Parte 1 / Parte 2).
+function _vmAccesorio(acc) {
+  if (acc.items.length === 1) return _vmFila(acc.items[0], acc.modelo);
+  var sub = acc.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
+  return '<div style="margin:2px 0">' +
+    '<div style="font-size:11.5px;font-weight:700;color:var(--tx-m);padding:4px 0 0">' + _catEsc(acc.modelo) + '</div>' +
+    sub +
+  '</div>';
+}
+function _vmGrupoMatch(g, q) {
+  if (!q) return true;
+  if (_vmMatch(g.titulo, q)) return true;
+  for (var i = 0; i < g.propios.length; i++) if (_vmMatch(g.propios[i].componente, q)) return true;
+  for (var j = 0; j < g.accesorios.length; j++) {
+    var a = g.accesorios[j];
+    if (_vmMatch(a.modelo, q)) return true;
+    for (var k = 0; k < a.items.length; k++) if (_vmMatch(a.items[k].componente, q)) return true;
+  }
+  return false;
+}
+function _vmGrupoHtml(g) {
+  // Dron de una sola pieza sin accesorios asociados todavía → fila compacta fija, sin
+  // acordeón (no tiene sentido esconder lo único que hay).
+  if (g.propios.length === 1 && !g.accesorios.length) {
+    return '<div style="border:1px solid var(--brd);border-radius:var(--r);padding:6px 8px 6px 11px;margin-bottom:6px">' + _vmFila(g.propios[0], '') + '</div>';
+  }
+  var abierto = !!_vmQuery || !!_vmAbiertos[g.id];
+  var totalVideos = g.propios.length + g.accesorios.reduce(function(n, a) { return n + a.items.length; }, 0);
+  // Si el dron tiene una sola pieza propia (el resto del contenido son accesorios), no
+  // repetir su nombre en la fila — ya está en el encabezado del acordeón.
+  var propiosHtml = g.propios.length > 1
+    ? g.propios.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('')
+    : (g.propios.length === 1 ? _vmFila(g.propios[0], 'Armado y desarmado') : '');
+  var accHtml = g.accesorios.map(_vmAccesorio).join('');
+  var cuerpo = propiosHtml && accHtml
+    ? propiosHtml + '<div style="border-top:1px dashed var(--brd);margin:4px 0"></div>' + accHtml
+    : (propiosHtml || accHtml);
+  return '<div style="border:1px solid var(--brd);border-radius:var(--rm);margin-bottom:6px;overflow:hidden">' +
+    '<div onclick="_vmToggle(\'' + g.id + '\')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;user-select:none">' +
+      '<i class="fa fa-chevron-' + (abierto ? 'down' : 'right') + '" style="font-size:9px;color:var(--tx-m);width:9px;flex-shrink:0"></i>' +
+      '<div style="flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _catEsc(g.titulo) + '</div>' +
+      '<div style="font-size:10px;color:var(--tx-m);flex-shrink:0">' + totalVideos + ' video' + (totalVideos === 1 ? '' : 's') + '</div>' +
+    '</div>' +
+    (abierto ? '<div style="padding:0 11px 9px">' + cuerpo + '</div>' : '') +
+  '</div>';
+}
+function _vmDibujar() {
+  var body = document.getElementById('vm-modal-body');
+  var visibles = _vmGrupos.filter(function(g) { return _vmGrupoMatch(g, _vmQuery); });
+  if (!visibles.length) {
+    body.innerHTML = '<div style="text-align:center;padding:30px 10px;color:var(--tx-m);font-size:13px">No encontramos nada con "' + _catEsc(_vmQuery) + '".</div>';
+    return;
+  }
+  body.innerHTML = visibles.map(_vmGrupoHtml).join('');
+}
+function _vmToggle(id) {
+  _vmAbiertos[id] = !_vmAbiertos[id];
+  _vmDibujar();
+}
+function _vmFiltrar(q) {
+  _vmQuery = String(q || '').trim().toLowerCase();
+  _vmDibujar();
+}
 function _renderVideosModelos(items) {
   var body = document.getElementById('vm-modal-body');
   if (!items || !items.length) {
@@ -3236,50 +3328,17 @@ function _renderVideosModelos(items) {
     }
     return a.modelo.localeCompare(b.modelo);
   });
-  function _vmFila(it, label) {
-    var btnA = it.armado
-      ? '<a href="' + _catEsc(it.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
-      : '';
-    var btnD = it.desarmado
-      ? '<a href="' + _catEsc(it.desarmado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Desarmado</a>'
-      : '';
-    var estilo = label ? 'font-size:11.5px;font-weight:600;color:var(--tx-m)' : 'font-size:12px;font-weight:700;color:var(--tx)';
-    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">' +
-      '<div style="flex:1;min-width:0;' + estilo + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _catEsc(label || it.modelo) + '</div>' +
-      '<div style="display:flex;gap:6px;flex-shrink:0">' + btnA + btnD + '</div>' +
-    '</div>';
-  }
-  // Un accesorio: una fila si es de una sola pieza, encabezado + subfilas si tiene varias
-  // (ej. generador en Parte 1 / Parte 2).
-  function _vmAccesorio(acc) {
-    if (acc.items.length === 1) return _vmFila(acc.items[0], acc.modelo);
-    var sub = acc.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
-    return '<div style="margin:2px 0">' +
-      '<div style="font-size:11.5px;font-weight:700;color:var(--tx-m);padding:4px 0 0">' + _catEsc(acc.modelo) + '</div>' +
-      sub +
-    '</div>';
-  }
-  var html = drones.map(function(d) {
-    var propios = d.items.length === 1
-      ? _vmFila(d.items[0], '')
-      : d.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
-    var compartidos = accesorios.filter(function(a) { return a.dronesAsociados.indexOf(d.modelo) >= 0; });
-    var accHtml = compartidos.length
-      ? '<div style="border-top:1px dashed var(--brd);margin-top:4px;padding-top:2px">' + compartidos.map(_vmAccesorio).join('') + '</div>'
-      : '';
-    return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px;margin-bottom:8px">' +
-      '<div style="font-size:12.5px;font-weight:700;color:var(--tx);margin-bottom:1px">' + _catEsc(d.modelo) + '</div>' +
-      propios + accHtml +
-    '</div>';
-  }).join('');
+  _vmGrupos = drones.map(function(d) {
+    return {
+      id: 'd:' + d.modelo, titulo: d.modelo, propios: d.items,
+      accesorios: accesorios.filter(function(a) { return a.dronesAsociados.indexOf(d.modelo) >= 0; })
+    };
+  });
   var generales = accesorios.filter(function(a) { return !a.dronesAsociados.length; });
-  if (generales.length) {
-    html += '<div style="font-size:10.5px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.04em;margin:12px 2px 6px">Accesorios generales</div>' +
-      '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px">' +
-        generales.map(_vmAccesorio).join('<div style="border-top:1px solid var(--brd);margin:4px 0"></div>') +
-      '</div>';
-  }
-  body.innerHTML = html;
+  if (generales.length) _vmGrupos.push({ id: 'otros', titulo: 'Otros accesorios', propios: [], accesorios: generales });
+  _vmAbiertos = {};
+  _vmQuery = '';
+  _vmDibujar();
 }
 
 function actualizarPortal() {
