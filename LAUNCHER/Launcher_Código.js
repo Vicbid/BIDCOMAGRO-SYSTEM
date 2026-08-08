@@ -1,4 +1,4 @@
-// @version 1.10
+// @version 1.11
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -833,12 +833,6 @@ function LAUNCH_getEventoStats(eventoId) {
 // el propio nombre del modelo hace de identificador (no hay un ID separado).
 //   VIDEOS_ARMADO_DESARMADO: A=Modelo B=Link armado C=Link desarmado D=Activo (vacío/SI visible)
 var _LAUNCH_VIDEOS_TAB = 'VIDEOS_ARMADO_DESARMADO';
-// Drones ya conocidos por el catálogo inicial (agosto 2026) — se usa UNA sola vez, para
-// backfillear 'Es dron' al migrar hojas viejas de 5 columnas. De ahí en más el flag es
-// 100% editable a mano desde el Launcher: un dron nuevo se da de alta tildando el checkbox,
-// sin tocar código — igual que a qué drones sirve cada accesorio (eso nunca se hardcodea,
-// puede variar con el tiempo).
-var _LAUNCH_DRONES_CONOCIDOS = ['T25', 'T25P', 'T50', 'T55', 'T70', 'T70S', 'T100', 'T100S'];
 
 function _launchVideosHoja(ss) {
   var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
@@ -850,19 +844,13 @@ function _launchVideosHoja(ss) {
     return hoja;
   }
   // Migración: hojas creadas antes de agrupar por dron tenían solo 5 columnas. Se agregan
-  // 'Es dron'/'Drones asociados' y se backfillea 'Es dron' según los modelos que ya sabíamos
-  // que eran drones — 'Drones asociados' queda vacío a propósito, eso se carga a mano.
+  // 'Es dron'/'Drones asociados' vacías para todas las filas existentes — a propósito no
+  // se adivina cuáles son drones acá: ni esa lista ni la de qué accesorio sirve para qué
+  // dron se hardcodean en ningún lado del código, porque el catálogo de modelos cambia
+  // con el tiempo. Se marca a mano desde el Launcher (checkbox "Es un dron" por fila).
   if (hoja.getLastColumn() < 7) {
     hoja.getRange(1, 6, 1, 2).setValues([['Es dron', 'Drones asociados']])
       .setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
-    var last = hoja.getLastRow();
-    if (last > 1) {
-      var modelos = hoja.getRange(2, 1, last - 1, 1).getValues();
-      var flags = modelos.map(function(r) {
-        return [_LAUNCH_DRONES_CONOCIDOS.indexOf(String(r[0] || '').trim()) >= 0 ? 'SI' : 'NO'];
-      });
-      hoja.getRange(2, 6, flags.length, 1).setValues(flags);
-    }
   }
   return hoja;
 }
@@ -987,8 +975,9 @@ function LAUNCH_seedVideosModelosDji() {
       var modelo = filas[f][0], componente = filas[f][1];
       var key = modelo.trim().toLowerCase() + '||' + componente.trim().toLowerCase();
       if (existentes[key]) { saltados++; continue; }
-      var esDronSeed = _LAUNCH_DRONES_CONOCIDOS.indexOf(modelo.trim()) >= 0 ? 'SI' : 'NO';
-      hoja.appendRow([modelo, componente, CDN + filas[f][2], CDN + filas[f][3], 'SI', esDronSeed, '']);
+      // 'Es dron' queda en NO por default — se marca a mano desde el Launcher (ver
+      // _launchVideosHoja), no se adivina por nombre de modelo.
+      hoja.appendRow([modelo, componente, CDN + filas[f][2], CDN + filas[f][3], 'SI', 'NO', '']);
       existentes[key] = true;
       agregados++;
     }
