@@ -49,7 +49,7 @@ else if (circRaw === "RESELLER PROPIO") flujo = "Reseller Propio";
 - DIAS_AVISO_GARANTIA: 30
 
 ## Funciones backend principales
-- autenticarReseller(pin) → {ok, nombre}
+- validarAccesoInicial(nombre, pin) → {ok, nombre, esGrupo, aftersales} — login real (PIN hasheado SHA-256, col K)
 - consultarEstado(ot, sn) → detalle OT con flujo normalizado
 - buscarOTsReseller(nombre) → lista OTs con badges
 - agregarComentario(ot, texto, autor)

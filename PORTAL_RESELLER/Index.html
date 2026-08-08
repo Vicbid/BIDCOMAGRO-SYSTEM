@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.90 -->
+<!-- @version 1.91 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -585,7 +585,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <i class="fa fa-unlock-alt" style="margin-right:7px"></i>Ingresar
         </button>
         <div style="text-align:center;margin-top:10px">
-          <button id="btn-olvide" onclick="recordarClave()" style="background:none;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline;padding:3px 0;transition:color .13s" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--tx-d)'">¿Olvidaste tu PIN? Te lo enviamos por mail</button>
+          <button id="btn-olvide" onclick="recordarClave()" style="background:none;border:none;color:var(--tx-d);font-size:11px;cursor:pointer;text-decoration:underline;padding:3px 0;transition:color .13s" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--tx-d)'">¿Olvidaste tu PIN? Te generamos uno nuevo</button>
           <div id="olvide-msg" style="display:none;font-size:11px;margin-top:5px;font-weight:600"></div>
         </div>
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--brd);display:flex;flex-direction:column;gap:8px">
@@ -2921,9 +2921,17 @@ function pedirPin() {
 
 function pinKey(e, num) {
   var inp = document.getElementById('pin' + num);
-  if (inp.value.length > 1) inp.value = inp.value.slice(-1);
   document.getElementById('pin-error').textContent = '';
   document.querySelectorAll('.pin-input').forEach(function(p){ p.classList.remove('error'); });
+  // Pegar el PIN completo (ej. copiado del mail) en cualquiera de los 4 campos lo reparte
+  // entre los 4 en vez de truncarlo al último dígito.
+  if (inp.value.length > 1) {
+    var digitos = inp.value.replace(/\D/g, '').slice(0, 4);
+    for (var i = 0; i < 4; i++) document.getElementById('pin' + (i + 1)).value = digitos[i] || '';
+    if (digitos.length === 4) { login(); return; }
+    document.getElementById('pin' + (digitos.length + 1)).focus();
+    return;
+  }
   if (inp.value.length === 1 && num < 4) document.getElementById('pin' + (num+1)).focus();
   if (e.key === 'Enter' && num === 4) login();
   if (e.key === 'Backspace' && inp.value === '' && num > 1) document.getElementById('pin' + (num-1)).focus();
@@ -3122,7 +3130,9 @@ function login() {
       } else {
         var msgErr = (res && res.motivo === 'inactivo')
           ? 'Esta cuenta está desactivada. Contactá a soporte.'
-          : 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
+          : (res && res.motivo === 'bloqueado')
+            ? 'Demasiados intentos fallidos. Esperá unos minutos e intentá de nuevo.'
+            : 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
         document.getElementById('pin-error').textContent = msgErr;
         document.querySelectorAll('.pin-input').forEach(function(p){ p.value=''; p.classList.add('error'); });
         document.getElementById('pin1').focus();
@@ -3152,11 +3162,11 @@ function recordarClave() {
   google.script.run
     .withSuccessHandler(function(res) {
       btnEl.disabled    = false;
-      btnEl.textContent = '¿Olvidaste tu PIN? Te lo enviamos por mail';
+      btnEl.textContent = '¿Olvidaste tu PIN? Te generamos uno nuevo';
       msgEl.style.display = 'block';
       if (res.ok) {
         msgEl.style.color   = 'var(--green, #1a9e4a)';
-        msgEl.textContent   = '✓ Enviamos tu PIN al correo registrado.';
+        msgEl.textContent   = '✓ Te enviamos un PIN nuevo por mail.';
       } else {
         msgEl.style.color   = 'var(--red, #d63031)';
         msgEl.textContent   = res.error || 'Error al enviar.';
@@ -3164,7 +3174,7 @@ function recordarClave() {
     })
     .withFailureHandler(function() {
       btnEl.disabled    = false;
-      btnEl.textContent = '¿Olvidaste tu PIN? Te lo enviamos por mail';
+      btnEl.textContent = '¿Olvidaste tu PIN? Te generamos uno nuevo';
       msgEl.style.display   = 'block';
       msgEl.style.color     = 'var(--red, #d63031)';
       msgEl.textContent     = 'Error de conexión. Intentá de nuevo.';
