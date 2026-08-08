@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.7
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
@@ -291,7 +291,11 @@ function obtenerPedidosRTV() {
 
     for (var j = dPed.length - 1; j >= 1; j--) {
       var reseller = String(dPed[j][P.RESELLER] || '').trim();
-      if (!autorizado[reseller.toLowerCase()]) continue;
+      // Pedidos de prospecto (RS_Prospectos.js) no tienen un reseller real asociado — el RTV
+      // que los cargó siempre los ve en su lista, vía la columna RTV_EMAIL, aunque el nombre
+      // del prospecto no matchee ningún reseller autorizado.
+      var esPropioProspecto = String(dPed[j][P.RTV_EMAIL] || '').trim().toLowerCase() === email;
+      if (!autorizado[reseller.toLowerCase()] && !esPropioProspecto) continue;
 
       var fecha = dPed[j][P.FECHA];
       var fechaStr = (fecha instanceof Date)

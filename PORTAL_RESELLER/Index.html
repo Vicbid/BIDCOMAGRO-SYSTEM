@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.84 -->
+<!-- @version 1.86 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1654,6 +1654,39 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
       </div>
 
+      <!-- Carga RTV: venta a un posible reseller (prospecto), queda pendiente de autorización -->
+      <div id="ped-prospecto-card" class="dji-card" style="display:none;border-color:rgba(124,58,237,.45)">
+        <div class="dji-card-head" style="background:rgba(124,58,237,.08);color:#7c3aed">
+          <span><i class="fa fa-user-clock"></i> Pedido para un posible reseller</span>
+          <button onclick="_prospectoVolverRTV()" style="margin-left:auto;background:transparent;border:none;color:#7c3aed;font-size:11px;font-weight:700;cursor:pointer"><i class="fa fa-arrow-left"></i> Volver a RTV</button>
+        </div>
+        <div class="dji-card-body" style="padding:12px 16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:2;min-width:180px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Nombre del prospecto</label>
+              <input type="text" id="ped-prospecto-nombre" class="form-control" placeholder="Nombre / empresa" style="font-size:13px" oninput="_prospectoOnDatos()">
+            </div>
+            <div style="flex:2;min-width:160px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Email (opcional)</label>
+              <input type="email" id="ped-prospecto-email" class="form-control" placeholder="para enviarle copia" style="font-size:13px" oninput="_prospectoOnDatos()">
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Teléfono (opcional)</label>
+              <input type="text" id="ped-prospecto-telefono" class="form-control" placeholder="Contacto" style="font-size:13px" oninput="_prospectoOnDatos()">
+            </div>
+            <div style="width:120px">
+              <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Descuento % (a proponer)</label>
+              <input type="number" id="ped-prospecto-dto" class="form-control" value="0" min="0" max="100" step="1" style="font-size:13px;text-align:center" onchange="_prospectoOnDatos()">
+            </div>
+          </div>
+          <div id="ped-prospecto-dir-wrap" style="display:none;margin-top:10px">
+            <label style="font-size:11px;color:var(--tx-m);font-weight:600;display:block;margin-bottom:3px">Dirección de envío</label>
+            <textarea id="ped-prospecto-dir" class="form-control" placeholder="Calle y número, localidad, provincia, CP y referencias" style="min-height:52px;resize:vertical"></textarea>
+          </div>
+          <div id="ped-prospecto-info" style="font-size:11px;color:#7c3aed;margin-top:8px"><i class="fa fa-circle-info"></i> Este pedido <strong>no se despacha automáticamente</strong>: cantidades y descuento quedan pendientes hasta que alguien los autorice por mail — lo de acá es solo una propuesta.</div>
+        </div>
+      </div>
+
       <!-- Selector de sucursal (solo visible en modo grupo) -->
       <div id="ped-sucursal-card" class="dji-card" style="display:none;border-color:rgba(0,163,224,.35)">
         <div class="dji-card-head" style="background:var(--blue-a)"><i class="fa fa-building" style="color:var(--blue)"></i> ¿Para qué sucursal es este pedido?</div>
@@ -2195,6 +2228,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button id="rtv-btn-cargar" class="btn-out" style="display:none;padding:4px 10px;font-size:11px;border-color:#7c3aed;color:#7c3aed" onclick="_superAbrirCarga()">
           <i class="fa fa-cart-plus"></i> Cargar pedido
+        </button>
+        <button id="rtv-btn-prospecto" class="btn-out" style="display:none;padding:4px 10px;font-size:11px;border-color:#7c3aed;color:#7c3aed" onclick="_prospectoAbrirCarga()">
+          <i class="fa fa-user-clock"></i> Vender a prospecto
         </button>
         <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_rtvActualizar()">
           <i class="fa fa-arrows-rotate"></i> Actualizar
@@ -2738,6 +2774,7 @@ window.onload = function() {
   document.getElementById('ped-cart-envio').addEventListener('change', function() {
     _actualizarPedDirStrip();
     _superToggleEnvio();
+    _prospectoToggleEnvio();
   });
 
   // Login obligatorio: el overlay solo se quita con usuario válido (reseller o RTV).
@@ -5040,8 +5077,12 @@ function _pedPvpDesde(precio){ var f = _pedFactor(); return (precio > 0 && f > 0
 
 // ── Modo super-RTV: carga a nombre de cualquier cliente con descuento GLOBAL manual ──
 var _superPedido = null;   // { cliente, email, dtoPct } mientras el super carga un pedido; null = off
-function _pedCtxReseller() { return _superPedido ? _superPedido.cliente : resellerActual; } // nombre para hoja/carrito
-function _pedDtoOverride()  { return _superPedido ? _superPedido.dtoPct : undefined; }        // descuento a pasar al backend
+// ── Modo prospecto: cualquier RTV carga a nombre de un posible reseller — propone un descuento
+// (precargado desde CONFIG_PROSPECTOS), pero NO es definitivo: el autorizador lo confirma o lo cambia ──
+var _prospectoPedido = null;  // { nombre, email, telefono, dtoPct } mientras un RTV carga para un prospecto; null = off
+var _prospectoDtoPct = 0;     // % default traído de CONFIG_PROSPECTOS (Launcher) al abrir la carga — solo precarga el input
+function _pedCtxReseller() { return _superPedido ? _superPedido.cliente : (_prospectoPedido ? _prospectoPedido.nombre : resellerActual); } // nombre para hoja/carrito
+function _pedDtoOverride()  { return _superPedido ? _superPedido.dtoPct : (_prospectoPedido ? _prospectoPedido.dtoPct : undefined); }        // descuento a pasar al backend
 var _pedDemandaTimer  = null;   // timer para loguear búsquedas sin resultado
 var _pedEstMap        = { D:'disponible', B:'backorder', R:'consultar_Backorder' };
 var _pedHistorialItems= {};     // id → itemsJson, para "Repetir pedido"
@@ -5540,17 +5581,21 @@ function _pedMostrarMain() {
   document.getElementById('ped-guard').style.display = 'none';
   document.getElementById('ped-main').style.display  = 'block';
 
-  var esSuper = !!_superPedido;
+  var esSuper     = !!_superPedido;
+  var esProspecto = !!_prospectoPedido;
+  var esExterno   = esSuper || esProspecto;   // carga a nombre de alguien que no es el reseller logueado
   var superCard = document.getElementById('ped-super-card');
   if (superCard) superCard.style.display = esSuper ? 'block' : 'none';
-  // "Guardar para aprobar" es para el flujo normal reseller/técnico — no aplica al super-RTV
+  var prospectoCard = document.getElementById('ped-prospecto-card');
+  if (prospectoCard) prospectoCard.style.display = esProspecto ? 'block' : 'none';
+  // "Guardar para aprobar" es para el flujo normal reseller/técnico — no aplica a super-RTV ni prospecto
   var btnBorrador = document.getElementById('btn-guardar-borrador');
-  if (btnBorrador) btnBorrador.style.display = esSuper ? 'none' : 'inline-flex';
+  if (btnBorrador) btnBorrador.style.display = esExterno ? 'none' : 'inline-flex';
 
-  // Modo grupo: mostrar selector de sucursal y poblar opciones (no aplica en modo super)
+  // Modo grupo: mostrar selector de sucursal y poblar opciones (no aplica en modo super/prospecto)
   var sucCard = document.getElementById('ped-sucursal-card');
   var sucSel  = document.getElementById('ped-suc-sel');
-  if (!esSuper && grupoActual && sucCard && sucSel) {
+  if (!esExterno && grupoActual && sucCard && sucSel) {
     sucCard.style.display = 'block';
     sucSel.innerHTML = '<option value="">— Seleccioná la sucursal —</option>';
     for (var rs = 0; rs < grupoActual.resellers.length; rs++) {
@@ -5563,15 +5608,16 @@ function _pedMostrarMain() {
     sucCard.style.display = 'none';
   }
 
-  // El super carga en contexto propio: sin historial/borradores de reseller.
-  if (!esSuper) {
+  // El super/prospecto cargan en contexto propio: sin historial/borradores de reseller.
+  if (!esExterno) {
     _cargarHistorialPedidos();
     _pedCargarBorradores();
     _pedRestaurarCarrito();
   }
   _pedCargarIndice();
   setTimeout(function() {
-    var inp = document.getElementById(esSuper ? 'ped-super-cliente' : 'ped-q');
+    var inpId = esSuper ? 'ped-super-cliente' : (esProspecto ? 'ped-prospecto-nombre' : 'ped-q');
+    var inp = document.getElementById(inpId);
     if (inp) inp.focus();
   }, 80);
 }
@@ -5656,6 +5702,93 @@ function _superReprecioCarrito(oldPct, newPct) {
 function _superVolverRTV() {
   _superPedido = null;
   var superCard = document.getElementById('ped-super-card'); if (superCard) superCard.style.display = 'none';
+  showTab('rtv', 'tb-rtv');
+}
+
+// ── Modo prospecto: cualquier RTV carga a nombre de un posible reseller ───────
+// El descuento NO lo elige el RTV acá — sale de CONFIG_PROSPECTOS (Launcher).
+function _prospectoAbrirCarga() {
+  _prospectoPedido = { nombre: '', email: '', telefono: '', dtoPct: 0 };
+  _pedCart     = [];
+  _pedRevision = null;
+  var badge = document.getElementById('badge-ped'); if (badge) badge.style.display = 'none';
+  var succ = document.getElementById('ped-success');   if (succ) succ.style.display = 'none';
+  var rev  = document.getElementById('ped-review');    if (rev)  rev.style.display  = 'none';
+  var cart = document.getElementById('ped-cart-card'); if (cart) cart.style.display = 'none';
+  var nom = document.getElementById('ped-prospecto-nombre');   if (nom) nom.value = '';
+  var em  = document.getElementById('ped-prospecto-email');    if (em)  em.value  = '';
+  var tel = document.getElementById('ped-prospecto-telefono'); if (tel) tel.value = '';
+  var dto = document.getElementById('ped-prospecto-dto');      if (dto) dto.value = '0';
+  var dir = document.getElementById('ped-prospecto-dir');      if (dir) dir.value = '';
+  var pagoSel = document.getElementById('ped-cart-pago');
+  if (pagoSel) {
+    if (!pagoSel.querySelector('option[value="Pagado"]')) {
+      var op = document.createElement('option'); op.value = 'Pagado'; op.textContent = 'Pagado ✅'; pagoSel.appendChild(op);
+    }
+    pagoSel.value = 'Pagado';
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      _prospectoDtoPct = (res && res.ok && res.descuentoPct != null) ? res.descuentoPct : 0;
+      if (_prospectoPedido) _prospectoPedido.dtoPct = _prospectoDtoPct;
+      _pedDtoPct = _prospectoDtoPct;
+      var dtoInp = document.getElementById('ped-prospecto-dto'); if (dtoInp) dtoInp.value = _prospectoDtoPct;
+      _prospectoActualizarInfo();
+      _pedCargarIndice();
+    })
+    .withFailureHandler(function() { _prospectoDtoPct = 0; _pedDtoPct = 0; })
+    .obtenerConfigProspectosPortal();
+  showTab('ped', 'tb-ped');
+  _pedMostrarMain();
+  _prospectoToggleEnvio();
+  _pedRenderCarrito();
+}
+
+// Texto informativo de la tarjeta: refleja el % que el RTV está proponiendo en este momento
+// (recordando siempre que ni cantidades ni descuento son definitivos hasta la autorización).
+function _prospectoActualizarInfo() {
+  var info = document.getElementById('ped-prospecto-info');
+  if (!info || !_prospectoPedido) return;
+  var pct = _prospectoPedido.dtoPct || 0;
+  var precioTxt = pct > 0 ? (pct + '% de descuento') : 'precio de lista (PVP)';
+  info.innerHTML = '<i class="fa fa-circle-info"></i> Proponés <strong>' + precioTxt + '</strong> — ni esto ni las cantidades son definitivas: quien autorice el pedido por mail puede confirmarlo o cambiarlo antes de despachar.';
+}
+
+// Dirección de envío: solo en modo prospecto y cuando Entrega = Envío (el prospecto no tiene perfil).
+function _prospectoToggleEnvio() {
+  var wrap = document.getElementById('ped-prospecto-dir-wrap');
+  if (!wrap) return;
+  var envioSel = document.getElementById('ped-cart-envio');
+  var envio = envioSel ? (envioSel.value || '').trim() : '';
+  wrap.style.display = (_prospectoPedido && envio !== 'Retiro') ? 'block' : 'none';
+}
+
+function _prospectoOnDatos() {
+  if (!_prospectoPedido) return;
+  _prospectoPedido.nombre   = (document.getElementById('ped-prospecto-nombre').value   || '').trim();
+  _prospectoPedido.email    = (document.getElementById('ped-prospecto-email').value    || '').trim();
+  _prospectoPedido.telefono = (document.getElementById('ped-prospecto-telefono').value || '').trim();
+
+  var oldPct = _pedDtoPct;
+  var d = parseInt(document.getElementById('ped-prospecto-dto').value, 10);
+  if (isNaN(d) || d < 0) d = 0;
+  if (d > 100) d = 100;
+  _prospectoPedido.dtoPct = d;
+  _prospectoActualizarInfo();
+  if (d !== oldPct) {
+    _superReprecioCarrito(oldPct, d);   // mismo helper de ratio que usa el modo super — no depende de _superPedido
+    _pedDtoPct = d;
+    _pedRenderCarrito();
+    _pedCargarIndice();                 // recarga catálogo con los precios del nuevo % propuesto
+    var q = (document.getElementById('ped-q').value || '').trim();
+    if (q.length >= 2) _repBuscar('ped', true);
+  }
+}
+
+// Salir del modo prospecto y volver a la vista RTV.
+function _prospectoVolverRTV() {
+  _prospectoPedido = null;
+  var prospectoCard = document.getElementById('ped-prospecto-card'); if (prospectoCard) prospectoCard.style.display = 'none';
   showTab('rtv', 'tb-rtv');
 }
 
@@ -6820,10 +6953,11 @@ function _pedCargarExcel(file) {
 function _pedGenerarPedido() {
   if (!_pedCart.length) { toast('El carrito está vacío', 'err'); return; }
   if (_superPedido && !_superPedido.cliente) { toast('Indicá el cliente antes de confirmar', 'err'); document.getElementById('ped-super-cliente').focus(); return; }
+  if (_prospectoPedido && !_prospectoPedido.nombre) { toast('Indicá el nombre del prospecto antes de confirmar', 'err'); document.getElementById('ped-prospecto-nombre').focus(); return; }
   if (!_pedCtxReseller()) { toast('No estás identificado', 'err'); return; }
   var _envioVal = (document.getElementById('ped-cart-envio').value || '').trim();
-  // La validación de dirección aplica al perfil del reseller; en modo super no hay perfil.
-  if (!_superPedido && _envioVal !== 'Retiro' && _perfilCache && !_perfilCache.direccion) {
+  // La validación de dirección aplica al perfil del reseller; en modo super/prospecto no hay perfil.
+  if (!_superPedido && !_prospectoPedido && _envioVal !== 'Retiro' && _perfilCache && !_perfilCache.direccion) {
     abrirPerfil();
     setTimeout(function(){ toast('Completá tu dirección de entrega antes de generar un pedido', 'err'); }, 300);
     return;
@@ -6837,6 +6971,12 @@ function _pedGenerarPedido() {
   if (_superPedido && _envioVal !== 'Retiro') {
     _dirSuper = (document.getElementById('ped-super-dir').value || '').trim();
     if (!_dirSuper) { toast('Ingresá la dirección de envío (o elegí Retiro)', 'err'); document.getElementById('ped-super-dir').focus(); return; }
+  }
+  // Modo prospecto: idem, el prospecto tampoco tiene perfil propio
+  var _dirProspecto = '';
+  if (_prospectoPedido && _envioVal !== 'Retiro') {
+    _dirProspecto = (document.getElementById('ped-prospecto-dir').value || '').trim();
+    if (!_dirProspecto) { toast('Ingresá la dirección de envío (o elegí Retiro)', 'err'); document.getElementById('ped-prospecto-dir').focus(); return; }
   }
 
   _pedUltimosItems = _pedCart.slice();
@@ -6853,6 +6993,38 @@ function _pedGenerarPedido() {
     params.emailCliente  = _superPedido.email;
     params.descuentoPct  = _superPedido.dtoPct;
     params.direccionEnvio = _dirSuper;
+  }
+
+  if (_prospectoPedido) {
+    var paramsProspecto = {
+      nombre:        _prospectoPedido.nombre,
+      email:         _prospectoPedido.email,
+      telefono:      _prospectoPedido.telefono,
+      descuentoPct:  _prospectoPedido.dtoPct,   // propuesta del RTV — el autorizador la confirma o la cambia
+      items:         params.items,
+      observaciones: params.observaciones + (_dirProspecto ? (params.observaciones ? '\n' : '') + 'Dirección de envío: ' + _dirProspecto : ''),
+      formaPago:     params.formaPago,
+      envio:         params.envio
+    };
+    _pedMostrarCargando();
+    google.script.run
+      .withSuccessHandler(function(res) {
+        _pedOcultarCargando();
+        if (!res.ok) { toast('Error: ' + (res.error || ''), 'err'); return; }
+        document.getElementById('ped-cart-card').style.display = 'none';
+        document.getElementById('ped-success-num').textContent = res.numero;
+        document.getElementById('ped-success-sub').textContent = 'Enviado a autorización — vas a ver el resultado en tu pestaña de Pedidos (RTV).';
+        var wa = document.getElementById('ped-success-wa'); if (wa) wa.style.display = 'none';
+        var pdfEl = document.getElementById('ped-success-pdf'); if (pdfEl) pdfEl.style.display = 'none';
+        var xlsxEl = document.getElementById('ped-success-xlsx'); if (xlsxEl) xlsxEl.style.display = _pedUltimosItems.length ? 'inline-flex' : 'none';
+        document.getElementById('ped-success').style.display = 'block';
+        _pedCart = []; _pedLimpiarStorageCarrito(); _pedRevision = null;
+        document.getElementById('badge-ped').style.display = 'none';
+        toast(res.numero + ' enviado a autorización', 'ok');
+      })
+      .withFailureHandler(function(err) { _pedOcultarCargando(); toast('Error al confirmar: ' + (err.message || err), 'err'); })
+      .crearPedidoProspecto(paramsProspecto);
+    return;
   }
 
   _pedMostrarCargando();
@@ -6889,7 +7061,7 @@ function _pedGenerarPedido() {
 // recién al aprobarlo (mismo camino de "Retomar pedido" que ya existía para los borradores).
 function _pedGuardarBorrador() {
   if (!_pedCart.length) { toast('El carrito está vacío', 'err'); return; }
-  if (_superPedido) return; // no aplica al flujo super-RTV
+  if (_superPedido || _prospectoPedido) return; // no aplica al flujo super-RTV ni prospecto
   if (!_pedCtxReseller()) { toast('No estás identificado', 'err'); return; }
 
   var params = {
@@ -7056,6 +7228,9 @@ function _iniciarSesionRTV(res) {
   var btnCargar = document.getElementById('rtv-btn-cargar');
   if (btnCargar) btnCargar.style.display = res.esSuper ? 'inline-flex' : 'none';
   if (res.esSuper) _rtvPoblarSelRtv();
+  // "Vender a prospecto": disponible para cualquier RTV autenticado (no solo el super)
+  var btnProspecto = document.getElementById('rtv-btn-prospecto');
+  if (btnProspecto) btnProspecto.style.display = 'inline-flex';
 
   _rtvPoblarSelReseller('');   // reseller sub-selector (todos)
 
@@ -7263,7 +7438,9 @@ function _rtvRenderPedidos(pedidos) {
     'En proceso':  { bg:'rgba(230,126,34,.12)', color:'#e67e22' },
     'Despachado':  { bg:'rgba(92,95,192,.12)',  color:'#5c5fc0' },
     'Entregado':   { bg:'rgba(26,158,74,.12)',  color:'#1a9e4a' },
-    'Cancelado':   { bg:'rgba(214,48,49,.1)',   color:'#d63031' }
+    'Cancelado':   { bg:'rgba(214,48,49,.1)',   color:'#d63031' },
+    'Pendiente Autorización RTV': { bg:'rgba(124,58,237,.12)', color:'#7c3aed' },
+    'Rechazado':   { bg:'rgba(214,48,49,.1)',   color:'#d63031' }
   };
   var html = _rtvResumenHTML(pedidos) + '<div class="dji-card" style="padding:0;overflow:hidden">';
   for (var i = 0; i < pedidos.length; i++) {

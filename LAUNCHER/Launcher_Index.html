@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.9 -->
+<!-- @version 1.10 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -378,6 +378,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     <span id="videos-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalProspectos()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,58,237,.1);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-user-clock"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Venta a prospectos (RTV) · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="prospectos-card-sub">Quién autoriza y con qué descuento</div>
+    </div>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
   <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalPin()">
     <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
       <i class="fa fa-key"></i>
@@ -692,6 +702,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div id="videos-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
         <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay modelos cargados.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VENTA A PROSPECTOS (RTV) -->
+<div class="modal-bg" id="modal-prospectos">
+  <div class="modal-box" style="width:440px;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,58,237,.1);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-user-clock"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Venta a prospectos (RTV)</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Pedidos que un RTV carga para un posible reseller — requieren autorización manual antes de despachar</div>
+      </div>
+      <button onclick="cerrarModalProspectos()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Email autorizador</label>
+        <input id="prospectos-email" type="email" placeholder="quien.autoriza@bidcom.com.ar" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Recibe un mail por cada pedido de prospecto, con un link para autorizar cantidades — sin necesidad de loguearse.</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Descuento sobre lista (%)</label>
+        <input id="prospectos-dto" type="number" min="0" max="100" step="1" value="0" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">0 = precio de lista (PVP). Aplica igual a todos los pedidos de prospecto — no lo elige el RTV.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="prospectos-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="prospectosGuardar()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar
+        </button>
       </div>
     </div>
   </div>
@@ -1049,8 +1093,9 @@ google.script.run
   })
   .LAUNCH_getCampana();
 campanaCargarStats();
-cursoCargarLista();   // badge de la tarjeta Curso/Eventos
-videosCargarLista();  // badge de la tarjeta Videos armado/desarmado
+cursoCargarLista();       // badge de la tarjeta Curso/Eventos
+videosCargarLista();      // badge de la tarjeta Videos armado/desarmado
+prospectosCargarConfig(); // subtítulo de la tarjeta Venta a prospectos (RTV)
 
 var _resellerEstados = {}; // nombre → activo (bool)
 google.script.run
@@ -1505,6 +1550,46 @@ function videosGuardar() {
     })
     .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
     .LAUNCH_saveVideoModelo(data);
+}
+
+// ── Venta a prospectos (RTV) ──────────────────────────────────
+function abrirModalProspectos() {
+  document.getElementById('modal-prospectos').classList.add('show');
+  prospectosCargarConfig();
+}
+function cerrarModalProspectos() {
+  document.getElementById('modal-prospectos').classList.remove('show');
+}
+function prospectosCargarConfig() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) return;
+      document.getElementById('prospectos-email').value = res.emailAutorizador || '';
+      document.getElementById('prospectos-dto').value   = (res.descuentoPct != null ? res.descuentoPct : 0);
+      var sub = document.getElementById('prospectos-card-sub');
+      if (sub) sub.textContent = res.emailAutorizador
+        ? ('Autoriza: ' + res.emailAutorizador + ' · ' + (res.descuentoPct || 0) + '% dto')
+        : 'Sin configurar';
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getConfigProspectos();
+}
+function prospectosGuardar() {
+  var st = document.getElementById('prospectos-status');
+  var email = document.getElementById('prospectos-email').value.trim();
+  if (!email) { st.textContent = '✗ Falta el email del autorizador'; st.style.color = 'var(--red)'; return; }
+  var dto = parseFloat(document.getElementById('prospectos-dto').value);
+  if (isNaN(dto) || dto < 0 || dto > 100) { st.textContent = '✗ Descuento inválido (0-100)'; st.style.color = 'var(--red)'; return; }
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) prospectosCargarConfig();
+      setTimeout(function() { st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_saveConfigProspectos(email, dto);
 }
 
 function abrirModalAviso() {

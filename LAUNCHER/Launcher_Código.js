@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -885,6 +885,57 @@ function LAUNCH_saveVideoModelo(data) {
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_saveVideoModelo: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+
+// ── Config "Venta a prospectos (RTV)" — hoja Clave/Valor en el master, leída directo ──
+// por PORTAL_RESELLER (RS_Prospectos.js). EMAIL_AUTORIZADOR: quién recibe el mail para
+// autorizar cantidades. DESCUENTO_PCT: % de descuento sobre lista para estos pedidos
+// (0 = PVP). Self-provisioning igual que el resto de configs de este Launcher.
+var _LAUNCH_CONFIG_PROSPECTOS_TAB = 'CONFIG_PROSPECTOS';
+function LAUNCH_getConfigProspectos() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_CONFIG_PROSPECTOS_TAB);
+    var out  = { emailAutorizador: '', descuentoPct: 0 };
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var clave = String(d[i][0] || '').trim().toUpperCase();
+        var valor = d[i][1];
+        if (clave === 'EMAIL_AUTORIZADOR') out.emailAutorizador = String(valor || '').trim();
+        else if (clave === 'DESCUENTO_PCT') out.descuentoPct = Number(valor) || 0;
+      }
+    }
+    return { ok: true, emailAutorizador: out.emailAutorizador, descuentoPct: out.descuentoPct };
+  } catch(e) { Logger.log('LAUNCH_getConfigProspectos: ' + e); return { ok: false, error: e.toString(), emailAutorizador: '', descuentoPct: 0 }; }
+}
+
+function LAUNCH_saveConfigProspectos(emailAutorizador, descuentoPct) {
+  try {
+    var email = String(emailAutorizador || '').trim();
+    var pct   = Number(descuentoPct);
+    if (!email)     return { ok: false, error: 'Falta el email del autorizador.' };
+    if (isNaN(pct) || pct < 0 || pct > 100) return { ok: false, error: 'Descuento inválido (0-100).' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_CONFIG_PROSPECTOS_TAB);
+    if (!hoja) {
+      hoja = ss.insertSheet(_LAUNCH_CONFIG_PROSPECTOS_TAB);
+      hoja.appendRow(['Clave', 'Valor']);
+      hoja.setFrozenRows(1);
+      hoja.getRange(1, 1, 1, 2).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+      hoja.appendRow(['EMAIL_AUTORIZADOR', '']);
+      hoja.appendRow(['DESCUENTO_PCT', 0]);
+    }
+    var d = hoja.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      var clave = String(d[i][0] || '').trim().toUpperCase();
+      if (clave === 'EMAIL_AUTORIZADOR') hoja.getRange(i + 1, 2).setValue(email);
+      else if (clave === 'DESCUENTO_PCT') hoja.getRange(i + 1, 2).setValue(pct);
+    }
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_saveConfigProspectos: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 

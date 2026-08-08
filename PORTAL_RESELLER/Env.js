@@ -1,4 +1,4 @@
-// @version 1.10
+// @version 1.12
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var LISTA_PRECIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
@@ -33,7 +33,8 @@ var SCHEMA = {
     INSCRIPCIONES_EVENTOS: 'INSCRIPCIONES_EVENTOS',
     VIDEOS_MODELOS:        'VIDEOS_ARMADO_DESARMADO',
     COMPRAS_DETALLE:       'COMPRAS_DETALLE',
-    RESERVAS_EN_CAMINO:    'RESERVAS_EN_CAMINO'
+    RESERVAS_EN_CAMINO:    'RESERVAS_EN_CAMINO',
+    CONFIG_PROSPECTOS:     'CONFIG_PROSPECTOS'
   },
   OT: {
     FECHA_INGRESO: 0,
@@ -141,7 +142,9 @@ var SCHEMA = {
     PDF_URL:          9,
     TOTAL_USD:        10,
     FORMA_PAGO:       11,
-    ENVIO:            12
+    ENVIO:            12,
+    RTV_EMAIL:        13,  // Solo pedidos de prospecto (RS_Prospectos.js): email del RTV que lo cargó
+    DTO_PROPUESTO_PCT:14   // Solo pedidos de prospecto: % de descuento que propuso el RTV — no definitivo, lo confirma/ajusta el autorizador
   },
   ITEMS_SIN_CATALOGO: {
     FECHA:      0,

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.12
+// @version 1.14
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -7,7 +7,7 @@
 // la trae embebida al cargar la página y la vuelve a consultar cada tanto
 // (RS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta.
 // Ver _chequearVersionNueva en Index.html.
-var PORTAL_VERSION = '1.84';
+var PORTAL_VERSION = '1.86';
 
 var PORTAL_CONFIG = {
   EMAIL_SUPERVISOR:     "soporteagrasdji@bidcom.com.ar",
@@ -92,6 +92,17 @@ function doGet(e) {
   if (action === 'resumen-curso') {
     return _paginaResumenCurso(params.t, params.ev);
   }
+
+  // Autorización de pedidos de prospecto (venta RTV) — link 1-click sin login (RS_Prospectos.js)
+  if (action === 'autorizar-prospecto') {
+    var cantidadesParam = (e && e.parameters) ? e.parameters.cant : null;
+    var rechazarParam   = params.rechazar === '1';
+    if (rechazarParam || cantidadesParam) {
+      return _procesarAutorizacionProspecto(params.numero, params.token, cantidadesParam, rechazarParam, params.descuento);
+    }
+    return _paginaAutorizarProspecto(params.numero, params.token);
+  }
+
   var tmpl = HtmlService.createTemplateFromFile('Index');
   tmpl.DEPLOY_URL     = ScriptApp.getService().getUrl();
   tmpl.PORTAL_VERSION = PORTAL_VERSION;
