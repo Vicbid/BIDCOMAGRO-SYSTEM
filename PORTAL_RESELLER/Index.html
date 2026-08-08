@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.91 -->
+<!-- @version 1.92 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2981,6 +2981,15 @@ function ovNorm(s) {
 }
 
 function ovCerrarLista() {
+  // Si tipeó lo suficiente para que quede un solo resultado filtrado y se fue (tab/click a
+  // otro campo) sin clickearlo ni darle Enter, se da por elegido igual — antes solo se
+  // fijaba el valor con coincidencia EXACTA del nombre completo, y con iniciales quedaba
+  // resaltado en la lista pero sin seleccionar de verdad.
+  var oculto = document.getElementById('ov-reseller');
+  if (oculto && !oculto.value && _ovFiltrados.length === 1) {
+    oculto.value = _ovFiltrados[0];
+    document.getElementById('ov-reseller-search').value = _ovFiltrados[0];
+  }
   var box = document.getElementById('ov-reseller-list');
   if (box) box.style.display = 'none';
   _ovActivo = -1;
