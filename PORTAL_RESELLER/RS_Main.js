@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.14
+// @version 1.15
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -7,7 +7,7 @@
 // la trae embebida al cargar la página y la vuelve a consultar cada tanto
 // (RS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta.
 // Ver _chequearVersionNueva en Index.html.
-var PORTAL_VERSION = '1.86';
+var PORTAL_VERSION = '1.87';
 
 var PORTAL_CONFIG = {
   EMAIL_SUPERVISOR:     "soporteagrasdji@bidcom.com.ar",

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.86 -->
+<!-- @version 1.87 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3210,14 +3210,14 @@ function _renderVideosModelos(modelos) {
   }
   body.innerHTML = modelos.map(function(m) {
     var btnA = m.armado
-      ? '<a href="' + _catEsc(m.armado) + '" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:12px;font-weight:700"><i class="fa fa-circle-play"></i> Armado</a>'
+      ? '<a href="' + _catEsc(m.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
       : '';
     var btnD = m.desarmado
-      ? '<a href="' + _catEsc(m.desarmado) + '" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:12px;font-weight:700"><i class="fa fa-circle-play"></i> Desarmado</a>'
+      ? '<a href="' + _catEsc(m.desarmado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Desarmado</a>'
       : '';
-    return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:11px 13px;margin-bottom:9px">' +
-      '<div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:8px">' + _catEsc(m.modelo) + '</div>' +
-      '<div style="display:flex;gap:8px">' + btnA + btnD + '</div>' +
+    return '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--brd);border-radius:var(--r);padding:6px 8px 6px 11px;margin-bottom:5px">' +
+      '<div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _catEsc(m.modelo) + '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' + btnA + btnD + '</div>' +
     '</div>';
   }).join('');
 }
