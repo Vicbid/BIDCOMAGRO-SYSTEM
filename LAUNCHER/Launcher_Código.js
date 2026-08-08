@@ -1,4 +1,4 @@
-// @version 1.8
+// @version 1.9
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -834,6 +834,17 @@ function LAUNCH_getEventoStats(eventoId) {
 //   VIDEOS_ARMADO_DESARMADO: A=Modelo B=Link armado C=Link desarmado D=Activo (vacío/SI visible)
 var _LAUNCH_VIDEOS_TAB = 'VIDEOS_ARMADO_DESARMADO';
 
+function _launchVideosHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_VIDEOS_TAB);
+    hoja.appendRow(['Modelo', 'Componente', 'Link armado', 'Link desarmado', 'Activo']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 5).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+  }
+  return hoja;
+}
+
 function LAUNCH_getVideosModelos() {
   try {
     var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
@@ -845,46 +856,115 @@ function LAUNCH_getVideosModelos() {
         var modelo = String(d[i][0] || '').trim();
         if (!modelo) continue;
         out.push({
-          modelo: modelo, armado: String(d[i][1] || '').trim(), desarmado: String(d[i][2] || '').trim(),
-          activo: _launchEvActivo(d[i][3])
+          modelo: modelo, componente: String(d[i][1] || '').trim(),
+          armado: String(d[i][2] || '').trim(), desarmado: String(d[i][3] || '').trim(),
+          activo: _launchEvActivo(d[i][4])
         });
       }
     }
-    out.sort(function(a, b) { return a.modelo.localeCompare(b.modelo); });
+    out.sort(function(a, b) {
+      var c = a.modelo.localeCompare(b.modelo);
+      return c !== 0 ? c : a.componente.localeCompare(b.componente);
+    });
     return { ok: true, modelos: out };
   } catch(e) { Logger.log('LAUNCH_getVideosModelos: ' + e); return { ok: false, error: e.toString(), modelos: [] }; }
 }
 
-// data = { modelo, armado, desarmado, activo, modeloOriginal }. modeloOriginal (opcional) permite
-// renombrar un modelo sin duplicar la fila — se busca por ese nombre, se guarda con el nuevo.
+// data = { modelo, componente, armado, desarmado, activo, modeloOriginal, componenteOriginal }.
+// La clave real es (modelo, componente) — un modelo con varias piezas (ej. T100: Aeronave /
+// Sistema de siembra / Sistema de elevación) tiene una fila por componente. *Original (opcional)
+// permite renombrar sin duplicar la fila — se busca por esos valores, se guarda con los nuevos.
 function LAUNCH_saveVideoModelo(data) {
   try {
     data = data || {};
     var modelo = String(data.modelo || '').trim();
     if (!modelo) return { ok: false, error: 'Falta el nombre del modelo.' };
-    var armado    = String(data.armado    || '').trim();
-    var desarmado = String(data.desarmado || '').trim();
+    var componente = String(data.componente || '').trim();
+    var armado     = String(data.armado     || '').trim();
+    var desarmado  = String(data.desarmado  || '').trim();
     if (!armado && !desarmado) return { ok: false, error: 'Cargá al menos un link (armado o desarmado).' };
     var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
-    var hoja = ss.getSheetByName(_LAUNCH_VIDEOS_TAB);
-    if (!hoja) {
-      hoja = ss.insertSheet(_LAUNCH_VIDEOS_TAB);
-      hoja.appendRow(['Modelo', 'Link armado', 'Link desarmado', 'Activo']);
-      hoja.setFrozenRows(1);
-      hoja.getRange(1, 1, 1, 4).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
-    }
-    var fila = [modelo, armado, desarmado, data.activo === false ? 'NO' : 'SI'];
-    var buscar = String(data.modeloOriginal || modelo).trim().toLowerCase();
+    var hoja = _launchVideosHoja(ss);
+    var fila = [modelo, componente, armado, desarmado, data.activo === false ? 'NO' : 'SI'];
+    var buscarModelo     = String(data.modeloOriginal     || modelo).trim().toLowerCase();
+    var buscarComponente = String(data.componenteOriginal != null ? data.componenteOriginal : componente).trim().toLowerCase();
     var d = hoja.getDataRange().getValues();
     var filaIdx = -1;
     for (var i = 1; i < d.length; i++) {
-      if (String(d[i][0] || '').trim().toLowerCase() === buscar) { filaIdx = i + 1; break; }
+      if (String(d[i][0] || '').trim().toLowerCase() !== buscarModelo) continue;
+      if (String(d[i][1] || '').trim().toLowerCase() !== buscarComponente) continue;
+      filaIdx = i + 1; break;
     }
-    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 4).setValues([fila]);
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 5).setValues([fila]);
     else             hoja.appendRow(fila);
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_saveVideoModelo: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// ── Carga inicial del catálogo DJI en inglés (curado a mano con el usuario, agosto 2026) ──
+// Un solo uso: agrega las filas que falten por (modelo, componente); si una ya existe,
+// la deja como está (no pisa ediciones manuales posteriores). Botón "Cargar catálogo DJI
+// (EN)" en el modal de Videos del Launcher.
+function LAUNCH_seedVideosModelosDji() {
+  var CDN = 'https://cdn.djivideos.com/watch/';
+  var filas = [
+    // [Modelo, Componente, ID armado, ID desarmado]
+    ['T100',  'Aeronave',              'c13a7902-30c0-4d82-9a0e-3cf486917b8d', 'fa3b6935-c21c-4707-9522-bb80c327befe'],
+    ['T100',  'Sistema de siembra',    '38c9a4d4-bb33-4386-b393-3fa03599832e', 'c60596d5-7cb2-4dab-8829-2b3dc0b731ab'],
+    ['T100',  'Sistema de elevación',  '7ae824b6-d382-40b4-ad3e-cf4d1b1e5062', '4b514ba0-47c0-424b-97ea-815ac957941f'],
+    ['T70',   'Aeronave',              '46990dd5-390a-426e-b37c-9e4474136028', '1a332314-c2a3-42b0-a899-9b2a460ef3a6'],
+    ['T70',   'Sistema de siembra',    '83a3201d-c652-4c11-805e-8c03c2c07360', '397c1479-3437-4cf0-9d37-81f2b44a4880'],
+    ['T25P',  'Aeronave',              '5b42c81f-6825-4e13-bec6-49ee6acf5ffb', '69411446-87a6-42a5-953d-7d1c045031b7'],
+    ['T25P',  'Sistema de siembra',    'df1084b9-d096-4b90-a904-cbe1a9639224', 'f7872915-52ed-4b81-b3d0-b85c39a1f0a1'],
+    ['T25',   '',                      'fc2efca0-94ed-44b6-9a67-fffc1c81bcfd', 'b863b1ff-e81a-4ed3-bad6-8a99a3e5e185'],
+    ['T50',   'Aeronave',              'faa7d926-e0ae-4921-a7ce-9b28fb060253', '97a80444-33bd-498f-bce9-a63d55eda3d4'],
+    ['T50',   'Sistema de siembra',    'eb6a15fc-4b33-4691-83eb-bb9801a61b3a', 'cf05d57e-604c-4af8-8002-08de049c810b'],
+    ['T55',   'Aeronave',              'e36409c0-45b3-4236-a7cf-eb3503523e7b', 'd2a3e922-ccc3-4e29-92fb-9d75a8981a00'],
+    ['T55',   'Sistema de elevación (DL100)', '3016551e-e20d-43b2-9b0c-dde317345eb9', '0e57ae19-6088-4597-b8fb-8e20ca193e64'],
+    ['T70S',  'Sistema de elevación (DL100)', '3016551e-e20d-43b2-9b0c-dde317345eb9', '0e57ae19-6088-4597-b8fb-8e20ca193e64'],
+    ['T70S',  'Sistema de siembra (DS125L)',  'ff47da19-94be-412a-8e9b-268fafc4b5cc', '379fb0ac-20ff-40f5-8b91-17fcdd38f0d8'],
+    ['T100S', 'Sistema de elevación (DL100)', '3016551e-e20d-43b2-9b0c-dde317345eb9', '0e57ae19-6088-4597-b8fb-8e20ca193e64'],
+    ['T100S', 'Sistema de siembra (DS125L)',  'ff47da19-94be-412a-8e9b-268fafc4b5cc', '379fb0ac-20ff-40f5-8b91-17fcdd38f0d8'],
+    ['DJI RC Plus 2',                 '', '3a832d5f-825e-481d-80b0-c70a13c77333', '83e10176-3227-410d-9b11-3c6f019137c9'],
+    ['DJI RC Plus',                   '', 'f6c913fe-c69f-4c01-826c-a125ff2720e7', 'dc5ec0e8-02fb-4121-a7b5-2c9493c202c7'],
+    ['D-RTK 3',                       '', '85c47220-8e46-4a8e-b751-e12335536b3b', '6ad80901-2042-4d49-83f2-72ffed1452b4'],
+    ['DB2160 Intelligent Flight Battery', '', '244e8ab4-ac35-41bc-a099-a5509cce7436', 'f5c4a00f-21bc-478a-9d4b-eb6a6ff74ccc'],
+    ['DB1580 Intelligent Flight Battery', '', '2ffa0446-da58-42a4-8765-78e39a04898d', 'a14b2ad4-3d4a-487d-aa0d-aadc6b2447b3'],
+    ['DB1050 Intelligent Flight Battery', '', '019d74c6-5366-4482-b06d-1cf1ddc2d46b', 'b08ef542-065a-46f7-9295-7e48b1f5bbee'],
+    ['C12000 Smart Charger',          '', 'ef7daa72-6c9d-4b5c-9195-9caba83155a3', '34d562ba-13fa-42b3-b095-43948780c77c'],
+    ['T40 Intelligent Charger',       '', '18d838f1-da3b-4c3c-a6f8-19b93d8631f7', 'df12f7b8-1140-4cfc-8d2b-029054eeba85'],
+    ['T20P Intelligent Charger',      '', 'e7d912f6-5ca6-4711-99e7-03f905d19019', '5a18e473-6cc0-4fb0-b541-8515df8cd077'],
+    ['C7000 Intelligent Charger',     '', '6a97a823-eec3-4259-978f-b040645f35c6', '6d2ae79d-1ac4-4c09-af77-c7087f79cafb'],
+    ['D14000 Generator',              '', '7d913f56-cf7d-4307-ba81-408b4a6c2d0a', '17373bd0-39a6-4e2e-97fc-b5b2f3530e1a'],
+    ['D6000i Generator',              '', 'f2df2299-27d9-4f86-a354-27c72a8e08ce', '5be7960d-a768-4f08-91f8-98240f1b6b4d'],
+    ['D12000iEP Generator', 'Parte 1', '408f9140-3490-4394-a222-3c9d307847b2', '800a0faf-e337-435c-b27d-55256c4aec05'],
+    ['D12000iEP Generator', 'Parte 2', 'd3cd3e81-d274-4c37-93b5-b731ef803eaa', '30af96d4-e89a-4370-bead-7c037c43d79f'],
+    ['D8000iE Generator',             '', 'a71e3d49-6cfe-403f-b361-d4ecf16ad9df', 'fbc62646-d8a3-4717-84a8-724b162ce1bb'],
+    ['DJI O4 Relay',                  '', '498e2e62-4ea0-4702-90ae-a0ef84a335f7', '4328485a-c500-4c9b-a01d-33d70c984bcd'],
+    ['DN6720 Mist Sprinkler Combo',   '', '0cac4cad-c039-4e62-bb2b-b89ae0f17ac5', '923af150-ab2c-431e-aa90-e9820d4caebb']
+  ];
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchVideosHoja(ss);
+    var d = hoja.getDataRange().getValues();
+    var existentes = {};
+    for (var i = 1; i < d.length; i++) {
+      var k = String(d[i][0] || '').trim().toLowerCase() + '||' + String(d[i][1] || '').trim().toLowerCase();
+      existentes[k] = true;
+    }
+    var agregados = 0, saltados = 0;
+    for (var f = 0; f < filas.length; f++) {
+      var modelo = filas[f][0], componente = filas[f][1];
+      var key = modelo.trim().toLowerCase() + '||' + componente.trim().toLowerCase();
+      if (existentes[key]) { saltados++; continue; }
+      hoja.appendRow([modelo, componente, CDN + filas[f][2], CDN + filas[f][3], 'SI']);
+      existentes[key] = true;
+      agregados++;
+    }
+    SpreadsheetApp.flush();
+    return { ok: true, agregados: agregados, saltados: saltados };
+  } catch(e) { Logger.log('LAUNCH_seedVideosModelosDji: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 

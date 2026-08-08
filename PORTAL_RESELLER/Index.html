@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.87 -->
+<!-- @version 1.88 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -3202,22 +3202,44 @@ function abrirVideosModelos() {
     .obtenerVideosModelosPortal();
 }
 function cerrarVideosModelos() { document.getElementById('vm-modal').style.display = 'none'; }
-function _renderVideosModelos(modelos) {
+// Un modelo puede tener varios componentes (ej: T100 = Aeronave + Sistema de siembra +
+// Sistema de elevación) — el backend ya viene ordenado por modelo/componente, acá se agrupan
+// en bloques. Si un modelo tiene un solo componente se ve igual que siempre (una fila
+// compacta con el nombre del modelo); si tiene varios, aparece un encabezado con el modelo
+// y una fila chica por componente debajo.
+function _renderVideosModelos(items) {
   var body = document.getElementById('vm-modal-body');
-  if (!modelos || !modelos.length) {
+  if (!items || !items.length) {
     body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px">Todavía no hay videos cargados.<br>Volvé a intentar más adelante.</div>';
     return;
   }
-  body.innerHTML = modelos.map(function(m) {
-    var btnA = m.armado
-      ? '<a href="' + _catEsc(m.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
+  var grupos = [], porModelo = {};
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (!porModelo[it.modelo]) { porModelo[it.modelo] = { modelo: it.modelo, items: [] }; grupos.push(porModelo[it.modelo]); }
+    porModelo[it.modelo].items.push(it);
+  }
+  function _vmFila(it, label) {
+    var btnA = it.armado
+      ? '<a href="' + _catEsc(it.armado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(26,158,74,.1);color:var(--green);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Armado</a>'
       : '';
-    var btnD = m.desarmado
-      ? '<a href="' + _catEsc(m.desarmado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Desarmado</a>'
+    var btnD = it.desarmado
+      ? '<a href="' + _catEsc(it.desarmado) + '" target="_blank" style="display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(214,48,49,.1);color:var(--red);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-circle-play" style="font-size:9px"></i>Desarmado</a>'
       : '';
-    return '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--brd);border-radius:var(--r);padding:6px 8px 6px 11px;margin-bottom:5px">' +
-      '<div style="flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _catEsc(m.modelo) + '</div>' +
+    var estilo = label ? 'font-size:11.5px;font-weight:600;color:var(--tx-m)' : 'font-size:12px;font-weight:700;color:var(--tx)';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">' +
+      '<div style="flex:1;min-width:0;' + estilo + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _catEsc(label || it.modelo) + '</div>' +
       '<div style="display:flex;gap:6px;flex-shrink:0">' + btnA + btnD + '</div>' +
+    '</div>';
+  }
+  body.innerHTML = grupos.map(function(g) {
+    if (g.items.length === 1) {
+      return '<div style="border:1px solid var(--brd);border-radius:var(--r);padding:6px 8px 6px 11px;margin-bottom:5px">' + _vmFila(g.items[0], '') + '</div>';
+    }
+    var subfilas = g.items.map(function(it) { return _vmFila(it, it.componente || '—'); }).join('');
+    return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:8px 11px;margin-bottom:8px">' +
+      '<div style="font-size:12.5px;font-weight:700;color:var(--tx);margin-bottom:1px">' + _catEsc(g.modelo) + '</div>' +
+      subfilas +
     '</div>';
   }).join('');
 }

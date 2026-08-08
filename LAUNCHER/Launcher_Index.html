@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.10 -->
+<!-- @version 1.11 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -658,25 +658,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:#1a1f2e">Videos armado/desarmado · Portal Reseller</div>
-        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Links directos que comparte DJI (2 por modelo) — los resellers los ven en Documentación técnica</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Links directos que comparte DJI — un modelo puede tener varios componentes (ej: aeronave + sistema de siembra), cada uno con su par armado/desarmado</div>
       </div>
       <button onclick="cerrarModalVideos()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
     </div>
     <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
       <input type="hidden" id="videos-modelo-original">
+      <input type="hidden" id="videos-componente-original">
       <div style="display:flex;gap:8px;align-items:flex-end">
         <div style="flex:1">
-          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Modelo</label>
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Modelo / componente cargado</label>
           <select id="videos-modelo-sel" onchange="videosCargarModelo()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
-            <option value="__new">➕ Nuevo modelo</option>
+            <option value="__new">➕ Nuevo</option>
           </select>
         </div>
         <button onclick="videosNuevo()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-plus"></i> Nuevo</button>
       </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nombre del modelo</label>
-        <input id="videos-modelo-nombre" type="text" placeholder="Ej: T50" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nombre del modelo</label>
+          <input id="videos-modelo-nombre" type="text" placeholder="Ej: T50" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Componente (opcional)</label>
+          <input id="videos-componente" type="text" placeholder="Ej: Sistema de siembra" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
       </div>
+      <div style="font-size:10px;color:#9ba5b4;margin-top:-8px">Dejalo vacío si el modelo es de una sola pieza (batería, control, cargador, etc.)</div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-circle-play" style="color:var(--green);margin-right:4px"></i>Link de armado</label>
         <input id="videos-link-armado" type="url" placeholder="https://…" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
@@ -697,8 +705,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
     </div>
     <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
-      <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
-        <i class="fa fa-list" style="margin-right:5px;color:#9ba5b4"></i>Modelos cargados — <span id="videos-total">0</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em">
+          <i class="fa fa-list" style="margin-right:5px;color:#9ba5b4"></i>Cargados — <span id="videos-total">0</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="videos-seed-status" style="font-size:10px;color:#9ba5b4"></span>
+          <button onclick="videosCargarCatalogoDji()" style="background:#fff;color:#5e6778;border:1px solid #e0e3e8;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-cloud-arrow-down"></i> Cargar catálogo DJI (EN)</button>
+        </div>
       </div>
       <div id="videos-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
         <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay modelos cargados.</span>
@@ -1459,51 +1473,63 @@ function abrirModalVideos() {
 function cerrarModalVideos() {
   document.getElementById('modal-videos').classList.remove('show');
 }
-function _videosBuscar(modelo) {
-  for (var i = 0; i < _videosModelos.length; i++) if (_videosModelos[i].modelo === modelo) return _videosModelos[i];
+// Clave compuesta (modelo, componente) — un modelo con varias piezas (T100 = Aeronave +
+// Sistema de siembra + Sistema de elevación) tiene una fila por componente.
+function _videosKey(modelo, componente) { return modelo + '||' + (componente || ''); }
+function _videosBuscar(key) {
+  for (var i = 0; i < _videosModelos.length; i++) if (_videosKey(_videosModelos[i].modelo, _videosModelos[i].componente) === key) return _videosModelos[i];
   return null;
 }
 function _videosActualizarCard() {
-  var activos = 0;
-  for (var i = 0; i < _videosModelos.length; i++) if (_videosModelos[i].activo) activos++;
+  var modelos = {}, activos = {};
+  for (var i = 0; i < _videosModelos.length; i++) {
+    var m = _videosModelos[i];
+    modelos[m.modelo] = true;
+    if (m.activo) activos[m.modelo] = true;
+  }
+  var totalModelos = Object.keys(modelos).length, activosModelos = Object.keys(activos).length;
   var badge = document.getElementById('videos-card-badge');
   if (!badge) return;
-  badge.textContent = _videosModelos.length ? (activos + ' de ' + _videosModelos.length) : 'SIN MODELOS';
-  badge.style.background = activos > 0 ? 'rgba(214,48,49,.1)' : '#f0f2f5';
-  badge.style.color      = activos > 0 ? '#d63031'            : '#9ba5b4';
+  badge.textContent = totalModelos ? (activosModelos + ' de ' + totalModelos) : 'SIN MODELOS';
+  badge.style.background = activosModelos > 0 ? 'rgba(214,48,49,.1)' : '#f0f2f5';
+  badge.style.color      = activosModelos > 0 ? '#d63031'            : '#9ba5b4';
 }
 function _videosRenderChips() {
   var cont = document.getElementById('videos-lista-chips');
   document.getElementById('videos-total').textContent = _videosModelos.length;
   if (!_videosModelos.length) {
-    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay modelos cargados.</span>';
+    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay nada cargado.</span>';
     return;
   }
   cont.innerHTML = _videosModelos.map(function(m) {
-    return '<span onclick="videosEditarDesdeChip(\'' + _videosEsc(m.modelo).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' +
-      (m.activo ? 'rgba(0,120,220,.1);color:var(--blue)' : '#f0f2f5;color:#9ba5b4') + '">' + _videosEsc(m.modelo) + (m.activo ? '' : ' (oculto)') + '</span>';
+    var key   = _videosKey(m.modelo, m.componente);
+    var label = m.componente ? (m.modelo + ' — ' + m.componente) : m.modelo;
+    return '<span onclick="videosEditarDesdeChip(\'' + _videosEsc(key).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' +
+      (m.activo ? 'rgba(0,120,220,.1);color:var(--blue)' : '#f0f2f5;color:#9ba5b4') + '">' + _videosEsc(label) + (m.activo ? '' : ' (oculto)') + '</span>';
   }).join('');
 }
-function videosEditarDesdeChip(modelo) {
+function videosEditarDesdeChip(key) {
   var sel = document.getElementById('videos-modelo-sel');
-  sel.value = modelo;
+  sel.value = key;
   videosCargarModelo();
 }
-function videosCargarLista(selModelo) {
+function videosCargarLista(selKey) {
   google.script.run
     .withSuccessHandler(function(r) {
       _videosModelos = (r && r.ok && r.modelos) ? r.modelos : [];
       var sel  = document.getElementById('videos-modelo-sel');
-      var keep = selModelo || document.getElementById('videos-modelo-original').value || '';
-      var opts = '<option value="__new">➕ Nuevo modelo</option>';
+      var keep = selKey || _videosKey(document.getElementById('videos-modelo-original').value, document.getElementById('videos-componente-original').value);
+      var opts = '<option value="__new">➕ Nuevo</option>';
       for (var i = 0; i < _videosModelos.length; i++) {
-        var m = _videosModelos[i];
-        opts += '<option value="' + _videosEsc(m.modelo) + '">' + _videosEsc(m.modelo) + (m.activo ? '' : ' (oculto)') + '</option>';
+        var m     = _videosModelos[i];
+        var key   = _videosKey(m.modelo, m.componente);
+        var label = m.componente ? (m.modelo + ' — ' + m.componente) : m.modelo;
+        opts += '<option value="' + _videosEsc(key) + '">' + _videosEsc(label) + (m.activo ? '' : ' (oculto)') + '</option>';
       }
       sel.innerHTML = opts;
       _videosActualizarCard();
       _videosRenderChips();
-      if (keep && _videosBuscar(keep)) { sel.value = keep; videosCargarModelo(); }
+      if (keep && keep !== '||' && _videosBuscar(keep)) { sel.value = keep; videosCargarModelo(); }
       else videosNuevo();
     })
     .withFailureHandler(function() {})
@@ -1511,8 +1537,10 @@ function videosCargarLista(selModelo) {
 }
 function videosNuevo() {
   var sel = document.getElementById('videos-modelo-sel'); if (sel) sel.value = '__new';
-  document.getElementById('videos-modelo-original').value = '';
+  document.getElementById('videos-modelo-original').value     = '';
+  document.getElementById('videos-componente-original').value = '';
   document.getElementById('videos-modelo-nombre').value   = '';
+  document.getElementById('videos-componente').value      = '';
   document.getElementById('videos-link-armado').value     = '';
   document.getElementById('videos-link-desarmado').value  = '';
   document.getElementById('videos-activo').checked = true;
@@ -1522,8 +1550,10 @@ function videosCargarModelo() {
   if (v === '__new') { videosNuevo(); return; }
   var m = _videosBuscar(v);
   if (!m) { videosNuevo(); return; }
-  document.getElementById('videos-modelo-original').value = m.modelo;
+  document.getElementById('videos-modelo-original').value     = m.modelo;
+  document.getElementById('videos-componente-original').value = m.componente;
   document.getElementById('videos-modelo-nombre').value   = m.modelo;
+  document.getElementById('videos-componente').value      = m.componente;
   document.getElementById('videos-link-armado').value     = m.armado;
   document.getElementById('videos-link-desarmado').value  = m.desarmado;
   document.getElementById('videos-activo').checked = !!m.activo;
@@ -1532,24 +1562,46 @@ function videosGuardar() {
   var st = document.getElementById('videos-status');
   var modelo = document.getElementById('videos-modelo-nombre').value.trim();
   if (!modelo) { st.textContent = '✗ Falta el nombre del modelo'; st.style.color = 'var(--red)'; return; }
+  var componente = document.getElementById('videos-componente').value.trim();
   var armado    = document.getElementById('videos-link-armado').value.trim();
   var desarmado = document.getElementById('videos-link-desarmado').value.trim();
   if (!armado && !desarmado) { st.textContent = '✗ Cargá al menos un link'; st.style.color = 'var(--red)'; return; }
   st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
   var data = {
-    modelo: modelo, armado: armado, desarmado: desarmado,
+    modelo: modelo, componente: componente, armado: armado, desarmado: desarmado,
     activo: document.getElementById('videos-activo').checked,
-    modeloOriginal: document.getElementById('videos-modelo-original').value.trim()
+    modeloOriginal:     document.getElementById('videos-modelo-original').value.trim(),
+    componenteOriginal: document.getElementById('videos-componente-original').value.trim()
   };
   google.script.run
     .withSuccessHandler(function(res) {
       st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
       st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
-      if (res.ok) { document.getElementById('videos-modelo-original').value = modelo; videosCargarLista(modelo); }
+      if (res.ok) {
+        document.getElementById('videos-modelo-original').value     = modelo;
+        document.getElementById('videos-componente-original').value = componente;
+        videosCargarLista(_videosKey(modelo, componente));
+      }
       setTimeout(function() { st.textContent = ''; }, 3000);
     })
     .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
     .LAUNCH_saveVideoModelo(data);
+}
+// Carga inicial del catálogo DJI en inglés (curado a mano) — un solo uso, agrega lo que
+// falte por (modelo, componente) y no toca filas ya existentes (no pisa ediciones manuales).
+function videosCargarCatalogoDji() {
+  var st = document.getElementById('videos-seed-status');
+  st.textContent = 'Cargando…'; st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { st.textContent = '✗ ' + (res && res.error || 'Error'); st.style.color = 'var(--red)'; return; }
+      st.textContent = '✓ ' + res.agregados + ' agregados' + (res.saltados ? ' · ' + res.saltados + ' ya existían' : '');
+      st.style.color = 'var(--green)';
+      videosCargarLista();
+      setTimeout(function() { st.textContent = ''; }, 5000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_seedVideosModelosDji();
 }
 
 // ── Venta a prospectos (RTV) ──────────────────────────────────
