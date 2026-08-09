@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.94 -->
+<!-- @version 1.96 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -575,10 +575,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
         <label class="flbl">PIN de acceso</label>
         <div class="pin-inputs">
-          <input class="pin-input" id="pin1" type="password" inputmode="numeric" maxlength="1" onkeyup="pinKey(event,1)">
-          <input class="pin-input" id="pin2" type="password" inputmode="numeric" maxlength="1" onkeyup="pinKey(event,2)">
-          <input class="pin-input" id="pin3" type="password" inputmode="numeric" maxlength="1" onkeyup="pinKey(event,3)">
-          <input class="pin-input" id="pin4" type="password" inputmode="numeric" maxlength="1" onkeyup="pinKey(event,4)">
+          <input class="pin-input" id="pin1" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" onkeyup="pinKey(event,1)">
+          <input class="pin-input" id="pin2" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" onkeyup="pinKey(event,2)">
+          <input class="pin-input" id="pin3" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" onkeyup="pinKey(event,3)">
+          <input class="pin-input" id="pin4" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="1" onkeyup="pinKey(event,4)">
         </div>
         <div class="pin-error" id="pin-error"></div>
         <button class="btn-main" id="btn-login" onclick="login()">
@@ -2601,7 +2601,7 @@ function _cursoCargar(forzar) {
       var w = document.getElementById('curso-wrap');
       if (w) w.innerHTML = '<div style="text-align:center;padding:24px;color:var(--tx-d);font-size:12px">No se pudo cargar. Probá Actualizar.</div>';
     })
-    .obtenerEventosPortal(resellerActual);
+    .obtenerEventosPortal(_sesionToken, resellerActual);
 }
 function _cursoRender() {
   var wrap = document.getElementById('curso-wrap');
@@ -2639,7 +2639,7 @@ function _cursoCheckBadge() {
   google.script.run
     .withSuccessHandler(function(r) { _cursoAplicarBadge((r && r.ok && r.eventos) ? r.eventos : []); })
     .withFailureHandler(function() {})
-    .obtenerEventosPortal(resellerActual);
+    .obtenerEventosPortal(_sesionToken, resellerActual);
 }
 function _cursoEventoHTML(ev, i) {
   var meta = '<span><i class="fa fa-calendar" style="color:var(--blue);margin-right:5px"></i>' + _escHtml(ev.fecha || 'A confirmar') + '</span>';
@@ -2755,7 +2755,7 @@ function _cursoGuardar(i) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-check" style="margin-right:6px"></i>Guardar inscripción'; }
       toast('Error: ' + (e && e.message ? e.message : e), 'err');
     })
-    .guardarInscripcionEvento(ev.id, resellerActual, { asiste: asiste, asistentes: asistentes, comentario: comentario });
+    .guardarInscripcionEvento(_sesionToken, ev.id, resellerActual, { asiste: asiste, asistentes: asistentes, comentario: comentario });
 }
 
 function _esTerminal(estado) {
@@ -4097,9 +4097,17 @@ function cargarGarantias() {
 // ══════════════════════════════════════════
 function enviarAlerta() {
   if (!otActual) return;
+  var btn = document.getElementById('btn-alerta');
+  if (btn) { if (btn.disabled) return; btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Enviando...'; }
   google.script.run
-    .withSuccessHandler(function(){ toast('Alerta enviada al equipo técnico','inf'); })
-    .withFailureHandler(function(){ toast('Error al enviar alerta','err'); })
+    .withSuccessHandler(function(){
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-bell"></i> Enviar alerta'; }
+      toast('Alerta enviada al equipo técnico','inf');
+    })
+    .withFailureHandler(function(){
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-bell"></i> Enviar alerta'; }
+      toast('Error al enviar alerta','err');
+    })
     .solicitarRevisionTaller(_sesionToken, otActual, snActual);
 }
 
@@ -5174,7 +5182,6 @@ function imprimirNotaEntrega() {
 // ══════════════════════════════════════════
 var _notifTimer    = null;
 var _notifSnapshot = {}; // { ot: { estado, msgVisto } }
-var _notifBadge    = 0;
 
 function _iniciarPolling() {
   if (_notifTimer) clearInterval(_notifTimer);
@@ -5187,10 +5194,6 @@ function _pollNotificaciones() {
   google.script.run
     .withSuccessHandler(function(cambios) {
       if (!cambios || !cambios.length) return;
-      _notifBadge += cambios.length;
-      var bellBtn = document.getElementById('notif-bell');
-      var badgeBell = document.getElementById('notif-badge');
-      if (badgeBell) { badgeBell.textContent = _notifBadge; badgeBell.style.display = 'inline'; }
 
       for (var i = 0; i < cambios.length; i++) {
         var c = cambios[i];

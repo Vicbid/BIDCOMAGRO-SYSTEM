@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ══════════════════════════════════════════════════════════════
 //  EVENTOS / CURSOS — inscripción de resellers desde el Portal
 //  El equipo interno carga eventos en la hoja EVENTOS y los resellers
@@ -74,8 +74,13 @@ function _emailDeReseller(nombre) {
 }
 
 // Eventos activos + la inscripción actual de este reseller (para prellenar el formulario).
-function obtenerEventosPortal(reseller) {
+// token: sin esto, cualquiera podía pedir la lista pasando el nombre de otro reseller y ver
+// si está anotado a un curso y con qué asistentes (auditoría de seguridad).
+function obtenerEventosPortal(token, reseller) {
   try {
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, error: 'Sesión inválida o expirada.', eventos: [] };
+    reseller = _s.nombre;
     var hojaEv = _asegurarHojaEventos();
     var dEv    = hojaEv.getDataRange().getValues();
     var tz     = Session.getScriptTimeZone();
@@ -123,12 +128,17 @@ function obtenerEventosPortal(reseller) {
 
 // Guarda/actualiza la inscripción de un reseller a un evento (upsert por eventoId + reseller).
 // data = { asiste:bool, asistentes:[{nombre,email}], comentario }
-function guardarInscripcionEvento(eventoId, reseller, data) {
+// token: sin esto, cualquiera podía anotar (o BORRAR — hace upsert, elimina la fila previa
+// antes de insertar) la inscripción de cualquier reseller a cualquier evento, sin login
+// (auditoría de seguridad).
+function guardarInscripcionEvento(token, eventoId, reseller, data) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
     eventoId = String(eventoId || '').trim();
-    reseller = String(reseller || '').trim();
+    reseller = _s.nombre;
     if (!eventoId) return { ok: false, error: 'Falta el evento.' };
     if (!reseller) return { ok: false, error: 'No se identificó el reseller. Ingresá con tu PIN.' };
 
@@ -191,7 +201,13 @@ function guardarInscripcionEvento(eventoId, reseller, data) {
 }
 
 // Resumen interno (correr desde el editor → Ver registro): quiénes van y cuántos.
+// El comentario decía "correr desde el editor" pero, al ser una función normal en un
+// proyecto ANYONE_ANONYMOUS, cualquiera podía llamarla desde el navegador y sacar el
+// listado completo de asistentes (nombres) de cualquier evento sin login — se restringe a
+// staff (auditoría de seguridad).
 function resumenInscripcionesEvento(eventoId) {
+  var _email = ''; try { _email = Session.getActiveUser().getEmail(); } catch(eA) {}
+  if (!_esRTVSuper(_email)) return { evento: eventoId || '(todos)', totalResellers: 0, totalPersonas: 0, lista: [], error: 'No autorizado.' };
   eventoId = String(eventoId || '').trim();
   var d = _asegurarHojaInscripciones().getDataRange().getValues();
   var I = _INS_COL;
