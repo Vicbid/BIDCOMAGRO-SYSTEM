@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.96 -->
+<!-- @version 1.97 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2450,6 +2450,11 @@ var _otsReseller   = [];  // cache de órdenes para el panel mensajes
 var _dashSubTab    = 'activas';
 var _pendingTab    = '';  // tab a mostrar después del login
 var pinModal;             // instancia Bootstrap modal PIN
+// Dígitos reales del PIN — los inputs #pin1..#pin4 solo muestran "•", nunca el dígito.
+// (En iOS Safari -webkit-text-security no se aplica, y en Android type="password" +
+// inputmode="numeric" a veces tampoco enmascara: por eso el enmascarado se hace 100% a
+// mano acá en vez de depender del navegador.)
+var _pinVal = ['', '', '', ''];
 var helpModal;            // instancia Bootstrap modal ayuda
 var loteModal;            // instancia Bootstrap modal lote
 var _pedModalAgotado;     // instancia Bootstrap modal stock agotado
@@ -2921,6 +2926,7 @@ function pedirPin() {
   for (var i = 1; i <= 4; i++) {
     var p = document.getElementById('pin' + i);
     p.value = ''; p.classList.remove('error');
+    _pinVal[i - 1] = '';
   }
   document.getElementById('pin-error').textContent = '';
   var btn = document.getElementById('btn-login');
@@ -2934,18 +2940,35 @@ function pinKey(e, num) {
   var inp = document.getElementById('pin' + num);
   document.getElementById('pin-error').textContent = '';
   document.querySelectorAll('.pin-input').forEach(function(p){ p.classList.remove('error'); });
+
+  // El input real puede traer el dígito en texto plano (recién tipeado) o restos del
+  // "•" que dejamos nosotros — nos quedamos solo con los dígitos.
+  var digitos = inp.value.replace(/\D/g, '');
+
   // Pegar el PIN completo (ej. copiado del mail) en cualquiera de los 4 campos lo reparte
   // entre los 4 en vez de truncarlo al último dígito.
-  if (inp.value.length > 1) {
-    var digitos = inp.value.replace(/\D/g, '').slice(0, 4);
-    for (var i = 0; i < 4; i++) document.getElementById('pin' + (i + 1)).value = digitos[i] || '';
+  if (digitos.length > 1) {
+    digitos = digitos.slice(0, 4);
+    for (var i = 0; i < 4; i++) {
+      _pinVal[i] = digitos[i] || '';
+      document.getElementById('pin' + (i + 1)).value = _pinVal[i] ? '•' : '';
+    }
     if (digitos.length === 4) { login(); return; }
     document.getElementById('pin' + (digitos.length + 1)).focus();
     return;
   }
-  if (inp.value.length === 1 && num < 4) document.getElementById('pin' + (num+1)).focus();
+
+  if (digitos.length === 1) {
+    _pinVal[num - 1] = digitos;
+    inp.value = '•';                 // reemplaza el dígito en pantalla, nunca lo deja visible
+    if (num < 4) document.getElementById('pin' + (num + 1)).focus();
+  } else {
+    _pinVal[num - 1] = '';
+    inp.value = '';
+  }
+
   if (e.key === 'Enter' && num === 4) login();
-  if (e.key === 'Backspace' && inp.value === '' && num > 1) document.getElementById('pin' + (num-1)).focus();
+  if (e.key === 'Backspace' && digitos.length === 0 && num > 1) document.getElementById('pin' + (num - 1)).focus();
 }
 
 function _mostrarAvisoPostLogin(done) {
@@ -3089,8 +3112,7 @@ function ovKey(e) {
 
 function login() {
   var nombre = (document.getElementById('ov-reseller').value || '').trim();
-  var pin    = '';
-  for (var i = 1; i <= 4; i++) pin += document.getElementById('pin' + i).value;
+  var pin    = _pinVal.join('');
 
   if (!nombre) { document.getElementById('pin-error').textContent = 'Seleccioná tu empresa de la lista.'; return; }
   if (pin.length < 4) { document.getElementById('pin-error').textContent = 'Ingresá los 4 dígitos del PIN.'; return; }
@@ -3157,6 +3179,7 @@ function login() {
             : 'Empresa o PIN incorrecto. Verificá e intentá de nuevo.';
         document.getElementById('pin-error').textContent = msgErr;
         document.querySelectorAll('.pin-input').forEach(function(p){ p.value=''; p.classList.add('error'); });
+        _pinVal = ['', '', '', ''];
         document.getElementById('pin1').focus();
       }
     })
