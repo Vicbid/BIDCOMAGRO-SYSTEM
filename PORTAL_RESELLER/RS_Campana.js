@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Pedidos de Campaña (estimados sin compromiso)
 // ============================================================
 //  Script Properties requeridas (configurar desde Apps Script editor):
@@ -26,8 +26,12 @@ function _getCampanaConfig() {
   } catch(e) { return { activa: '', label: '', vence: '' }; }
 }
 
-function RS_abrirCampana(reseller) {
+function RS_abrirCampana(token, reseller) {
   try {
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    reseller = _s.nombre;
+
     var cfg     = _getCampanaConfig();
     var campana = cfg.activa;
     var label   = cfg.label;
@@ -82,8 +86,11 @@ function RS_abrirCampana(reseller) {
   }
 }
 
-function RS_guardarCampana(reseller, campana, items) {
+function RS_guardarCampana(token, reseller, campana, items) {
   try {
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    reseller = _s.nombre;
     if (!reseller || !campana)   return { ok: false, msg: 'Faltan datos.' };
     if (!items || !items.length) return { ok: false, msg: 'La lista está vacía.' };
 

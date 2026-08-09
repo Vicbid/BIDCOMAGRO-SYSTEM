@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Autenticación y acceso
 // ============================================================
@@ -86,7 +86,81 @@ function _authLimpiarFallos(nombre) {
   CacheService.getScriptCache().remove(_authIntentosKey(nombre));
 }
 
-// Busca el email de sesión activa en Resellers. Retorna { ok, nombre, aftersales }.
+// ── Sesión real post-login (token opaco) ───────────────────────────────
+// Antes de esto, después del login solo quedaba el nombre del reseller en una variable
+// de JS del cliente (resellerActual / sessionStorage) — cualquier función que confiara en
+// ESE nombre como parámetro se podía llamar desde la consola del navegador con el nombre
+// de OTRO reseller, sin haber sabido nunca su PIN (auditoría de seguridad, agosto 2026).
+// De acá en más el login (PIN o auto-login por email de Google) devuelve un token opaco;
+// el cliente lo manda en cada llamada sensible y cada función resuelve la identidad real
+// a partir de ESE token — nunca del nombre que mande el cliente. CacheService, TTL 6hs
+// con renovación en cada uso, no pide ningún scope nuevo.
+var _SESION_TTL_SEG = 21600;
+function _sesionCrear(datos) {
+  var token = Utilities.getUuid();
+  try { CacheService.getScriptCache().put('sess_' + token, JSON.stringify(datos), _SESION_TTL_SEG); }
+  catch(e) { Logger.log('_sesionCrear: ' + e); }
+  return token;
+}
+function _sesionValidar(token) {
+  var key = String(token || '').trim();
+  if (!key) return null;
+  var cache = CacheService.getScriptCache();
+  var raw = cache.get('sess_' + key);
+  if (!raw) return null;
+  try {
+    var datos = JSON.parse(raw);
+    cache.put('sess_' + key, raw, _SESION_TTL_SEG); // renueva mientras la sesión esté activa
+    return datos;
+  } catch(e) { return null; }
+}
+function _sesionCerrar(token) {
+  var key = String(token || '').trim();
+  if (key) CacheService.getScriptCache().remove('sess_' + key);
+}
+function RS_cerrarSesion(token) { _sesionCerrar(token); return { ok: true }; }
+
+// Resuelve a qué reseller puede acceder quien llama con este token. `resellerPedido`
+// (opcional) es a qué reseller puntual se quiere acceder: en sesión individual SIEMPRE se
+// ignora y se fuerza al nombre de la propia sesión; en sesión de grupo tiene que ser el
+// nombre del grupo o una de sus sucursales — si no, null (no autorizado).
+function _sesionResolver(token, resellerPedido) {
+  var s = _sesionValidar(token);
+  if (!s) return null;
+  if (!s.esGrupo) return { nombre: s.nombre, esGrupo: false, aftersales: s.aftersales };
+  var pedido = String(resellerPedido || '').trim();
+  if (!pedido || pedido === s.nombre) return { nombre: s.nombre, esGrupo: true, resellers: s.resellers, aftersales: s.aftersales };
+  var ok = false;
+  for (var i = 0; i < (s.resellers || []).length; i++) if (s.resellers[i] === pedido) { ok = true; break; }
+  if (!ok) return null;
+  return { nombre: pedido, esGrupo: true, resellers: s.resellers, aftersales: s.aftersales };
+}
+// true si `nombreFila` (ej. la columna RESELLER de una OT) pertenece a quien tiene esta sesión.
+function _sesionPoseeReseller(s, nombreFila) {
+  if (!s) return false;
+  var nf = String(nombreFila || '').trim().toLowerCase();
+  if (!s.esGrupo) return String(s.nombre || '').trim().toLowerCase() === nf;
+  for (var i = 0; i < (s.resellers || []).length; i++) {
+    if (String(s.resellers[i]).trim().toLowerCase() === nf) return true;
+  }
+  return false;
+}
+// Identidad de quien llama a las funciones de catálogo/pedidos, que sirven tanto a
+// resellers (sesión por PIN) como a RTV operando por otro (super-RTV / venta a prospecto,
+// autenticados por su cuenta de Google — ver RS_RTV.js/RS_Prospectos.js). Nunca hardcodea
+// nombres: RTV válido = _esRTVValido(email de la sesión de Google).
+function _identidadResolver(token) {
+  var s = _sesionValidar(token);
+  if (s) return { modo: 'reseller', nombre: s.nombre, esGrupo: s.esGrupo, resellers: s.resellers, aftersales: s.aftersales };
+  var email = '';
+  try { email = Session.getActiveUser().getEmail(); } catch(e) {}
+  if (email && typeof _esRTVValido === 'function' && _esRTVValido(email)) {
+    return { modo: 'rtv', email: email, esSuper: _esRTVSuper(email) };
+  }
+  return null;
+}
+
+// Busca el email de sesión activa en Resellers. Retorna { ok, nombre, aftersales, token }.
 function obtenerDatosReseller() {
   try {
     var email = '';
@@ -105,7 +179,8 @@ function obtenerDatosReseller() {
       if (!rowEmail || rowEmail !== emailLow) continue;
 
       var nombre = String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
-      return { ok: true, nombre: nombre, aftersales: _resellerEsAftersales(datos[i][colAftersales]) };
+      var afts   = _resellerEsAftersales(datos[i][colAftersales]);
+      return { ok: true, nombre: nombre, aftersales: afts, token: _sesionCrear({ nombre: nombre, esGrupo: false, aftersales: afts }) };
     }
     return { ok: false, nombre: null, aftersales: false };
   } catch(e) {
@@ -158,7 +233,8 @@ function validarAccesoInicial(nombre, clave) {
         nombre:    grupoNombre,
         esGrupo:   true,
         resellers: resellersDelGrupo,
-        aftersales: false
+        aftersales: false,
+        token:     _sesionCrear({ nombre: grupoNombre, esGrupo: true, resellers: resellersDelGrupo, aftersales: false })
       };
     }
 
@@ -180,11 +256,14 @@ function validarAccesoInicial(nombre, clave) {
       if (_resellerInactivo(datos[i])) return { ok: false, motivo: 'inactivo' };
 
       _authLimpiarFallos(nombreRaw);
+      var nombreFinal     = String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
+      var aftersalesFinal = _resellerEsAftersales(datos[i][colAft]);
       return {
         ok:         true,
-        nombre:     String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim(),
+        nombre:     nombreFinal,
         esGrupo:    false,
-        aftersales: _resellerEsAftersales(datos[i][colAft])
+        aftersales: aftersalesFinal,
+        token:      _sesionCrear({ nombre: nombreFinal, esGrupo: false, aftersales: aftersalesFinal })
       };
     }
     _authRegistrarFallo(nombreRaw);
@@ -261,6 +340,8 @@ function _authEmailHtml(opts) {
 // _pinCoincideYMigrar) — se puede volver a correr las veces que hagan falta sin pisar nada.
 // Retorna resumen: { enviados, omitidos, errores }
 function enviarCredencialesResellers() {
+  var _staffEmail = ''; try { _staffEmail = Session.getActiveUser().getEmail(); } catch(eSt) {}
+  if (!_esRTVSuper(_staffEmail)) return { ok: false, error: 'No autorizado.', enviados: 0, omitidos: 0, errores: [] };
   var hoja      = getSheet(SCHEMA.SHEETS.RESELLERS);
   var datos     = hoja.getDataRange().getValues();
   var portalUrl = '';
@@ -304,9 +385,13 @@ function enviarCredencialesResellers() {
 }
 
 // ── Perfil self-service: leer datos de contacto del reseller ──
-function RS_obtenerPerfil(resellerNombre) {
+// token: identifica al reseller a través de la sesión (no se confía en un nombre que
+// mande el cliente — antes cualquiera podía leer el contacto de cualquier empresa).
+function RS_obtenerPerfil(token) {
   try {
-    var nombre = String(resellerNombre || '').trim().toLowerCase();
+    var s = _sesionResolver(token);
+    if (!s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var nombre = String(s.nombre || '').trim().toLowerCase();
     if (!nombre) return { ok: false, error: 'Nombre inválido' };
     var d = getSheetValues(SCHEMA.SHEETS.RESELLERS);
     for (var i = 1; i < d.length; i++) {
@@ -330,9 +415,14 @@ function RS_obtenerPerfil(resellerNombre) {
 }
 
 // ── Perfil self-service: actualizar datos del reseller ──────────
-function RS_actualizarPerfil(resellerNombre, telefono, email, direccion, cp, localidad, provincia) {
+// token: igual que RS_obtenerPerfil — sin esto, cualquiera podía pisar el email de
+// contacto de cualquier empresa y de ahí encadenar un reseteo de PIN (ver RS_recordarClave)
+// para tomar la cuenta sin haber sabido nunca su PIN real (auditoría de seguridad).
+function RS_actualizarPerfil(token, telefono, email, direccion, cp, localidad, provincia) {
   try {
-    var nombre = String(resellerNombre || '').trim().toLowerCase();
+    var s = _sesionResolver(token);
+    if (!s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var nombre = String(s.nombre || '').trim().toLowerCase();
     if (!nombre) return { ok: false, error: 'Nombre inválido' };
     var hoja = getSheet(SCHEMA.SHEETS.RESELLERS);
     var d    = hoja.getDataRange().getValues();
@@ -363,6 +453,13 @@ function RS_recordarClave(nombre) {
   try {
     var nombreB = String(nombre || '').trim().toLowerCase();
     if (!nombreB) return { ok: false, error: 'Seleccioná tu empresa primero.' };
+
+    // Rate limit propio (no comparte contador con el login): sin esto, cualquiera podía
+    // resetear el PIN de una empresa a repetición — molestia/DoS sobre esa cuenta.
+    var _reclKey = 'recl_fail_' + nombreB;
+    var _reclN   = parseInt(CacheService.getScriptCache().get(_reclKey) || '0', 10);
+    if (_reclN >= 3) return { ok: false, error: 'Ya generamos varios PIN nuevos para esta empresa hace poco. Esperá un rato o contactá a soporte.' };
+    CacheService.getScriptCache().put(_reclKey, String(_reclN + 1), 3600);
 
     var hoja  = getSheet(SCHEMA.SHEETS.RESELLERS);
     var datos = hoja.getDataRange().getValues();
@@ -407,6 +504,8 @@ function RS_recordarClave(nombre) {
 // Envía un email corto a todos los resellers con email + PIN cargado indicando el link
 // correcto (/exec en vez de /dev).
 function enviarCorreccionUrl() {
+  var _staffEmail2 = ''; try { _staffEmail2 = Session.getActiveUser().getEmail(); } catch(eSt2) {}
+  if (!_esRTVSuper(_staffEmail2)) return 'No autorizado.';
   var datos     = getSheetValues(SCHEMA.SHEETS.RESELLERS);
   var portalUrl = 'https://script.google.com/a/macros/bidcom.com.ar/s/AKfycbwyg2uTFTNjYGxfk1htu8Yk5xaO2cOI5xRpyDKEaeA5_URuP7_GbB3cKcE2C8-QRXCt/exec';
   var enviados  = 0, omitidos = 0, errores = [];

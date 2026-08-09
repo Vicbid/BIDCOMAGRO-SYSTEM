@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.92 -->
+<!-- @version 1.94 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1358,7 +1358,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             </div>
           </div>
           <div class="d-flex flex-wrap gap-2 mb-3">
-            <button class="btn-out red" onclick="enviarAlerta()"><i class="fa fa-bell"></i> Enviar alerta</button>
+            <button class="btn-out red" id="btn-alerta" onclick="enviarAlerta()"><i class="fa fa-bell"></i> Enviar alerta</button>
             <button class="btn-out" id="btn-etiqueta" style="display:none" onclick="imprimirEtiqueta()"><i class="fa fa-print"></i> Etiqueta</button>
             <button class="btn-out blue" id="btn-repuestos" style="display:none" data-bs-toggle="modal" data-bs-target="#modalRep"><i class="fa fa-box"></i> Repuestos</button>
             <button class="btn-out" id="btn-recibido" style="display:none;background:#27ae60;border-color:#27ae60;color:#fff" onclick="confirmarRecepcion()"><i class="fa fa-check-circle"></i> Confirmar recepción</button>
@@ -1898,16 +1898,21 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <span id="ped-tiempo-val"></span>
       </div>
 
-      <!-- Historial -->
+      <!-- Historial — colapsado por defecto: no se carga hasta que el reseller lo abre -->
       <div class="dji-card" style="margin-top:6px">
-        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="_pedToggleHistorial()">
           <span><i class="fa fa-clock-rotate-left" style="color:var(--blue)"></i> Mis Pedidos Anteriores</span>
-          <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="_cargarHistorialPedidos()">
-            <i class="fa fa-arrows-rotate"></i> Actualizar
-          </button>
+          <span id="ped-hist-toggle-ico" style="font-size:11px;color:var(--tx-d)"><i class="fa fa-chevron-down"></i></span>
         </div>
-        <div id="ped-hist-wrap" style="padding:18px;font-size:12px;color:var(--tx-d);text-align:center">
-          <i class="fa fa-spinner fa-spin"></i> Cargando...
+        <div id="ped-hist-body" style="display:none">
+          <div style="display:flex;justify-content:flex-end;padding:8px 16px 0">
+            <button class="btn-out" style="padding:4px 10px;font-size:11px" onclick="event.stopPropagation();_cargarHistorialPedidos()">
+              <i class="fa fa-arrows-rotate"></i> Actualizar
+            </button>
+          </div>
+          <div id="ped-hist-wrap" style="padding:18px;font-size:12px;color:var(--tx-d);text-align:center">
+            <i class="fa fa-spinner fa-spin"></i> Cargando...
+          </div>
         </div>
       </div>
 
@@ -2437,6 +2442,10 @@ function _chequearVersionNueva() {
 })();
 var resellerActual = "";  // se llena al autenticarse (PIN o email sesión)
 var grupoActual    = null; // { nombre, resellers:[] } cuando el login es de grupo
+// Token de sesión opaco (RS_Auth.js: _sesionCrear/_sesionResolver) — se manda en cada
+// llamada sensible para que el servidor resuelva la identidad real, en vez de confiar en
+// resellerActual (una simple variable de JS que cualquiera puede editar desde la consola).
+var _sesionToken   = "";
 var _otsReseller   = [];  // cache de órdenes para el panel mensajes
 var _dashSubTab    = 'activas';
 var _pendingTab    = '';  // tab a mostrar después del login
@@ -2811,6 +2820,7 @@ window.onload = function() {
     pinModal.show();
   } else if (_sesionGuardada && _sesionGuardada.nombre) {
     resellerActual = _sesionGuardada.nombre;
+    _sesionToken   = _sesionGuardada.token || '';
     grupoActual    = _sesionGuardada.esGrupo
       ? { nombre: _sesionGuardada.nombre, resellers: _sesionGuardada.resellers || [] }
       : null;
@@ -2829,6 +2839,7 @@ window.onload = function() {
       .withSuccessHandler(function(res) {
         if (res && res.ok && res.nombre) {
           resellerActual = res.nombre;
+          _sesionToken   = res.token || '';
           var badge = document.getElementById('header-reseller-badge');
           badge.textContent = res.nombre;
           badge.style.display = 'inline';
@@ -3102,12 +3113,14 @@ function login() {
       btn.innerHTML = '<i class="fa fa-unlock-alt" style="margin-right:7px"></i>Ingresar';
       if (res && res.ok) {
         resellerActual = res.nombre;
+        _sesionToken   = res.token || '';
         grupoActual    = res.esGrupo ? { nombre: res.nombre, resellers: res.resellers || [] } : null;
         try {
           sessionStorage.setItem('portal_session', JSON.stringify({
             nombre:    res.nombre,
             esGrupo:   res.esGrupo   || false,
-            resellers: res.resellers || []
+            resellers: res.resellers || [],
+            token:     res.token     || ''
           }));
         } catch(e) {}
         _bloquearSelectorReseller();
@@ -3193,8 +3206,10 @@ function recordarClave() {
 
 function cerrarSesion() {
   if (!confirm('¿Cerrar sesión? Vas a tener que ingresar tu PIN nuevamente para volver a entrar.')) return;
+  if (_sesionToken) { try { google.script.run.RS_cerrarSesion(_sesionToken); } catch(e) {} }
   resellerActual = '';
   grupoActual    = null;
+  _sesionToken   = '';
   try {
     sessionStorage.removeItem('portal_session');
     sessionStorage.setItem('portal_logout', '1'); // fuerza el modal de PIN tras recargar
@@ -3444,12 +3459,12 @@ function cargarDashboard() {
     google.script.run
       .withSuccessHandler(_onOtsLoaded)
       .withFailureHandler(_onOtsError)
-      .RS_buscarOTsGrupo(grupoActual.resellers);
+      .RS_buscarOTsGrupo(_sesionToken);
   } else {
     google.script.run
       .withSuccessHandler(_onOtsLoaded)
       .withFailureHandler(_onOtsError)
-      .buscarOTsReseller(resellerActual);
+      .buscarOTsReseller(_sesionToken, resellerActual);
   }
 }
 
@@ -3626,7 +3641,7 @@ function registrar() {
           }
         })
         .withFailureHandler(function(e) { sp(false); btn.disabled=false; toast('Error: '+e.message,'err'); })
-        .enviarCasoAlHub({
+        .enviarCasoAlHub(_sesionToken, {
           reseller:reseller, circuito:circuito, equipo:equipo,
           sn:sn, garantia:gar, falla:falla, cliente:cliente,
           fechaActivacion: document.getElementById('inp-fecha-act').value || '',
@@ -3940,7 +3955,7 @@ function guardarFechaActivacion() {
       }
     })
     .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-    .agregarFechaActivacion(otActual, fecha);
+    .agregarFechaActivacion(_sesionToken, otActual, fecha);
 }
 
 // ── TABLA FILTRADA DE MIS OTs ─────────────────────────────────
@@ -3999,29 +4014,36 @@ function renderDashFiltrado() {
     if (o.prioridad)  badges += '<span style="margin-left:4px;background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:3px;padding:1px 5px">URG</span>';
     var fechaCol = esCerrada ? (o.fechaCierre || '—') : (o.fechaIngreso || '—');
     var _ubTxt   = o.circuito === 'Taller' ? '📍 Carmen de Areco' : '📍 En tu taller';
-    var garHtml  = '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + (o.garantia==='IW'?'rgba(26,158,74,.15)':'rgba(255,87,34,.1)') + ';color:' + (o.garantia==='IW'?'var(--green)':'var(--red)') + '">' + o.garantia + '</span>';
-    var onclickAttr = 'abrirOTDesdeHistorial(\'' + o.sn.replace(/'/g,"\\'") + '\',\'' + o.ot.replace(/'/g,"\\'") + '\')';
+    var garHtml  = '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:' + (o.garantia==='IW'?'rgba(26,158,74,.15)':'rgba(255,87,34,.1)') + ';color:' + (o.garantia==='IW'?'var(--green)':'var(--red)') + '">' + _escHtml(o.garantia) + '</span>';
+    // Estos campos los carga cualquiera al abrir un caso (enviarCasoAlHub) sin pasar por
+    // ningún control de formato — sin escapar acá, HTML/JS en "equipo"/"cliente"/"sn" se
+    // ejecutaba en el dashboard del reseller afectado la próxima vez que entraba (auditoría
+    // de seguridad). onclickAttr además escapa comillas dobles: son las que rompen el
+    // atributo onclick="…" (las simples ya se escapaban para no romper el string de JS).
+    var otEsc = _escHtml(o.ot), snEsc = _escHtml(o.sn||''), equipoEsc = _escHtml(o.equipo||'');
+    var clienteEsc = _escHtml(o.cliente||''), estadoEsc = _escHtml(o.estado||''), sucursalEsc = _escHtml(o.sucursal||'');
+    var onclickAttr = 'abrirOTDesdeHistorial(\'' + o.sn.replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\',\'' + o.ot.replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\')';
 
     h += '<tr style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="' + onclickAttr + '" onmouseover="this.style.background=\'var(--blue-a)\'" onmouseout="this.style.background=\'\'">';
-    h += '<td style="padding:10px 12px;font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap">' + o.ot + badges + '</td>';
-    h += '<td style="padding:10px 12px;font-size:12px;color:var(--tx)">' + (o.equipo||'—') + '</td>';
-    h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-m);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (o.cliente||'') + '">' + (o.cliente || '<span style="color:var(--tx-d)">—</span>') + '</td>';
-    h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-d);font-family:monospace">' + (o.sn||'—') + '</td>';
+    h += '<td style="padding:10px 12px;font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap">' + otEsc + badges + '</td>';
+    h += '<td style="padding:10px 12px;font-size:12px;color:var(--tx)">' + (equipoEsc||'—') + '</td>';
+    h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-m);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + clienteEsc + '">' + (clienteEsc || '<span style="color:var(--tx-d)">—</span>') + '</td>';
+    h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-d);font-family:monospace">' + (snEsc||'—') + '</td>';
     h += '<td style="padding:10px 12px">' + garHtml + '</td>';
-    h += '<td style="padding:10px 12px"><span style="font-size:11px;font-weight:600;color:' + estColor + '">' + o.estado + '</span></td>';
+    h += '<td style="padding:10px 12px"><span style="font-size:11px;font-weight:600;color:' + estColor + '">' + estadoEsc + '</span></td>';
     h += '<td style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;color:' + semDias + '">' + o.dias + 'd</td>';
     h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-d);white-space:nowrap">' + fechaCol + '</td>';
     h += '<td style="padding:10px 12px;font-size:10px;font-weight:600;color:var(--tx-m);white-space:nowrap">' + _ubTxt + '</td>';
-    if (esGrupo) h += '<td style="padding:10px 12px;font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis" title="' + (o.sucursal||'') + '">' + (o.sucursal||'—') + '</td>';
+    if (esGrupo) h += '<td style="padding:10px 12px;font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis" title="' + sucursalEsc + '">' + (sucursalEsc||'—') + '</td>';
     h += '</tr>';
 
     hCards += '<div class="dash-ot-card' + (esCerrada ? ' fin' : '') + '" onclick="' + onclickAttr + '">' +
-      '<div class="dc-top"><div class="dash-ot-num">' + o.ot + badges + '</div>' + garHtml + '</div>' +
-      '<div class="dash-eq">' + (o.equipo||'—') + '</div>' +
-      (o.cliente ? '<div class="dash-sn">' + o.cliente + '</div>' : '') +
-      '<div class="dash-sn">S/N: ' + (o.sn||'—') + '</div>' +
-      (esGrupo && o.sucursal ? '<div class="dash-sn" style="color:var(--blue);font-weight:600">' + o.sucursal + '</div>' : '') +
-      '<div class="dash-foot"><span class="b-est" style="color:' + estColor + ';border-color:currentColor">' + o.estado + '</span><span class="dash-dias" style="color:' + semDias + '">' + o.dias + 'd</span></div>' +
+      '<div class="dc-top"><div class="dash-ot-num">' + otEsc + badges + '</div>' + garHtml + '</div>' +
+      '<div class="dash-eq">' + (equipoEsc||'—') + '</div>' +
+      (clienteEsc ? '<div class="dash-sn">' + clienteEsc + '</div>' : '') +
+      '<div class="dash-sn">S/N: ' + (snEsc||'—') + '</div>' +
+      (esGrupo && sucursalEsc ? '<div class="dash-sn" style="color:var(--blue);font-weight:600">' + sucursalEsc + '</div>' : '') +
+      '<div class="dash-foot"><span class="b-est" style="color:' + estColor + ';border-color:currentColor">' + estadoEsc + '</span><span class="dash-dias" style="color:' + semDias + '">' + o.dias + 'd</span></div>' +
       '<div class="dc-meta"><span>' + _ubTxt + '</span><span>' + fechaCol + '</span></div>' +
     '</div>';
   }
@@ -4057,8 +4079,8 @@ function cargarGarantias() {
           : 'Vence el ' + g.vencimiento + ' · ' + g.diasParaVencer + 'd restantes';
         h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">' +
           '<div>' +
-            '<div style="font-size:12px;font-weight:600;color:var(--tx)">' + g.equipo + '</div>' +
-            '<div style="font-size:10px;color:var(--tx-d)">S/N: ' + g.sn + ' · ' + g.ot + '</div>' +
+            '<div style="font-size:12px;font-weight:600;color:var(--tx)">' + _escHtml(g.equipo) + '</div>' +
+            '<div style="font-size:10px;color:var(--tx-d)">S/N: ' + _escHtml(g.sn) + ' · ' + _escHtml(g.ot) + '</div>' +
           '</div>' +
           '<span style="font-size:11px;font-weight:700;color:'+col+';white-space:nowrap;margin-left:12px">'+txt+'</span>' +
         '</div>';
@@ -4067,7 +4089,7 @@ function cargarGarantias() {
       el.innerHTML = h;
       el.style.display = 'block';
     })
-    .obtenerGarantias(resellerActual);
+    .obtenerGarantias(_sesionToken, resellerActual);
 }
 
 // ══════════════════════════════════════════
@@ -4078,7 +4100,7 @@ function enviarAlerta() {
   google.script.run
     .withSuccessHandler(function(){ toast('Alerta enviada al equipo técnico','inf'); })
     .withFailureHandler(function(){ toast('Error al enviar alerta','err'); })
-    .solicitarRevisionTaller(otActual, snActual);
+    .solicitarRevisionTaller(_sesionToken, otActual, snActual);
 }
 
 function imprimirEtiqueta() {
@@ -4251,7 +4273,7 @@ function enviarComentario() {
       } else toast('Error: ' + (res.msg||'no se pudo guardar'),'err');
     })
     .withFailureHandler(function(e){ inp.disabled=false; if (btn) btn.disabled=false; toast('Error: '+e.message,'err'); })
-    .agregarComentario(otActual, text, autor);
+    .agregarComentario(_sesionToken, otActual, text);
 }
 
 // ══════════════════════════════════════════
@@ -4440,7 +4462,7 @@ function procesarEnvioLote() {
     .withFailureHandler(function(err) {
       sp(false); btn.disabled = false; toast('Fallo de red.', 'err');
     })
-    .enviarLoteAlHub({ reseller: reseller, items: listaItems });
+    .enviarLoteAlHub(_sesionToken, { reseller: reseller, items: listaItems });
 }
 // ── CARGA MASIVA EXCEL ─────────────────────────────────────────
 var _loteExcelItems = [];
@@ -4542,7 +4564,7 @@ function procesarArchivoLote() {
       sp(false); btn.disabled = false;
       toast('Error de red: ' + ((err && err.message) || ''), 'err');
     })
-    .enviarLoteAlHub({ reseller: reseller, items: _loteExcelItems });
+    .enviarLoteAlHub(_sesionToken, { reseller: reseller, items: _loteExcelItems });
 }
 // 🟢 FIN MÓDULO LOTE
 
@@ -4609,7 +4631,7 @@ function confirmarClienteOT() {
       }
     })
     .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); })
-    .guardarClienteOT(otActual, cliente);
+    .guardarClienteOT(_sesionToken, otActual, cliente);
 }
 
 function decidirPresupuesto(decision) {
@@ -4640,7 +4662,7 @@ function decidirPresupuesto(decision) {
       if (btn2) btn2.disabled = false;
       toast('Error de conexión: ' + e.message, 'err');
     })
-    .aprobarPresupuestoPortal(otActual, decision, obs);
+    .aprobarPresupuestoPortal(_sesionToken, otActual, decision, obs);
 }
 
 // ── CONFIRMAR RECEPCIÓN DE REPUESTOS ──────────────────────────
@@ -4667,7 +4689,7 @@ function confirmarRecepcion() {
       btn.innerHTML = '<i class="fa fa-check-circle"></i> Confirmar recepción';
       toast('Error de conexión', 'err');
     })
-    .confirmarRecepcionRepuestos(otActual, snActual);
+    .confirmarRecepcionRepuestos(_sesionToken, otActual, snActual);
 }
 
 // ══════════════════════════════════════════
@@ -5187,7 +5209,7 @@ function _pollNotificaciones() {
       }
     })
     .withFailureHandler(function() {})
-    .obtenerSnapshotOTs(resellerActual, snJson);
+    .obtenerSnapshotOTs(_sesionToken, resellerActual, snJson);
 }
 
 function _inicializarSnapshotDesdeOTs(ots) {
@@ -5336,7 +5358,7 @@ function _cotBuscar(immediate) {
   _cotBusTimer = setTimeout(function() {
     google.script.run.withSuccessHandler(function(r) {
       _cotRenderResultados((r && r.ok && r.items) ? r.items : []);
-    }).buscarRepuestoConStockPortal(q, resellerActual);
+    }).buscarRepuestoConStockPortal(_sesionToken, q, resellerActual);
   }, immediate ? 0 : 250);
 }
 
@@ -5355,9 +5377,9 @@ function _cotRenderResultados(items) {
     var it   = items[i];
     var base = _cotBaseDesde40(it.precio || 0);
     var skuE = _escHtml(it.sku), descE = _escHtml(it.descripcion), modE = _escHtml(it.modelos || '');
-    var remplzE = _escHtml(it.reemplazadoPor || '');
+    var remplzE = _escHtml(it.reemplazadoPor || ''), fotoE = _escHtml(it.foto || '');
     html +=
-      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '" data-cot-remplz="' + remplzE + '">' +
+      '<div class="rep-item" data-cot-sku="' + skuE + '" data-cot-desc="' + descE + '" data-cot-base="' + base + '" data-cot-modelos="' + modE + '" data-cot-remplz="' + remplzE + '" data-cot-foto="' + fotoE + '">' +
         '<div>' +
           '<div class="rep-code">' + skuE + '</div>' +
           '<div class="rep-name">' + descE + (modE ? ' <span style="color:var(--tx-d)">· ' + modE + '</span>' : '') + '</div>' +
@@ -5374,11 +5396,11 @@ function _cotRenderResultados(items) {
   resDiv.onclick = function(e) {
     var row = e.target.closest('[data-cot-sku]');
     if (!row) return;
-    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '', row.dataset.cotRemplz || '');
+    _cotAgregarItem(row.dataset.cotSku, row.dataset.cotDesc, parseFloat(row.dataset.cotBase) || 0, row.dataset.cotModelos || '', row.dataset.cotRemplz || '', row.dataset.cotFoto || '');
   };
 }
 
-function _cotAgregarItem(sku, desc, precioLista, modelos, reemplazadoPor) {
+function _cotAgregarItem(sku, desc, precioLista, modelos, reemplazadoPor, foto) {
   var qtyInp = document.getElementById('cot-qty');
   var qty = parseInt(qtyInp.value) || 1; if (qty < 1) qty = 1;
 
@@ -5395,6 +5417,7 @@ function _cotAgregarItem(sku, desc, precioLista, modelos, reemplazadoPor) {
         desc        = ni[1];
         modelos     = ni[2];
         precioLista = _cotBaseDesde40(ni[4] || 0);
+        foto        = ni[11] || '';
         break;
       }
     }
@@ -5405,7 +5428,7 @@ function _cotAgregarItem(sku, desc, precioLista, modelos, reemplazadoPor) {
     if (sku && _cotCart[i].sku === sku) { _cotCart[i].cantidad += qty; merged = true; break; }
   }
   if (!merged) {
-    _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25 });
+    _cotCart.push({ sku: sku || '', descripcion: desc || '', modelos: modelos || '', cantidad: qty, precioLista: precioLista || 0, descuento: 25, foto: foto || '' });
   }
   _cotAfterChange();
   document.getElementById('cot-q').value = '';
@@ -5456,12 +5479,18 @@ function _cotRenderCart() {
     var precioFinal = Math.round((it.precioLista || 0) * (1 - (it.descuento || 0) / 100) * 100) / 100;
     var sub = Math.round(precioFinal * it.cantidad * 100) / 100;
     total += sub;
+    var cotThumb = it.foto
+      ? '<img src="' + _escHtml(it.foto) + '" loading="lazy" onclick="event.stopPropagation();_repVerFoto(this)">'
+      : '<i class="fa fa-image"></i>';
     html +=
       '<div style="padding:12px 16px;border-bottom:1px solid var(--brd)">' +
         '<div style="display:flex;justify-content:space-between;gap:10px">' +
-          '<div style="min-width:0">' +
-            (it.sku ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
-            '<div style="font-size:12px;color:var(--tx)">' + _escHtml(it.descripcion || '—') + '</div>' +
+          '<div style="display:flex;gap:8px;min-width:0">' +
+            '<div class="rep-thumb" style="flex-shrink:0">' + cotThumb + '</div>' +
+            '<div style="min-width:0">' +
+              (it.sku ? '<div style="font-size:11px;font-weight:700;color:#3a9e3a">' + _escHtml(it.sku) + '</div>' : '<div style="font-size:10px;color:var(--tx-d)">Ítem manual</div>') +
+              '<div style="font-size:12px;color:var(--tx)">' + _escHtml(it.descripcion || '—') + '</div>' +
+            '</div>' +
           '</div>' +
           '<button onclick="_cotQuitar(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-trash"></i></button>' +
         '</div>' +
@@ -5523,6 +5552,7 @@ function _cotGenerar() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Generando…';
   var params = {
+    token:         _sesionToken,
     reseller:      resellerActual,
     cliente:       cliente,
     clienteEmail:  (document.getElementById('cot-cliente-email').value || '').trim(),
@@ -5599,7 +5629,7 @@ function _cotCargarHistorial() {
     .withFailureHandler(function() {
       cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Error al cargar.</div>';
     })
-    .obtenerHistorialCotizaciones(resellerActual);
+    .obtenerHistorialCotizaciones(_sesionToken, resellerActual);
 }
 
 // Repetir un presupuesto del historial: recarga sus repuestos (mergeando cantidades)
@@ -5626,14 +5656,17 @@ function _cotRepetirCotizacion(id) {
     if (!found) {
       var desc = Number(it.descuento); if (isNaN(desc)) desc = 25;
       var precioLista = Number(it.precioLista) || 0;
-      // Precio actual del catálogo si el SKU sigue vigente (así el carrito coincide con el PDF final)
+      var fotoRep = it.foto || '';
+      // Precio (y foto — no se guarda en el historial) actual del catálogo si el SKU sigue
+      // vigente, así el carrito coincide con el PDF final y muestra miniatura como cualquier
+      // otro ítem agregado por búsqueda.
       if (it.sku && typeof _pedIndice !== 'undefined' && _pedIndice) {
         var skuUp = String(it.sku).toUpperCase();
         for (var ri = 0; ri < _pedIndice.length; ri++) {
-          if ((_pedIndice[ri][0] || '').toUpperCase() === skuUp) { precioLista = _cotBaseDesde40(_pedIndice[ri][4] || 0); break; }
+          if ((_pedIndice[ri][0] || '').toUpperCase() === skuUp) { precioLista = _cotBaseDesde40(_pedIndice[ri][4] || 0); fotoRep = _pedIndice[ri][11] || ''; break; }
         }
       }
-      _cotCart.push({ sku: it.sku || '', descripcion: it.descripcion || '', modelos: it.modelos || '', cantidad: Number(it.cantidad) || 1, precioLista: precioLista, descuento: desc });
+      _cotCart.push({ sku: it.sku || '', descripcion: it.descripcion || '', modelos: it.modelos || '', cantidad: Number(it.cantidad) || 1, precioLista: precioLista, descuento: desc, foto: fotoRep });
     }
     added++;
   }
@@ -5747,8 +5780,10 @@ function _pedMostrarMain() {
   }
 
   // El super/prospecto cargan en contexto propio: sin historial/borradores de reseller.
+  // El historial YA NO se carga acá — arranca colapsado, se pide recién al abrirlo
+  // (ver _pedToggleHistorial) para no golpear el servidor (incluye cruce con la hoja de
+  // WOS) cada vez que se abre "Carrito de Repuestos" aunque no se lo vaya a mirar.
   if (!esExterno) {
-    _cargarHistorialPedidos();
     _pedCargarBorradores();
     _pedRestaurarCarrito();
   }
@@ -5931,8 +5966,8 @@ function _prospectoVolverRTV() {
 }
 
 function _pedOnSucursalChange() {
-  // Solo actualiza historial al cambiar sucursal en modo grupo
-  if (grupoActual) _cargarHistorialPedidos();
+  // Solo actualiza historial al cambiar sucursal en modo grupo, y solo si ya estaba abierto
+  if (grupoActual && _pedHistCargado) _cargarHistorialPedidos();
 }
 
 // ── Borradores pendientes ─────────────────────────────────────
@@ -5944,7 +5979,7 @@ function _pedCargarBorradores() {
       _pedRenderBorradores(r.borradores);
     })
     .withFailureHandler(function() {})
-    .obtenerBorradoresActivos(resellerActual);
+    .obtenerBorradoresActivos(_sesionToken, resellerActual);
 }
 
 function _pedRenderBorradores(borradores) {
@@ -6044,7 +6079,7 @@ function _pedCancelarBorrador(numero) {
       }
     })
     .withFailureHandler(function(err) { sp(false); toast('Error: ' + (err.message || err), 'err'); })
-    .cancelarBorradorPortal(numero);
+    .cancelarBorradorPortal(_sesionToken, numero);
 }
 
 function _pedRestaurarCarrito() {
@@ -6588,7 +6623,20 @@ function _pedBuscar(immediate) {
     return;
   }
 
-  // Fallback servidor: mostrar "buscando" inmediato para que el reseller sepa que está procesando
+  // El índice se está armando en segundo plano (_pedCargarIndice, disparado al abrir
+  // "Carrito de Repuestos") — no golpear el servidor con un escaneo completo del catálogo
+  // por cada letra tipeada mientras tanto: competía con el propio armado del índice y
+  // hacía que la primera búsqueda tardara casi un minuto. Se avisa y listo: en cuanto el
+  // índice termina, _pedCargarIndice reintenta esta misma búsqueda solo.
+  if (_pedIndiceCargando) {
+    var resDivEsperando = document.getElementById(ids.resultsId);
+    resDivEsperando.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d);display:flex;align-items:center;gap:8px"><i class="fa fa-circle-notch fa-spin" style="color:var(--blue)"></i> Preparando catálogo…</div>';
+    resDivEsperando.style.display = 'block';
+    return;
+  }
+
+  // Fallback servidor (raro: se busca sin haber pedido el índice todavía) — mostrar
+  // "buscando" inmediato para que el reseller sepa que está procesando
   var resDiv = document.getElementById(ids.resultsId);
   resDiv.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--tx-d);display:flex;align-items:center;gap:8px"><i class="fa fa-circle-notch fa-spin" style="color:var(--blue)"></i> Buscando...</div>';
   resDiv.style.display = 'block';
@@ -6602,7 +6650,7 @@ function _pedBuscar(immediate) {
         if (seq !== _pedBusSeq) return;
         _pedRenderResultados(r);
       })
-      .buscarRepuestoConStockPortal(q, _pedCtxReseller(), _pedDtoOverride());
+      .buscarRepuestoConStockPortal(_sesionToken, q, _pedCtxReseller(), _pedDtoOverride());
   }, delay);
 }
 
@@ -6631,6 +6679,11 @@ function _pedCargarIndice() {
       // Ahora se refresca solo apenas el índice está listo.
       var catModal = document.getElementById('cat-modal');
       if (catModal && catModal.style.display === 'block' && _catConjActual) _catAbrir(_catConjActual.id);
+      // Si el reseller ya había escrito algo mientras el índice cargaba, la búsqueda había
+      // quedado en "Preparando catálogo…" (ver _pedBuscar) — ahora que está listo, reintentar.
+      var idsPend = _repIds();
+      var qPend = (document.getElementById(idsPend.qId) || {}).value || '';
+      if (qPend.trim().length >= 2) _pedBuscar(true);
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
@@ -6638,7 +6691,7 @@ function _pedCargarIndice() {
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
     })
-    .obtenerIndiceRepuestosPortal(_pedCtxReseller(), _pedDtoOverride());
+    .obtenerIndiceRepuestosPortal(_sesionToken, _pedCtxReseller(), _pedDtoOverride());
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
   google.script.run
     .withSuccessHandler(function(r) { _pedKits = (r && r.ok && r.kits) ? r.kits : {}; })
@@ -7119,6 +7172,7 @@ function _pedGenerarPedido() {
 
   _pedUltimosItems = _pedCart.slice();
   var params = {
+    token:         _sesionToken,
     reseller:      _pedCtxReseller(),
     items:         _pedCart.slice(),
     observaciones: (document.getElementById('ped-obs').value || '').trim(),
@@ -7184,7 +7238,7 @@ function _pedGenerarPedido() {
       _pedCart = []; _pedLimpiarStorageCarrito(); _pedRevision = null;
       document.getElementById('badge-ped').style.display = 'none';
       toast(res.numero + ' confirmado', 'ok');
-      _cargarHistorialPedidos();
+      if (_pedHistCargado) _cargarHistorialPedidos();
     })
     .withFailureHandler(function(err) { _pedOcultarCargando(); toast('Error al confirmar: ' + (err.message || err), 'err'); })
     .confirmarPedidoPortal(params);
@@ -7203,6 +7257,7 @@ function _pedGuardarBorrador() {
   if (!_pedCtxReseller()) { toast('No estás identificado', 'err'); return; }
 
   var params = {
+    token:         _sesionToken,
     reseller:      _pedCtxReseller(),
     items:         _pedCart.slice(),
     observaciones: (document.getElementById('ped-obs').value || '').trim(),
@@ -7859,6 +7914,7 @@ function _pedConfirmarRevision() {
 
   _pedUltimosItems = itemsFinales;
   var params = {
+    token:         _sesionToken,
     reseller:      resellerPedido,
     items:         itemsFinales,
     observaciones: (document.getElementById('ped-review-obs').value || '').trim(),
@@ -7890,7 +7946,7 @@ function _pedConfirmarRevision() {
       _pedCart = []; _pedLimpiarStorageCarrito(); _pedRevision = null;
       document.getElementById('badge-ped').style.display = 'none';
       toast(r.numero + ' confirmado', 'ok');
-      _cargarHistorialPedidos();
+      if (_pedHistCargado) _cargarHistorialPedidos();
     })
     .withFailureHandler(function(err) { _pedOcultarCargando(); toast('Error al confirmar: ' + (err.message || err), 'err'); })
     .confirmarPedidoPortal(params);
@@ -7990,6 +8046,19 @@ function _pedDescargarPlantilla() {
   } catch(e) { toast('Error al generar plantilla', 'err'); }
 }
 
+// El historial arranca colapsado y sin pedir nada al servidor — se carga recién la
+// primera vez que el reseller lo abre (antes se disparaba solo con cada apertura de
+// "Carrito de Repuestos", cruzando además contra la hoja de WOS, aunque no lo fuera a mirar).
+var _pedHistCargado = false;
+function _pedToggleHistorial() {
+  var body = document.getElementById('ped-hist-body');
+  var ico  = document.getElementById('ped-hist-toggle-ico');
+  if (!body) return;
+  var abrir = body.style.display === 'none';
+  body.style.display = abrir ? 'block' : 'none';
+  if (ico) ico.innerHTML = '<i class="fa fa-chevron-' + (abrir ? 'up' : 'down') + '"></i>';
+  if (abrir && !_pedHistCargado) { _pedHistCargado = true; _cargarHistorialPedidos(); }
+}
 function _cargarHistorialPedidos() {
   if (!resellerActual) return;
   var wrap = document.getElementById('ped-hist-wrap');
@@ -8000,7 +8069,7 @@ function _cargarHistorialPedidos() {
     .withFailureHandler(function() {
       wrap.innerHTML = '<div style="text-align:center;padding:16px;color:var(--tx-d)">Error al cargar historial.</div>';
     })
-    .obtenerHistorialPedidosPortal(resellerActual);
+    .obtenerHistorialPedidosPortal(_sesionToken, resellerActual);
   _cargarTiempoEnvio();
 }
 
@@ -8013,7 +8082,7 @@ function _cargarTiempoEnvio() {
       var c = document.getElementById('ped-tiempo-card');
       if (c) c.style.display = 'none';
     })
-    .obtenerTiempoPromedioEnvioPortal(resellerActual);
+    .obtenerTiempoPromedioEnvioPortal(_sesionToken, resellerActual);
 }
 
 function _renderTiempoEnvio(r) {
@@ -8118,7 +8187,7 @@ function _confirmarRecepcion(numero) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-circle-check"></i> Confirmar recepción'; }
       toast('Error al confirmar recepción', 'err');
     })
-    .RS_confirmarRecepcion(numero, resellerActual);
+    .RS_confirmarRecepcion(_sesionToken, numero);
 }
 
 function _filtrarHistorial() {
@@ -8392,7 +8461,7 @@ function cargarCC(filtros) {
   google.script.run
     .withSuccessHandler(_ccOnData)
     .withFailureHandler(function(e) { _ccError(e.message); })
-    .CC_obtenerMovimientos({ nombre: resellerActual, filtros: filtros || null });
+    .CC_obtenerMovimientos({ token: _sesionToken, nombre: resellerActual, filtros: filtros || null });
 }
 
 function _ccOnData(r) {
@@ -8706,7 +8775,7 @@ function _ccExportar(formato) {
     filtros = { desde: _ccFmtInputFecha(desde), hasta: _ccFmtInputFecha(hasta), operacion: op };
   }
 
-  var params = { nombre: resellerActual, filtros: filtros };
+  var params = { token: _sesionToken, nombre: resellerActual, filtros: filtros };
 
   function onDone(r) {
     if (btn) {
@@ -8834,7 +8903,7 @@ function _cargarPerfil() {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-save" style="margin-right:6px"></i>Guardar cambios';
     })
-    .RS_obtenerPerfil(resellerActual);
+    .RS_obtenerPerfil(_sesionToken);
 }
 
 function guardarPerfil() {
@@ -8894,7 +8963,7 @@ function guardarPerfil() {
       msgEl.style.border     = '1px solid #f5c6c6';
       msgEl.innerHTML        = '<i class="fa fa-exclamation-circle" style="margin-right:6px"></i>Error al guardar.';
     })
-    .RS_actualizarPerfil(resellerActual, tel, email, dir, cp, localidad, provincia);
+    .RS_actualizarPerfil(_sesionToken, tel, email, dir, cp, localidad, provincia);
 }
 
 var _perfilCache = null;
@@ -8913,7 +8982,7 @@ function _verificarDireccion() {
       _actualizarRepDirStrip();
     })
     .withFailureHandler(function() {})
-    .RS_obtenerPerfil(resellerActual);
+    .RS_obtenerPerfil(_sesionToken);
 }
 
 function _actualizarPedDirStrip() {
@@ -8941,7 +9010,7 @@ function _actualizarPedDirStrip() {
       _renderRepDirStrip(strip, btn, r && r.ok ? r : null);
     })
     .withFailureHandler(function() { strip.innerHTML = ''; })
-    .RS_obtenerPerfil(resellerActual);
+    .RS_obtenerPerfil(_sesionToken);
 }
 
 function _actualizarRepDirStrip() {
@@ -8961,7 +9030,7 @@ function _actualizarRepDirStrip() {
       _renderRepDirStrip(strip, btn, r && r.ok ? r : null);
     })
     .withFailureHandler(function() { strip.innerHTML = ''; })
-    .RS_obtenerPerfil(resellerActual);
+    .RS_obtenerPerfil(_sesionToken);
 }
 
 function _renderRepDirStrip(strip, btn, p) {
@@ -9010,7 +9079,7 @@ function _campCheckVisible() {
       }
     })
     .withFailureHandler(function() {})
-    .RS_abrirCampana(resellerCamp);
+    .RS_abrirCampana(_sesionToken, resellerCamp);
 }
 
 function pedirPinCampana() {
@@ -9086,7 +9155,7 @@ function _campAbrir() {
     .withFailureHandler(function() {
       toast('Error al conectar. Intentá de nuevo.', 'err');
     })
-    .RS_abrirCampana(resellerCamp);
+    .RS_abrirCampana(_sesionToken, resellerCamp);
 }
 
 function _campBuscar(force) {
@@ -9280,7 +9349,7 @@ function _campGuardar() {
       btn.innerHTML = '<i class="fa fa-floppy-disk"></i> Guardar estimado';
       toast('Error al guardar. Intentá de nuevo.', 'err');
     })
-    .RS_guardarCampana(resellerCamp, _campInfo.campana, _campItems);
+    .RS_guardarCampana(_sesionToken, resellerCamp, _campInfo.campana, _campItems);
 }
 
 function _campEditarEstimado() {

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Módulo de Registro de Nuevos Resellers
 //  Flujo: El reseller selecciona su empresa (ya existente en la hoja)
 //         → completa los campos que faltan →
@@ -187,9 +187,21 @@ function REG_solicitarAcceso(params) {
   }
 }
 
+// Todos los campos de este formulario los tipea libremente cualquier visitante anónimo
+// (REG_solicitarAcceso no pide login) — sin escapar, alguien podía inyectar HTML/links en
+// el mail interno que lee el equipo de soporte (auditoría de seguridad).
+function _REG_esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // ── Email al admin con botones Aprobar / Rechazar 1-click ─────
 function _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token, direccion, cp, localidad, provincia) {
   try {
+    empresa = _REG_esc(empresa); cuit = _REG_esc(cuit); email = _REG_esc(email);
+    telefono = _REG_esc(telefono); notas = _REG_esc(notas); direccion = _REG_esc(direccion);
+    cp = _REG_esc(cp); localidad = _REG_esc(localidad); provincia = _REG_esc(provincia);
+
     var base  = ScriptApp.getService().getUrl();
     var urlOk = base + '?action=reg-ok&token=' + token;
     var urlNo = base + '?action=reg-no&token=' + token;

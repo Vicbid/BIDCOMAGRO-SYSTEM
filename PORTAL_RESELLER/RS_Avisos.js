@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Avisos / Comunicados post-login
 //  Almacenado en MASTER hoja PORTAL_CONFIG (clave | valor)
 // ============================================================
@@ -40,8 +40,14 @@ function RS_registrarVistaAviso(nombre) {
   } catch(e) { Logger.log('RS_registrarVistaAviso: ' + e); }
 }
 
+// Sin uso desde la UI del Portal hoy (se corre a mano o queda para un panel futuro), pero
+// al ser Apps Script "ANYONE_ANONYMOUS" cualquier función del proyecto es invocable desde
+// la consola del navegador — sin este chequeo, cualquiera podía reescribir el banner que
+// ve toda la red de resellers al loguearse (auditoría de seguridad).
 function RS_setAviso(data) {
   try {
+    var _email = ''; try { _email = Session.getActiveUser().getEmail(); } catch(eA) {}
+    if (!_esRTVSuper(_email)) return { ok: false, error: 'No autorizado.' };
     var ss   = getDb();
     var hoja = ss.getSheetByName(_AVISO_SHEET);
     if (!hoja) hoja = ss.insertSheet(_AVISO_SHEET);

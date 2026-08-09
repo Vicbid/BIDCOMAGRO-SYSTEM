@@ -1,12 +1,19 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.12
+// @version 1.13
 // ============================================================
 
-function enviarCasoAlHub(data) {
+function enviarCasoAlHub(token, data) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(3000);
+
+    // Sin esto, cualquiera podía abrir una OT a nombre de otro reseller (con lo que sea
+    // en equipo/cliente/sn — sin escapar en el dashboard, ver Index.html renderDashFiltrado)
+    // sin haber sabido nunca su PIN. Se ignora data.reseller y se fuerza al de la sesión.
+    var _s = _sesionResolver(token, data && data.reseller);
+    if (!_s) { lock.releaseLock(); return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' }; }
+    data.reseller = _s.nombre;
 
     // Conexión directa para garantizar escritura atómica
     var ss   = SpreadsheetApp.openById(MASTER_SHEET_ID);
@@ -115,16 +122,19 @@ function enviarCasoAlHub(data) {
   }
 }
 
-function enviarLoteAlHub(data) {
+function enviarLoteAlHub(token, data) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(5000);
+
+    var _s = _sesionResolver(token, data && data.reseller);
+    if (!_s) { lock.releaseLock(); return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' }; }
 
     // Conexión directa para garantizar escritura atómica
     var ss   = SpreadsheetApp.openById(MASTER_SHEET_ID);
     var hoja = ss.getSheetByName("Ordenes de trabajo");
 
-    var reseller       = data.reseller;
+    var reseller       = _s.nombre;
     var items          = data.items;
     var otsGeneradas   = [];
     var filasAInsertar = [];
@@ -375,10 +385,12 @@ function buscarPorSN(sn) {
   } catch(e) { return []; }
 }
 
-function buscarOTsReseller(nombreReseller, busqueda) {
+function buscarOTsReseller(token, nombreReseller, busqueda) {
   try {
+    var _s = _sesionResolver(token, nombreReseller);
+    if (!_s) return [];
     var ref = _leerOrdenes();
-    var rB  = String(nombreReseller).trim().toLowerCase();
+    var rB  = String(_s.nombre).trim().toLowerCase();
     var qB  = busqueda ? String(busqueda).trim().toLowerCase() : "";
     var hoy = new Date();
     var out = [];
@@ -432,12 +444,15 @@ function buscarOTsReseller(nombreReseller, busqueda) {
 }
 
 // Escritura única — rechaza si la fecha ya fue registrada
-function agregarFechaActivacion(ot, fechaStr) {
+function agregarFechaActivacion(token, ot, fechaStr) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref = _leerOrdenes();
     var otB = String(ot).trim().toUpperCase();
     for (var i = 1; i < ref.datos.length; i++) {
       if (String(ref.datos[i][SCHEMA.OT.OT] || "").trim().toUpperCase() !== otB) continue;
+      if (!_sesionPoseeReseller(_s, ref.datos[i][SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
 
       var actual = ref.datos[i][SCHEMA.OT.FECHA_ACTIVACION];
       if (actual instanceof Date || (actual && String(actual).trim() !== "")) {
@@ -459,10 +474,12 @@ function agregarFechaActivacion(ot, fechaStr) {
   }
 }
 
-function obtenerGarantias(nombreReseller) {
+function obtenerGarantias(token, nombreReseller) {
   try {
+    var _s = _sesionResolver(token, nombreReseller);
+    if (!_s) return [];
     var ref    = _leerOrdenes();
-    var rB     = String(nombreReseller).trim().toLowerCase();
+    var rB     = String(_s.nombre).trim().toLowerCase();
     var mapaG  = _mapaGarantiaEquipos();
     var hoy    = new Date();
     var limite = new Date(hoy.getTime() + PORTAL_CONFIG.DIAS_AVISO_GARANTIA * 86400000);
@@ -504,14 +521,17 @@ function obtenerGarantias(nombreReseller) {
   } catch(e) { Logger.log("obtenerGarantias: " + e); return []; }
 }
 
-function solicitarRevisionTaller(ot, sn) {
+function solicitarRevisionTaller(token, ot, sn) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return false;
     var ref = _leerOrdenes();
     var otB = String(ot).toUpperCase();
     var snB = String(sn).toUpperCase();
     for (var i = 1; i < ref.datos.length; i++) {
       if (!ref.datos[i][SCHEMA.OT.OT] || String(ref.datos[i][SCHEMA.OT.OT]).toUpperCase() !== otB) continue;
       if (!ref.datos[i][SCHEMA.OT.SN] || String(ref.datos[i][SCHEMA.OT.SN]).toUpperCase() !== snB) continue;
+      if (!_sesionPoseeReseller(_s, ref.datos[i][SCHEMA.OT.RESELLER])) return false;
       if (String(ref.datos[i][SCHEMA.OT.PRIORIDAD]).toUpperCase() !== "URGENTE")
         ref.hoja.getRange(i + 1, SCHEMA.OT.PRIORIDAD + 1).setValue("ALERTA CLIENTE");
       return true;
@@ -520,13 +540,17 @@ function solicitarRevisionTaller(ot, sn) {
   } catch(e) { return false; }
 }
 
-function agregarComentario(ot, comentario, autor) {
+function agregarComentario(token, ot, comentario) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var autor = _s.nombre; // nunca el que mande el cliente — evita firmar comentarios como otro
     var ref = _leerOrdenes();
     var otB = String(ot).trim().toUpperCase();
 
     for (var i = 1; i < ref.datos.length; i++) {
       if (String(ref.datos[i][SCHEMA.OT.OT] || "").trim().toUpperCase() !== otB) continue;
+      if (!_sesionPoseeReseller(_s, ref.datos[i][SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
 
       var actual = String(ref.datos[i][SCHEMA.OT.MENSAJES] || "").replace(/\n\n\[LEIDO\]/g, "").replace(/\[LEIDO\]/g, "").trim();
       var fecha  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
@@ -574,8 +598,10 @@ function agregarComentario(ot, comentario, autor) {
 }
 
 // Aprobación o rechazo de presupuesto desde el Portal, con registro firmado en col L
-function aprobarPresupuestoPortal(ot, decision, observaciones) {
+function aprobarPresupuestoPortal(token, ot, decision, observaciones) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref   = _leerOrdenes();
     var otB   = String(ot).trim().toUpperCase();
     var dec   = String(decision||"").toLowerCase();
@@ -584,6 +610,7 @@ function aprobarPresupuestoPortal(ot, decision, observaciones) {
     for (var i = 1; i < ref.datos.length; i++) {
       var f = ref.datos[i];
       if (String(f[SCHEMA.OT.OT]||"").trim().toUpperCase() !== otB) continue;
+      if (!_sesionPoseeReseller(_s, f[SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
 
       var estadoActual = String(f[SCHEMA.OT.ESTADO]||"");
       if (estadoActual !== "Presupuesto enviado") {
@@ -649,8 +676,10 @@ function aprobarPresupuestoPortal(ot, decision, observaciones) {
   } catch(e) { Logger.log("aprobarPresupuestoPortal: " + e); return { ok: false, msg: e.toString() }; }
 }
 
-function confirmarRecepcionRepuestos(ot, sn) {
+function confirmarRecepcionRepuestos(token, ot, sn) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref = _leerOrdenes();
     var otB = String(ot).trim().toUpperCase();
     var snB = String(sn).trim().toUpperCase();
@@ -658,6 +687,7 @@ function confirmarRecepcionRepuestos(ot, sn) {
       var f = ref.datos[i];
       if (String(f[SCHEMA.OT.OT] || "").trim().toUpperCase() !== otB) continue;
       if (String(f[SCHEMA.OT.SN] || "").trim().toUpperCase() !== snB) continue;
+      if (!_sesionPoseeReseller(_s, f[SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
       var estadoAct = String(f[SCHEMA.OT.ESTADO] || "").trim();
       if (estadoAct !== "Repuestos enviados") {
         return { ok: false, msg: "El estado actual no es 'Repuestos enviados'." };
@@ -676,10 +706,12 @@ function confirmarRecepcionRepuestos(ot, sn) {
 // Polling liviano: devuelve sólo el snapshot mínimo de cada OT del reseller
 // para detectar cambios de estado o mensajes nuevos sin cargar todo el detalle.
 // snapshotAnterior: objeto { ot: {estado, lastMsg} } serializado desde el cliente.
-function obtenerSnapshotOTs(nombreReseller, snapshotJson) {
+function obtenerSnapshotOTs(token, nombreReseller, snapshotJson) {
   try {
+    var _s = _sesionResolver(token, nombreReseller);
+    if (!_s) return [];
     var datos = getSheetValues(SCHEMA.SHEETS.OT);
-    var rB    = String(nombreReseller).trim().toLowerCase();
+    var rB    = String(_s.nombre).trim().toLowerCase();
     var prev  = {};
     try { if (snapshotJson) prev = JSON.parse(snapshotJson); } catch(e2) {}
 
@@ -711,13 +743,16 @@ function obtenerSnapshotOTs(nombreReseller, snapshotJson) {
   } catch(e) { Logger.log("obtenerSnapshotOTs: " + e); return []; }
 }
 
-function guardarClienteOT(ot, cliente) {
+function guardarClienteOT(token, ot, cliente) {
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var sheet = getSheet(SCHEMA.SHEETS.OT);
     var datos = getSheetValues(SCHEMA.SHEETS.OT);
     var otB   = String(ot).trim().toUpperCase();
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][SCHEMA.OT.OT] || '').toUpperCase() !== otB) continue;
+      if (!_sesionPoseeReseller(_s, datos[i][SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
       sheet.getRange(i + 1, SCHEMA.OT.CLIENTE + 1).setValue(String(cliente || '').trim());
       invalidateSheetValues(SCHEMA.SHEETS.OT);
       return { ok: true };
@@ -731,8 +766,14 @@ function guardarClienteOT(ot, cliente) {
 
 // ── GRUPO: obtener OTs de múltiples resellers ─────────────────
 // Retorna el mismo formato que buscarOTsReseller pero agrega campo `sucursal`.
-function RS_buscarOTsGrupo(resellers) {
+function RS_buscarOTsGrupo(token) {
   try {
+    // La lista de sucursales sale de la sesión (server-side), nunca de lo que mande el
+    // cliente — antes se podía pedir OTs de cualquier lista de resellers inventada.
+    var _s = _sesionResolver(token);
+    if (!_s || !_s.esGrupo) return [];
+    var resellers = _s.resellers || [];
+
     var ref = _leerOrdenes();
     var hoy = new Date();
     var out = [];

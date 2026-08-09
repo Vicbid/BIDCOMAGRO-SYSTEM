@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.17
+// @version 2.19
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -138,38 +138,45 @@ function _siguienteNumeroPedido() {
 }
 
 // ── Búsqueda con estado de stock ──────────────────────────────
-function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
+function buscarRepuestoConStockPortal(token, query, reseller, pctOverride) {
   try {
+    // Doble modo: reseller con sesión por PIN (nunca puede pedir el nombre de otro ni un
+    // descuento manual) o RTV autenticado por su cuenta de Google (super-RTV/prospecto,
+    // que sí puede pasar reseller/pctOverride — ya validado server-side en ese flujo).
+    // Antes se confiaba en `reseller`/`pctOverride` tal como los mandara el cliente:
+    // cualquiera podía pedir el catálogo con el nombre de un competidor y ver su descuento
+    // negociado real (auditoría de seguridad).
+    var _id = _identidadResolver(token);
+    if (!_id) return { ok: false, error: 'Sesión inválida o expirada.', items: [] };
+    if (_id.modo === 'reseller') {
+      reseller = (_id.esGrupo && reseller && _id.resellers.indexOf(reseller) >= 0) ? reseller : _id.nombre;
+      pctOverride = undefined;
+    }
+
     var q = _normText(String(query || '').trim());
     if (q.length < 2) return { ok: true, items: [] };
 
     var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
-    var stockMap = {};
-    var dStock = getStockSheetValues(SCHEMA.SHEETS.STOCK_INVENTARIO);
-    var S = SCHEMA.STOCK_INVENTARIO;
-    for (var s = 1; s < dStock.length; s++) {
-      var cod = String(dStock[s][S.CODIGO] || '').trim().toUpperCase();
-      if (cod) stockMap[cod] = Number(dStock[s][S.STOCK_ACTUAL]) || 0;
-    }
+    // Reusa el mismo catálogo base + mapa de precios que arma obtenerIndiceRepuestosPortal
+    // (cacheados 10 min en CacheService — ver _pedCatalogoBase/_pedPreciosPorFactor) en vez
+    // de recorrer DB_REPUESTOS/STOCK/ACCESORIOS desde cero en cada búsqueda. Antes, si el
+    // reseller escribía en el buscador ANTES de que el índice local terminara de armarse
+    // (_pedCargarIndice, en Index.html), cada letra disparaba acá un escaneo completo del
+    // catálogo compitiendo con el armado de ese índice — de ahí las esperas de casi un
+    // minuto que se veían la primera vez que se abría "Carrito de Repuestos". Ya incluye
+    // ACCESORIOS (_pedAccesoriosSheet apunta a la misma hoja que se buscaba acá aparte).
+    var base    = _pedCatalogoBase();
+    var precios = _pedPreciosPorFactor(_factor);
+    var ESTADOS = { D: 'disponible', B: 'backorder', R: 'consultar_Backorder' };
 
-    var priceMap = _buildPriceMap(_factor);
-    var fotoMap  = _repFotoMapCatalogo();
-
-    var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
-    var D   = SCHEMA.DB_REPUESTOS;
     var matches = [];
-    for (var i = 1; i < dDb.length; i++) {
-      var sku    = String(dDb[i][D.CODIGO]          || '').trim();
-      var desc   = String(dDb[i][D.DESCRIPCION]     || '').trim();
-      var mod    = String(dDb[i][D.MODELOS]          || '').trim();
-      var descEs = String(dDb[i][D.DESCRIPCION_ES]  || '').trim();
-      var remplz = String(dDb[i][D.REEMPLAZADO_POR] || '').trim();
-      if (!sku && !desc) continue;
-      var nSku   = _normText(sku);
-      var nDesc  = _normText(desc);
-      var nDescEs = _normText(descEs);
+    for (var i = 0; i < base.length; i++) {
+      var row     = base[i];
+      var nSku    = row[8]  || '';
+      var nDesc   = row[9]  || '';
+      var nDescEs = row[10] || '';
       if (nSku.indexOf(q) === -1 && nDesc.indexOf(q) === -1 && nDescEs.indexOf(q) === -1) continue;
 
       var score;
@@ -178,62 +185,20 @@ function buscarRepuestoConStockPortal(query, reseller, pctOverride) {
       else if (nDesc.indexOf(q) === 0 || nDescEs.indexOf(q) === 0) score = 4;
       else                                                      score = 1;
 
-      var skuUp = sku.toUpperCase();
-      var estado;
-      if (stockMap[skuUp] !== undefined) {
-        estado = stockMap[skuUp] > 0 ? 'disponible' : 'backorder';
-      } else {
-        estado = 'consultar_Backorder';
-      }
-
+      var skuUp = String(row[0] || '').toUpperCase();
       matches.push({
-        sku:            sku,
-        descripcion:    desc,
-        descripcionEs:  descEs,
-        modelos:        mod,
-        estado:         estado,
-        precio:         priceMap[skuUp] || 0,
-        stockActual:    stockMap[skuUp] !== undefined ? stockMap[skuUp] : null,
-        reemplazadoPor: remplz,
-        foto:           fotoMap[skuUp] || '',
+        sku:            row[0],
+        descripcion:    row[1],
+        descripcionEs:  row[6],
+        modelos:        row[2],
+        estado:         ESTADOS[row[3]] || 'consultar_Backorder',
+        precio:         precios[skuUp] || 0,
+        stockActual:    row[5] >= 0 ? row[5] : null,
+        reemplazadoPor: row[7],
+        foto:           row[11] || '',
         _score:         score
       });
     }
-
-    // Buscar también en ACCESORIOS
-    try {
-      var accSheet2 = SpreadsheetApp.openById(_ACCESORIOS_SS_ID).getSheetByName('ACCESORIOS');
-      if (accSheet2) {
-        var accRows2 = accSheet2.getDataRange().getValues();
-        for (var ai2 = 1; ai2 < accRows2.length; ai2++) {
-          var aSku2  = String(accRows2[ai2][0] || '').trim();
-          var aDesc2 = String(accRows2[ai2][1] || '').trim();
-          if (!aSku2 && !aDesc2) continue;
-          var nASku2  = _normText(aSku2);
-          var nADesc2 = _normText(aDesc2);
-          if (nASku2.indexOf(q) === -1 && nADesc2.indexOf(q) === -1) continue;
-          var aScore2;
-          if (nASku2 === q)               aScore2 = 10;
-          else if (nASku2.indexOf(q) === 0)   aScore2 = 6;
-          else if (nADesc2.indexOf(q) === 0)  aScore2 = 4;
-          else                                aScore2 = 1;
-          var aSkuUp2 = aSku2.toUpperCase();
-          var aEst2 = stockMap[aSkuUp2] !== undefined ? (stockMap[aSkuUp2] > 0 ? 'disponible' : 'backorder') : 'consultar_Backorder';
-          matches.push({
-            sku:            aSku2,
-            descripcion:    aDesc2,
-            descripcionEs:  '',
-            modelos:        String(accRows2[ai2][2] || '').trim(),
-            estado:         aEst2,
-            precio:         Math.round((Number(accRows2[ai2][3]) || 0) * _factor * 100) / 100,
-            stockActual:    stockMap[aSkuUp2] !== undefined ? stockMap[aSkuUp2] : null,
-            reemplazadoPor: '',
-            foto:           fotoMap[aSkuUp2] || '',
-            _score:         aScore2
-          });
-        }
-      }
-    } catch(eAcc2) { Logger.log('buscarRepuestoConStockPortal ACCESORIOS: ' + eAcc2); }
 
     matches.sort(function(a, b) { return b._score - a._score; });
     var items = matches.slice(0, 20);
@@ -549,7 +514,18 @@ function confirmarPedidoPortal(params) {
       if (!_esRTVSuper(_superEmail)) return { ok: false, error: 'No autorizado para carga super-RTV.' };
     }
 
-    var reseller  = String((modoSuper ? params.cliente : params.reseller) || '').trim();
+    var reseller;
+    if (modoSuper) {
+      reseller = String(params.cliente || '').trim();
+    } else {
+      // Sin esto, cualquiera podía confirmar (y facturar) un pedido a nombre de otro
+      // reseller sin haber sabido nunca su PIN — el precio ya se recalcula server-side
+      // más abajo así que no se podía manipular el monto, pero sí crear pedidos falsos
+      // a nombre de un competidor (auditoría de seguridad).
+      var _sPed = _sesionResolver(params && params.token, params && params.reseller);
+      if (!_sPed) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+      reseller = _sPed.nombre;
+    }
     var items     = params.items                || [];
     var obs       = String(params.observaciones || '').trim();
     var formaPago = String(params.formaPago     || '').trim();
@@ -791,7 +767,9 @@ function guardarBorradorPortal(params) {
   try {
     lock.waitLock(20000);
 
-    var reseller  = String(params.reseller || '').trim();
+    var _sBor = _sesionResolver(params && params.token, params && params.reseller);
+    if (!_sBor) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var reseller  = _sBor.nombre;
     var items     = params.items                || [];
     var obs       = String(params.observaciones || '').trim();
     var formaPago = String(params.formaPago     || '').trim();
@@ -911,83 +889,6 @@ function RS_debugNotasHoja() {
   return out;
 }
 
-// ── Generar pedido directo (legacy / sin revisión) ────────────
-function generarPedidoRepuestosPortal(params) {
-  try {
-    var reseller = String(params.reseller || '').trim();
-    var items    = params.items || [];
-    var obs      = String(params.observaciones || '').trim();
-    var total    = Number(params.total) || 0;
-
-    if (!reseller || !items.length) return { ok: false, error: 'Datos incompletos.' };
-
-    _asegurarHojasPedidos();
-
-    var numero = _siguienteNumeroPedido();
-
-    // Email del reseller
-    var emailReseller = '';
-    try {
-      var dRes = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-      var rLow = reseller.trim().toLowerCase();
-      for (var ri = 1; ri < dRes.length; ri++) {
-        if (String(dRes[ri][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === rLow) {
-          emailReseller = String(dRes[ri][SCHEMA.RESELLERS.EMAIL] || '').trim();
-          break;
-        }
-      }
-    } catch(eR) { Logger.log('generarPedidoRepuestosPortal email: ' + eR); }
-
-    // Loguear ítems sin catálogo
-    var sinCatalogo = [];
-    var hojaDesc = getSheet(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
-    for (var i = 0; i < items.length; i++) {
-      if (items[i].estado === 'sin_catalogo') {
-        sinCatalogo.push(items[i]);
-        if (hojaDesc) {
-          hojaDesc.appendRow([
-            new Date(),
-            reseller,
-            items[i].sku || items[i].descripcion,
-            items[i].cantidad,
-            numero
-          ]);
-        }
-      }
-    }
-    if (sinCatalogo.length) invalidateSheetValues(SCHEMA.SHEETS.ITEMS_SIN_CATALOGO);
-
-    // Generar PDF en Drive
-    var pdfUrl = _generarPdfPedido(numero, reseller, items, obs, total);
-
-    // Registrar pedido
-    var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
-    if (hojaPed) {
-      hojaPed.appendRow([
-        numero,
-        new Date(),
-        reseller,
-        emailReseller,
-        items.length,
-        sinCatalogo.length,
-        'Enviado',
-        obs,
-        JSON.stringify(items),
-        pdfUrl || '',
-        total > 0 ? total : ''
-      ]);
-      invalidateSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
-    }
-
-    // Enviar email
-    _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, total, pdfUrl);
-
-    return { ok: true, numero: numero, pdfUrl: pdfUrl || '' };
-  } catch(e) {
-    Logger.log('generarPedidoRepuestosPortal: ' + e);
-    return { ok: false, error: e.toString() };
-  }
-}
 
 // ── Mapea estado WOS a los 3 estados simples para el reseller ─
 function _mapEstadoWosSimple(estadoWos) {
@@ -999,12 +900,26 @@ function _mapEstadoWosSimple(estadoWos) {
 }
 
 // ── Confirmar recepción de repuestos desde el portal ─────────
-function RS_confirmarRecepcion(numero, reseller) {
+function RS_confirmarRecepcion(token, numero) {
   // Lock + guarda de idempotencia: 30 clicks seguidos NO cierran 30 veces ni mandan 30 mails.
   var lock = LockService.getScriptLock();
   try { lock.waitLock(20000); }
   catch(eL) { return { ok: false, error: 'Otra confirmación en curso. Reintentá en unos segundos.' }; }
   try {
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    // Dueño real del pedido según PEDIDOS_REPUESTOS — nunca el "reseller" que mandaba el
+    // cliente (antes cualquiera podía confirmar/cerrar el pedido de otro con solo el número).
+    var datosPed = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
+    var P        = SCHEMA.PEDIDOS_REPUESTOS;
+    var reseller = '';
+    for (var pi = 1; pi < datosPed.length; pi++) {
+      if (String(datosPed[pi][P.ID] || '').trim() !== String(numero).trim()) continue;
+      reseller = String(datosPed[pi][P.RESELLER] || '').trim();
+      break;
+    }
+    if (!reseller || !_sesionPoseeReseller(_s, reseller)) return { ok: false, error: 'No autorizado.' };
+
     var ss    = SpreadsheetApp.openById('1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw');
     var hoja  = ss.getSheetByName('Pedidos_resellers');
     if (!hoja) return { ok: false, error: 'Hoja no encontrada' };
@@ -1102,11 +1017,13 @@ function _rsEnviarCierreRecepcion(numero, reseller, threadId) {
 }
 
 // ── Historial de pedidos por reseller ────────────────────────
-function obtenerHistorialPedidosPortal(reseller) {
+function obtenerHistorialPedidosPortal(token, reseller) {
   try {
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, historial: [] };
     _asegurarHojasPedidos();
     var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
-    var rLow  = String(reseller || '').trim().toLowerCase();
+    var rLow  = String(_s.nombre || '').trim().toLowerCase();
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
     var out   = [];
     for (var i = datos.length - 1; i >= 1; i--) {
@@ -1223,9 +1140,10 @@ function obtenerHistorialPedidosPortal(reseller) {
 // hasta que se despacha. Solo cuenta pedidos de este reseller efectivamente
 // enviados, cruzando PEDIDOS_REPUESTOS (fecha de recepción) con WOS
 // (Pedidos_resellers, col 14 = fecha de despacho) — el mismo join que el historial.
-function obtenerTiempoPromedioEnvioPortal(reseller) {
+function obtenerTiempoPromedioEnvioPortal(token, reseller) {
   try {
-    var rLow = String(reseller || '').trim().toLowerCase();
+    var _s = _sesionResolver(token, reseller);
+    var rLow = _s ? String(_s.nombre || '').trim().toLowerCase() : '';
     if (!rLow) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
     var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
@@ -1450,8 +1368,15 @@ function _pedPreciosPorFactor(factor) {
   return precios;
 }
 
-function obtenerIndiceRepuestosPortal(reseller, pctOverride) {
+function obtenerIndiceRepuestosPortal(token, reseller, pctOverride) {
   try {
+    var _id = _identidadResolver(token);
+    if (!_id) return { ok: false, items: [] };
+    if (_id.modo === 'reseller') {
+      reseller = (_id.esGrupo && reseller && _id.resellers.indexOf(reseller) >= 0) ? reseller : _id.nombre;
+      pctOverride = undefined;
+    }
+
     var _descInfo = _descInfoResolve(reseller, pctOverride);
     var _factor   = _descInfo.factor;
 
@@ -1564,11 +1489,13 @@ function _crearTriggerPedidos() {
 }
 
 // ── Borradores activos del reseller ──────────────────────────
-function obtenerBorradoresActivos(resellerName) {
+function obtenerBorradoresActivos(token, resellerName) {
   try {
+    var _s = _sesionResolver(token, resellerName);
+    if (!_s) return { ok: false, borradores: [] };
     var datos = getSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
     var P     = SCHEMA.PEDIDOS_REPUESTOS;
-    var rLow  = String(resellerName || '').trim().toLowerCase();
+    var rLow  = String(_s.nombre || '').trim().toLowerCase();
     var out   = [];
     for (var i = 1; i < datos.length; i++) {
       var f = datos[i];
@@ -1595,10 +1522,12 @@ function obtenerBorradoresActivos(resellerName) {
 }
 
 // ── Cancelar borrador (atómico con LockService) ───────────────
-function cancelarBorradorPortal(numero) {
+function cancelarBorradorPortal(token, numero) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
+    var _s = _sesionResolver(token);
+    if (!_s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
     var P       = SCHEMA.PEDIDOS_REPUESTOS;
     if (!hojaPed) return { ok: false, error: 'Hoja no encontrada.' };
@@ -1606,6 +1535,9 @@ function cancelarBorradorPortal(numero) {
     for (var r = 1; r < rows.length; r++) {
       if (String(rows[r][P.ID]     || '') !== numero)    continue;
       if (String(rows[r][P.ESTADO] || '') !== 'Borrador') continue;
+      // Antes no pedía ni el nombre — cualquiera que supiera/adivinara un PR-#### podía
+      // cancelar el borrador de cualquier reseller sin login (auditoría de seguridad).
+      if (!_sesionPoseeReseller(_s, rows[r][P.RESELLER])) return { ok: false, error: 'No autorizado.' };
       hojaPed.getRange(r + 1, P.ESTADO + 1).setValue('Cancelado');
       invalidateSheetValues(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
       return { ok: true };

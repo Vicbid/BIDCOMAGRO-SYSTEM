@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.8
+// @version 1.9
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -137,7 +137,9 @@ function RS_confirmarCotizacion(params) {
     lock.waitLock(30000);
 
     params = params || {};
-    var reseller     = String(params.reseller     || '').trim();
+    var _s = _sesionResolver(params.token, params.reseller);
+    if (!_s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var reseller     = _s.nombre;
     var cliente      = String(params.cliente      || '').trim();
     var clienteEmail = String(params.clienteEmail || '').trim();
     var obs          = String(params.observaciones|| '').trim();
@@ -479,11 +481,13 @@ function _enviarEmailCotizacion(numero, reseller, emailReseller, cliente, client
 }
 
 // ── Historial de cotizaciones del reseller ────────────────────
-function obtenerHistorialCotizaciones(reseller) {
+function obtenerHistorialCotizaciones(token, reseller) {
   try {
+    var _s = _sesionResolver(token, reseller);
+    if (!_s) return { ok: false, historial: [] };
     _asegurarHojaCotizaciones();
     var datos = getSheetValues(SCHEMA.SHEETS.COTIZACIONES);
-    var rLow  = String(reseller || '').trim().toLowerCase();
+    var rLow  = String(_s.nombre || '').trim().toLowerCase();
     var out   = [];
     for (var i = datos.length - 1; i >= 1; i--) {
       var f = datos[i];

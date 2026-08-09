@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER — Módulo Cuenta Corriente (Solo Lectura)
 //  Fuente: CC.VtaCte (spreadsheet externo, ID en servidor)
 //  Seguridad: nombre de sesión revalidado contra hoja Resellers
@@ -50,21 +50,12 @@ var _CC = {
   COMENTARIO:   16
 };
 
-// ── Seguridad: revalida que `nombre` sea un reseller legítimo ──
-// Devuelve true solo si existe una fila en Resellers con ese nombre exacto.
-// Impide que un cliente manipule el param para ver datos de otro reseller.
-function _CC_resellerValido(nombre) {
-  try {
-    var d       = getSheetValues(SCHEMA.SHEETS.RESELLERS);
-    var nombreB = String(nombre || '').trim().toLowerCase();
-    for (var i = 1; i < d.length; i++) {
-      if (String(d[i][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === nombreB) return true;
-    }
-    return false;
-  } catch(e) {
-    Logger.log('_CC_resellerValido: ' + e);
-    return false;
-  }
+// ── Seguridad: resuelve el reseller real a partir de la SESIÓN, no del nombre que ──
+// mande el cliente. `_CC_resellerValido` (versión vieja) solo chequeaba que el nombre
+// existiera en la hoja Resellers — no que fuera el del que estaba llamando; cualquiera
+// podía pedir la cuenta corriente de cualquier competidor así (auditoría de seguridad).
+function _CC_sesion(token, nombrePedido) {
+  return _sesionResolver(token, nombrePedido);
 }
 
 // ── Lee y cachea los movimientos del reseller desde CC.VtaCte ──
@@ -236,16 +227,11 @@ function _CC_calcularKpis(filas) {
 // params.filtros → { desde, hasta, operacion } (opcionales)
 function CC_obtenerMovimientos(params) {
   try {
-    var nombre  = String((params && params.nombre) || '').trim();
     var filtros = (params && params.filtros) ? params.filtros : null;
 
-    if (!nombre) return { ok: false, error: 'Sesión no identificada.' };
-
-    // Revalidar que el nombre pertenece a un reseller legítimo
-    if (!_CC_resellerValido(nombre)) {
-      Logger.log('CC_obtenerMovimientos: acceso denegado para "' + nombre + '"');
-      return { ok: false, error: 'Acceso no autorizado.' };
-    }
+    var s = _CC_sesion(params && params.token, params && params.nombre);
+    if (!s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var nombre = s.nombre;
 
     var filas     = _CC_leerDatos(nombre);
     var filtradas = _CC_aplicarFiltros(filas, filtros);
@@ -272,8 +258,9 @@ function CC_obtenerMovimientos(params) {
 // ── Exportar como XLSX ────────────────────────────────────────
 function CC_exportarXLS(params) {
   try {
-    var nombre = String((params && params.nombre) || '').trim();
-    if (!nombre || !_CC_resellerValido(nombre)) return { ok: false, error: 'No autorizado.' };
+    var s = _CC_sesion(params && params.token, params && params.nombre);
+    if (!s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var nombre = s.nombre;
 
     var filas = _CC_aplicarFiltros(_CC_leerDatos(nombre), params.filtros || null);
 
@@ -313,8 +300,9 @@ function CC_exportarXLS(params) {
 // ── Exportar como PDF ─────────────────────────────────────────
 function CC_exportarPDF(params) {
   try {
-    var nombre = String((params && params.nombre) || '').trim();
-    if (!nombre || !_CC_resellerValido(nombre)) return { ok: false, error: 'No autorizado.' };
+    var s = _CC_sesion(params && params.token, params && params.nombre);
+    if (!s) return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
+    var nombre = s.nombre;
 
     var filas = _CC_aplicarFiltros(_CC_leerDatos(nombre), params.filtros || null);
     var tz    = Session.getScriptTimeZone();
