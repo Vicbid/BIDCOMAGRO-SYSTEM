@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.9
+// @version 1.10
 
 // ============================================================
 //  COMPRAS DJI
@@ -173,7 +173,11 @@ function _logHistorialCAS(idCas, estadoAnterior, estadoNuevo, operador, observac
 }
 
 function recibirMercaderia(cas, items, operador, deposito) {
-  // items = [{ codigo, descripcion, cantRecibida }]
+  // items = [{ codigo, descripcion, cantRecibida, sustituyeA?, marcarReemplazoPermanente? }]
+  // sustituyeA: SKU que estaba pedido en COMPRAS_DETALLE, cuando DJI mandó un código distinto
+  // pero compatible (p.ej. no tenían stock del original). El stock/Carmen se acredita bajo el
+  // código que REALMENTE llegó (codigo); la reconciliación del pedido (COMPRAS_DETALLE, RESERVAS)
+  // se hace contra sustituyeA para no dejar esa línea "Pendiente" para siempre.
   deposito = String(deposito || 'BA').trim().toUpperCase();
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -201,6 +205,8 @@ function recibirMercaderia(cas, items, operador, deposito) {
       var cod  = String(item.codigo).trim().toUpperCase();
       var cant = parseInt(item.cantRecibida)||0;
       if (cant <= 0) continue;
+      var sustB  = item.sustituyeA ? String(item.sustituyeA).trim().toUpperCase() : '';
+      var obsMov = sustB ? ('Sustituye a ' + sustB + ' — DJI confirma compatible') : '';
       var filaStr = stockIdx[cod];
       if (filaStr) {
         var actual = parseInt(dStr[filaStr-1][2])||0;
@@ -215,7 +221,7 @@ function recibirMercaderia(cas, items, operador, deposito) {
         }
         strChanged = true;
         _registrarMovimiento("ENTRADA_COMPRA", cod, String(dStr[filaStr-1][1]),
-          cant, nuevo, cas, operador||"", deposito);
+          cant, nuevo, cas, operador||"", deposito, obsMov);
       } else {
         // Código nuevo: enriquecer con datos de DB_REPUESTOS / CATALOGO_DJI si existen
         var drIdx = dbRepIdx[cod];
@@ -225,7 +231,7 @@ function recibirMercaderia(cas, items, operador, deposito) {
         var fobFinal  = (drIdx !== undefined && dDbRep[drIdx][6]) ? parseFloat(dDbRep[drIdx][6])||0 : 0;
         nuevasFila.push([cod, descFinal, cant, 0, catFinal, '', modFinal, hoy, '', false]);
         _registrarMovimiento("ENTRADA_COMPRA", cod, descFinal,
-          cant, cant, cas, operador||"", deposito);
+          cant, cant, cas, operador||"", deposito, obsMov);
         // Si no existe en DB_REPUESTOS, crearlo con los datos disponibles
         if (drIdx === undefined) {
           var hojaRep = getSheet(SCHEMA.SHEETS.DB_REPUESTOS);
@@ -253,7 +259,8 @@ function recibirMercaderia(cas, items, operador, deposito) {
       if (String(resRow[R.CAS_REF]).trim().toUpperCase() !== String(cas).trim().toUpperCase()) continue;
       var rSku = String(resRow[R.SKU]).trim().toUpperCase();
       for (var ii = 0; ii < items.length; ii++) {
-        if (String(items[ii].codigo).trim().toUpperCase() === rSku) {
+        var itSku = String(items[ii].sustituyeA || items[ii].codigo).trim().toUpperCase();
+        if (itSku === rSku) {
           dRes[ri][R.ESTADO] = 'Cumplida';
           resChanged = true;
           destinos.push({
@@ -283,7 +290,8 @@ function recibirMercaderia(cas, items, operador, deposito) {
         if (String(dCD[cdi][CD.ID_CAS]).trim().toUpperCase() !== casUp) continue;
         var skuCD = String(dCD[cdi][CD.SKU]).trim().toUpperCase();
         for (var rii = 0; rii < items.length; rii++) {
-          if (String(items[rii].codigo).trim().toUpperCase() !== skuCD) continue;
+          var rSkuPedido = String(items[rii].sustituyeA || items[rii].codigo).trim().toUpperCase();
+          if (rSkuPedido !== skuCD) continue;
           var prevRecib  = parseInt(dCD[cdi][CD.CANTIDAD_RECIBIDA]) || 0;
           var newRecib   = prevRecib + (parseInt(items[rii].cantRecibida) || 0);
           var pedida     = parseInt(dCD[cdi][CD.CANTIDAD_PEDIDA]) || 0;
@@ -298,6 +306,18 @@ function recibirMercaderia(cas, items, operador, deposito) {
       invalidateSheetValues(SCHEMA.SHEETS.COMPRAS_DETALLE);
     }
 
+    // Ítems recibidos como sustituto de otro SKU, con el "reemplazo permanente" tildado:
+    // dejar el par asentado en el catálogo (DB_REPUESTOS.REEMPLAZADO_POR) para que futuras
+    // búsquedas (Pedidos/OT/Cotizador en Portal Reseller) ya sepan que uno reemplaza al otro.
+    var reemplazosCatalogo = [];
+    for (var si2 = 0; si2 < items.length; si2++) {
+      var it2 = items[si2];
+      if (it2.sustituyeA && it2.marcarReemplazoPermanente) {
+        var rC = _marcarReemplazoCatalogo(it2.sustituyeA, it2.codigo);
+        reemplazosCatalogo.push({ original: it2.sustituyeA, sustituto: it2.codigo, ok: rC.ok, msg: rC.msg || '' });
+      }
+    }
+
     // Escribir cada ítem en la hoja Recibidos del spreadsheet Carmen
     _escribirEnRecibidos(cas, items, '');
 
@@ -306,11 +326,37 @@ function recibirMercaderia(cas, items, operador, deposito) {
 
     // Marcar CAS como En depósito
     actualizarEstadoCAS(cas, "En depósito", "Recepción registrada", operador);
-    return { ok: true, destinoMercaderia: destinos };
+    return { ok: true, destinoMercaderia: destinos, reemplazosCatalogo: reemplazosCatalogo };
   } catch(e) {
     return { ok: false, msg: e.toString() };
   } finally {
     lock.releaseLock();
+  }
+}
+
+// Registra en el catálogo (DB_REPUESTOS, columna REEMPLAZADO_POR) que skuOriginal se puede
+// resolver con skuSustituto — usado cuando DJI manda un repuesto distinto al pedido confirmando
+// que son compatibles. A partir de acá, cualquier búsqueda de skuOriginal en Portal Reseller
+// (Pedidos/OT/Cotizador, que ya leen esta columna) va a mostrar el reemplazo, igual que con los
+// SKUs que DJI discontinúa oficialmente.
+function _marcarReemplazoCatalogo(skuOriginal, skuSustituto) {
+  try {
+    var origB = String(skuOriginal || '').trim().toUpperCase();
+    var subB  = String(skuSustituto || '').trim().toUpperCase();
+    if (!origB || !subB || origB === subB) return { ok: false, msg: 'SKUs inválidos' };
+    var hoja = getSheet(SCHEMA.SHEETS.DB_REPUESTOS);
+    if (!hoja) return { ok: false, msg: 'No se encontró DB_REPUESTOS' };
+    var d = getSheetValues(hoja);
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim().toUpperCase() !== origB) continue;
+      hoja.getRange(i + 1, 9).setValue(subB); // columna I (índice 8) = REEMPLAZADO_POR
+      invalidateSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+      return { ok: true };
+    }
+    return { ok: false, msg: 'El SKU ' + origB + ' no está en el catálogo (DB_REPUESTOS) — no se pudo marcar el reemplazo.' };
+  } catch(e) {
+    Logger.log('_marcarReemplazoCatalogo: ' + e);
+    return { ok: false, msg: e.toString() };
   }
 }
 

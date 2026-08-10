@@ -188,7 +188,7 @@ function asegurarHojas() {
 // Se bumpea a mano junto con "<!-- @version X.Y -->" de SM_Index.html — el cliente la trae
 // embebida al cargar la página y la vuelve a consultar cada tanto (SM_obtenerVersionActual)
 // para avisar si quedó una pestaña vieja abierta. Ver _smChequearVersionNueva en SM_Index.html.
-var SM_VERSION = '5.45';
+var SM_VERSION = '5.46';
 
 function SM_obtenerVersionActual() { return SM_VERSION; }
 
@@ -296,7 +296,7 @@ function _fmtFecha(v) {
   catch(e) { return ""; }
 }
 
-function _registrarMovimiento(tipo, codigo, desc, cantidad, stockResult, referencia, operador, deposito) {
+function _registrarMovimiento(tipo, codigo, desc, cantidad, stockResult, referencia, operador, deposito, observaciones) {
   var hojaLedger = getSheet(SCHEMA.SHEETS.MOVIMIENTOS);
   if (!hojaLedger) {
     var err = '[_registrarMovimiento] Hoja MOVIMIENTOS_STOCK no encontrada. tipo=' + tipo + ' sku=' + codigo;
@@ -306,7 +306,7 @@ function _registrarMovimiento(tipo, codigo, desc, cantidad, stockResult, referen
   }
   hojaLedger.appendRow([
     new Date(), tipo, codigo, desc, cantidad, stockResult,
-    referencia || '', operador || '', '', String(deposito || 'BA')
+    referencia || '', operador || '', observaciones || '', String(deposito || 'BA')
   ]);
 }
 

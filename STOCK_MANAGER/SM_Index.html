@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.45 -->
+<!-- @version 5.46 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -150,6 +150,13 @@ tr:last-child td{border-bottom:none}
 .recep-card .recep-sn-tag b{display:block;font-size:11px;color:var(--tx);font-weight:800;text-transform:none;letter-spacing:0;margin-top:1px}
 .recep-print-lbl{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--tx);cursor:pointer;user-select:none}
 .recep-print-lbl input{width:18px;height:18px;accent-color:var(--blue);cursor:pointer}
+.recep-sust-btn{width:34px;height:34px;flex-shrink:0;border:1.5px solid var(--brd);border-radius:8px;background:var(--surf);color:var(--tx-d);cursor:pointer;font-size:13px;transition:background .12s,border-color .12s,color .12s}
+.recep-sust-btn:hover{border-color:var(--orange);color:var(--orange)}
+.recep-sust-panel{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 8px;padding:9px 14px;border:1.5px dashed var(--orange);border-radius:10px;background:rgba(230,126,34,.07)}
+.recep-sust-lbl{font-size:12px;color:var(--tx);flex:1;min-width:200px}
+.recep-sust-sku{width:150px;font-size:13px;font-weight:700;padding:6px 8px;border:1px solid var(--brd);border-radius:6px;background:var(--surf);color:var(--tx);font-family:var(--f)}
+.recep-sust-perm{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--tx-m);cursor:pointer;user-select:none;white-space:nowrap}
+.recep-sust-perm input{width:16px;height:16px;accent-color:var(--orange);cursor:pointer}
 
 /* ── BOTONES ────────────────────────────── */
 .btn-p{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
@@ -5498,6 +5505,16 @@ function _recepRowHTML(sku, desc, delta, checked) {
   var etiqCtrl = isSN
     ? '<div class="recep-sn-tag"' + hide + '>🔢 N° serie<b>sin etiqueta</b></div>'
     : '<label class="recep-etq' + (etqOn ? ' on' : '') + '"' + hide + ' title="Imprimir etiqueta individual de este código"><span class="lbl">🏷 Etiqueta</span><input type="checkbox" class="recep-etq-ck"' + (etqOn ? ' checked' : '') + ' onchange="_recepToggleEtq(this)"></label>';
+  // Botón "llegó otro código" — DJI a veces manda un sustituto compatible cuando no tiene
+  // stock del pedido original. Arranca oculto/cerrado: no molesta en el caso común (99% de
+  // las recepciones son del código pedido tal cual).
+  var sustBtn = '<button type="button" class="recep-sust-btn"' + hide + ' title="Llegó un código distinto pero compatible (sustituto DJI)" onclick="_recepToggleSust(this)"><i class="fa fa-right-left"></i></button>';
+  var sustPanel =
+    '<div class="recep-sust-panel" style="display:none">' +
+      '<span class="recep-sust-lbl"><i class="fa fa-right-left" style="margin-right:5px"></i>Llegó un código distinto (compatible según DJI) en vez de <b>' + escH(sku) + '</b>:</span>' +
+      '<input type="text" class="recep-sust-sku" placeholder="Código que llegó" oninput="this.value=this.value.toUpperCase()">' +
+      '<label class="recep-sust-perm"><input type="checkbox" class="recep-sust-perm-ck" checked>Registrar como reemplazo permanente en el catálogo</label>' +
+    '</div>';
   return '<div class="recep-item recep-card' + on + '" data-codigo="' + escH(sku) + '" data-desc="' + escH(desc) + '" data-etiq-sku="' + escH(su) + '" data-delta="' + delta + '">' +
     '<label class="recep-check">' +
       '<input type="checkbox" class="recep-ok"' + (checked ? ' checked' : '') + ' onchange="_recepToggleRow(this)">' +
@@ -5513,8 +5530,31 @@ function _recepRowHTML(sku, desc, delta, checked) {
         '<input type="number" class="recep-qty" value="' + delta + '" min="0" max="' + delta + '">' +
       '</div>' +
       etiqCtrl +
+      sustBtn +
     '</div>' +
-  '</div>';
+  '</div>' +
+  sustPanel;
+}
+
+// Devuelve el código sustituto cargado en el panel de la fila (si está abierto y con valor),
+// o '' si esta recepción es del código pedido tal cual — el caso normal.
+function _recepSustSku(row) {
+  var panel = row.nextElementSibling;
+  if (!panel || !panel.classList.contains('recep-sust-panel') || panel.style.display === 'none') return '';
+  var skuIn = panel.querySelector('.recep-sust-sku');
+  return skuIn ? skuIn.value.trim().toUpperCase() : '';
+}
+
+// Abre/cierra el panel de "llegó otro código" de una fila.
+function _recepToggleSust(btn) {
+  var row = btn.closest('.recep-item');
+  var panel = row && row.nextElementSibling;
+  if (!panel || !panel.classList.contains('recep-sust-panel')) return;
+  var showing = panel.style.display !== 'none';
+  panel.style.display = showing ? 'none' : '';
+  var skuIn = panel.querySelector('.recep-sust-sku');
+  if (showing) { if (skuIn) skuIn.value = ''; }
+  else if (skuIn) skuIn.focus();
 }
 
 // Tilda/destilda una fila: la pinta de verde y muestra/oculta la cantidad recibida + la etiqueta.
@@ -5523,10 +5563,18 @@ function _recepToggleRow(chk) {
   if (!row) return;
   var on = chk.checked;
   row.classList.toggle('on', on);
-  ['.recep-recibido', '.recep-etq', '.recep-sn-tag'].forEach(function(s) {
+  ['.recep-recibido', '.recep-etq', '.recep-sn-tag', '.recep-sust-btn'].forEach(function(s) {
     var el = row.querySelector(s);
     if (el) el.style.display = on ? '' : 'none';
   });
+  if (!on) {
+    var panel = row.nextElementSibling;
+    if (panel && panel.classList.contains('recep-sust-panel')) {
+      panel.style.display = 'none';
+      var skuIn = panel.querySelector('.recep-sust-sku');
+      if (skuIn) skuIn.value = '';
+    }
+  }
 }
 
 // Resalta el rótulo "🏷 Etiqueta" cuando el operador lo tilda.
@@ -5551,9 +5599,27 @@ function _recepColectarItems(sel, loc) {
     if (chk && !chk.checked) return;
     var qi  = row.querySelector('.recep-qty');
     var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
-    if (qty > 0) items.push({ codigo: row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty, ubicacion: loc });
+    if (qty <= 0) return;
+    var subSku = _recepSustSku(row);
+    var item = { codigo: subSku || row.dataset.codigo, descripcion: row.dataset.desc, cantRecibida: qty, ubicacion: loc };
+    if (subSku) {
+      item.sustituyeA = row.dataset.codigo;
+      var permCk = row.nextElementSibling.querySelector('.recep-sust-perm-ck');
+      item.marcarReemplazoPermanente = !!(permCk && permCk.checked);
+    }
+    items.push(item);
   });
   return items;
+}
+
+// Avisa el resultado de marcar un sustituto como reemplazo permanente en el catálogo — la
+// recepción de stock ya se hizo de todas formas, esto es aparte (ver recibirMercaderia).
+function _recepAvisarReemplazos(reemplazos) {
+  if (!reemplazos || !reemplazos.length) return;
+  reemplazos.forEach(function(r) {
+    if (r.ok) toast('Catálogo: ' + r.original + ' → reemplazo ' + r.sustituto + ' registrado', 'ok');
+    else toast('No se pudo registrar el reemplazo ' + r.original + ' → ' + r.sustituto + ': ' + r.msg, 'err');
+  });
 }
 
 // Etiquetas que el operador eligió imprimir (por fila): solo filas tildadas "Llegó" + "🏷 Etiqueta",
@@ -5569,7 +5635,7 @@ function _recepEtiquetasElegidas(sel) {
     var qi  = row.querySelector('.recep-qty');
     var qty = qi ? (parseInt(qi.value, 10) || 0) : (parseInt(row.getAttribute('data-delta'), 10) || 0);
     if (qty <= 0) return;
-    var sku = String(row.getAttribute('data-etiq-sku') || '').toUpperCase();
+    var sku = _recepSustSku(row) || String(row.getAttribute('data-etiq-sku') || '').toUpperCase();
     if (!sku) return;
     if (_reqSNMap && _reqSNMap[sku]) return;                  // serializados: llevan SN real, no SO
     out.push({ sku: sku, cantidad: qty, modo: 'unidad' });
@@ -5659,6 +5725,7 @@ function confirmarReciboParcial() {
       sp(false);
       if (res.ok) {
         toast('Recepción registrada','ok');
+        _recepAvisarReemplazos(res.reemplazosCatalogo);
         bootstrap.Modal.getInstance(document.getElementById('modal-detalle-cas')).hide();
         cargarComprasTab(); load();
         _recepPostImprimirEtiq(etiqWin, etiqItems, op);
@@ -5846,6 +5913,7 @@ function confirmarEstadoCAS() {
         sp(false);
         if (res.ok) {
           toast('Mercadería recibida y stock actualizado','ok');
+          _recepAvisarReemplazos(res.reemplazosCatalogo);
           bootstrap.Modal.getInstance(document.getElementById('modal-estado-cas')).hide();
           cargarComprasTab(); load();
           _recepPostImprimirEtiq(etiqWin, etiqItems, op);
