@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -183,6 +183,32 @@ function _cpDocsDefinidosBlobs() {
     try { blobs.push(DriveApp.getFileById(a.id).getBlob()); } catch (e) { Logger.log('_cpDocsDefinidosBlobs ' + a.name + ': ' + e); }
   });
   return blobs;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   REMITO (AGRAS Y BRUMBY) — planilla aparte, ajena a Masterchief, SOLO LECTURA.
+   Col E = IDVenta | Col AJ = N° de remito | Col AK = link al remito.
+════════════════════════════════════════════════════════════ */
+
+// { numero, url } del remito de una venta, o null si esa venta todavía no tiene
+// remito cargado en esa hoja (o la hoja/pestaña no está disponible).
+function _cpRemitoInfo(idVenta) {
+  try {
+    var key = _s(idVenta).toUpperCase();
+    if (!key) return null;
+    var ss = _cpSS(CP_REMITOS_SS_ID);
+    var h = ss.getSheetByName(CP_REMITOS_TAB);
+    if (!h) { Logger.log('Tab remitos no encontrada: ' + CP_REMITOS_TAB); return null; }
+    var d = h.getDataRange().getValues();
+    for (var i = 1; i < d.length; i++) {
+      if (_s(d[i][4]).toUpperCase() !== key) continue;   // E = IDVenta
+      var numero = _s(d[i][35]);  // AJ = N° de remito
+      var url    = _s(d[i][36]);  // AK = link al remito
+      if (numero || url) return { numero: numero, url: url };
+    }
+    return null;
+  } catch (e) { Logger.log('_cpRemitoInfo error: ' + e); return null; }
 }
 
 

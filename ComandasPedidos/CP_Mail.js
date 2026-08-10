@@ -1,4 +1,4 @@
-// @version 2.3
+// @version 2.4
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -51,9 +51,10 @@ function CP_previewMailEnvio(idVenta, envio) {
     // Mismos adjuntos que el envío real: comanda(s) siempre; documentos definidos solo en el 1er envío.
     var esPrimerEnvio = !arr.some(function(x) { return x.envio !== e.envio && x.mailReseller; });
     var docNames = esPrimerEnvio ? _cpDocsDefinidosArchivos().map(function(a) { return a.name; }) : [];
+    var remito = _cpRemitoInfo(idVenta);
     var asunto = (cfg['MAIL_ASUNTO'] || 'Despacho {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
       .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
-    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames);
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, '', remito);
 
     var bcc = _s(cfg['MAIL_BCC']), cc = _s(cfg['MAIL_CC']);
     return {
@@ -122,9 +123,10 @@ function _cpEnviarEnvioCore(idVenta, envio, force) {
     var docsArch = !hiloPrevio ? _cpDocsDefinidosArchivos() : [];   // 1 solo listado de la carpeta
     var docNames = docsArch.map(function(a) { return a.name; });      // nombres para el cuerpo del mail
 
+    var remito = _cpRemitoInfo(idVenta);
     var asunto = (cfg['MAIL_ASUNTO'] || 'Despacho {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
       .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
-    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'despachado');
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'despachado', remito);
 
     var opts = { htmlBody: html, name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO' };
     if (cfg['MAIL_CC'])  opts.cc  = cfg['MAIL_CC'];
@@ -213,9 +215,10 @@ function _cpEnviarMailAutorizadoCore(idVenta, envio, force) {
     var docsArch = !hiloPrevio ? _cpDocsDefinidosArchivos() : [];
     var docNames = docsArch.map(function(a) { return a.name; });
 
+    var remito = _cpRemitoInfo(idVenta);
     var asunto = (cfg['MAIL_ASUNTO_AUTORIZADO'] || 'Pedido autorizado {IDVENTA} · Comanda {COMANDA} — {CLIENTE}')
       .replace('{IDVENTA}', idVenta).replace('{COMANDA}', parts.join('/')).replace('{CLIENTE}', det.razonSocial || det.reseller || '');
-    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'autorizado');
+    var html = _cpMailHtml(idVenta, parts, det, guias, transs.join(', '), ocaBase, pdfs, detEnv, e.notaReseller, pend, envio, docNames, 'autorizado', remito);
 
     var opts = { htmlBody: html, name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO' };
     if (cfg['MAIL_CC'])  opts.cc  = cfg['MAIL_CC'];
@@ -467,7 +470,7 @@ function _cpPendBloqueHtml(pendientes, esc, titulo) {
 // Mail al reseller de un ENVÍO — mismo contenido completo (chips, guía, PDF, adjuntos) para
 // los 2 mails de la venta; lo único que cambia es el encabezado/intro según `tipo`:
 // 'autorizado' (mail #1, apenas hay guía) o 'despachado' (mail #2, default, cuando ya salió).
-function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs, itemsEnviados, notaReseller, pendientes, envioNum, docsAdjuntos, tipo) {
+function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs, itemsEnviados, notaReseller, pendientes, envioNum, docsAdjuntos, tipo, remito) {
   function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); }
   var esAutorizado = (tipo === 'autorizado');
   var headerColor = esAutorizado ? '#6b7280' : '#00a3e0';
@@ -493,6 +496,9 @@ function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs
   var pdfHtml = (pdfs && pdfs.length)
     ? pdfs.map(function(p){ return '<a href="'+esc(p.url)+'" style="color:#00a3e0;font-weight:700;text-decoration:none">📄 '+esc(p.comanda)+' ↗</a>'; }).join(' &nbsp;·&nbsp; ')
     : '—';
+  var remitoHtml = (remito && (remito.numero || remito.url))
+    ? (remito.url ? '<a href="'+esc(remito.url)+'" style="color:#00a3e0;font-weight:700;text-decoration:none">'+esc(remito.numero || 'Ver remito')+' ↗</a>' : '<b>'+esc(remito.numero)+'</b>')
+    : '';
   var notaBloque = _s(notaReseller)
     ? '<div style="background:#eef7ff;border:1px solid #cfe6fb;border-left:3px solid #00a3e0;border-radius:0 8px 8px 0;padding:12px 15px;margin:0 0 16px;font-size:13px;color:#1a1f2e;white-space:pre-wrap"><b>Mensaje:</b> '+esc(notaReseller)+'</div>'
     : '';
@@ -518,6 +524,7 @@ function _cpMailHtml(idVenta, comandas, det, guias, transportista, ocaBase, pdfs
         chip('Transportista', esc(transportista||'—'))+
         chip('Guía de seguimiento', guiasHtml)+
         chip('PDF comanda', pdfHtml)+
+        (remitoHtml ? chip('Remito', remitoHtml) : '')+
       '</table>'+
       adjBloque+
       '<div style="margin-top:18px;font-size:11px;color:#aaa">Enviado automáticamente desde Comandas · Carga Masterchief.</div>'+

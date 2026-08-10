@@ -1,4 +1,4 @@
-// @version 1.16
+// @version 1.17
 // ============================================================
 //  COMANDAS · CARGA MASTERCHIEF — Configuración
 // ============================================================
@@ -9,6 +9,11 @@ var CP_TAB          = 'Ventas';
 var CP_MASTER_TAB   = 'Comandas Master';  // misma planilla; estado de despacho + guía OCA (solo lectura)
 var CP_DESPACHADO   = 'DESPACHADO';        // valor de col F que marca la comanda como despachada
 var CP_RESELLERS_TAB = 'Resellers';        // misma planilla; nombre + mail del reseller (solo lectura)
+
+// Sheet de REMITOS (AGRAS Y BRUMBY) — planilla aparte, SOLO LECTURA, ajena a Masterchief.
+// Col E = IDVenta | Col AJ = N° de remito | Col AK = link al remito.
+var CP_REMITOS_SS_ID = '1L4_1LqYrNJPQ1pwQeZUXwkjQX2NW0mYvWluOBXNqTL0';
+var CP_REMITOS_TAB   = 'AGRAS Y BRUMBY';
 
 // Sheet donde SÍ se escribe (separado de Ventas): registro del momento CARGAR
 // y de las comandas ya cargadas en Masterchief por el operador.
