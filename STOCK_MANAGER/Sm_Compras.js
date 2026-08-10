@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.6
+// @version 1.7
 
 // ============================================================
 //  COMPRAS DJI
@@ -12,9 +12,11 @@ var ESTADOS_CAS = [
 function cargarCompras() {
   try {
     var d   = getSheetValues(SCHEMA.SHEETS.COMPRAS);
+    var detalleResumen = _smComprasResumenDetalle();
     var out = [];
     for (var i = 1; i < d.length; i++) {
-      var f = d[i];
+      var f  = d[i];
+      var rd = detalleResumen[String(f[0]).trim().toUpperCase()] || {};
       var fechaVuelo  = f[8]  instanceof Date ? f[8]  : null;
       var fechaDepo   = f[10] instanceof Date ? f[10] : null;
       var diasTransito = (fechaVuelo && !fechaDepo)
@@ -33,12 +35,51 @@ function cargarCompras() {
         ultimaActualizacion: f[13] instanceof Date ? _fmtFecha(f[13]) : (f[13] ? String(f[13]) : null),
         eta:    _fmtFecha(f[SCHEMA.COMPRAS_DJI.ETA]),
         etaISO: (f[SCHEMA.COMPRAS_DJI.ETA] instanceof Date)
-                ? Utilities.formatDate(f[SCHEMA.COMPRAS_DJI.ETA], Session.getScriptTimeZone(), "yyyy-MM-dd") : ""
+                ? Utilities.formatDate(f[SCHEMA.COMPRAS_DJI.ETA], Session.getScriptTimeZone(), "yyyy-MM-dd") : "",
+        // N° AIR y próximo arribo por ítem — importados del planner externo a COMPRAS_DETALLE
+        // (sincronizarItemsCAS), independientes de la ETA manual de arriba (la tipea el operador).
+        air:           rd.air          || "",
+        etaProxima:    rd.etaProxima   || "",
+        etaProximaISO: rd.etaProximaISO|| ""
       });
     }
     out.sort(function(a,b){ return ESTADOS_CAS.indexOf(a.estado) - ESTADOS_CAS.indexOf(b.estado); });
     return out;
   } catch(e) { return []; }
+}
+
+// Resume COMPRAS_DETALLE por CAS: N° AIR (de la línea que lo tenga) y la ETA más próxima
+// entre las líneas que todavía no llegaron (ESTADO !== 'Recibido') — ambos datos vienen del
+// planner externo vía sincronizarItemsCAS y hoy no se mostraban en ningún lado de la UI.
+function _smComprasResumenDetalle() {
+  var out = {};
+  try {
+    var hoja = getSheet(SCHEMA.SHEETS.COMPRAS_DETALLE);
+    if (!hoja) return out;
+    var d  = getSheetValues(hoja);
+    var CD = SCHEMA.COMPRAS_DETALLE;
+    var tz = Session.getScriptTimeZone();
+    for (var i = 1; i < d.length; i++) {
+      var f   = d[i];
+      var cas = String(f[CD.ID_CAS] || '').trim().toUpperCase();
+      if (!cas) continue;
+      if (!out[cas]) out[cas] = { air: '', etaProxima: '', etaProximaISO: '', _etaDate: null };
+
+      var air = String(f[CD.N_AIR] || '').trim();
+      if (air && !out[cas].air) out[cas].air = air;
+
+      if (String(f[CD.ESTADO] || '').trim() === 'Recibido') continue; // ya llegó — no compite por "próximo arribo"
+
+      var etaDate = _smEtaToDate(_normEtaVal(f[CD.FECHA_ETA]));
+      if (!etaDate) continue;
+      if (!out[cas]._etaDate || etaDate < out[cas]._etaDate) {
+        out[cas]._etaDate      = etaDate;
+        out[cas].etaProxima    = Utilities.formatDate(etaDate, tz, 'dd/MM/yyyy');
+        out[cas].etaProximaISO = Utilities.formatDate(etaDate, tz, 'yyyy-MM-dd');
+      }
+    }
+  } catch(e) { Logger.log('_smComprasResumenDetalle: ' + e); }
+  return out;
 }
 
 function registrarCAS(cas, metodoPago, operador) {

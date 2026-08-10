@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.44 -->
+<!-- @version 5.45 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5289,12 +5289,25 @@ function cargarComprasTab() {
               etaHtml = '<div class="kban-meta" style="margin-top:2px;color:' + (etaLate ? 'var(--red)' : 'var(--blue)') + '">' +
                 '<i class="fa fa-plane-arrival" style="margin-right:3px"></i>ETA: ' + c.eta + (etaLate ? ' (vencida)' : '') + '</div>';
             }
+            // AIR + próximo arribo por ítem (COMPRAS_DETALLE, importado del planner externo) —
+            // dato aparte de la ETA manual de arriba, que la tipea el operador a mano.
+            var airEtaHtml = '';
+            if (c.air || c.etaProxima) {
+              var etaProxLate = false;
+              if (c.etaProximaISO) { var _hoyEP = new Date(); _hoyEP.setHours(0,0,0,0); etaProxLate = new Date(c.etaProximaISO + 'T00:00:00') < _hoyEP; }
+              airEtaHtml = '<div class="kban-meta" style="margin-top:2px;color:var(--tx-m)">' +
+                (c.air ? '<i class="fa fa-barcode" style="margin-right:3px"></i>AIR ' + c.air : '') +
+                (c.air && c.etaProxima ? ' &nbsp;·&nbsp; ' : '') +
+                (c.etaProxima ? '<span style="color:' + (etaProxLate ? 'var(--red)' : 'var(--tx-m)') + '">Próx. arribo: ' + c.etaProxima + (etaProxLate ? ' (vencida)' : '') + '</span>' : '') +
+                '</div>';
+            }
             h += '<div class="kban-card">' +
               '<div class="kban-cas-id" title="' + c.cas + '">' + c.cas + '</div>' +
               '<div class="kban-meta"><i class="fa fa-calendar-alt" style="margin-right:3px"></i>' + c.fechaPedido +
                 (c.metodoPago ? ' &nbsp;·&nbsp; ' + c.metodoPago : '') + '</div>' +
               ultimaAct +
               etaHtml +
+              airEtaHtml +
               diasHtml +
               '<div class="kban-actions">' +
                 '<button class="btn-s" style="font-size:10px;padding:2px 7px" onclick=\'verDetalleCAS("' + c.cas + '")\' title="Ver contenido y reservas"><i class="fa fa-list"></i></button>' +

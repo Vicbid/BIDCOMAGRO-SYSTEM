@@ -188,7 +188,7 @@ function asegurarHojas() {
 // Se bumpea a mano junto con "<!-- @version X.Y -->" de SM_Index.html — el cliente la trae
 // embebida al cargar la página y la vuelve a consultar cada tanto (SM_obtenerVersionActual)
 // para avisar si quedó una pestaña vieja abierta. Ver _smChequearVersionNueva en SM_Index.html.
-var SM_VERSION = '5.44';
+var SM_VERSION = '5.45';
 
 function SM_obtenerVersionActual() { return SM_VERSION; }
 
