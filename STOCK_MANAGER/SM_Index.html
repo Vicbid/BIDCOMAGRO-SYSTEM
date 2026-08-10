@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.47 -->
+<!-- @version 5.48 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2997,11 +2997,12 @@ function renderDashboard(d) {
   if (alertas.length) {
     cardAl.style.display = 'block';
     var h = '';
-    var hayBackorder = false;
+    // El botón "Generar pedido borrador" se gatea con backorder REAL de WOS (d.tieneBackorderWOS,
+    // ver _smBackorderPorSkuWOS en Sm_Compras.js) — no con "OTs bloqueadas" (a.bloqueadas), que es
+    // un concepto distinto (reparaciones de HUB_PRO esperando repuestos, no backorder de WOS).
     for (var i = 0; i < alertas.length; i++) {
       var a = alertas[i];
       var esQuiebre = a.estado === 'QUIEBRE';
-      if (esQuiebre && a.bloqueadas > 0) hayBackorder = true;
       var estadoBadge = esQuiebre
         ? '<span class="b-crit">QUIEBRE</span>'
         : '<span class="b-warn">BAJO</span>';
@@ -3023,7 +3024,7 @@ function renderDashboard(d) {
            '</tr>';
     }
     document.getElementById('tbody-alertas').innerHTML = h;
-    if (btnBorrador) btnBorrador.style.display = hayBackorder ? 'inline-flex' : 'none';
+    if (btnBorrador) btnBorrador.style.display = d.tieneBackorderWOS ? 'inline-flex' : 'none';
   } else {
     cardAl.style.display = 'none';
     if (btnBorrador) btnBorrador.style.display = 'none';

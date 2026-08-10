@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Dashboard ─────────────────────────────────────
-// @version 1.1
+// @version 1.2
 
 function cargarDashboard() {
   try {
@@ -279,6 +279,14 @@ function cargarDashboard() {
       }
     } catch(ecp) { Logger.log('enCaminoProno: ' + ecp); }
 
+    // Backorder real de WOS (única fuente — ver _smBackorderPorSkuWOS en Sm_Compras.js): gatea
+    // el botón "Generar pedido borrador" en el cliente. Antes ese botón se mostraba si había
+    // OTs bloqueadas por quiebre (otro concepto, de HUB_PRO) — podía quedar visible sin backorder
+    // real en WOS, o escondido habiendo backorder real. Se cae en silencio a "sin backorder" si
+    // falla, para no romper el resto del dashboard.
+    var tieneBackorderWOS = false;
+    try { tieneBackorderWOS = Object.keys(_smBackorderPorSkuWOS()).length > 0; } catch(ebo) { Logger.log('cargarDashboard backorder WOS: ' + ebo); }
+
     return {
       bajoMinimo:       bajoMinimo,
       valorDeposito:    Math.round(valorDeposito * 100) / 100,
@@ -290,6 +298,7 @@ function cargarDashboard() {
       inmovilizado:     inmovilizado.slice(0, 12),
       rotacionMensual:  rotacionMensual,
       leadDias:         LEAD_DIAS,
+      tieneBackorderWOS:tieneBackorderWOS,
       metricas: {
         leadTime:       cntLead   ? Math.round(sumLead   / cntLead)   : null,
         aduana:         cntAduana ? Math.round(sumAduana / cntAduana) : null,

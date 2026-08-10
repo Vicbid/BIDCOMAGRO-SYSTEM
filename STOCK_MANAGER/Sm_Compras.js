@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.11
+// @version 1.13
 
 // ============================================================
 //  COMPRAS DJI
@@ -440,6 +440,31 @@ function _encolarNotifEtaCambioWOS(cas, retrasos) {
   } catch(e) { Logger.log('_encolarNotifEtaCambioWOS: ' + e); return 0; }
 }
 
+// Backorder real por SKU, sumado en TODA la demanda pendiente de WOS — única fuente: sus dos
+// colas, Pedidos_resellers (resellers) y Pedidos_OTs (reparaciones), filtradas a ESTADO ===
+// 'Backorder' (columna J). CANT_PEND (columna G) ya es la fórmula =E-F-Z que mantiene WOS, no
+// hace falta recalcularla acá. Nunca se infiere backorder de otra cosa (ni OTs "Espera de
+// repuestos", ni stock crítico propio de Stock Manager) — si WOS no lo marca Backorder, acá no
+// cuenta como backorder.
+function _smBackorderPorSkuWOS() {
+  var out = {};
+  try {
+    var ssWOS = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+    var hojas = [ssWOS.getSheetByName('Pedidos_resellers'), ssWOS.getSheetByName('Pedidos_OTs')].filter(Boolean);
+    for (var h = 0; h < hojas.length; h++) {
+      var d = hojas[h].getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        if (String(d[i][9] || '').trim() !== 'Backorder') continue;
+        var sku  = String(d[i][2] || '').trim().toUpperCase();
+        var pend = Number(d[i][6]) || 0;
+        if (!sku || pend <= 0) continue;
+        out[sku] = (out[sku] || 0) + pend;
+      }
+    }
+  } catch(e) { Logger.log('_smBackorderPorSkuWOS: ' + e); }
+  return out;
+}
+
 function _alertarBackordersPendientes(cas) {
   try {
     var casKey = String(cas || '').trim().toUpperCase();
@@ -466,34 +491,40 @@ function _alertarBackordersPendientes(cas) {
       if (sCod && skusCAS[sCod] !== undefined) stockMap[sCod] = parseInt(dStr[si][S.STOCK_ACTUAL]) || 0;
     }
 
-    // Backorders en WOS Pedidos_resellers con estado 'Backorder' para esos SKUs
-    var hojaWOS = SpreadsheetApp.openById('1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw')
-                    .getSheetByName('Pedidos_resellers');
-    if (!hojaWOS) return;
-    var dWOS     = hojaWOS.getDataRange().getValues();
-    // COL indices (Despacho_Env.js): 0=NUMERO,1=RESELLER,2=SKU,3=DESC,4=CANT_SOL,5=CANT_DESP,9=ESTADO,25=CANT_CANCEL
+    // Backorders en WOS con estado 'Backorder' para esos SKUs — única fuente de verdad de
+    // backorder es WOS, se revisan sus DOS colas (Pedidos_resellers de resellers y Pedidos_OTs
+    // de reparaciones): antes solo miraba Pedidos_resellers y un CAS que destrababa un backorder
+    // de OT no avisaba a nadie.
+    var ssWOS  = SpreadsheetApp.openById(WOS_NOTAS_SS_ID);
+    var hojasWOS = [ssWOS.getSheetByName('Pedidos_resellers'), ssWOS.getSheetByName('Pedidos_OTs')].filter(Boolean);
+    if (!hojasWOS.length) return;
+    // COL indices (Despacho_Env.js, mismo esquema en las dos colas): 0=NUMERO,1=RESELLER,2=SKU,
+    // 3=DESC,4=CANT_SOL,5=CANT_DESP,9=ESTADO,25=CANT_CANCEL
     var afectadas  = [];
     var procesados = {};
-    for (var wi = 1; wi < dWOS.length; wi++) {
-      if (String(dWOS[wi][9] || '').trim() !== 'Backorder') continue;
-      var wSku = String(dWOS[wi][2] || '').trim().toUpperCase();
-      if (!skusCAS[wSku]) continue;
-      var numero = String(dWOS[wi][0] || '').trim();
-      var key    = numero + '|' + wSku;
-      if (procesados[key]) continue;
-      procesados[key] = true;
-      var pend = Math.max(0, (Number(dWOS[wi][4]) || 0) - (Number(dWOS[wi][5]) || 0) - (Number(dWOS[wi][25]) || 0));
-      if (pend <= 0) continue;
-      var stockActual = stockMap[wSku] !== undefined ? stockMap[wSku] : 0;
-      afectadas.push({
-        numero:   numero,
-        reseller: String(dWOS[wi][1] || ''),
-        sku:      wSku,
-        desc:     skusCAS[wSku] || String(dWOS[wi][3] || ''),
-        pend:     pend,
-        stock:    stockActual,
-        cubre:    stockActual >= pend
-      });
+    for (var hw = 0; hw < hojasWOS.length; hw++) {
+      var dWOS = hojasWOS[hw].getDataRange().getValues();
+      for (var wi = 1; wi < dWOS.length; wi++) {
+        if (String(dWOS[wi][9] || '').trim() !== 'Backorder') continue;
+        var wSku = String(dWOS[wi][2] || '').trim().toUpperCase();
+        if (!skusCAS[wSku]) continue;
+        var numero = String(dWOS[wi][0] || '').trim();
+        var key    = numero + '|' + wSku;
+        if (procesados[key]) continue;
+        procesados[key] = true;
+        var pend = Math.max(0, (Number(dWOS[wi][4]) || 0) - (Number(dWOS[wi][5]) || 0) - (Number(dWOS[wi][25]) || 0));
+        if (pend <= 0) continue;
+        var stockActual = stockMap[wSku] !== undefined ? stockMap[wSku] : 0;
+        afectadas.push({
+          numero:   numero,
+          reseller: String(dWOS[wi][1] || ''),
+          sku:      wSku,
+          desc:     skusCAS[wSku] || String(dWOS[wi][3] || ''),
+          pend:     pend,
+          stock:    stockActual,
+          cubre:    stockActual >= pend
+        });
+      }
     }
     if (!afectadas.length) return;
 
@@ -1079,32 +1110,15 @@ function obtenerDetalleCAS(idCas) {
       }
     }
 
-    // 4. Coverage: para cada SKU del manifiesto, ¿cuántas unidades quedan PENDIENTES de
-    //    entregar a resellers? Fuente = Pedidos_resellers (WOS) — la demanda real del canal.
-    //    Pendiente por línea = max(0, CANT_SOL − CANT_DESP − CANT_CANCEL): descuenta lo ya
-    //    despachado y lo cancelado (una línea cerrada o anulada aporta 0). Misma fórmula que el
-    //    mail de "Backorders desbloqueados". Antes se leía SOLICITUDES_DESPACHO (solo repuestos de
-    //    OT + ventas directas), que NO incluye los pedidos de resellers → cobertura equivocada.
+    // 4. Coverage: para cada SKU del manifiesto, ¿cuántas unidades quedan en Backorder real de
+    //    WOS? Única fuente: _smBackorderPorSkuWOS() (Pedidos_resellers + Pedidos_OTs, WOS es
+    //    quien decide qué es backorder — ver esa función más arriba en este archivo). Antes
+    //    solo miraba Pedidos_resellers (sin OTs) y, más atrás en el tiempo, contaba cualquier
+    //    línea con CANT_SOL > CANT_DESP sin mirar el estado (sumaba de más "Preparado",
+    //    "En_Espera_Reseller", etc., que no son backorder).
     var cobertura = [];
     if (manifest.length) {
-      var pendMap = {};
-      try {
-        var hojaPR = SpreadsheetApp.openById(WOS_NOTAS_SS_ID).getSheetByName('Pedidos_resellers');
-        if (hojaPR) {
-          var dPR = hojaPR.getDataRange().getValues();
-          // COL (Despacho_Env.js): 2=SKU, 4=CANT_SOL(E), 5=CANT_DESP(F), 9=ESTADO(J), 25=CANT_CANCEL(Z)
-          for (var pr = 1; pr < dPR.length; pr++) {
-            var skuPR = String(dPR[pr][2] || '').trim().toUpperCase();
-            if (!skuPR) continue;
-            var solPR  = Number(dPR[pr][4])  || 0;
-            var despPR = Number(dPR[pr][5])  || 0;
-            var cancPR = Number(dPR[pr][25]) || 0;
-            if (cancPR <= 0 && String(dPR[pr][9] || '').trim().toLowerCase() === 'cancelado') cancPR = solPR; // dato viejo: cancelado sin CANT_CANCEL
-            var pendPR = Math.max(0, solPR - despPR - cancPR);
-            if (pendPR > 0) pendMap[skuPR] = (pendMap[skuPR] || 0) + pendPR;
-          }
-        }
-      } catch(ePR) { Logger.log('obtenerDetalleCAS cobertura Pedidos_resellers: ' + ePR); }
+      var pendMap = _smBackorderPorSkuWOS();
       for (var ci2 = 0; ci2 < manifest.length; ci2++) {
         var skuUp  = manifest[ci2].sku.trim().toUpperCase();
         var pending = pendMap[skuUp] || 0;
@@ -1183,15 +1197,32 @@ function crearBorradorCompraAutomatico(operador) {
       try { operador = Session.getActiveUser().getEmail(); } catch(eu) { operador = 'Sistema'; }
     }
 
-    var alertas = obtenerAlertasStockCritico();
-    // Solo quiebres con OTs bloqueadas
-    var candidatos = [];
-    for (var a = 0; a < alertas.length; a++) {
-      if (alertas[a].estado === 'QUIEBRE' && alertas[a].bloqueadas > 0) {
-        candidatos.push(alertas[a]);
-      }
+    // Único disparador: Backorder real en WOS (_smBackorderPorSkuWOS, Pedidos_resellers +
+    // Pedidos_OTs) — antes esto se armaba con "OTs en Espera de repuestos" de la hoja compartida
+    // Ordenes de trabajo, que es un concepto de HUB_PRO (reparaciones bloqueadas), no lo mismo
+    // que backorder de WOS. WOS es el único que decide qué está en backorder.
+    var boMap = _smBackorderPorSkuWOS();
+    var skus  = Object.keys(boMap);
+    if (!skus.length) return { ok: false, msg: 'No hay ítems en Backorder en WOS.' };
+
+    // Descripción por SKU: STOCK_REPUESTOS primero, DB_REPUESTOS como respaldo
+    var descMap = {};
+    var dStr = getSheetValues(SCHEMA.SHEETS.STOCK);
+    var S    = SCHEMA.STOCK_REPUESTOS;
+    for (var si = 1; si < dStr.length; si++) {
+      var sCod = String(dStr[si][S.CODIGO] || '').trim().toUpperCase();
+      if (sCod) descMap[sCod] = String(dStr[si][S.DESCRIPCION] || '');
     }
-    if (!candidatos.length) return { ok: false, msg: 'No hay SKUs en quiebre con OTs bloqueadas.' };
+    var dDbRep = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+    for (var dr = 1; dr < dDbRep.length; dr++) {
+      var drSku = String(dDbRep[dr][1] || '').trim().toUpperCase();
+      if (drSku && !descMap[drSku]) descMap[drSku] = String(dDbRep[dr][2] || '');
+    }
+
+    var candidatos = skus.map(function(sku) {
+      return { codigo: sku, descripcion: descMap[sku] || sku, cantidad: boMap[sku] };
+    });
+    candidatos.sort(function(a, b) { return b.cantidad - a.cantidad; });
 
     var tz  = Session.getScriptTimeZone();
     var hoy = new Date();
@@ -1209,7 +1240,7 @@ function crearBorradorCompraAutomatico(operador) {
     }
 
     // Crear fila en COMPRAS_DJI con estado "Borrador"
-    var obsItems = candidatos.map(function(c) { return c.codigo + ' (' + c.bloqueadas + ' OTs)'; }).join(', ');
+    var obsItems = candidatos.map(function(c) { return c.codigo + ' (' + c.cantidad + 'u backorder WOS)'; }).join(', ');
     hojaCompras.appendRow([
       cas.toUpperCase(),
       hoy,
@@ -1217,7 +1248,7 @@ function crearBorradorCompraAutomatico(operador) {
       '',
       '', '', '', '', '', '', '',
       operador || 'Sistema',
-      'Auto-generado. SKUs bloqueados: ' + obsItems
+      'Auto-generado. Backorder en WOS: ' + obsItems
     ]);
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.COMPRAS);
@@ -1227,7 +1258,7 @@ function crearBorradorCompraAutomatico(operador) {
       return {
         sku:        c.codigo,
         descripcion:c.descripcion,
-        cantPedida: c.bloqueadas  // 1 unidad por OT bloqueada como mínimo
+        cantPedida: c.cantidad  // unidades en backorder real en WOS
       };
     });
     var resVinc = vincularItemsACAS(cas.toUpperCase(), listaItems);
@@ -1253,11 +1284,11 @@ function _notificarBorradorAutoCompra(cas, candidatos, operador) {
       return "<tr>" +
         "<td style='padding:6px 10px;font-size:12px;font-weight:700;color:#e53935'>" + c.codigo + "</td>" +
         "<td style='padding:6px 10px;font-size:12px'>" + c.descripcion + "</td>" +
-        "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + c.bloqueadas + "</td>" +
+        "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + c.cantidad + "</td>" +
       "</tr>";
     }).join('');
     GmailApp.sendEmail(SM_CONFIG.EMAIL_SUPERVISOR,
-      '[Stock Manager] Borrador de compra generado — ' + candidatos.length + ' SKU(s) bloqueados',
+      '[Stock Manager] Borrador de compra generado — ' + candidatos.length + ' SKU(s) en backorder WOS',
       '', {
         htmlBody:
           "<div style='font-family:sans-serif;max-width:640px'>" +
@@ -1267,12 +1298,12 @@ function _notificarBorradorAutoCompra(cas, candidatos, operador) {
           "<div style='background:#fff;border:1px solid #ddd;padding:18px 20px;border-radius:0 0 8px 8px'>" +
             "<p style='font-size:13px;color:#444;margin:0 0 6px'>CAS: <strong>" + cas + "</strong></p>" +
             "<p style='font-size:13px;color:#444;margin:0 0 14px'>Operador: " + (operador || 'Sistema') + "</p>" +
-            "<p style='font-size:13px;color:#444;margin:0 0 10px'>Los siguientes SKUs están en <strong>quiebre total</strong> y tienen OTs esperando esos repuestos:</p>" +
+            "<p style='font-size:13px;color:#444;margin:0 0 10px'>Los siguientes SKUs están en <strong>Backorder en WOS</strong> (Pedidos_resellers + Pedidos_OTs):</p>" +
             "<table style='width:100%;border-collapse:collapse;border:1px solid #eee'>" +
               "<thead><tr style='background:#f5f5f5'>" +
                 "<th style='padding:6px 10px;font-size:11px;text-align:left'>SKU</th>" +
                 "<th style='padding:6px 10px;font-size:11px;text-align:left'>Descripción</th>" +
-                "<th style='padding:6px 10px;font-size:11px;text-align:center'>OTs bloqueadas</th>" +
+                "<th style='padding:6px 10px;font-size:11px;text-align:center'>Backorder (u.)</th>" +
               "</tr></thead>" +
               "<tbody>" + filas + "</tbody>" +
             "</table>" +
