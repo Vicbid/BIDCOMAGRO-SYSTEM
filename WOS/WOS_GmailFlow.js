@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.45
+// @version 2.46
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -163,6 +163,16 @@ function _wosSetEstadoPorSku(hoja, datos, numero, skuFaltSet, estFalt, estDisp) 
   var ahora = new Date();
   for (var i = 1; i < datos.length; i++) {
     if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+    // BUG reportado por el usuario: "está forzado a no salir de que está esperando respuesta del
+    // reseller aun cuando sí se haya despachado". Esta función solo matcheaba por SKU dentro del
+    // pedido, sin chequear si ESA fila ya estaba resuelta — si el operador marca un faltante en el
+    // pedido una segunda vez (otro ítem distinto, o el mismo SKU repetido en 2 líneas), una línea
+    // que ya se había despachado COMPLETO (Entregado_Cerrado/Listo_Retiro/Entregado_Confirmado) o
+    // cancelada quedaba reseteada a "En_Espera_Reseller" (o "Preparado") de nuevo, sin que nadie la
+    // hubiera tocado. Filas ya cerradas nunca se vuelven a mover acá.
+    var estActualSku = String(datos[i][COL.ESTADO] || '').trim();
+    if (estActualSku === EST.ENTREGADO || estActualSku === EST.LISTO_RETIRO ||
+        estActualSku === EST.ENTREGADO_CONF || estActualSku === EST.CANCELADO) continue;
     var sku = String(datos[i][COL.SKU] || '').trim().toUpperCase();
     var nuevoEst = skuFaltSet[sku] ? estFalt : estDisp;
     var rEst = hoja.getRange(i + 1, COL.ESTADO + 1);
