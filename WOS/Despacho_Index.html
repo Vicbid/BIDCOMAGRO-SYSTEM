@@ -1,4 +1,4 @@
-<!-- @version 3.55 -->
+<!-- @version 3.56 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2613,13 +2613,23 @@ function abrirModalPreparar(numero, parcial) {
     // línea sigue En_Espera hasta que el reseller decida (el backend no la saca de En_Espera al preparar).
     var esEnEsperaIt = it.estado === 'En_Espera_Reseller' || it.estado === 'Reservado_Consolidar';
     if (esEnEsperaIt) _modalPrep.teniaEnEspera = true;
-    var itParcial = parcial || esEnEsperaIt;
+    // BUG reportado por el usuario: un ítem en Backorder con menos stock del pedido (ej. pedís 10,
+    // llegaron 5) mostraba 10 casilleros de N° de serie en vez de 5 — "me dice que voy a despachar
+    // el total cuando solo hay 5 disponibles". Causa: Backorder está exento del bloqueo de arriba
+    // (correcto, es esperable que tenga menos stock que lo pedido) pero NO estaba en esEnEsperaIt,
+    // así que caía en la rama "normal" de acá abajo y usaba cantPend (pedido) en vez de qMax
+    // (disponible real). Los Backorder deben capearse igual que En_Espera/Consolidar — no se agrega
+    // a esEnEsperaIt porque esa variable también dispara el aviso "todavía falta despachar" post-
+    // Preparar (ver _modalPrep.teniaEnEspera), y Backorder SÍ sale solo de su estado al preparar
+    // (WOS_prepararConSeriales → Preparado/Preparado Parcial), a diferencia de En_Espera/Consolidar.
+    var esBackorderIt = it.estado === 'Backorder';
+    var itParcial = parcial || esEnEsperaIt || esBackorderIt;
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
     // En parcial / en espera, saltear ítems sin stock (quedan en backorder / siguen esperando). En normal, incluir todo.
     if (itParcial && stk !== null && stk <= 0) continue;
     var qMax = (stk === null) ? it.cantPend : Math.min(it.cantPend, stk);
     if (qMax <= 0) continue;
-    var qty = itParcial ? qMax : it.cantPend;   // en normal siempre cantPend; parcial/espera = disponible
+    var qty = itParcial ? qMax : it.cantPend;   // en normal siempre cantPend; parcial/espera/backorder = disponible
     hayItems = true;
     var prev = String(it.seriales || '').split(',');
     // ¿Este SKU se prepara por bolsa? Pre-marcar desde el maestro, o si el manifiesto previo ya trae bolsas ("SO x50").
