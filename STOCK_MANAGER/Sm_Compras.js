@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.7
+// @version 1.8
 
 // ============================================================
 //  COMPRAS DJI
@@ -15,15 +15,18 @@ function cargarCompras() {
     var detalleResumen = _smComprasResumenDetalle();
     var out = [];
     for (var i = 1; i < d.length; i++) {
-      var f  = d[i];
-      var rd = detalleResumen[String(f[0]).trim().toUpperCase()] || {};
+      var f       = d[i];
+      var estadoF = String(f[2]||"Comprado");
+      // "En depósito" = ya llegó todo el CAS — nunca mostrar "próximo arribo" ahí, aunque
+      // algún ítem de COMPRAS_DETALLE haya quedado con cantidad/ETA desactualizada.
+      var rd = (estadoF === 'En depósito') ? {} : (detalleResumen[String(f[0]).trim().toUpperCase()] || {});
       var fechaVuelo  = f[8]  instanceof Date ? f[8]  : null;
       var fechaDepo   = f[10] instanceof Date ? f[10] : null;
       var diasTransito = (fechaVuelo && !fechaDepo)
         ? Math.floor((new Date() - fechaVuelo) / 86400000) : null;
       out.push({
         fila: i+1, cas: String(f[0]), fechaPedido: _fmtFecha(f[1]),
-        estado: String(f[2]||"Comprado"), metodoPago: String(f[3]||""),
+        estado: estadoF, metodoPago: String(f[3]||""),
         fechas: {
           comprado:    _fmtFecha(f[4]),  pagado:       _fmtFecha(f[5]),
           confEnvio:   _fmtFecha(f[6]),  forwarderHK:  _fmtFecha(f[7]),
@@ -49,8 +52,12 @@ function cargarCompras() {
 }
 
 // Resume COMPRAS_DETALLE por CAS: N° AIR (de la línea que lo tenga) y la ETA más próxima
-// entre las líneas que todavía no llegaron (ESTADO !== 'Recibido') — ambos datos vienen del
-// planner externo vía sincronizarItemsCAS y hoy no se mostraban en ningún lado de la UI.
+// entre las líneas que todavía no llegaron — ambos datos vienen del planner externo vía
+// sincronizarItemsCAS y hoy no se mostraban en ningún lado de la UI.
+// "Ya llegó" se decide por CANTIDAD_RECIBIDA >= CANTIDAD_PEDIDA, no por el texto de ESTADO:
+// sincronizarItemsCAS escribe 'Recibido' pero recibirMercaderia (la recepción física real)
+// escribe 'Completo' — dos textos distintos para lo mismo — así que comparar cantidades es
+// lo único confiable para no arrastrar la ETA vieja de un ítem que ya está en el depósito.
 function _smComprasResumenDetalle() {
   var out = {};
   try {
@@ -68,7 +75,9 @@ function _smComprasResumenDetalle() {
       var air = String(f[CD.N_AIR] || '').trim();
       if (air && !out[cas].air) out[cas].air = air;
 
-      if (String(f[CD.ESTADO] || '').trim() === 'Recibido') continue; // ya llegó — no compite por "próximo arribo"
+      var pedida   = parseInt(f[CD.CANTIDAD_PEDIDA])   || 0;
+      var recibida = parseInt(f[CD.CANTIDAD_RECIBIDA]) || 0;
+      if (pedida > 0 && recibida >= pedida) continue; // ya llegó esta línea — no compite por "próximo arribo"
 
       var etaDate = _smEtaToDate(_normEtaVal(f[CD.FECHA_ETA]));
       if (!etaDate) continue;
