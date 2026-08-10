@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.10
+// @version 1.11
 
 // ============================================================
 //  COMPRAS DJI
@@ -986,6 +986,33 @@ function vincularItemsACAS(idCas, listaItems) {
   }
 }
 
+// Posición física por SKU, leída de Carmen UBICACIONES (la misma fuente que usa el WMS para
+// mover/unificar bins — ver [[carmen_fuente_stock]]). Si un SKU está repartido en más de un
+// bin, se listan todos separados por coma, ordenados igual que en "Mover"/"Unificar ubicaciones"
+// (_binSortKey). Pedido del usuario: que el packing list impreso muestre dónde guardar cada
+// ítem, para los que ya tienen posición cargada.
+function _smPosicionesPorSku() {
+  var out = {};
+  try {
+    var hojaUbic = _getCarmenSS().getSheetByName(CARMEN_UBICACIONES_TAB);
+    if (!hojaUbic) return out;
+    var d = hojaUbic.getDataRange().getValues();
+    var porSku = {};
+    for (var i = 1; i < d.length; i++) {
+      var sku = String(d[i][0] || '').trim().toUpperCase();
+      var bin = String(d[i][1] || '').trim();
+      if (!sku || !bin) continue;
+      if (!porSku[sku]) porSku[sku] = [];
+      porSku[sku].push(bin);
+    }
+    Object.keys(porSku).forEach(function(sku) {
+      var bins = porSku[sku].sort(function(a, b) { return _binSortKey(a) < _binSortKey(b) ? -1 : 1; });
+      out[sku] = bins.join(', ');
+    });
+  } catch(e) { Logger.log('_smPosicionesPorSku: ' + e); }
+  return out;
+}
+
 function obtenerDetalleCAS(idCas) {
   try {
     var casKey = String(idCas).trim().toUpperCase();
@@ -993,6 +1020,7 @@ function obtenerDetalleCAS(idCas) {
     var M  = SCHEMA.MOVIMIENTOS_STOCK;
     var R  = SCHEMA.RESERVAS_STOCK;
     var tz = Session.getScriptTimeZone();
+    var posMap = _smPosicionesPorSku();
 
     // 1. Manifest
     var manifest = [];
@@ -1001,12 +1029,14 @@ function obtenerDetalleCAS(idCas) {
       var dCD = getSheetValues(hojaCD);
       for (var ci = 1; ci < dCD.length; ci++) {
         if (String(dCD[ci][CD.ID_CAS]).trim().toUpperCase() !== casKey) continue;
+        var skuManif = String(dCD[ci][CD.SKU] || '');
         manifest.push({
-          sku:          String(dCD[ci][CD.SKU]               || ''),
+          sku:          skuManif,
           descripcion:  String(dCD[ci][CD.DESCRIPCION]       || ''),
           cantPedida:   parseInt(dCD[ci][CD.CANTIDAD_PEDIDA])   || 0,
           cantRecibida: parseInt(dCD[ci][CD.CANTIDAD_RECIBIDA]) || 0,
-          estado:       String(dCD[ci][CD.ESTADO]            || 'Pendiente')
+          estado:       String(dCD[ci][CD.ESTADO]            || 'Pendiente'),
+          posicion:     posMap[skuManif.trim().toUpperCase()] || ''
         });
       }
     }
@@ -1017,13 +1047,15 @@ function obtenerDetalleCAS(idCas) {
     for (var mi = 1; mi < dMov.length; mi++) {
       if (String(dMov[mi][M.TIPO]       || '').trim() !== 'ENTRADA_COMPRA') continue;
       if (String(dMov[mi][M.REFERENCIA] || '').trim().toUpperCase() !== casKey) continue;
+      var skuRecib = String(dMov[mi][M.CODIGO] || '');
       recibidos.push({
-        sku:         String(dMov[mi][M.CODIGO]      || ''),
+        sku:         skuRecib,
         descripcion: String(dMov[mi][M.DESCRIPCION] || ''),
         cantidad:    Math.abs(parseInt(dMov[mi][M.CANTIDAD]) || 0),
         fecha:       dMov[mi][M.FECHA] instanceof Date
                      ? Utilities.formatDate(dMov[mi][M.FECHA], tz, 'dd/MM/yyyy')
-                     : String(dMov[mi][M.FECHA] || '')
+                     : String(dMov[mi][M.FECHA] || ''),
+        posicion:    posMap[skuRecib.trim().toUpperCase()] || ''
       });
     }
 
@@ -1035,12 +1067,14 @@ function obtenerDetalleCAS(idCas) {
       for (var ri = 1; ri < dRes.length; ri++) {
         if (String(dRes[ri][R.CAS_REF] || '').trim().toUpperCase() !== casKey) continue;
         if (String(dRes[ri][R.ESTADO]  || '') !== 'Activa') continue;
+        var skuRes = String(dRes[ri][R.SKU] || '');
         reservados.push({
-          sku:        String(dRes[ri][R.SKU]          || ''),
+          sku:        skuRes,
           descripcion:String(dRes[ri][R.DESCRIPCION]  || ''),
           cantidad:   parseInt(dRes[ri][R.CANTIDAD])  || 0,
           origen:     String(dRes[ri][R.ORIGEN]       || ''),
-          referencia: String(dRes[ri][R.ID_REFERENCIA]|| '')
+          referencia: String(dRes[ri][R.ID_REFERENCIA]|| ''),
+          posicion:   posMap[skuRes.trim().toUpperCase()] || ''
         });
       }
     }

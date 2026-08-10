@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 5.46 -->
+<!-- @version 5.47 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5454,11 +5454,11 @@ function exportarPackingListCAS() {
     []
   ];
   rows.push(['=== REPUESTOS RECIBIDOS ===']);
-  rows.push(['SKU', 'Descripción', 'Cantidad', 'Fecha recepción']);
+  rows.push(['SKU', 'Descripción', 'Cantidad', 'Fecha recepción', 'Posición']);
   if (d.recibidos.length) {
     for (var i = 0; i < d.recibidos.length; i++) {
       var r = d.recibidos[i];
-      rows.push([r.sku, r.descripcion, r.cantidad, r.fecha]);
+      rows.push([r.sku, r.descripcion, r.cantidad, r.fecha, r.posicion || '']);
     }
   } else {
     rows.push(['(sin recepciones registradas)']);
@@ -5466,25 +5466,28 @@ function exportarPackingListCAS() {
   if (d.reservados.length) {
     rows.push([]);
     rows.push(['=== RESERVAS ACTIVAS ===']);
-    rows.push(['SKU', 'Descripción', 'Cantidad', 'Origen', 'OT / Referencia']);
+    rows.push(['SKU', 'Descripción', 'Cantidad', 'Origen', 'OT / Referencia', 'Posición']);
     for (var j = 0; j < d.reservados.length; j++) {
       var rs = d.reservados[j];
-      rows.push([rs.sku, rs.descripcion, rs.cantidad, rs.origen, rs.referencia]);
+      rows.push([rs.sku, rs.descripcion, rs.cantidad, rs.origen, rs.referencia, rs.posicion || '']);
     }
   }
-  var ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:16},{wch:42},{wch:12},{wch:18},{wch:22}];
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Packing List');
+  // Antes esta sección se agregaba a `rows` DESPUÉS de convertir `rows` a hoja (aoa_to_sheet
+  // ya había copiado el estado anterior) — el manifiesto nunca llegaba al archivo exportado.
+  // Ahora se arma todo `rows` primero y recién al final se genera la hoja, una sola vez.
   if (d.manifest && d.manifest.length) {
     rows.push([]);
     rows.push(['=== MANIFIESTO (PEDIDO) ===']);
-    rows.push(['SKU','Descripción','Cantidad pedida','Cantidad recibida','Estado']);
+    rows.push(['SKU','Descripción','Cantidad pedida','Cantidad recibida','Estado','Posición']);
     for (var km = 0; km < d.manifest.length; km++) {
       var mm = d.manifest[km];
-      rows.push([mm.sku, mm.descripcion, mm.cantPedida, mm.cantRecibida, mm.estado]);
+      rows.push([mm.sku, mm.descripcion, mm.cantPedida, mm.cantRecibida, mm.estado, mm.posicion || '']);
     }
   }
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:16},{wch:42},{wch:12},{wch:18},{wch:22},{wch:14}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Packing List');
   XLSX.writeFile(wb, 'PackingList_' + d.cas + '.xlsx');
   toast('Packing list exportado', 'ok');
 }
