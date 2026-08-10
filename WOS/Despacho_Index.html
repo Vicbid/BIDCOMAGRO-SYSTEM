@@ -1,4 +1,4 @@
-<!-- @version 3.56 -->
+<!-- @version 3.57 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2361,11 +2361,12 @@ function renderCard(p) {
 function renderAcciones(p) {
   var n = escH(p.numero), est = p.estado, btns = '';
 
-  // Lanzador del armado guiado (paso a paso + checklist antes de cerrar). Primero, prominente.
-  if (est === 'Pendiente_Revision' || est === 'Confirmado' || est === 'En_Espera_Reseller' ||
-      est === 'Backorder' || est === 'Preparado' || est === 'Preparado Parcial' || est === 'Reservado_Consolidar') {
-    btns += '<button class="btn btn-primary" style="font-weight:800" onclick="_wzGuia(\'' + n + '\')">▶ Armar pedido guiado</button>';
-  }
+  // Feedback directo del usuario, mismo criterio que ya se aplicó al sacar "Preparar" del panel
+  // de En_Espera_Reseller: "no quiero todos esos botones... armar pedido guiado confunde al
+  // operador, solo dejá pedido guiado o generar nota de entrega, así en todos los estados de WOS".
+  // "Armar pedido guiado" era un overlay de 3 pasos que solo abría los mismos modales que ya
+  // están como botón directo más abajo (Preparar / Despachar) — dos caminos a lo mismo mostrados
+  // como si fueran alternativas. Se saca el lanzador; queda un solo botón de acción por estado.
 
   if (est === 'Pendiente_Revision' || est === 'Confirmado') {
     btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Listo para despachar</button>';
@@ -4422,44 +4423,6 @@ function _wzEjecutarCierre() {
   confirmarDespacho();   // ejecuta el despacho real (individual o batch)
 }
 
-// ── Lanzador "Armar pedido guiado": guía en orden y abre cada paso ──
-function _wzGuia(numero) {
-  _wzStartMs = Date.now();
-  var ped = _buscarPedido(numero);
-  var reseller = ped ? (ped.reseller || '') : '';
-  var ov = document.getElementById('wz-guia');
-  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
-  ov = document.createElement('div');
-  ov.id = 'wz-guia';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9985;background:rgba(20,28,38,.55);display:flex;align-items:center;justify-content:center;padding:18px';
-  function paso(n, tit, desc, btnLbl, btnOnclick, color) {
-    return '<div style="display:flex;gap:12px;padding:13px 14px;border:1px solid var(--brd);border-radius:10px;margin-bottom:10px;align-items:center">' +
-      '<div style="width:28px;height:28px;border-radius:50%;background:' + color + ';color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + n + '</div>' +
-      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--tx)">' + tit + '</div>' +
-        '<div style="font-size:11px;color:var(--tx-m);margin-top:1px">' + desc + '</div></div>' +
-      '<button type="button" onclick="' + btnOnclick + '" style="padding:8px 14px;border:none;border-radius:8px;background:' + color + ';color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">' + btnLbl + '</button>' +
-    '</div>';
-  }
-  ov.innerHTML =
-    '<div style="background:var(--bg,#fff);border-radius:14px;max-width:520px;width:100%;box-shadow:0 18px 60px rgba(0,0,0,.3)">' +
-      '<div style="padding:16px 18px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center">' +
-        '<div><div style="font-size:16px;font-weight:800;color:var(--tx)">▶ Armar pedido ' + escH(numero) + '</div>' +
-          '<div style="font-size:12px;color:var(--tx-m);margin-top:2px">' + escH(reseller) + ' — seguí los pasos en orden</div></div>' +
-        '<button type="button" onclick="_wzCerrarGuia()" style="background:none;border:none;font-size:20px;color:var(--tx-d);cursor:pointer;line-height:1">✕</button>' +
-      '</div>' +
-      '<div style="padding:16px 18px">' +
-        paso('1', 'Revisá el pedido', 'Confirmá SKUs, cantidades y el reseller.', 'Ver detalle', 'document.getElementById(\'card-' + numero + '\')&&document.getElementById(\'card-' + numero + '\').scrollIntoView({behavior:\'smooth\',block:\'center\'});_wzCerrarGuia()', '#0052cc') +
-        paso('2', 'Prepará', 'Escaneá el N° de serie de cada unidad y elegí la ubicación WMS.', 'Preparar', '_wzCerrarGuia();abrirModalPreparar(\'' + numero + '\')', '#00857a') +
-        paso('3', 'Pesá y cerrá la caja', 'WOS valida todo antes de despachar (0 errores).', 'Cerrar la caja', '_wzCerrarGuia();abrirModalDespacho(\'' + numero + '\')', '#00875a') +
-        '<div style="font-size:11px;color:var(--tx-m);background:var(--surf);border-radius:8px;padding:9px 11px;margin-top:4px;line-height:1.5">💡 En el paso 3, antes de despachar, WOS te muestra un <strong>checklist</strong>: cantidades, N° de serie sin duplicados y datos de envío. No podés cerrar con errores.</div>' +
-      '</div>' +
-    '</div>';
-  document.body.appendChild(ov);
-}
-function _wzCerrarGuia() {
-  var ov = document.getElementById('wz-guia');
-  if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
-}
 
 // ── Panel de Precisión (proceso + confirmación del reseller) ──
 var _precAbierto = false;
