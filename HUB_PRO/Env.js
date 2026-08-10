@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
@@ -69,7 +69,8 @@ var SCHEMA = {
   DB_REPUESTOS: {
     CODIGO: 1,
     DESCRIPCION: 2,
-    MODELOS: 3
+    MODELOS: 3,
+    REEMPLAZADO_POR: 8   // Col I — SKU del repuesto reemplazante (vacío si vigente); lo escribe Stock Manager
   },
   EQUIPOS: {
     NOMBRE: 0,

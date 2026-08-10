@@ -1,4 +1,4 @@
-<!-- @version 2.23 -->
+<!-- @version 2.24 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -394,6 +394,9 @@ textarea.form-control{resize:vertical;min-height:110px;line-height:1.6}
 .sug-it:hover{background:var(--surf)}
 .sug-c{font-size:11px;font-weight:600;color:var(--blue);white-space:nowrap}
 .sug-n{font-size:12px;color:var(--tx-m)}
+.sug-repl{font-size:10px;color:var(--orange);margin-top:3px;padding-top:3px;border-top:1px dashed rgba(211,84,0,.3)}
+.sug-repl:hover{text-decoration:underline}
+.sug-repl b{font-weight:700}
 .btn-add{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:transparent;border:1px dashed var(--brd2);color:var(--tx-m);font-size:12px;border-radius:var(--rm);padding:9px;cursor:pointer;transition:all .12s;margin-bottom:20px}
 .btn-add:hover{border-color:var(--blue);color:var(--blue)}
 .btn-save{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--blue);color:#fff;border:none;font-size:14px;font-weight:600;padding:12px;border-radius:var(--rm);cursor:pointer;transition:background .15s;letter-spacing:.01em}
@@ -3049,9 +3052,30 @@ function busPN(inp){
   for(var j=0;j<res.length;j++){
     (function(r){
       var el=document.createElement('div'); el.className='sug-it';
-      el.innerHTML='<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:baseline"><span class="sug-c">'+r.codigo+'</span><span class="sug-n">'+r.nombre+'</span></div>'+(r.modelos?'<div style="font-size:9px;color:var(--tx-d);margin-top:1px">'+r.modelos.split('/').join(' · ')+'</div>':'')+'</div>';
+      // Si el catálogo tiene este código marcado como reemplazado (DB_REPUESTOS.REEMPLAZADO_POR
+      // — lo escribe Stock Manager cuando DJI manda un sustituto compatible), lo mostramos acá
+      // para que el técnico no pida algo que ya sabemos que no conviene pedir tal cual.
+      var subCod = r.reemplazadoPor || '';
+      var subNombre = '';
+      if (subCod) {
+        for (var k = 0; k < repCache.length; k++) {
+          if (repCache[k].codigo.toUpperCase() === subCod.toUpperCase()) { subNombre = repCache[k].nombre; break; }
+        }
+      }
+      var replHtml = subCod
+        ? '<div class="sug-repl" title="Elegir '+subCod+' en vez de '+r.codigo+'"><i class="fa fa-right-left" style="margin-right:4px"></i>Reemplazado por <b>'+subCod+'</b>'+(subNombre?' — '+subNombre:'')+'</div>'
+        : '';
+      el.innerHTML='<div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:baseline"><span class="sug-c">'+r.codigo+'</span><span class="sug-n">'+r.nombre+'</span></div>'+(r.modelos?'<div style="font-size:9px;color:var(--tx-d);margin-top:1px">'+r.modelos.split('/').join(' · ')+'</div>':'')+replHtml+'</div>';
       el.addEventListener('mousedown',function(e){e.preventDefault();selR(inp,r.codigo,r.nombre);});
       el.addEventListener('touchstart',function(e){e.preventDefault();selR(inp,r.codigo,r.nombre);},{passive:false});
+      if (subCod) {
+        var replEl = el.querySelector('.sug-repl');
+        var pickSub = function(e){ e.preventDefault(); e.stopPropagation(); selR(inp, subCod, subNombre || subCod); };
+        if (replEl) {
+          replEl.addEventListener('mousedown', pickSub);
+          replEl.addEventListener('touchstart', pickSub, {passive:false});
+        }
+      }
       box.appendChild(el);
     })(res[j]);
   }

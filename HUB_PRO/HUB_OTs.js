@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -346,7 +346,10 @@ function cargarCatalogo() {
     if (hojaRep) {
       var dRep = getSheetValues(hojaRep);
       for (var j = 1; j < dRep.length; j++) {
-        if (dRep[j][1] && dRep[j][2]) repuestos.push({ codigo: String(dRep[j][1]), nombre: String(dRep[j][2]), modelos: String(dRep[j][SCHEMA.DB_REPUESTOS.MODELOS] || '') });
+        if (dRep[j][1] && dRep[j][2]) repuestos.push({
+          codigo: String(dRep[j][1]), nombre: String(dRep[j][2]), modelos: String(dRep[j][SCHEMA.DB_REPUESTOS.MODELOS] || ''),
+          reemplazadoPor: String(dRep[j][SCHEMA.DB_REPUESTOS.REEMPLAZADO_POR] || '').trim()
+        });
       }
     }
 
