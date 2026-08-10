@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Command Center del supervisor: métricas, logs,
 //  pendientes de envío, deuda de resellers, búsquedas/historial de
@@ -420,7 +420,10 @@ function buscarOTsSimilares(modelo, falla, otActual) {
       var otStr = String(f[SCHEMA.OT.OT]).trim().toUpperCase();
       if (otStr === otB) continue;                              // excluir la propia OT
       if (String(f[SCHEMA.OT.ESTADO]||"") !== "Finalizado") continue; // solo cerradas
-      var trabajo = String(f[SCHEMA.OT.TRABAJO]||"").trim();
+      // Preferimos el informe técnico REAL (diagnóstico del técnico); las OTs cerradas antes
+      // de que ese campo existiera no lo tienen, así que caen a TRABAJO (falla reportada) para
+      // no perder esos casos históricos del buscador.
+      var trabajo = String(f[SCHEMA.OT.INFORME_TECNICO]||"").trim() || String(f[SCHEMA.OT.TRABAJO]||"").trim();
       if (!trabajo) continue;
 
       var modeloF = String(f[SCHEMA.OT.EQUIPO]||"").trim().toLowerCase();
@@ -493,7 +496,7 @@ function buscarHistorialSN(sn) {
         estado:   String(f[4]||""),
         dias:     dias,
         fechaAp:  fechaAp,
-        trabajo:  String(f[12]||"")
+        trabajo:  String(f[SCHEMA.OT.INFORME_TECNICO]||"").trim() || String(f[12]||"")
       });
     }
     out.sort(function(a,b){ return b.dias - a.dias; });

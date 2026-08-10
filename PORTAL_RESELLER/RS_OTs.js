@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.13
+// @version 1.14
 // ============================================================
 
 function enviarCasoAlHub(token, data) {
@@ -190,7 +190,10 @@ function consultarEstado(ot, sn) {
       if (circRaw === "RESELLER" || circRaw === "SI") flujo = "Reseller";
       else if (circRaw === "RESELLER PROPIO") flujo = "Reseller Propio";
 
-      var notaTec = String(f[SCHEMA.OT.TRABAJO] || "");
+      // Preferimos el informe técnico REAL (lo completa el técnico en HUB_PRO); si todavía no
+      // lo cargó (o es un caso viejo, previo a que este campo existiera), mostramos la falla
+      // reportada por el cliente para no dejar la nota técnica vacía.
+      var notaTec = String(f[SCHEMA.OT.INFORME_TECNICO] || "").trim() || String(f[SCHEMA.OT.TRABAJO] || "");
       var paso = 1, quePasa = "", accion = null;
 
       var DIR_CARMEN = "📍 EUCAWOODS — SIPCA, Carmen de Areco, BS.AS. (CP 6725)\n⏰ Lun a Vie 08:00-12:00 / 13:00-17:00\n👤 Mariano Castronuevo (+54 9 2325 65-6826)";

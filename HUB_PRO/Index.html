@@ -1,4 +1,4 @@
-<!-- @version 2.24 -->
+<!-- @version 2.25 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1308,8 +1308,12 @@ body.compact tbody td{padding:6px 14px!important}
         </div>
 
         <hr class="f-sep">
-        <label class="flbl">Informe Técnico</label>
-        <textarea id="f-tra" class="form-control" rows="4" placeholder="Diagnóstico y trabajo realizado..." oninput="markDirty()"></textarea>
+        <label class="flbl">Falla reportada por el cliente</label>
+        <textarea id="f-tra" class="form-control" rows="3" placeholder="Descripción del problema tal como la reportó el cliente..." oninput="markDirty()"></textarea>
+
+        <hr class="f-sep">
+        <label class="flbl">Informe Técnico <span style="color:var(--red)">*</span></label>
+        <textarea id="f-informe" class="form-control" rows="4" placeholder="Diagnóstico y trabajo realizado por el técnico..." oninput="markDirty()"></textarea>
 
         <hr class="f-sep">
         <label class="flbl" style="display:flex;align-items:center;gap:6px">
@@ -2059,6 +2063,7 @@ function abrirLista(c) {
       // Limpiar SIEMPRE (evita repuestos pegados de orden anterior)
       document.getElementById('cont-r').innerHTML = '';
       document.getElementById('f-tra').value = det.trabajo || '';
+      document.getElementById('f-informe').value = det.informeTecnico || '';
       actual.repuestosEnvioWos = det.repuestosEnvioWos || '';
       var _repLineas = [];   // [{cod, desc, ped, env}] — para el Command Center
       if (det.repuestos && det.repuestos !== 'Sin consumo de repuestos' && det.repuestos.trim() !== '') {
@@ -2405,7 +2410,7 @@ function navEquipoDrop(e) {
 
 // ── LIMPIEZA DE FORMULARIO ────────────────────────────────────
 function limpiarFormulario() {
-  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-notas'];
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tec-nuevo','f-tra','f-informe','f-notas'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -2584,6 +2589,7 @@ function abrir(c){
   // 7. Repuestos — cargados por abrirLista via obtenerDetalleOT
   document.getElementById('cont-r').innerHTML = '<div style="color:var(--tx-d);padding:10px;font-style:italic">Cargando repuestos...</div>';
   document.getElementById('f-tra').value = '';
+  document.getElementById('f-informe').value = '';
   document.getElementById('f-notas').value = actual.notasInternas || '';
   // Origen del repuesto + tipo de cierre (badges claros)
   document.getElementById('f-origen').value = actual.origenRepuesto || '';
@@ -3093,7 +3099,7 @@ function selR(inp,cod,desc){
 
 // ── RESET PARCIAL — limpia inputs antes de disparar google.script.run ──
 function resetUIPartial() {
-  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tra','f-notas','f-tec-nuevo'];
+  var ids = ['f-cas','f-equi','f-sn','f-fecha-act','f-tra','f-informe','f-notas','f-tec-nuevo'];
   for (var i = 0; i < ids.length; i++) {
     var el = document.getElementById(ids[i]);
     if (el) el.value = '';
@@ -3105,9 +3111,10 @@ function guardar(){
   var _eq = document.getElementById('f-equi').value.trim();
   var _sn = document.getElementById('f-sn').value.trim();
   var _tr = document.getElementById('f-tra').value.trim();
+  var _inf = document.getElementById('f-informe').value.trim();
   if (!_eq) { toast('Completá el equipo / modelo','err'); return; }
   if (!_sn) { toast('Completá el número de serie','err'); return; }
-  if (estadoAct === 'Finalizado' && !_tr) { toast('Agregá el informe técnico antes de finalizar','err'); return; }
+  if (estadoAct === 'Finalizado' && !_inf) { toast('Agregá el informe técnico antes de finalizar','err'); return; }
 
   var rs = [], rows = document.querySelectorAll('#cont-r .p-row');
   for (var i = 0; i < rows.length; i++) {
@@ -3132,6 +3139,7 @@ function guardar(){
     reseller:           document.getElementById('f-res').value || actual.reseller,
     sn:                 _sn,
     trabajo:            _tr,
+    informeTecnico:     _inf,
     repuestos:          rs.length ? rs.join(' ; ') : 'Sin consumo de repuestos',
     manoObraGuardada:   manoObraSeleccionada.length ? JSON.stringify(manoObraSeleccionada) : '',
     notasInternas:      document.getElementById('f-notas').value || '',
@@ -3164,6 +3172,7 @@ function guardar(){
             actual.ultimaModificacion = det.ultimaModificacion || 0;
             // Repoblar campos con datos frescos del sheet
             if (det.trabajo    !== undefined) document.getElementById('f-tra').value   = det.trabajo   || '';
+            if (det.informeTecnico !== undefined) document.getElementById('f-informe').value = det.informeTecnico || '';
             if (det.mensajes   !== undefined) document.getElementById('f-notas').value = actual.notasInternas || '';
           })
           .withFailureHandler(function(){})
@@ -4106,6 +4115,7 @@ function verPresupuesto(){
     sn:document.getElementById('f-sn').value, cas:document.getElementById('f-cas').value,
     reseller:document.getElementById('f-res').value||actual.reseller,
     trabajo:document.getElementById('f-tra').value,
+    informeTecnico:document.getElementById('f-informe').value,
     repuestos:rs.length?rs.join(' ; '):(actual.repuestos||'Sin consumo de repuestos'),
     manoObra:manoObraSeleccionada,
     tipoDestinatario:selDest?selDest.value:'reseller',
@@ -4178,6 +4188,7 @@ function enviarPresupuestoManual(){
       garantia:document.getElementById('f-gar').value,
       reseller:document.getElementById('f-res').value||actual.reseller,
       trabajo:document.getElementById('f-tra').value,
+      informeTecnico:document.getElementById('f-informe').value,
       repuestos:rs.length?rs.join(' ; '):(actual.repuestos||'Sin consumo de repuestos'),
       manoObra:manoObraSeleccionada,
       tipoDestinatario: document.getElementById('sel-dest') ? document.getElementById('sel-dest').value : 'reseller',

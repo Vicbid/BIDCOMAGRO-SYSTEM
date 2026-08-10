@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Motor de notificaciones por mail ante cambio de estado
 //  de una OT (reseller/técnico/supervisor/facturación) + las 2
@@ -47,6 +47,7 @@ function HUB_notificarOT(numeroOT, forzarAbierto) {
       cas:       String(f[O.CAS]       || "").trim(),
       cliente:   String(f[O.CLIENTE]   || "").trim(),
       trabajo:   String(f[O.TRABAJO]   || "").trim(),
+      informeTecnico: String(f[O.INFORME_TECNICO] || "").trim(),
       repuestos: String(f[O.REPUESTOS] || "").trim(),
       prioridad: (String(f[O.PRIORIDAD] || "").toUpperCase() === "URGENTE")
     };
@@ -420,8 +421,12 @@ function armarEmailReseller(data, ant, nvo, tec) {
     filaDetalle("Estado actual", "<strong style='color:#00a3e0'>" + nvo + "</strong>") +
     filaDetalle("Técnico asignado", (tec&&tec!=="Gestión Reseller") ? tec : "Equipo técnico BIDCOMAGRO") +
     estimada;
-  var informe = (nvo==="Finalizado" && data.trabajo)
-    ? "<div style='margin-top:20px;background:#f5f9fc;border-left:3px solid #00a3e0;border-radius:0 6px 6px 0;padding:14px 16px'><p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Informe técnico</p><p style='font-size:13px;color:#444;line-height:1.7;margin:0'>" + data.trabajo + "</p></div>"
+  // Informe técnico REAL (lo completa el técnico) — si todavía no existe (OTs viejas,
+  // anteriores a que este campo se separara de "Falla reportada"), cae a data.trabajo
+  // para no mandar el mail de cierre sin ningún contenido.
+  var informeTxt = data.informeTecnico || data.trabajo;
+  var informe = (nvo==="Finalizado" && informeTxt)
+    ? "<div style='margin-top:20px;background:#f5f9fc;border-left:3px solid #00a3e0;border-radius:0 6px 6px 0;padding:14px 16px'><p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Informe técnico</p><p style='font-size:13px;color:#444;line-height:1.7;margin:0'>" + informeTxt + "</p></div>"
     : "";
   return construirEmailHTML(
     "Actualización de su Orden de Servicio", "Estimado/a " + data.reseller,

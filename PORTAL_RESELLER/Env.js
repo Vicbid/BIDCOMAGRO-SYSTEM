@@ -1,4 +1,4 @@
-// @version 1.12
+// @version 1.13
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var LISTA_PRECIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
@@ -56,7 +56,9 @@ var SCHEMA = {
     PRIORIDAD: 17,
     CIRCUITO: 18,
     MANO_OBRA: 22,
-    NOTAS_INTERNAS: 23
+    NOTAS_INTERNAS: 23,
+    INFORME_TECNICO: 30   // AE: informe técnico REAL, lo completa el técnico en HUB_PRO.
+                          // TRABAJO (col M) quedó como "falla reportada por el cliente".
   },
   STOCK_REPUESTOS: {
     CODIGO: 0,

@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -429,10 +429,10 @@ function obtenerTecnicosDisponibles() {
 function obtenerDetalleOT(fila) {
   try {
     var filaNum = parseInt(fila);
-    if (isNaN(filaNum) || filaNum < 2) return { trabajo: "", repuestos: "", mensajes: "" };
+    if (isNaN(filaNum) || filaNum < 2) return { trabajo: "", repuestos: "", mensajes: "", informeTecnico: "" };
     var datos = getSheetValues(SCHEMA.SHEETS.OT, true);  // force=true: siempre leer del sheet, nunca del cache
     var f = datos[filaNum - 1];
-    if (!f) return { trabajo: "", repuestos: "", mensajes: "" };
+    if (!f) return { trabajo: "", repuestos: "", mensajes: "", informeTecnico: "" };
 
     var histRaw = String(f[SCHEMA.OT.HISTORIAL_ESTADOS]||"").trim();
     var historial = [];
@@ -442,6 +442,7 @@ function obtenerDetalleOT(fila) {
 
     return {
       trabajo:             String(f[12]||""),
+      informeTecnico:      String(f[SCHEMA.OT.INFORME_TECNICO]||""),
       repuestos:           String(f[16]||""),
       mensajes:            String(f[11]||""),
       historialEstados:    historial,
@@ -451,7 +452,7 @@ function obtenerDetalleOT(fila) {
     };
   } catch(e) {
     Logger.log("obtenerDetalleOT ERROR fila=" + fila + " : " + e);
-    return { trabajo: "", repuestos: "", mensajes: "" };
+    return { trabajo: "", repuestos: "", mensajes: "", informeTecnico: "" };
   }
 }
 
@@ -471,12 +472,12 @@ function actualizarOrden(data) {
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var fila = parseInt(data.fila);
 
-    // getRange NO auto-expande columnas: asegurar que existan hasta AD (RECEPCION_FECHA) antes
-    // de leer/escribir — incluye lo que antes cubría el chequeo de AA/AB (CIERRE_TIPO).
+    // getRange NO auto-expande columnas: asegurar que existan hasta AE (INFORME_TECNICO) antes
+    // de leer/escribir — incluye lo que antes cubría el chequeo de AA/AB (CIERRE_TIPO) y AD (RECEPCION_FECHA).
     var _maxCol = hoja.getMaxColumns();
-    if (_maxCol < SCHEMA.OT.RECEPCION_FECHA + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.RECEPCION_FECHA + 1) - _maxCol);
+    if (_maxCol < SCHEMA.OT.INFORME_TECNICO + 1) hoja.insertColumnsAfter(_maxCol, (SCHEMA.OT.INFORME_TECNICO + 1) - _maxCol);
 
-    var old  = hoja.getRange(fila, 1, 1, SCHEMA.OT.RECEPCION_FECHA + 1).getValues()[0];
+    var old  = hoja.getRange(fila, 1, 1, SCHEMA.OT.INFORME_TECNICO + 1).getValues()[0];
     var estadoAnterior = String(old[SCHEMA.OT.ESTADO] || "");
 
     // ── RECEPCIÓN OBLIGATORIA (circuito Taller) ─────────────────
@@ -540,6 +541,7 @@ function actualizarOrden(data) {
     hoja.getRange(fila, SCHEMA.OT.RESELLER         + 1).setValue(data.reseller);
     if (data.mensajes !== undefined) hoja.getRange(fila, SCHEMA.OT.MENSAJES + 1).setValue(data.mensajes || "");
     hoja.getRange(fila, SCHEMA.OT.TRABAJO          + 1).setValue(data.trabajo);
+    if (data.informeTecnico !== undefined) hoja.getRange(fila, SCHEMA.OT.INFORME_TECNICO + 1).setValue(data.informeTecnico || "");
     hoja.getRange(fila, SCHEMA.OT.FECHA_ACTIVACION + 1).setValue(data.factura || "");
     hoja.getRange(fila, SCHEMA.OT.CAS              + 1).setValue(data.cas);
     if (data.fwrc !== undefined) hoja.getRange(fila, SCHEMA.OT.FWRC + 1).setValue(data.fwrc || "");

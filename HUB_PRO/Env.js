@@ -1,4 +1,4 @@
-// @version 1.8
+// @version 1.9
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var CARMEN_SS_ID     = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // Carmen — única fuente real de stock
 
@@ -49,11 +49,17 @@ var SCHEMA = {
                              // de repuestos de esta OT (fecha + nº de nota) — WOS NO toca el
                              // ESTADO (col E) directamente, esto es solo un aviso para que un
                              // humano decida pasar el estado a "Repuestos enviados" acá en HUB_PRO
-    RECEPCION_FECHA: 29      // AD: flag de recepción de equipo (circuito Taller). Vacío = no
+    RECEPCION_FECHA: 29,     // AD: flag de recepción de equipo (circuito Taller). Vacío = no
                              // recepcionada todavía; con fecha = ya se registró la recepción
                              // (ver HUB_Recepcion.js). El detalle completo (accesorios, usuario,
                              // observaciones) vive en la hoja RECEPCIONES_EQUIPO, esta columna es
                              // solo el flag barato que consulta el gate de actualizarOrden().
+    INFORME_TECNICO: 30      // AE: informe técnico REAL, lo completa el técnico (diagnóstico +
+                             // trabajo realizado). Distinto de TRABAJO (col M) — esa quedó como
+                             // "Falla reportada por el cliente" (lo que se tipea al abrir la OT).
+                             // Antes de este cambio no existía un campo separado y TRABAJO hacía
+                             // las dos cosas a la vez, por eso "Informe Técnico" en pantalla en
+                             // realidad mostraba casi siempre la falla del cliente sin editar.
   },
   RESELLERS: {
     NOMBRE: 0,

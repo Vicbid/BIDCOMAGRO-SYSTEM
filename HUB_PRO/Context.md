@@ -22,7 +22,7 @@
 | J | 9 | Técnico | |
 | K | 10 | Cliente | libre |
 | L | 11 | Mensajes reseller | Canal bidireccional Portal↔HUB |
-| M | 12 | Informe técnico | |
+| M | 12 | Falla reportada por el cliente | Se carga al abrir la OT; NO es el diagnóstico del técnico |
 | N | 13 | Fecha activación | Escritura única desde Portal |
 | O | 14 | CAS/FWR | |
 | P | 15 | Entrega repuestos | ⚠️ NUNCA TOCAR |
@@ -34,6 +34,13 @@
 | V | 21 | Checklist QC | JSON |
 | W | 22 | Mano de obra | JSON array [{codigo,descripcion,precio}] |
 | X | 23 | Notas internas | Texto libre, NO visible para resellers |
+| Y | 24 | Historial de estados | JSON array de transiciones |
+| Z | 25 | Última modificación | Sello de tiempo, control de concurrencia optimista |
+| AA | 26 | Origen del repuesto | "Adelantado" \| "Stock reseller" \| "" |
+| AB | 27 | Tipo de cierre | "Reposicion" \| "NC" \| "" |
+| AC | 28 | Aviso envío WOS | Texto libre que deja WOS al despachar repuestos de la OT |
+| AD | 29 | Recepción (fecha) | Flag de recepción de equipo, circuito Taller |
+| AE | 30 | Informe técnico (real) | Diagnóstico y trabajo realizado, lo completa el técnico — requerido para Finalizar |
 
 ## Otras hojas
 - `LOGS` — fecha, OT, técnico, email, acción, estadoAnt, estadoNvo, detalle

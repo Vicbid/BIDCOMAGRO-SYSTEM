@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Presupuestos: armado del HTML, tokens de aprobación/
 //  rechazo por link de mail, envío al reseller.
@@ -134,8 +134,11 @@ function enviarPresupuesto(data) {
 
     var bloques =
       bloqueCard("📋 Detalle de la Orden", cuerpoDetalle, "#00a3e0") +
-      (data.trabajo ? bloqueCard("🔧 Diagnóstico Técnico",
+      (data.trabajo ? bloqueCard("📝 Falla reportada",
         "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + data.trabajo.replace(/\n/g,"<br>") + "</p>",
+        "#6b7280") : "") +
+      (data.informeTecnico ? bloqueCard("🔧 Diagnóstico Técnico",
+        "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + data.informeTecnico.replace(/\n/g,"<br>") + "</p>",
         "#27ae60") : "") +
       (tablaRepHTML ? "<div style='margin-bottom:16px'><p style='font-size:12px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase'>Repuestos</p>" + tablaRepHTML + "</div>" : "") +
       (tablaMOHTML  ? "<div style='margin-bottom:16px'><p style='font-size:12px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase'>Mano de Obra</p>" + tablaMOHTML + "</div>" : "") +
@@ -420,7 +423,8 @@ function obtenerPresupuestoHTML(data) {
         '<td style="padding:4px 7px;font-size:11px">' + (rTel||'—') + '</td>' +
         '<td style="padding:4px 7px" class="lbl">Referencia: <strong style="color:#222">' + data.ot + '</strong>' + (data.cas ? ' &nbsp; <span class="lbl">CAS:</span> <strong style="color:#222">' + data.cas + '</strong>' : '') + '</td>' +
       '</tr>' +
-      (data.trabajo ? '<tr><td style="padding:4px 7px" class="lbl">Diagnóstico:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#2d6a3f;background:#f5fff8">' + data.trabajo.replace(/\n/g,' ') + '</td></tr>' : '') +
+      (data.trabajo ? '<tr><td style="padding:4px 7px" class="lbl">Falla reportada:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#555;background:#f7f7f7">' + data.trabajo.replace(/\n/g,' ') + '</td></tr>' : '') +
+      (data.informeTecnico ? '<tr><td style="padding:4px 7px" class="lbl">Diagnóstico:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#2d6a3f;background:#f5fff8">' + data.informeTecnico.replace(/\n/g,' ') + '</td></tr>' : '') +
       '</table>' +
       // ── ITEMS TABLE ──
       '<table class="it" style="width:100%;margin-bottom:5px">' +
