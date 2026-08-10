@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Compras ─────────────────────────────────────
-// @version 1.8
+// @version 1.9
 
 // ============================================================
 //  COMPRAS DJI
@@ -46,7 +46,20 @@ function cargarCompras() {
         etaProximaISO: rd.etaProximaISO|| ""
       });
     }
-    out.sort(function(a,b){ return ESTADOS_CAS.indexOf(a.estado) - ESTADOS_CAS.indexOf(b.estado); });
+    out.sort(function(a,b){
+      var stageDiff = ESTADOS_CAS.indexOf(a.estado) - ESTADOS_CAS.indexOf(b.estado);
+      if (stageDiff !== 0) return stageDiff;
+      if (a.estado === 'En depósito') return 0; // ahí no aplica orden por arribo — ya llegaron
+      // Dentro de la misma columna: el que arriba antes, arriba en la lista. Preferí el
+      // "próximo arribo" automático (por ítem, COMPRAS_DETALLE); si no hay, cae a la ETA
+      // manual del CAS; si no hay ninguna, ese CAS queda al final de su columna.
+      var da = a.etaProximaISO || a.etaISO || '';
+      var db = b.etaProximaISO || b.etaISO || '';
+      if (da && db) return da < db ? -1 : (da > db ? 1 : 0);
+      if (da) return -1;
+      if (db) return 1;
+      return 0;
+    });
     return out;
   } catch(e) { return []; }
 }
