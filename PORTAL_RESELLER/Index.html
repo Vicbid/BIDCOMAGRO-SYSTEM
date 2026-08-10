@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.97 -->
+<!-- @version 1.98 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2941,6 +2941,15 @@ function pinKey(e, num) {
   document.getElementById('pin-error').textContent = '';
   document.querySelectorAll('.pin-input').forEach(function(p){ p.classList.remove('error'); });
 
+  // Enter (y cualquier otra tecla de control: Tab, flechas, etc.) no cambia el valor del
+  // input — el campo ya quedó enmascarado como "•" al tipear el dígito. Si dejáramos que
+  // siguiera de largo, "•" no matchea \D como dígito, la lógica de abajo lo lee como "se
+  // borró" y limpia el campo justo antes de loguear (bug reportado: Enter borraba el
+  // último dígito en vez de ingresar). Cortamos acá: Enter dispara login y no sigue;
+  // Backspace sigue de largo (necesita la lógica de abajo para navegar entre casilleros).
+  if (e.key === 'Enter') { if (num === 4) login(); return; }
+  if (e.key !== 'Backspace' && e.key.length > 1) return;
+
   // El input real puede traer el dígito en texto plano (recién tipeado) o restos del
   // "•" que dejamos nosotros — nos quedamos solo con los dígitos.
   var digitos = inp.value.replace(/\D/g, '');
@@ -2967,7 +2976,6 @@ function pinKey(e, num) {
     inp.value = '';
   }
 
-  if (e.key === 'Enter' && num === 4) login();
   if (e.key === 'Backspace' && digitos.length === 0 && num > 1) document.getElementById('pin' + (num - 1)).focus();
 }
 
