@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  WOS — Stock: consulta para operarios, despacho parcial/batch,
 //  ubicaciones de picking. (Distinto de WOS_StockSnapshot.js, que
@@ -374,7 +374,7 @@ function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, opera
         // token de idempotencia por pedido (deriva del token del batch) → un reintento no duplica
         var itemToken = reqToken ? (reqToken + '::' + item.numero) : '';
         var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario, itemToken);
-        resultados.push({ numero: item.numero, ok: res.ok, error: res.error || '' });
+        resultados.push({ numero: item.numero, ok: res.ok, error: res.error || '', desactualizado: !!res.desactualizado });
       } catch(eI) {
         resultados.push({ numero: item.numero, ok: false, error: eI.toString() });
       }

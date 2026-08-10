@@ -1,4 +1,4 @@
-<!-- @version 3.53 -->
+<!-- @version 3.55 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2372,8 +2372,14 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
   }
   if (est === 'En_Espera_Reseller') {
-    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés preparar (N° de serie + peso) y despachar lo disponible ahora, sin esperar su respuesta; o registrar su respuesta si ya contestó.</div>';
-    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar lo disponible</button>';
+    // Antes había un botón "Preparar lo disponible" acá al lado de "Despachar lo disponible" —
+    // los dos hacían cosas distintas (Preparar solo guarda N° de serie, NUNCA despacha ni saca
+    // el pedido de este estado) pero se veían como alternativas equivalentes, y un operador podía
+    // clickear "Preparar" creyendo que eso entregaba el pedido (bug real reportado por el usuario).
+    // Feedback directo del usuario: "el operador no puede tener muchas opciones... solo tiene que
+    // tener 1 opción así no hay errores". Se saca "Preparar" de acá: para despachar disponible
+    // ahora hay UN solo botón, y ese modal ya permite cargar el N° de serie ahí mismo.
+    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés despachar lo disponible ahora (vas a poder cargar el N° de serie ahí mismo), sin esperar su respuesta; o registrar su respuesta si ya contestó.</div>';
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Despachar lo disponible</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>';
   }
@@ -2590,7 +2596,7 @@ function abrirModalPreparar(numero, parcial) {
     }
   }
 
-  _modalPrep = { numero: numero, items: [], parcial: parcial };
+  _modalPrep = { numero: numero, items: [], parcial: parcial, teniaEnEspera: false };
   document.getElementById('modal-prep-sub').textContent = 'Pedido ' + numero + ' \xb7 ' + (ped.reseller || '') + (parcial ? ' \x2014 prepar\xe1 lo que lleg\xf3 (cantidad por \xedtem editable)' : ' \x20 ingresá el N\xba de serie de CADA unidad');
 
   var html = '<div style="font-size:11px;color:var(--tx);background:rgba(255,171,0,.1);border:1px solid var(--amber-m);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">' +
@@ -2606,6 +2612,7 @@ function abrirModalPreparar(numero, parcial) {
     // Faltante esperando al reseller: se prepara SOLO lo disponible (como parcial), sin bloquear; la
     // línea sigue En_Espera hasta que el reseller decida (el backend no la saca de En_Espera al preparar).
     var esEnEsperaIt = it.estado === 'En_Espera_Reseller' || it.estado === 'Reservado_Consolidar';
+    if (esEnEsperaIt) _modalPrep.teniaEnEspera = true;
     var itParcial = parcial || esEnEsperaIt;
     var stk = (typeof it.stockActual === 'number') ? it.stockActual : null;
     // En parcial / en espera, saltear ítems sin stock (quedan en backorder / siguen esperando). En normal, incluir todo.
@@ -3232,6 +3239,8 @@ function confirmarPreparar() {
   }
 
   var numero = _modalPrep.numero;
+  // Capturado ANTES de cerrarModal('prep') porque esa llamada pone _modalPrep = null.
+  var _teniaEnEspera = !!_modalPrep.teniaEnEspera;
   var enPicking = document.getElementById('pk-overlay') && document.getElementById('pk-overlay').style.display === 'flex';
   cerrarModal('prep');
   sp(true, 'Registrando N\xba de serie y marcando como preparado…');
@@ -3245,6 +3254,18 @@ function confirmarPreparar() {
       toast('Pedido ' + numero + ' → Preparado 📦', 'ok');
       cargar();
       if (enPicking) setTimeout(function() { _renderColaPicking(); }, 1800);
+      // "Preparar" en un pedido En_Espera_Reseller / Reservado_Consolidar NUNCA lo saca de ese
+      // estado (a propósito, ver WOS_prepararConSeriales) — sólo guarda el N° de serie. Sin este
+      // aviso, un operador puede creer que ya despachó (el toast de arriba dice "Preparado" y
+      // suena a terminado) y dejar el pedido sin avisar al reseller ni generar la Nota de Entrega.
+      if (_teniaEnEspera) {
+        setTimeout(function() {
+          alert('✅ Se guardó el N° de serie de lo que preparaste.\n\n' +
+                '⚠️ El pedido ' + numero + ' TODAVÍA sigue en "En_Espera_Reseller" — esto NO lo despachó ' +
+                'ni avisó al reseller, ni generó la Nota de Entrega.\n\n' +
+                'Para completarlo de verdad, entrá al pedido y usá el botón "✅ Despachar lo disponible".');
+        }, 300);
+      }
     })
     .withFailureHandler(function(e) {
       sp(false);
@@ -3391,7 +3412,11 @@ function abrirModalDespacho(numero) {
     var esConsolidar = it.estado === 'Reservado_Consolidar'; // OT: disponible pero retenido a propósito
 
     if (!esCancelado) {
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, cantPend: it.cantPend, estado: it.estado, sku: it.sku, desc: it.desc, seriales: it.seriales });
+      // firma = sku|desc|precio en el momento en que se abrió el modal. Se reenvía al backend al
+      // confirmar el despacho para detectar si alguien corrigió el pedido a mano (SKU/precio/desc)
+      // mientras el modal estaba abierto — si no coincide con lo que hay AHORA en la hoja, el
+      // despacho se bloquea entero (ver WOS_despacharCompleto) en vez de salir con datos viejos.
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, cantPend: it.cantPend, estado: it.estado, sku: it.sku, desc: it.desc, seriales: it.seriales, firma: it.sku + '|' + it.desc + '|' + it.precio });
     }
 
     if (esCancelado) {
@@ -4044,6 +4069,19 @@ function _confirmarSinSerie(list) {
     'sale en el mail al reseller). \xbfDespachar igual?');
 }
 
+// El pedido cambió (SKU/descripción/precio corregidos a mano en la hoja) DESPUÉS de que el
+// operador abrió el modal de despacho y ANTES de confirmar — WOS_despacharCompleto lo detecta
+// y bloquea el despacho entero antes de escribir nada (ver comentario ahí). Única opción para
+// el operador: refrescar y volver a intentar con los datos correctos — no se le ofrece "despachar
+// igual" (eso reintroduciría el mismo riesgo: despachar el ítem físico equivocado).
+function _wosAvisarDesactualizado(res) {
+  cerrarModal('desp');
+  alert('⚠️ El pedido ' + (res.numero || '') + ' cambió mientras lo tenías abierto (alguien corrigió ' +
+        'SKU, descripción o precio) — el despacho NO se realizó, para no entregar el ítem viejo.\n\n' +
+        'Se va a actualizar la lista con los datos correctos. Volvé a abrir el pedido y despachalo de nuevo.');
+  cargar();
+}
+
 function confirmarDespacho() {
   if (!_modalDesp) return;
   if (_despachoEnCurso) return;   // ya hay un despacho en curso → ignorar el 2° click
@@ -4087,7 +4125,7 @@ function confirmarDespacho() {
       if (bCnt > 0 && bSers.length === 0 && !String(bIt.seriales || '').trim()) _sinSerie.push({ sku: bIt.sku, cnt: bCnt });
       var bCajaEl  = document.getElementById('mdi-caja-' + bIt.row);
       var bCajaIdx = bCajaEl ? (parseInt(bCajaEl.value) || 0) : 0;
-      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', '), cajaIdx: bCajaIdx });
+      pedsByNum[bIt.numero].push({ row: bIt.row, cantDesp: bCnt, seriales: bSers.join(', '), cajaIdx: bCajaIdx, firma: bIt.firma });
     }
     if (_sinSerie.length && !_confirmarSinSerie(_sinSerie)) return;
     for (var bn = 0; bn < _modalDesp.batchNumeros.length; bn++) {
@@ -4104,10 +4142,12 @@ function confirmarDespacho() {
         _despachoEnCurso = false;
         wosLoadDone();
         if (!res.ok && !res.resultados) { toast('Error: ' + res.error, 'err'); return; }
-        var ok = 0, err = 0;
+        var ok = 0, err = 0, desact = [];
         for (var ri = 0; ri < res.resultados.length; ri++) {
-          if (res.resultados[ri].ok) ok++; else err++;
+          if (res.resultados[ri].ok) ok++;
+          else { err++; if (res.resultados[ri].desactualizado) desact.push(res.resultados[ri].numero); }
         }
+        if (desact.length) { _wosAvisarDesactualizado({ numero: desact.join(', ') }); }
         toast(ok + ' pedidos despachados' + (err > 0 ? ' · ' + err + ' con error' : ''), ok > 0 ? 'ok' : 'err');
         if (ok > 0) toast('Emails enviados · Facturaci\xF3n notificada', 'email', '📧');
         cargar();
@@ -4133,7 +4173,7 @@ function confirmarDespacho() {
     if (cnt > 0 && sers.length === 0 && !String(it.seriales || '').trim()) _sinSerieI.push({ sku: it.sku, cnt: cnt });
     var cajaEl  = document.getElementById('mdi-caja-' + it.row);
     var cajaIdx = cajaEl ? (parseInt(cajaEl.value) || 0) : 0;
-    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx });
+    despachos.push({ row: it.row, cantDesp: cnt, seriales: sers.join(', '), cajaIdx: cajaIdx, firma: it.firma });
   }
   var totalADespachar = 0;
   for (var vi = 0; vi < despachos.length; vi++) totalADespachar += despachos[vi].cantDesp;
@@ -4150,6 +4190,7 @@ function confirmarDespacho() {
     .withSuccessHandler(function(res) {
       _despachoEnCurso = false;
       wosLoadDone();
+      if (res && res.desactualizado) { _wosAvisarDesactualizado(res); return; }
       if (!res.ok) { toast('Error: ' + res.error, 'err'); return; }
       toast('Despacho registrado · ' + numero, 'ok');
       toast('Email enviado en el hilo del pedido · Facturaci\xF3n notificada', 'email', '📧');
@@ -6048,7 +6089,7 @@ function _abrirBatchCon(numeros) {
 
       if (esCancelado || yaEnviado) continue; // ítems cerrados no se incluyen en batch
 
-      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, desc: it.desc, seriales: it.seriales, numero: numeros[n] });
+      _modalDesp.items.push({ row: it.row, cantSol: it.cantSol, cantDesp: it.cantDesp, sku: it.sku, desc: it.desc, seriales: it.seriales, numero: numeros[n], firma: it.sku + '|' + it.desc + '|' + it.precio });
 
       var metaLine = 'Sol.: <strong>' + it.cantSol + '</strong>' +
         (it.cantDesp > 0 ? ' \xa0·\xa0 Ya desp.: <strong style="color:var(--teal-m)">' + it.cantDesp + '</strong>' : '') +

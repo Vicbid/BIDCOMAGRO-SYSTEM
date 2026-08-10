@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.43
+// @version 2.45
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -387,6 +387,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var despMap    = {};
     var serialMap  = {};
     var cajaMap    = {};
+    var firmaMap   = {};
     // Los bins (ubicaciones WMS) ya NO llegan del modal de despacho: se eligieron al
     // preparar y quedaron guardados en col AA (UBIC_PREP) de cada fila. Acá se leen y
     // se aplica el descuento. Ver _parseUbicPrep().
@@ -394,6 +395,29 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       despMap[despachos[d].row]   = Number(despachos[d].cantDesp) || 0;
       serialMap[despachos[d].row] = String(despachos[d].seriales || '').trim();
       cajaMap[despachos[d].row]   = despachos[d].cajaIdx !== undefined ? Number(despachos[d].cajaIdx) : 0;
+      firmaMap[despachos[d].row]  = despachos[d].firma;
+    }
+
+    // BUG reportado por el usuario: alguien corrigió a mano el SKU/precio/descripción de un
+    // ítem (el reseller había pedido mal el código) mientras un operador tenía el modal de
+    // despacho abierto con los datos VIEJOS — despachó igual y salió el ítem/precio equivocado
+    // en la Nota de Entrega. Fix: el cliente manda la "firma" (sku|desc|precio) que vio al abrir
+    // el modal por cada fila que va a despachar; acá se compara contra la hoja recién leída
+    // (`ped.datos`, sin caché). Si CUALQUIER fila cambió, se aborta el despacho ENTERO antes de
+    // escribir nada — "1 sola opción, sin margen de error": no se le ofrece despachar igual con
+    // los datos viejos, solo actualizar y reintentar (ver _wosAvisarDesactualizado en el front).
+    var _desactualizados = [];
+    for (var vf = 1; vf < ped.datos.length; vf++) {
+      if (String(ped.datos[vf][COL.NUMERO] || '').trim() !== numero) continue;
+      var _filaVf = vf + 1;
+      if (firmaMap[_filaVf] === undefined || !(despMap[_filaVf] > 0)) continue;   // no se está despachando esta fila
+      var _firmaActual = String(ped.datos[vf][COL.SKU] || '') + '|' + String(ped.datos[vf][COL.DESC] || '') + '|' + (Number(ped.datos[vf][COL.PRECIO]) || 0);
+      if (firmaMap[_filaVf] && firmaMap[_filaVf] !== _firmaActual) _desactualizados.push(_filaVf);
+    }
+    if (_desactualizados.length) {
+      Logger.log('WOS_despacharCompleto: ' + numero + ' desactualizado, filas ' + _desactualizados.join(','));
+      return { ok: false, desactualizado: true, numero: numero,
+        error: 'El pedido ' + numero + ' cambió (SKU/descripción/precio) desde que se abrió el despacho. No se despachó nada.' };
     }
 
     var carmenSS    = null;
@@ -2322,7 +2346,9 @@ function WOS_notificarCambiosEta() {
     // diagnosticar sin depender de los logs de ejecución de Apps Script.
     for (var rI = 0; rI < porPedido[numero].rows.length; rI++) {
       var fila = porPedido[numero].rows[rI] + 1;
-      if (res.ok) hoja.getRange(fila, 9).setValue('Notificado');
+      // omitido=true: ya no había nada pendiente de verdad (se entregó por otra vía) → se cierra
+      // la fila igual, pero como "Resuelto" (no "Notificado", porque no se mandó ningún mail).
+      if (res.ok) hoja.getRange(fila, 9).setValue(res.omitido ? 'Resuelto' : 'Notificado');
       hoja.getRange(fila, 10).setValue(res.msg);
     }
     if (res.ok) procesadas += porPedido[numero].rows.length;
@@ -2339,13 +2365,30 @@ function _wosNotificarCambioEtaPedido(numero, info) {
   if (!hoja) return { ok: false, msg: 'pedido_no_encontrado' };
   var datos = hoja.getDataRange().getValues();
   var reseller = info.reseller, threadId = '';
+  // BUG reportado por el usuario: el mail "cambio de fecha estimada" seguía saliendo diciendo
+  // que el reseller esperaba un ítem que YA se le había entregado. Causa: la cola
+  // NOTIF_ETA_CAMBIO_WOS la llena Stock Manager de forma independiente (por reservas en
+  // RESERVAS_EN_CAMINO) y puede quedar desactualizada si el ítem se despachó por otra vía entre
+  // que Stock Manager la encoló y WOS la procesa — este mail se mandaba sin volver a chequear si
+  // el ítem seguía pendiente de verdad. Mismo patrón que ya usan _wosRecordarIngresoPedido /
+  // _wosEscalarIngresoPedido (chequean backorder vigente antes de mandar). Acá se suma cuánto
+  // sigue en Backorder (CANT_SOL−CANT_DESP−CANT_CANCEL) por SKU, y más abajo se filtran los
+  // ítems del aviso a solo los que TODAVÍA tienen pendiente > 0.
+  var pendPorSku = {};
   for (var i = 1; i < datos.length; i++) {
     if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
-    threadId = String(datos[i][COL.THREAD_ID] || '').trim();
+    if (!threadId) threadId = String(datos[i][COL.THREAD_ID] || '').trim();
     if (!reseller) reseller = String(datos[i][COL.RESELLER] || '');
-    break;
+    if (String(datos[i][COL.ESTADO] || '').trim() !== EST.BACKORDER) continue;
+    var skuPI  = String(datos[i][COL.SKU] || '').trim().toUpperCase();
+    var pendPI = (Number(datos[i][COL.CANT_SOL]) || 0) - (Number(datos[i][COL.CANT_DESP]) || 0) - (Number(datos[i][COL.CANT_CANCEL]) || 0);
+    if (skuPI && pendPI > 0) pendPorSku[skuPI] = (pendPorSku[skuPI] || 0) + pendPI;
   }
   if (!reseller) return { ok: false, msg: 'pedido_no_encontrado' };
+
+  var itemsVigentes = info.items.filter(function(x) { return pendPorSku[x.sku] > 0; });
+  if (!itemsVigentes.length) return { ok: true, omitido: true, msg: 'sin_pendiente_ya_resuelto' };
+  info = { reseller: info.reseller, items: itemsVigentes };
 
   var email = '';
   try { email = _wosGetEmailReseller(reseller); } catch(eEm) {}
