@@ -1,4 +1,4 @@
-<!-- @version 3.57 -->
+<!-- @version 3.58 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -949,6 +949,33 @@ body{overflow:hidden}
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="cerrarModal('cancelar')">Volver</button>
       <button class="btn" onclick="confirmarCancelacion()" style="background:var(--red-m);color:#fff;border-color:var(--red-m);font-weight:700">✕ Confirmar cancelación</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar pedido (Admin) -->
+<div class="modal-overlay" id="modal-editar-admin" style="display:none">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <div class="title" style="color:var(--indigo)">✏️ Editar pedido (Admin)</div>
+        <div class="subtitle" id="modal-ae-sub"></div>
+      </div>
+      <button class="modal-close" onclick="cerrarModal('editar-admin')">✕</button>
+    </div>
+    <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+      <div style="font-size:11px;color:var(--tx-d);background:rgba(82,67,170,.08);border:1px solid var(--indigo);border-radius:6px;padding:8px 10px;margin-bottom:12px;line-height:1.55">
+        Los ítems con unidades ya despachadas solo permiten ajustar la cantidad pendiente — no se puede cambiar SKU, descripción ni precio de algo que ya salió.
+      </div>
+      <div id="modal-ae-items"></div>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);display:block;margin:14px 0 6px">Motivo (obligatorio)</label>
+      <textarea id="modal-ae-motivo" rows="3" placeholder="Indicá el motivo (ej: el reseller pidió mal el código, corrección de precio…)"
+        style="width:100%;padding:9px 11px;border:1.5px solid var(--brd);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+      <p style="font-size:11px;color:var(--tx-d);margin:8px 0 0">El motivo y el detalle de los cambios se le va a avisar por mail al reseller.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="cerrarModal('editar-admin')">Cancelar</button>
+      <button class="btn" id="btn-ae-confirmar" onclick="confirmarEdicionAdmin()" style="background:var(--indigo);color:#fff;border-color:var(--indigo);font-weight:700">✅ Confirmar cambios</button>
     </div>
   </div>
 </div>
@@ -2436,6 +2463,12 @@ function renderAcciones(p) {
   }
   if (_usuario.esAdmin && (EST_TERMINAL[est] || est === 'En_Espera_Reseller' || est === 'Reservado_Consolidar') && est !== 'Cancelado') {
     btns += _btnAdminCancelar(n);
+  }
+  // Pedido del usuario: corregir SKU/cantidad/precio a mano en la hoja (sin aviso, sin registro)
+  // fue lo que causó el bug del despacho con datos viejos (ver firma en WOS_despacharCompleto).
+  // Reemplaza esa edición manual por una función con motivo obligatorio + aviso al reseller.
+  if (_usuario.esAdmin && est !== 'Cancelado') {
+    btns += '<button class="btn btn-ghost" onclick="abrirModalEditarAdmin(\'' + n + '\')" style="color:var(--indigo);border-color:var(--indigo)" title="Cambiar SKU/cantidad/precio o eliminar un ítem — solo admins">✏️ Editar pedido (Admin)</button>';
   }
   return btns;
 }
@@ -4582,6 +4615,7 @@ function cerrarModal(which) {
   if (which === 'resp-tel') { document.getElementById('modal-resp-tel').style.display   = 'none'; _modalRT   = null; }
   if (which === 'cancelar') { document.getElementById('modal-cancelar').style.display   = 'none'; _modalCanc = null; }
   if (which === 'prep')     { _prepCamStop(); document.getElementById('modal-prep').style.display = 'none'; _modalPrep = null; }
+  if (which === 'editar-admin') { document.getElementById('modal-editar-admin').style.display = 'none'; _modalEditar = null; }
   if (which === 'resumen')  { cerrarResumen(); }
 }
 
@@ -4612,6 +4646,111 @@ function confirmarCancelacion() {
     })
     .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
     .WOS_cancelarPedido(numero, motivo, _usuario.email, 'canc_' + numero);
+}
+
+// ── MODAL: Editar pedido (Admin) ────────────────────────────────
+// Pedido del usuario: reemplazar la edición manual directa en la hoja (sin aviso, sin
+// registro — la causa del bug de "despachar con datos viejos" corregido antes) por una
+// función con motivo obligatorio y aviso por mail al reseller. Cada fila del pedido se edita
+// en línea (SKU/Descripción/Cantidad/Precio) o se marca para eliminar (🗑 → cancela el
+// pendiente); todos los cambios de la tanda se mandan juntos con un solo motivo compartido.
+var _modalEditar = null;
+
+function abrirModalEditarAdmin(numero) {
+  sp(true, 'Cargando pedido…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'No se pudo cargar el pedido'), 'err'); return; }
+      _modalEditar = { numero: numero, items: res.items, eliminar: {} };
+      document.getElementById('modal-ae-sub').textContent = 'Pedido ' + numero + ' · ' + res.reseller;
+      document.getElementById('modal-ae-motivo').value = '';
+      _aeRenderItems();
+      document.getElementById('modal-editar-admin').style.display = 'flex';
+    })
+    .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
+    .WOS_obtenerPedidoParaEditar(numero);
+}
+
+function _aeRenderItems() {
+  if (!_modalEditar) return;
+  var html = '';
+  for (var i = 0; i < _modalEditar.items.length; i++) {
+    var it = _modalEditar.items[i];
+    if (it.cantPend <= 0) {
+      // Línea ya cerrada (todo despachado o todo cancelado) — sin nada que editar.
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--surf);opacity:.5;font-size:12px">' +
+        '<span style="font-family:monospace;font-weight:700">' + escH(it.sku) + '</span> — ' + escH(it.desc) +
+        ' <span style="color:var(--tx-d)">(cerrada, ' + it.estado + ' — sin cambios posibles)</span>' +
+      '</div>';
+      continue;
+    }
+    var bloqueada = it.cantDesp > 0;   // ya tiene algo despachado: SKU/desc/precio quedan fijos
+    var piso = it.cantSol - it.cantPend;   // ya despachado + ya cancelado
+    var marcada = !!_modalEditar.eliminar[it.row];
+    html += '<div class="ae-row" data-row="' + it.row + '" style="padding:9px 0;border-bottom:1px solid var(--surf)' + (marcada ? ';opacity:.45' : '') + '">' +
+      '<div style="display:grid;grid-template-columns:110px 1fr 78px 90px 32px;gap:7px;align-items:center">' +
+        '<input class="ae-sku" id="ae-sku-' + it.row + '" value="' + escH(it.sku) + '"' + (bloqueada || marcada ? ' disabled' : '') +
+          ' style="padding:6px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;font-family:monospace;font-weight:700">' +
+        '<input class="ae-desc" id="ae-desc-' + it.row + '" value="' + escH(it.desc) + '"' + (bloqueada || marcada ? ' disabled' : '') +
+          ' style="padding:6px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px">' +
+        '<input class="ae-cant" id="ae-cant-' + it.row + '" type="number" min="' + piso + '" value="' + it.cantSol + '"' + (marcada ? ' disabled' : '') +
+          ' style="padding:6px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;text-align:center">' +
+        '<input class="ae-precio" id="ae-precio-' + it.row + '" type="number" step="0.01" value="' + it.precio + '"' + (bloqueada || marcada ? ' disabled' : '') +
+          ' style="padding:6px 8px;border:1.5px solid var(--brd);border-radius:6px;font-size:12px;text-align:right">' +
+        '<button type="button" onclick="_aeToggleEliminar(' + it.row + ')" title="' + (marcada ? 'Deshacer' : 'Eliminar ítem (cancela lo pendiente)') + '" ' +
+          'style="padding:6px;border:1.5px solid ' + (marcada ? 'var(--tx-d)' : 'var(--red-m)') + ';border-radius:6px;background:none;color:' + (marcada ? 'var(--tx-d)' : 'var(--red-m)') + ';cursor:pointer">' + (marcada ? '↩' : '🗑') + '</button>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--tx-d);margin-top:3px">' +
+        (marcada ? 'Se va a eliminar (cancela ' + it.cantPend + ' u. pendientes)' :
+          ('Pend.: ' + it.cantPend + ' u.' + (bloqueada ? ' · Ya despachado: ' + it.cantDesp + ' u. — SKU/descripción/precio no editables' : ''))) +
+      '</div>' +
+    '</div>';
+  }
+  document.getElementById('modal-ae-items').innerHTML = html || '<div style="font-size:12px;color:var(--tx-d);padding:10px 0">Este pedido no tiene ítems pendientes para editar.</div>';
+}
+
+function _aeToggleEliminar(row) {
+  if (!_modalEditar) return;
+  _modalEditar.eliminar[row] = !_modalEditar.eliminar[row];
+  _aeRenderItems();
+}
+
+function confirmarEdicionAdmin() {
+  if (!_modalEditar) return;
+  var motivo = (document.getElementById('modal-ae-motivo').value || '').trim();
+  if (!motivo) { toast('Indicá el motivo del cambio.', 'err'); return; }
+
+  var cambios = [];
+  for (var i = 0; i < _modalEditar.items.length; i++) {
+    var it = _modalEditar.items[i];
+    if (it.cantPend <= 0) continue;
+    if (_modalEditar.eliminar[it.row]) { cambios.push({ row: it.row, accion: 'eliminar' }); continue; }
+    var skuInp = document.getElementById('ae-sku-' + it.row);
+    var descInp = document.getElementById('ae-desc-' + it.row);
+    var cantInp = document.getElementById('ae-cant-' + it.row);
+    var precioInp = document.getElementById('ae-precio-' + it.row);
+    if (!skuInp) continue;
+    var nSku = skuInp.value.trim(), nDesc = descInp.value.trim();
+    var nCant = parseInt(cantInp.value, 10) || 0, nPrecio = parseFloat(precioInp.value) || 0;
+    if (nSku === it.sku && nDesc === it.desc && nCant === it.cantSol && nPrecio === it.precio) continue; // sin cambios
+    cambios.push({ row: it.row, accion: 'editar', sku: nSku, desc: nDesc, cantSol: nCant, precio: nPrecio });
+  }
+  if (!cambios.length) { toast('No hiciste ningún cambio.', 'err'); return; }
+
+  var numero = _modalEditar.numero;
+  cerrarModal('editar-admin');
+  sp(true, 'Aplicando cambios y avisando al reseller…');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      sp(false);
+      if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'No se pudo aplicar el cambio'), 'err'); return; }
+      toast('Pedido ' + numero + ' actualizado (' + res.cambios + ' cambio' + (res.cambios === 1 ? '' : 's') + ')', 'ok');
+      toast(res.avisoEnviado ? 'Reseller notificado por email' : 'No se pudo avisar por email (sin contacto) — cambios igual aplicados', res.avisoEnviado ? 'email' : 'err', res.avisoEnviado ? '📧' : undefined);
+      cargar();
+    })
+    .withFailureHandler(function(e) { sp(false); toast('Sin respuesta del servidor — la operación puede haberse completado. Actualizando…', 'err'); cargar(); })
+    .WOS_adminEditarPedido(numero, cambios, motivo, _usuario.email);
 }
 
 // ── Pick Ticket ───────────────────────────────────────────────
