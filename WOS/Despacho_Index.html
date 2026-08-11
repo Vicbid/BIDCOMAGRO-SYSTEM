@@ -1,4 +1,4 @@
-<!-- @version 3.58 -->
+<!-- @version 3.59 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2400,14 +2400,21 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
   }
   if (est === 'En_Espera_Reseller') {
-    // Antes había un botón "Preparar lo disponible" acá al lado de "Despachar lo disponible" —
-    // los dos hacían cosas distintas (Preparar solo guarda N° de serie, NUNCA despacha ni saca
-    // el pedido de este estado) pero se veían como alternativas equivalentes, y un operador podía
-    // clickear "Preparar" creyendo que eso entregaba el pedido (bug real reportado por el usuario).
-    // Feedback directo del usuario: "el operador no puede tener muchas opciones... solo tiene que
-    // tener 1 opción así no hay errores". Se saca "Preparar" de acá: para despachar disponible
-    // ahora hay UN solo botón, y ese modal ya permite cargar el N° de serie ahí mismo.
-    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés despachar lo disponible ahora (vas a poder cargar el N° de serie ahí mismo), sin esperar su respuesta; o registrar su respuesta si ya contestó.</div>';
+    // Antes había un botón "Preparar lo disponible" acá al lado de "Despachar lo disponible" con
+    // textos casi idénticos ("lo disponible" en los dos) — un operador clickeó "Preparar" creyendo
+    // que eso entregaba el pedido (bug real reportado por el usuario) y se sacó el botón entero.
+    // Pero eso rompió otra cosa (reportado después): "Despachar lo disponible" abre el modal FINAL
+    // (WOS_despacharCompleto) que carga SN a mano, sin escáner de pistola/cámara ni ubicación WMS
+    // — todo eso solo existe en el modal de Preparar (abrirModalPreparar). Con al menos 1 ítem acá
+    // (aunque el resto del pedido esté recién Confirmado), ped.estado prioriza En_Espera_Reseller
+    // sobre Preparado/Backorder (ver EST_PRIORIDAD en WOS_Pedidos.js) y el operador se queda SIN
+    // forma de empaquetar/pesar con las herramientas normales antes de despachar.
+    // Se reincorpora "Preparar", pero con el mismo texto ("por adelantado") que ya usa sin problema
+    // el estado hermano Reservado_Consolidar más abajo — evita repetir la ambigüedad con "Despachar
+    // lo disponible" (btn-teal secundario vs. btn-success primario). El aviso post-Preparar (ver
+    // confirmarPreparar → _teniaEnEspera) ya avisa explícitamente que esto NO despacha ni avisa al reseller.
+    btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés preparar lo disponible por adelantado (SN + peso), despacharlo ahora sin esperar su respuesta, o registrar su respuesta si ya contestó.</div>';
+    btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar por adelantado</button>';
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Despachar lo disponible</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>';
   }
