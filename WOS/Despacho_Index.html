@@ -1,4 +1,4 @@
-<!-- @version 3.59 -->
+<!-- @version 3.60 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -4765,6 +4765,20 @@ function abrirPickTicket(numero) {
   var ped = _buscarPedido(numero);
   if (!ped) return;
 
+  // BUG reportado por el usuario: la columna "Ubicación" del Pick Ticket nunca traía nada. Causa:
+  // desde que se agregó esta columna, el código leía `it.ubicacion` sobre los ítems del pedido,
+  // pero ese campo no existe — WOS_cargarUbicacionesPedido (la misma función que ya usan los
+  // modales de Preparar y Despacho) nunca se llamaba acá. Se trae ahora antes de armar la tabla.
+  var _ptSkus = [];
+  for (var ps = 0; ps < ped.items.length; ps++) { if (ped.items[ps].sku) _ptSkus.push(ped.items[ps].sku); }
+  sp(true, 'Cargando ubicaciones…');
+  google.script.run
+    .withSuccessHandler(function(r) { sp(false); _renderPickTicket(ped, (r && r.ok) ? r.map : {}); })
+    .withFailureHandler(function() { sp(false); _renderPickTicket(ped, {}); })
+    .WOS_cargarUbicacionesPedido(_ptSkus);
+}
+
+function _renderPickTicket(ped, ubicMap) {
   var fecha = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
 
   var _ptLbl = {
@@ -4782,8 +4796,10 @@ function abrirPickTicket(numero) {
     var cantTarget = it.cantPend > 0 ? it.cantPend : it.cantSol;
     var estadoBadge = '<span class="badge-estado badge-' + _clsEst(it.estado) + '" style="font-size:10px;padding:2px 7px">' +
       escH(_ptLbl[it.estado] || it.estado || '—') + '</span>';
-    // Ubicación: mostrar la primera (recomendación) en negrita, el resto en gris
-    var ubicStr = it.ubicacion || '—';
+    // Ubicación: mostrar la primera (recomendación) en negrita, el resto en gris. Top 3 bins
+    // (ya vienen ordenados desc por cantidad desde el backend) para no saturar el ticket impreso.
+    var _locs = (it.sku && ubicMap[it.sku.toUpperCase()]) ? ubicMap[it.sku.toUpperCase()] : [];
+    var ubicStr = _locs.length ? _locs.slice(0, 3).map(function(l) { return l.ubicacion; }).join(' · ') : '—';
     var ubicDisplay = ubicStr;
     if (ubicStr.indexOf(' · ') >= 0) {
       var _partes = ubicStr.split(' · ');
