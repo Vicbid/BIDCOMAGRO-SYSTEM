@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Sistema: detección/reposición de batería, triggers
 //  (SLA diario + reporte mensual + instalación), diagnóstico general,
@@ -59,10 +59,12 @@ function enviarEmailReposicionBateria(data) {
     var emailLog = obtenerEmailGestionLogistica();
     if (!emailLog) { Logger.log("Sin email para Gestion Logistica"); return; }
     var emailReseller = obtenerEmailReseller(data.reseller);
-    // Pedido del usuario: Administración también tiene que enterarse de este caso apenas se
-    // aprueba, porque antes de que Logística pueda despachar la batería hace falta que carguen
-    // un IdVenta (requisito para el envío) — sin eso Logística queda trabada esperando.
+    // Pedido del usuario: Administración y Logística van en el MISMO mail (no en mails separados)
+    // porque son 2 pasos secuenciales del mismo caso — Administración carga el IdVenta primero,
+    // recién después Logística puede despachar la batería. Verlo junto evita que Logística reciba
+    // el aviso sin saber que todavía falta ese paso previo.
     var emailAdmin = getMailAdministracion();
+    var destinatarios = emailAdmin ? (emailLog + "," + emailAdmin) : emailLog;
     var asunto = "[BIDCOMAGRO] Reposición de batería — OT " + data.ot + " · " + data.equipo;
 
     var cuerpoDetalle =
@@ -75,54 +77,33 @@ function enviarEmailReposicionBateria(data) {
 
     var htmlEmail = construirEmailHTML(
       "Reposición de Batería — " + data.ot,
-      "Estimado equipo de Logística,",
+      "Equipos de Administración y Logística,",
       bloqueCard("Caso aprobado — Reposición requerida",
         "El reseller <strong>" + data.reseller + "</strong> completó los dos pasos requeridos: " +
         "carga del caso reconocido por DJI como en garantía y envío del scrap. " +
-        "Se requiere reponer la batería al reseller.",
+        "Se requiere reponer la batería al reseller, en este orden:",
         "#00a3e0") +
       "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:16px'>" +
       cuerpoDetalle + "</div>" +
-      bloqueCard(" Acción requerida",
-        "Coordinar envío de batería de reemplazo al reseller <strong>" + data.reseller + "</strong>. " +
-        "Requiere que Administración haya cargado el IdVenta correspondiente — sin eso no se puede despachar.",
+      bloqueCard("1️⃣ Administración — Cargar IdVenta",
+        "Requisito para poder despachar. Logística queda a la espera de este paso.",
+        "#e67e22") +
+      bloqueCard("2️⃣ Logística — Coordinar envío",
+        "Recién se puede despachar la batería de reemplazo al reseller <strong>" + data.reseller + "</strong> una vez cargado el IdVenta de arriba.",
         "#27ae60"),
       "Aviso automático generado por DJI HUB PRO."
     );
 
-    var tidLog = _enviarConHilo(data.ot, emailLog, asunto, htmlEmail);
-    registrarEmailLog(data.ot, emailLog, "Logística", asunto, "OK", tidLog || "");
-
-    if (emailAdmin) {
-      var asuntoA = "[BIDCOMAGRO] Cargar IdVenta — Reposición batería OT " + data.ot;
-      var htmlAdmin = construirEmailHTML(
-        "Reposición de Batería — " + data.ot,
-        "Área de Administración,",
-        bloqueCard("🧾 Acción requerida — Cargar IdVenta",
-          "Este caso de batería en garantía ya fue <strong>aprobado por DJI</strong> y está listo para reponerse al " +
-          "reseller <strong>" + data.reseller + "</strong>. Antes de que Logística pueda despachar la batería de " +
-          "reemplazo necesitamos que se cargue el <strong>IdVenta</strong> correspondiente — es un requisito para el envío.",
-          "#e67e22") +
-        "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:16px'>" +
-        cuerpoDetalle + "</div>",
-        "Aviso automático generado por DJI HUB PRO."
-      );
-      try {
-        var tidAdmin = _enviarConHilo(data.ot, emailAdmin, asuntoA, htmlAdmin);
-        registrarEmailLog(data.ot, emailAdmin, "Administración", asuntoA, "OK", tidAdmin || "");
-      } catch(eAdmin) {
-        registrarEmailLog(data.ot, emailAdmin, "Administración", asuntoA, "ERROR: " + eAdmin.message, "");
-      }
-    } else {
-      Logger.log("Sin email para Administración (reposición batería)");
-    }
+    var tidLog = _enviarConHilo(data.ot, destinatarios, asunto, htmlEmail);
+    registrarEmailLog(data.ot, destinatarios, "Logística+Administración", asunto, "OK", tidLog || "");
+    if (!emailAdmin) Logger.log("Sin email para Administración (reposición batería) — se mandó solo a Logística");
 
     if (emailReseller) {
       var asuntoR = "OT " + data.ot + " — " + data.equipo;
       var tidRes = _enviarConHilo(data.ot, emailReseller, asuntoR, htmlEmail);
       registrarEmailLog(data.ot, emailReseller, "Reseller", asuntoR, "OK", tidRes || "");
     }
-    Logger.log("✓ Reposición batería → " + emailLog + (emailAdmin ? " + Administración" : ""));
+    Logger.log("✓ Reposición batería → " + destinatarios);
   } catch(e) { Logger.log("enviarEmailReposicionBateria: " + e); }
 }
 
