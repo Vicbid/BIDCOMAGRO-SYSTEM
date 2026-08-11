@@ -1,4 +1,4 @@
-<!-- @version 2.25 -->
+<!-- @version 2.26 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2555,12 +2555,17 @@ function abrir(c){
     var _esTermPR = _est === 'Finalizado' || _est === 'Entregado' || _est === 'CANCELADO' || _est === 'Rechazado DJI' || _est === 'Sin respuesta · Cerrado';
     btnPiezasRecv.style.display = (_circ.indexOf('Reseller') !== -1 && !_esTermPR) ? 'inline-flex' : 'none';
   }
-  // Botón Solicitar Factura: OOW + tiene repuestos despachados
+  // Botón Solicitar Factura: OOW + tiene repuestos despachados + circuito Taller Central.
+  // Reportado por el usuario: Reseller / Reseller Propio no tienen nada real que facturarle a
+  // Administración por esta vía (el reseller ya paga los repuestos por su cuenta, vía Portal/WOS)
+  // — mismo criterio que el mail automático de facturación (ver enviarNotificaciones bloque 4).
   var btnFactura = document.getElementById('btn-factura');
   if (btnFactura) {
     var _hayRepDesp = _tieneRepuestosDespachados(actual.repuestos);
     var _factYaSolic = (actual.estado === 'ESPERANDO FACTURA');
-    btnFactura.style.display = (esOOW && _hayRepDesp) ? 'inline-flex' : 'none';
+    var _circFactura = document.getElementById('f-circ').value || actual.circuito || '';
+    var _esTallerFactura = (_circFactura === 'Taller');
+    btnFactura.style.display = (esOOW && _hayRepDesp && _esTallerFactura) ? 'inline-flex' : 'none';
     btnFactura.disabled      = _factYaSolic;
     btnFactura.style.opacity = _factYaSolic ? '0.6' : '1';
     btnFactura.innerHTML     = _factYaSolic
@@ -4314,6 +4319,7 @@ function solicitarFacturaManual() {
       cas:       document.getElementById('f-cas')  ? document.getElementById('f-cas').value  : actual.cas,
       garantia:  actual.garantia,
       estado:    actual.estado,
+      circuito:  document.getElementById('f-circ').value || actual.circuito || '',
       repuestos: rs.length ? rs.join(' ; ') : actual.repuestos
     });
 }

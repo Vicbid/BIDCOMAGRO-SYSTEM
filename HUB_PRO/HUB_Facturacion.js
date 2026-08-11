@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  HUB PRO — Solicitud de factura: descuento del reseller, XLS de
 //  detalle, mail a administración/facturación.
@@ -187,6 +187,14 @@ function solicitarFactura(data) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
+
+    // Reportado por el usuario: Reseller / Reseller Propio no tienen nada real que facturarle a
+    // Administración por esta vía (el reseller ya paga los repuestos por su cuenta, vía Portal/
+    // WOS) — mismo criterio que el mail automático de facturación (enviarNotificaciones bloque 4).
+    // Server-side porque el gate del botón en el cliente es solo conveniencia de UI, no seguridad.
+    if (String(data && data.circuito || '') !== 'Taller') {
+      return { ok: false, msg: 'La solicitud de facturación a Administración es exclusiva del circuito Taller Central.' };
+    }
 
     var emailAdmin = getMailAdministracion();
     if (!emailAdmin) return { ok: false, msg: 'No se encontró "Administracion" en Usuarios_Internos (Columna A) con email en Columna B.' };

@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Motor de notificaciones por mail ante cambio de estado
 //  de una OT (reseller/técnico/supervisor/facturación) + las 2
@@ -239,10 +239,14 @@ function enviarNotificaciones(data, estadoAnterior, tecnico) {
       }
     }
 
-    // 4. FACTURACIÓN (Administración) — solo al FINALIZAR una OT fuera de garantía (con presupuesto).
+    // 4. FACTURACIÓN (Administración) — solo al FINALIZAR una OT fuera de garantía (con presupuesto)
+    //    del circuito Taller Central. Reportado por el usuario: en Reseller / Reseller Propio no hay
+    //    nada real que facturarle a Administración por esta vía (el reseller ya paga los repuestos
+    //    por su cuenta, vía Portal/WOS) — mandarla igual generaba solicitudes de facturación fantasma.
     //    Se dispara únicamente en la transición a "Finalizado" (estadoAnterior distinto) para no duplicar la solicitud.
     if (estadoNuevo === "Finalizado" && estadoAnterior !== "Finalizado"
-        && String(data.garantia || "").toUpperCase() === "OOW") {
+        && String(data.garantia || "").toUpperCase() === "OOW"
+        && data.circuito === "Taller") {
       var asuntoF = "[FACTURAR] OT " + data.ot + " — " + data.reseller + " · " + data.equipo;
       try {
         var tidF = _enviarConHilo(data.ot, CONFIG.EMAIL_FACTURACION, asuntoF, armarEmailFacturacion(data, tecnico));
