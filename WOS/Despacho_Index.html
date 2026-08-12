@@ -1,10 +1,10 @@
-<!-- @version 3.66 -->
+<!-- @version 3.67 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WOS · BIDCOMAGRO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -222,8 +222,8 @@ body{font-family:var(--f);background:var(--bg);color:var(--tx);font-size:14px;li
 .obs-form .obs-x{background:var(--surf);border:1.5px solid var(--brd);color:var(--tx-m);font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;cursor:pointer;flex-shrink:0}
 
 /* ── ITEMS TABLE ──────────────────────────────────────── */
-.items-table-wrap{overflow-x:auto}
-table.items-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.items-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.items-tbl{width:100%;min-width:620px;border-collapse:collapse;font-size:12px}
 table.items-tbl th{background:var(--surf);padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);border-bottom:2px solid var(--brd);white-space:nowrap}
 table.items-tbl td{padding:10px 12px;border-bottom:1px solid var(--surf);vertical-align:middle}
 table.items-tbl tr:last-child td{border-bottom:none}
@@ -539,6 +539,10 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .pk-ready-chip{display:inline-flex;align-items:center;gap:8px;padding:5px 10px;border:1.5px solid var(--green-m);border-radius:var(--rm);background:var(--panel)}
 .pk-ready-chip-lbl{font-size:12px;font-weight:700;color:var(--green)}
 
+/* ── SIDEBAR BACKDROP (mobile) ────────────────────────── */
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(9,30,66,.5);z-index:650;opacity:0;transition:opacity .25s}
+.sb-backdrop.visible{display:block;opacity:1}
+
 /* ── PRINT ────────────────────────────────────────────── */
 @media print{
   html,body{height:auto!important;overflow:visible!important}
@@ -624,6 +628,92 @@ body{overflow:hidden}
 .ws-search input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-a);background:#fff}
 .ws-search input::placeholder{color:var(--tx-d)}
 .ws-search-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--tx-d);pointer-events:none}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE — paridad operativa completa (pedido del usuario)
+   No existía NINGÚN breakpoint en todo el archivo antes de esto. Estrategia: el sidebar pasa
+   a ser un drawer off-canvas (position:fixed + backdrop, ver funciones toggleSidebar/
+   cerrarSidebarMobile más abajo); los 6 modales que comparten .modal-box (Despacho,
+   Faltante, Preparar, Respuesta Telefónica, Cancelar, Editar Admin) pasan a pantalla completa
+   estilo app nativa (header/footer fijos, body con scroll propio) — varios tienen un
+   max-width inline por eso varias reglas de acá van con !important a propósito, es la única
+   forma de ganarle a esos estilos inline puntuales; las tablas que no tenían wrapper de
+   scroll (Avisos de ingreso, Cola de Picking, Stock, Resumen Envíos) quedan cubiertas por
+   overflow-x:auto en su contenedor padre en vez de tocar cada tabla generada por JS; las
+   barras fijas (batch-bar, toasts) dejan de asumir el ancho de 220px del sidebar de escritorio.
+   No se pudo probar visualmente — Apps Script HTML Service no se puede levantar fuera de un
+   deploy real — revisar en un celular real antes de dar esto por cerrado. ═══════════════════ */
+@media (max-width:768px){
+  /* Sidebar → drawer off-canvas (el selector combinado con .sb-col es defensivo: por más que
+     toggleSidebar() ya no deja mezclar el colapso de escritorio con el modo mobile, esto evita
+     que un resize en vivo del navegador cruzando el breakpoint deje el sidebar en un estado raro) */
+  .sidebar,.sidebar.sb-col{
+    position:fixed;top:0;left:0;height:100%;width:82vw;max-width:280px;z-index:700;
+    transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:var(--shd-xl);padding-top:env(safe-area-inset-top)
+  }
+  .sidebar.mobile-open{transform:translateX(0)}
+  .sidebar.sb-col .sb-brand-text,.sidebar.sb-col .sb-section-lbl,.sidebar.sb-col .filter-tab>span,
+  .sidebar.sb-col .nav-tab>span,.sidebar.sb-col .nb-cnt,.sidebar.sb-col .sb-footer{display:block}
+  .sidebar.sb-col .filter-tab,.sidebar.sb-col .nav-tab{justify-content:flex-start;padding:0 16px}
+  .sb-collapse-btn{display:none!important}
+  #sb-tog-btn{display:inline-flex!important}
+
+  /* Topbar: se parte en 2 filas — íconos arriba, buscador abajo a lo ancho */
+  .ws-topbar{flex-wrap:wrap;height:auto;min-height:44px;padding:8px 12px;row-gap:8px}
+  .ws-topbar-right{width:100%;flex-wrap:wrap;margin-left:0!important}
+  .ws-search{width:100%;flex:1 1 100%}
+  #reseller-sel{max-width:none!important;flex:1 1 auto}
+  .ws-content{padding:14px 12px 90px}
+
+  /* KPIs: 4 → 2 columnas para que los números no queden ilegibles */
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* Tarjeta de pedido: cabecera con wrap en vez de recortar, meta a 1 columna */
+  .card-head{height:auto;min-height:52px;flex-wrap:wrap;padding:10px 12px;row-gap:6px}
+  .card-meta{grid-template-columns:1fr;padding:14px}
+  .card-meta-col-right{border-left:none;padding-left:0;border-top:1px solid var(--brd);padding-top:10px;margin-top:2px}
+  .wf-wrap{padding:10px 12px}
+  .card-actions{padding:12px}
+  .card-actions .btn{flex:1 1 auto;min-width:130px}
+  .pk-row{flex-wrap:wrap}
+
+  /* Modales genéricos (Despacho/Faltante/Preparar/RespTel/Cancelar/Editar admin) → pantalla completa,
+     igual que una app nativa: header y footer fijos, el body es lo único que scrollea. */
+  .modal-overlay{padding:0}
+  .modal-box{max-width:100%!important;width:100%!important;height:100%!important;max-height:100%!important;
+    border-radius:0!important;margin:0!important;display:flex;flex-direction:column}
+  .modal-head{flex-shrink:0}
+  .modal-body{flex:1!important;max-height:none!important;overflow-y:auto}
+  .modal-foot{flex-shrink:0;flex-wrap:wrap;padding-bottom:max(14px,env(safe-area-inset-bottom))}
+  #prep-cam{max-width:100%!important;width:100%!important}
+
+  /* Pick Ticket → pantalla completa, con scroll horizontal propio para la tabla */
+  .pt-overlay{padding:0}
+  .pt-box{width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;
+    border-radius:0!important;overflow-y:auto;overflow-x:auto}
+  .pt-firma{flex-direction:column;gap:14px}
+
+  /* Stock / Resumen Envíos / Lista de Compras / Avisos de ingreso / Cola de Picking (mismo shell
+     .stk-overlay / .rsm-overlay): la cabecera pasa a envolver, y el body gana scroll horizontal
+     para las tablas que nunca tuvieron su propio wrapper (Avisos de ingreso, Cola de Picking). */
+  .rsm-head,.stk-head{flex-wrap:wrap;height:auto;min-height:56px;padding:12px 14px;row-gap:8px}
+  .rsm-controls{width:100%;margin-left:0;flex-wrap:wrap}
+  .rsm-filters{width:100%}
+  .stk-search{flex:1 1 100%;max-width:none}
+  .stk-vista-tog{flex:1 1 auto}
+  .stk-body{overflow-x:auto;padding:14px}
+
+  /* Barras fijas: dejan de asumir el ancho del sidebar de escritorio (220px) */
+  .batch-bar{left:0!important;flex-wrap:wrap;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));gap:10px}
+  .batch-bar-count{width:100%}
+  .toast-container{left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));align-items:stretch}
+  .toast{max-width:100%}
+  #wos-load-card{min-width:0;width:calc(100% - 32px);max-width:340px;padding:22px 18px}
+
+  /* Evita el auto-zoom de iOS Safari al enfocar un input de texto/número con font-size <16px */
+  input[type=text],input[type=number],input[type=month],input[type=tel],input[type=email],textarea{font-size:16px!important}
+}
 </style>
 </head>
 <body>
@@ -636,6 +726,9 @@ body{overflow:hidden}
 </div>
 
 <div class="app-shell">
+
+  <!-- Backdrop del drawer del sidebar en mobile — clic afuera cierra (cerrarSidebarMobile) -->
+  <div class="sb-backdrop" id="sb-backdrop" onclick="cerrarSidebarMobile()"></div>
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -720,7 +813,7 @@ body{overflow:hidden}
       <button class="sb-tog" id="sb-tog-btn" onclick="toggleSidebar()" title="Mostrar menú" style="display:none"><i class="fa fa-bars"></i></button>
       <span class="ws-status-dot"></span>
       <span class="ws-breadcrumb">BIDCOMAGRO &rsaquo; WOS · Despacho</span>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <div class="ws-topbar-right" style="margin-left:auto;display:flex;align-items:center;gap:8px">
         <div class="ws-search">
           <svg class="ws-search-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="search-inp" type="text" placeholder="Buscar pedido, reseller, SKU…" oninput="renderPedidos()">
@@ -1945,8 +2038,20 @@ function toggleEstados() {
   actualizarStats();
 }
 
+// En mobile (drawer off-canvas, ver @media max-width:768px) "colapsar" no tiene sentido —
+// acá solo hay abierto/cerrado. Se separa del comportamiento de escritorio (icon-rail sb-col)
+// para no mezclar los dos mecanismos: si se dejaran compartir la misma clase, restaurar la
+// preferencia de escritorio ("sidebar colapsado") al abrir en el celular abriría el drawer
+// solo, sin que el operario tocara nada.
 function toggleSidebar() {
   var sb = document.querySelector('.sidebar');
+  if (window.innerWidth <= 768) {
+    var abriendo = !sb.classList.contains('mobile-open');
+    sb.classList.toggle('mobile-open', abriendo);
+    var bd = document.getElementById('sb-backdrop');
+    if (bd) bd.classList.toggle('visible', abriendo);
+    return;
+  }
   sb.classList.toggle('sb-col');
   var col = sb.classList.contains('sb-col');
   var bb = document.querySelector('.batch-bar');
@@ -1955,6 +2060,20 @@ function toggleSidebar() {
   if (togBtn) togBtn.style.display = col ? '' : 'none';
   try { localStorage.setItem('wos_sb_col', col ? '1' : '0'); } catch(e) {}
 }
+
+function cerrarSidebarMobile() {
+  var sb = document.querySelector('.sidebar');
+  sb.classList.remove('mobile-open');
+  var bd = document.getElementById('sb-backdrop');
+  if (bd) bd.classList.remove('visible');
+}
+// Elegir un filtro de estado o abrir una herramienta desde el drawer lo cierra solo — en
+// mobile el drawer tapa toda la pantalla, así que dejarlo abierto después de elegir algo
+// obligaría a un segundo toque para verlo. Delegado (no hay que tocar cada botón).
+document.addEventListener('click', function(e) {
+  if (window.innerWidth > 768) return;
+  if (e.target.closest && e.target.closest('.filter-tab, .nav-tab')) cerrarSidebarMobile();
+});
 
 function toggleDarkMode() {
   var dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -6386,7 +6505,10 @@ try {
   if (_dmIco) _dmIco.className = _theme === 'dark' ? 'fa fa-sun' : 'fa fa-moon';
 } catch(e) {}
 try {
-  if (localStorage.getItem('wos_sb_col') === '1') toggleSidebar();
+  // Guard de ancho: en mobile toggleSidebar() ahora controla el drawer (abierto/cerrado), no
+  // el colapso a icon-rail de escritorio — sin este guard, restaurar "sidebar colapsado" en
+  // un celular abriría el drawer solo al cargar la página.
+  if (window.innerWidth > 768 && localStorage.getItem('wos_sb_col') === '1') toggleSidebar();
 } catch(e) {}
 </script>
 </body>
