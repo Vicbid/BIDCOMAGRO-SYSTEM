@@ -1,4 +1,4 @@
-<!-- @version 3.60 -->
+<!-- @version 3.61 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2443,8 +2443,16 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Generar nota de entrega</button>';
   }
   if (est === 'Preparado') {
+    // BUG reportado por el usuario (operador): en un pedido con ítems ya Preparado + un ítem que
+    // llegó de backorder, ped.estado da "Preparado" (EST_PRIORIDAD prioriza Preparado sobre
+    // Backorder, ver WOS_Pedidos.js) y este bloque solo ofrecía "Generar nota de entrega" — sin
+    // forma de cargar el N° de serie del ítem recién llegado (esa carga solo vive en el modal de
+    // Preparar: escáner de pistola/cámara, ubicación WMS). Mismo patrón que el fix de
+    // En_Espera_Reseller (ver Despacho_Index.html 3.59): se reincorpora el botón "Preparar" con
+    // el mismo texto que ya usa sin problema el estado puro Backorder más abajo.
     if (p.estadoSet && p.estadoSet['Backorder']) {
-      btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — despachá lo disponible ahora, el resto irá en un 2° envío cuando llegue el stock.</div>' + btns;
+      btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>' + btns;
+      btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
     } else if (p.estadoSet && p.estadoSet['Preparado Parcial']) {
       btns = '<div class="parcial-aviso">⚠ Algunos ítems tienen cantidad parcial — revisá las cantidades en la tabla antes de despachar.</div>' + btns;
     }
