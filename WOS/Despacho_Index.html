@@ -1,4 +1,4 @@
-<!-- @version 3.63 -->
+<!-- @version 3.64 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -1360,6 +1360,13 @@ function _imprimirEtiqueta(numero) {
     .withSuccessHandler(function(r) {
       sp(false);
       if (!r || !r.ok) { toast('Error: ' + (r ? r.error : 'sin datos'), 'err'); return; }
+      // Bug reportado por el usuario: un pedido marcado "Retira" (r.envio) salió despachado por
+      // transporte porque la etiqueta se veía igual a la de un envío normal y el operador se
+      // confundió. Se corta acá con un aviso explícito, y además la etiqueta impresa (más abajo,
+      // .retiro-band) queda marcada por si de todos modos se imprime.
+      if (/retiro/i.test(r.envio || '')) {
+        if (!confirm('Este pedido es RETIRA EN PLANTA (lo retira el reseller) — no correspondería una etiqueta de envío.\n\n¿Igual querés imprimirla?')) return;
+      }
       var w = window.open('', '_blank', 'width=860,height=680');
       var css =
         '@page{size:A4 landscape;margin:8mm}' +
@@ -1390,6 +1397,7 @@ function _imprimirEtiqueta(numero) {
         '.qr-verify{display:block;font-size:10px;color:#003399;text-align:center;margin-top:3px;text-decoration:none}' +
         '.qr-verify:hover{text-decoration:underline}' +
         '.obs-band{border-top:2px solid #f59e0b;border-bottom:2px solid #f59e0b;background:#fffbeb;padding:8px 34px;font-size:14px;font-weight:700;color:#92400e}' +
+        '.retiro-band{text-align:center;font-size:22px;font-weight:900;letter-spacing:.03em;color:#991b1b;background:#fef2f2;border:3px solid #dc2626;padding:10px 20px;text-transform:uppercase}' +
         '.footer-bar{display:flex;align-items:center;justify-content:space-between;border-top:2.5px solid #111;background:#f6f6f6;padding:13px 28px}' +
         '.pedido-tag{background:#003399;color:#fff;font-size:16px;font-weight:900;padding:7px 18px;border-radius:3px;font-family:monospace;letter-spacing:.04em}' +
         '.bulto-txt{font-size:26px;font-weight:900;color:#111;letter-spacing:.02em}' +
@@ -1417,6 +1425,7 @@ function _imprimirEtiqueta(numero) {
         localidad: r.localidad || '',
         provincia: r.provincia || '',
         telefono:  r.telefono  || '',
+        envio:     r.envio     || '',
         fecha:     new Date().toLocaleDateString('es-AR')
       }).replace(/<\/script>/gi, '<\\/script>');
 
@@ -1432,6 +1441,7 @@ function _imprimirEtiqueta(numero) {
           'var pb=i<n?" page-break":"";' +
           'var qrDiv=window._mapsUrl?"<div class=\'qr-wrap\'><div id=\'qr-"+i+"\'></div><div class=\'qr-lbl\'>&#128205; Ubicaci\xf3n</div><a href=\'"+window._mapsUrl+"\' target=\'_blank\' class=\'qr-verify\'>Verificar en Maps &#8599;</a></div>":"";' +
           'return "<div class=\'label"+pb+"\'>" +' +
+            '(/retiro/i.test(D.envio||"")?"<div class=\'retiro-band\'>⚠ Retira el reseller — NO enviar por transporte</div>":"") +' +
             '"<div class=\'main-row\'>" +' +
               '"<div class=\'dest-col\'>" +' +
                 '"<div class=\'dest-lbl\'>Destinatario:</div>" +' +
@@ -1504,6 +1514,7 @@ function _imprimirEtiqueta(numero) {
             '.bulto-txt{font-size:15px}' +
             '.pedido-tag{font-size:9px;padding:4px 10px}' +
             '.obs-band{font-size:8px;padding:5px 20px}' +
+            '.retiro-band{font-size:12px;padding:5px 10px;border-width:2px}' +
             '.footer-bar{padding:8px 16px}"' +
           ':"";' +
           'var a4=document.getElementById("btn-a4");' +

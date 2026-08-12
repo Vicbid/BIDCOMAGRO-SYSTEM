@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.28
+// @version 2.29
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -250,12 +250,29 @@ function _obtenerThreadIdLog(ot, destinatario) {
   return null;
 }
 
+// Red de seguridad cuando EMAIL_LOGS no tiene ThreadID registrado (típicamente porque
+// _capturarThreadId no llegó a indexar un envío anterior a tiempo — el mail salió bien
+// igual, pero quedó sin ancla). Bug reportado por el usuario: finalizó una OT que ya venía
+// respondiendo en el mismo hilo con el reseller y el mail de "Finalizado" salió como
+// conversación nueva. "OT " + número es la única parte del asunto que NUNCA cambia entre
+// estados (armarAsunto agrega/saca "[URGENTE]" y el cliente según el momento), así que se
+// busca por eso en vez del asunto completo — encuentra el hilo aunque el asunto exacto haya
+// variado entre envíos.
+function _buscarThreadPorAsuntoOT(ot, para) {
+  try {
+    var query = 'to:(' + para + ') subject:("OT ' + ot + '")';
+    var hilos = GmailApp.search(query, 0, 1);
+    if (hilos.length) return hilos[0].getId();
+  } catch(e) { Logger.log('_buscarThreadPorAsuntoOT: ' + e); }
+  return null;
+}
+
 
 // Envía dentro del hilo existente de la OT (replyHtml), o crea uno nuevo (sendEmail).
 // Retorna el Thread ID para persistir en EMAIL_LOGS.
 function _enviarConHilo(ot, para, asunto, html) {
   if (!para || para.indexOf('@') === -1) { Logger.log('Email inválido: ' + para); return null; }
-  var threadId = _obtenerThreadIdLog(ot, para);
+  var threadId = _obtenerThreadIdLog(ot, para) || _buscarThreadPorAsuntoOT(ot, para);
   if (threadId) {
     try {
       var hilo = GmailApp.getThreadById(threadId);

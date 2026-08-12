@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.12 -->
+<!-- @version 1.13 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -378,6 +378,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
     <span id="videos-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCursosMaterial()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-book-reader"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Material de Cursos · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Material de cursos ya dictados — buscable en el Portal</div>
+    </div>
+    <span id="cursos-mat-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
   <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalProspectos()">
     <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,58,237,.1);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
       <i class="fa fa-user-clock"></i>
@@ -727,6 +738,74 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div id="videos-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
         <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay modelos cargados.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MATERIAL DE CURSOS -->
+<div class="modal-bg" id="modal-cursos-material">
+  <div class="modal-box" style="width:560px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-book-reader"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Material de Cursos · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Material de cursos ya dictados a resellers — cada uno aparece como una tarjeta buscable en el Portal</div>
+      </div>
+      <button onclick="cerrarModalCursosMaterial()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="cm-titulo-original">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Curso cargado</label>
+          <select id="cm-sel" onchange="cmCargarCurso()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+            <option value="__new">➕ Nuevo</option>
+          </select>
+        </div>
+        <button onclick="cmNuevo()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-plus"></i> Nuevo</button>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Título</label>
+        <input id="cm-titulo" type="text" placeholder="Ej: Mantenimiento T50 — nivel 1" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Categoría (opcional)</label>
+          <input id="cm-categoria" type="text" placeholder="Ej: Mantenimiento" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+        <div style="width:160px">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Fecha (opcional)</label>
+          <input id="cm-fecha" type="date" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Descripción (opcional)</label>
+        <textarea id="cm-descripcion" rows="2" placeholder="Qué incluye el material…" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;resize:vertical"></textarea>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-link" style="color:var(--blue);margin-right:4px"></i>Link del material</label>
+        <input id="cm-link" type="url" placeholder="https://… (Drive, video, slides)" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#1a1f2e;cursor:pointer;width:fit-content">
+        <input type="checkbox" id="cm-activo" style="width:16px;height:16px;cursor:pointer;accent-color:var(--blue)">
+        Visible para los resellers (activo)
+      </label>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <span id="cm-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="cmGuardar()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar curso
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+        <i class="fa fa-list" style="margin-right:5px;color:#9ba5b4"></i>Cargados — <span id="cm-total">0</span>
+      </div>
+      <div id="cm-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
+        <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay cursos cargados.</span>
       </div>
     </div>
   </div>
@@ -1120,6 +1199,7 @@ google.script.run
 campanaCargarStats();
 cursoCargarLista();       // badge de la tarjeta Curso/Eventos
 videosCargarLista();      // badge de la tarjeta Videos armado/desarmado
+cmCargarLista();          // badge de la tarjeta Material de Cursos
 prospectosCargarConfig(); // subtítulo de la tarjeta Venta a prospectos (RTV)
 
 var _resellerEstados = {}; // nombre → activo (bool)
@@ -1661,6 +1741,121 @@ function videosCargarCatalogoDji() {
     })
     .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
     .LAUNCH_seedVideosModelosDji();
+}
+
+// ── Material de Cursos ─────────────────────────────────────────
+var _cmCursos = [];
+function _cmEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function abrirModalCursosMaterial() {
+  document.getElementById('modal-cursos-material').classList.add('show');
+  cmCargarLista();
+}
+function cerrarModalCursosMaterial() {
+  document.getElementById('modal-cursos-material').classList.remove('show');
+}
+function _cmBuscar(titulo) {
+  var t = String(titulo || '').trim().toLowerCase();
+  for (var i = 0; i < _cmCursos.length; i++) if (_cmCursos[i].titulo.trim().toLowerCase() === t) return _cmCursos[i];
+  return null;
+}
+function _cmActualizarCard() {
+  var badge = document.getElementById('cursos-mat-card-badge');
+  if (!badge) return;
+  var activos = 0;
+  for (var i = 0; i < _cmCursos.length; i++) if (_cmCursos[i].activo) activos++;
+  badge.textContent = _cmCursos.length ? (activos + ' de ' + _cmCursos.length) : 'SIN CARGAR';
+  badge.style.background = activos > 0 ? 'rgba(26,158,74,.1)' : '#f0f2f5';
+  badge.style.color      = activos > 0 ? 'var(--green)'       : '#9ba5b4';
+}
+function _cmRenderChips() {
+  var cont = document.getElementById('cm-lista-chips');
+  document.getElementById('cm-total').textContent = _cmCursos.length;
+  if (!_cmCursos.length) {
+    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay cursos cargados.</span>';
+    return;
+  }
+  cont.innerHTML = _cmCursos.map(function(c) {
+    return '<span onclick="cmEditarDesdeChip(\'' + _cmEsc(c.titulo).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:' +
+      (c.activo ? 'rgba(26,158,74,.1);color:var(--green)' : '#f0f2f5;color:#9ba5b4') + '">' + _cmEsc(c.titulo) + (c.activo ? '' : ' (oculto)') + '</span>';
+  }).join('');
+}
+function cmEditarDesdeChip(titulo) {
+  var sel = document.getElementById('cm-sel');
+  sel.value = titulo;
+  cmCargarCurso();
+}
+function cmCargarLista(selTitulo) {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _cmCursos = (r && r.ok && r.cursos) ? r.cursos : [];
+      var sel  = document.getElementById('cm-sel');
+      var keep = selTitulo || document.getElementById('cm-titulo-original').value;
+      var opts = '<option value="__new">➕ Nuevo</option>';
+      for (var i = 0; i < _cmCursos.length; i++) {
+        var c = _cmCursos[i];
+        opts += '<option value="' + _cmEsc(c.titulo) + '">' + _cmEsc(c.titulo) + (c.activo ? '' : ' (oculto)') + '</option>';
+      }
+      sel.innerHTML = opts;
+      _cmActualizarCard();
+      _cmRenderChips();
+      if (keep && _cmBuscar(keep)) { sel.value = keep; cmCargarCurso(); }
+      else cmNuevo();
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getCursosMaterial();
+}
+function cmNuevo() {
+  var sel = document.getElementById('cm-sel'); if (sel) sel.value = '__new';
+  document.getElementById('cm-titulo-original').value = '';
+  document.getElementById('cm-titulo').value       = '';
+  document.getElementById('cm-categoria').value    = '';
+  document.getElementById('cm-fecha').value        = '';
+  document.getElementById('cm-descripcion').value  = '';
+  document.getElementById('cm-link').value         = '';
+  document.getElementById('cm-activo').checked = true;
+}
+function cmCargarCurso() {
+  var v = document.getElementById('cm-sel').value;
+  if (v === '__new') { cmNuevo(); return; }
+  var c = _cmBuscar(v);
+  if (!c) { cmNuevo(); return; }
+  document.getElementById('cm-titulo-original').value = c.titulo;
+  document.getElementById('cm-titulo').value       = c.titulo;
+  document.getElementById('cm-categoria').value    = c.categoria;
+  document.getElementById('cm-fecha').value        = c.fecha;
+  document.getElementById('cm-descripcion').value  = c.descripcion;
+  document.getElementById('cm-link').value         = c.link;
+  document.getElementById('cm-activo').checked = !!c.activo;
+}
+function cmGuardar() {
+  var st = document.getElementById('cm-status');
+  var titulo = document.getElementById('cm-titulo').value.trim();
+  if (!titulo) { st.textContent = '✗ Falta el título'; st.style.color = 'var(--red)'; return; }
+  var link = document.getElementById('cm-link').value.trim();
+  if (!link) { st.textContent = '✗ Cargá el link del material'; st.style.color = 'var(--red)'; return; }
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var data = {
+    titulo: titulo,
+    categoria: document.getElementById('cm-categoria').value.trim(),
+    descripcion: document.getElementById('cm-descripcion').value.trim(),
+    link: link,
+    fecha: document.getElementById('cm-fecha').value,
+    activo: document.getElementById('cm-activo').checked,
+    tituloOriginal: document.getElementById('cm-titulo-original').value.trim()
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) {
+        document.getElementById('cm-titulo-original').value = titulo;
+        cmCargarLista(titulo);
+      }
+      setTimeout(function() { st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_saveCursoMaterial(data);
 }
 
 // ── Venta a prospectos (RTV) ──────────────────────────────────

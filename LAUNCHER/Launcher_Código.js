@@ -1,4 +1,4 @@
-// @version 1.11
+// @version 1.12
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -984,6 +984,81 @@ function LAUNCH_seedVideosModelosDji() {
     SpreadsheetApp.flush();
     return { ok: true, agregados: agregados, saltados: saltados };
   } catch(e) { Logger.log('LAUNCH_seedVideosModelosDji: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+
+// ── Material de Cursos — Portal Reseller ──────────────────────────────────
+// Pedido del usuario: "tengo información valiosa de cursos que hemos hecho, ¿dónde podría
+// colocarla?" — se decidió con el usuario un modal buscable propio (mismo patrón que Videos
+// armado/desarmado más arriba: hoja self-provisioning en el MASTER, gestión desde el Launcher,
+// lectura read-only desde el Portal). A diferencia de Videos, acá no hace falta agrupar/anidar
+// nada — cada fila es un curso/material independiente, así que el modelo de datos es plano.
+//   CURSOS_MATERIAL: A=Título B=Categoría C=Descripción D=Link E=Fecha F=Activo (vacío/SI visible)
+var _LAUNCH_CURSOS_TAB = 'CURSOS_MATERIAL';
+
+function _launchCursosHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_CURSOS_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_CURSOS_TAB);
+    hoja.appendRow(['Título', 'Categoría', 'Descripción', 'Link', 'Fecha', 'Activo']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+  }
+  return hoja;
+}
+
+function LAUNCH_getCursosMaterial() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName(_LAUNCH_CURSOS_TAB);
+    var out  = [];
+    if (hoja) {
+      var d = hoja.getDataRange().getValues();
+      for (var i = 1; i < d.length; i++) {
+        var titulo = String(d[i][0] || '').trim();
+        if (!titulo) continue;
+        var fechaRaw = d[i][4];
+        out.push({
+          titulo: titulo, categoria: String(d[i][1] || '').trim(),
+          descripcion: String(d[i][2] || '').trim(), link: String(d[i][3] || '').trim(),
+          fecha: (fechaRaw instanceof Date) ? Utilities.formatDate(fechaRaw, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(fechaRaw || '').trim(),
+          activo: _launchEvActivo(d[i][5])
+        });
+      }
+    }
+    // Más reciente primero (sin fecha, al final) — es la lectura natural de "cursos que ya dimos".
+    out.sort(function(a, b) { return (b.fecha || '').localeCompare(a.fecha || ''); });
+    return { ok: true, cursos: out };
+  } catch(e) { Logger.log('LAUNCH_getCursosMaterial: ' + e); return { ok: false, error: e.toString(), cursos: [] }; }
+}
+
+// data = { titulo, categoria, descripcion, link, fecha, activo, tituloOriginal }.
+// La clave real es el título — tituloOriginal (opcional) permite renombrar sin duplicar la fila.
+function LAUNCH_saveCursoMaterial(data) {
+  try {
+    data = data || {};
+    var titulo = String(data.titulo || '').trim();
+    if (!titulo) return { ok: false, error: 'Falta el título del curso.' };
+    var link = String(data.link || '').trim();
+    if (!link) return { ok: false, error: 'Cargá el link del material.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchCursosHoja(ss);
+    var fila = [
+      titulo, String(data.categoria || '').trim(), String(data.descripcion || '').trim(),
+      link, String(data.fecha || '').trim(), data.activo === false ? 'NO' : 'SI'
+    ];
+    var buscar = String(data.tituloOriginal || titulo).trim().toLowerCase();
+    var d = hoja.getDataRange().getValues();
+    var filaIdx = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() !== buscar) continue;
+      filaIdx = i + 1; break;
+    }
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 6).setValues([fila]);
+    else             hoja.appendRow(fila);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_saveCursoMaterial: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 
