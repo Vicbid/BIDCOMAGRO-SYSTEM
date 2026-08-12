@@ -1,4 +1,4 @@
-<!-- @version 3.65 -->
+<!-- @version 3.66 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -446,6 +446,9 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .pt-firma-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx-d);margin-bottom:24px;display:block}
 .pt-firma-line{border-bottom:1.5px solid var(--brd2)}
 .pt-foot{padding:14px 24px;border-top:1px solid var(--brd);display:flex;gap:8px;justify-content:flex-end;background:var(--surf);border-radius:0 0 var(--rl) var(--rl)}
+.pt-envio-band{margin:0 0 10px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:800;text-align:center;text-transform:uppercase;letter-spacing:.03em}
+.pt-envio-retira{background:#fef2f2;border:2px solid #dc2626;color:#991b1b}
+.pt-envio-envio{background:#eff6ff;border:2px solid #003399;color:#003399}
 
 
 /* ── STOCK OVERLAY ────────────────────────────────────── */
@@ -4856,6 +4859,16 @@ function _renderPickTicket(ped, ubicMap) {
     'Entregado_Confirmado': 'Recibido ✓', 'Cancelado': 'Cancelado'
   };
 
+  // Mismo espíritu que la franja de la etiqueta (3.64): el pick ticket es lo primero que mira
+  // el preparador, antes de llegar a la etiqueta — conviene que el "Retira"/"Envío" salga acá
+  // también, bien visible, en vez de solo como texto chico junto al reseller.
+  var _esRetiroPt = /retiro/i.test(ped.envio || '');
+  var envioBand = ped.envio
+    ? '<div class="pt-envio-band ' + (_esRetiroPt ? 'pt-envio-retira' : 'pt-envio-envio') + '">' +
+        (_esRetiroPt ? '🚶 Retira el reseller — no despachar por transporte' : '🚚 Envío — ' + escH(ped.envio)) +
+      '</div>'
+    : '';
+
   var filas = '';
   for (var i = 0; i < ped.items.length; i++) {
     var it = ped.items[i];
@@ -4896,6 +4909,7 @@ function _renderPickTicket(ped, ubicMap) {
         (ped.envio ? '<div>' + escH(ped.envio) + '</div>' : '') +
       '</div>' +
     '</div>' +
+    envioBand +
     (ped.obs ? '<div style="background:#fffbe6;border:1px solid #f9d95a;border-radius:6px;padding:7px 10px;font-size:11px;margin-bottom:10px"><strong>Obs:</strong> ' + escH(ped.obs) + '</div>' : '') +
     '<table class="pt-table">' +
       '<thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:center">Estado</th><th>Ubicación</th><th style="text-align:center">Picking</th></tr></thead>' +
