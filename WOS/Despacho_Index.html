@@ -1,4 +1,4 @@
-<!-- @version 3.61 -->
+<!-- @version 3.62 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2439,7 +2439,15 @@ function renderAcciones(p) {
     '</button>';
   }
   if (est === 'Preparado Parcial') {
-    btns = '<div class="parcial-aviso">⚠ Este pedido tiene ítems con cantidad menor a la solicitada — revisá las cantidades en la tabla antes de despachar.</div>' + btns;
+    // Mismo bug que 'Preparado' de acá abajo: Preparado Parcial también tiene más prioridad que
+    // Backorder en EST_PRIORIDAD, así que esta rama tampoco ofrecía "Preparar" para el ítem recién
+    // llegado cuando coexistía con uno ya Preparado Parcial. Mismo fix.
+    if (p.estadoSet && p.estadoSet['Backorder']) {
+      btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Este pedido tiene ítems con cantidad menor a la solicitada, y además hay otro en backorder pendiente — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>' + btns;
+      btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+    } else {
+      btns = '<div class="parcial-aviso">⚠ Este pedido tiene ítems con cantidad menor a la solicitada — revisá las cantidades en la tabla antes de despachar.</div>' + btns;
+    }
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Generar nota de entrega</button>';
   }
   if (est === 'Preparado') {
