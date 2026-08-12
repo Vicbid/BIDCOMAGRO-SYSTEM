@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  WOS — Reportes: resumen de envíos por reseller/mes + reporte
 //  de backorder (demanda perdida) por mail + su trigger.
@@ -177,6 +177,21 @@ function _wosListaResellersConEmail() {
   } catch(e) { Logger.log('_wosListaResellersConEmail: ' + e); return []; }
 }
 
+// Nombre de reseller → CUIT, misma hoja/columna que ya usa WOS_getEtiquetaData (WOS_Pedidos.js)
+// para armar la etiqueta de envío. Se usa acá para poder identificar la razón social en la
+// hoja "Totales por Reseller" del Excel de resumen (pedido de administración, ver 1.4).
+function _wosMapaCuitResellers() {
+  try {
+    var d = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName('Resellers').getDataRange().getValues();
+    var map = {};
+    for (var i = 1; i < d.length; i++) {
+      var nombre = String(d[i][COL_RS.NOMBRE] || '').trim();
+      if (nombre) map[nombre] = String(d[i][1] || '').trim();
+    }
+    return map;
+  } catch(e) { Logger.log('_wosMapaCuitResellers: ' + e); return {}; }
+}
+
 // ── Resumen de envíos EN LOTE — manda el mail de todos los resellers de una, en vez de
 // 1 por 1. Mismo patrón que WOS_despacharBatch (WOS_Stock.js): loop con try/catch por ítem
 // (un reseller con error no aborta el resto) + token de idempotencia derivado por ítem.
@@ -229,29 +244,38 @@ function WOS_exportarResumenEnviosXLS(mesAnio) {
   try {
     if (!mesAnio) return { ok: false, error: 'Falta el mes.' };
     var resellers = _wosListaResellersConEmail();
+    var cuitMap   = _wosMapaCuitResellers();
     var filas = [];
     var totalCosto = 0, totalPeso = 0;
     var mesLabel = mesAnio;
+    var porReseller = {}; // nombre → {cant, peso, costo} — pedido de administración (Juan):
+                           // necesitan el total agrupado por razón social para cargar 1
+                           // documento contable por reseller, no solo el detalle línea a línea.
 
     for (var i = 0; i < resellers.length; i++) {
-      var res = WOS_getResumenEnvios(resellers[i].nombre, mesAnio);
+      var nombre = resellers[i].nombre;
+      var res = WOS_getResumenEnvios(nombre, mesAnio);
       if (!res || !res.ok || !res.envios.length) continue;
       mesLabel = res.mesLabel || mesLabel;
+      if (!porReseller[nombre]) porReseller[nombre] = { cant: 0, peso: 0, costo: 0 };
       for (var j = 0; j < res.envios.length; j++) {
         var ev = res.envios[j];
         filas.push([
-          resellers[i].nombre, ev.fecha, ev.numero, ev.notaEntrega,
+          nombre, ev.fecha, ev.numero, ev.notaEntrega,
           ev.transportista || '', ev.tracking || '', ev.pesoEnvio || 0, ev.costoEnvio || 0
         ]);
         totalCosto += Number(ev.costoEnvio) || 0;
         totalPeso  += Number(ev.pesoEnvio)  || 0;
+        porReseller[nombre].cant  += 1;
+        porReseller[nombre].peso  += Number(ev.pesoEnvio)  || 0;
+        porReseller[nombre].costo += Number(ev.costoEnvio) || 0;
       }
     }
     if (!filas.length) return { ok: false, error: 'No hay envíos registrados para ese mes.' };
 
     ssTemp = SpreadsheetApp.create('WOS_resumen_envios_' + new Date().getTime());
     var hoja = ssTemp.getActiveSheet();
-    hoja.setName('Resumen Envíos');
+    hoja.setName('Detalle');
     hoja.appendRow(['Reseller', 'Fecha', 'Pedido', 'Nota de Entrega', 'Transportista', 'Tracking', 'Peso (kg)', 'Costo Envío']);
     for (var k = 0; k < filas.length; k++) hoja.appendRow(filas[k]);
     hoja.appendRow(['']); // fila en blanco como separador — appendRow([]) (array VACÍO) tira
@@ -259,6 +283,23 @@ function WOS_exportarResumenEnviosXLS(mesAnio) {
     hoja.appendRow(['', '', '', '', '', 'TOTAL', Math.round(totalPeso * 100) / 100, totalCosto]);
     hoja.getRange(1, 1, 1, 8).setFontWeight('bold').setBackground('#00a3e0').setFontColor('#ffffff');
     hoja.autoResizeColumns(1, 8);
+
+    // Hoja nueva, la que administración va a usar para cargar 1 documento por razón social —
+    // se deja como primera pestaña del libro para que sea lo primero que se ve al abrirlo.
+    var hojaTot = ssTemp.insertSheet('Totales por Reseller');
+    hojaTot.appendRow(['Reseller', 'CUIT', 'Cant. Envíos', 'Peso Total (kg)', 'Total Costo Envío']);
+    var nombresOrdenados = Object.keys(porReseller).sort();
+    for (var n = 0; n < nombresOrdenados.length; n++) {
+      var nom = nombresOrdenados[n];
+      var t    = porReseller[nom];
+      hojaTot.appendRow([nom, cuitMap[nom] || '', t.cant, Math.round(t.peso * 100) / 100, t.costo]);
+    }
+    hojaTot.appendRow(['']);
+    hojaTot.appendRow(['TOTAL GENERAL', '', filas.length, Math.round(totalPeso * 100) / 100, totalCosto]);
+    hojaTot.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#00a3e0').setFontColor('#ffffff');
+    hojaTot.autoResizeColumns(1, 5);
+    ssTemp.setActiveSheet(hojaTot);
+    ssTemp.moveActiveSheet(1);
 
     var file   = DriveApp.getFileById(ssTemp.getId());
     var blob   = file.getAs(MimeType.MICROSOFT_EXCEL);
