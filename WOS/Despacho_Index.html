@@ -1,4 +1,4 @@
-<!-- @version 3.67 -->
+<!-- @version 3.69 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -255,6 +255,7 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .parcial-aviso{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:var(--rm);font-size:11px;font-weight:600;width:100%;margin-bottom:2px}
 .parcial-aviso-espera{background:var(--blue-l);color:var(--blue-d);border:1px solid rgba(0,82,204,.2)}
 .parcial-aviso-cancelado{background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.2)}
+.parcial-aviso-listo{background:var(--green-l);color:var(--green);border:1px solid rgba(0,135,90,.2)}
 /* Pick Tracker */
 .pk-wrap{padding:10px 20px 12px;border-top:1px solid var(--brd);background:var(--surf)}
 .pk-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -1038,14 +1039,15 @@ body{overflow:hidden}
       <button class="modal-close" onclick="cerrarModal('cancelar')">✕</button>
     </div>
     <div class="modal-body">
-      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);display:block;margin-bottom:6px">Motivo de cancelación</label>
+      <div id="modal-canc-resumen" style="margin-bottom:12px"></div>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx-d);display:block;margin-bottom:6px">Motivo de cancelación (obligatorio)</label>
       <textarea id="modal-canc-motivo" rows="3" placeholder="Indicá el motivo (ej: sin stock, pedido duplicado, solicitud del reseller…)"
         style="width:100%;padding:9px 11px;border:1.5px solid var(--brd);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
       <p style="font-size:11px;color:var(--tx-d);margin:8px 0 0">El motivo se incluirá en el email de cancelación al reseller y quedará registrado en la observación del pedido.</p>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="cerrarModal('cancelar')">Volver</button>
-      <button class="btn" onclick="confirmarCancelacion()" style="background:var(--red-m);color:#fff;border-color:var(--red-m);font-weight:700">✕ Confirmar cancelación</button>
+      <button class="btn" id="btn-canc-confirmar" onclick="confirmarCancelacion()" style="background:var(--red-m);color:#fff;border-color:var(--red-m);font-weight:700">✕ Confirmar cancelación</button>
     </div>
   </div>
 </div>
@@ -1779,7 +1781,7 @@ function _saveObs(numero) {
   google.script.run
     .withSuccessHandler(function(r) { if (!r || !r.ok) toast('Error al guardar obs.', 'err'); })
     .withFailureHandler(function()  { toast('Error al guardar obs.', 'err'); })
-    .WOS_actualizarObs(numero, nuevaObs);
+    .WOS_actualizarObs(numero, nuevaObs, (_usuario && _usuario.email) || '');
 }
 
 function fmtUSD(n) { return 'USD ' + (n || 0).toFixed(2); }
@@ -2532,8 +2534,18 @@ function renderAcciones(p) {
   // como si fueran alternativas. Se saca el lanzador; queda un solo botón de acción por estado.
 
   if (est === 'Pendiente_Revision' || est === 'Confirmado') {
+    // Generalización (plan "sistema a prueba de errores"): estos son los estados de MÁS prioridad
+    // en EST_PRIORIDAD, así que cualquier otro estado que conviva en el pedido queda "escondido"
+    // acá — antes esta rama no avisaba nada. El botón "Listo para despachar" ya sabe manejar bien
+    // ítems Backorder/Reservado_Consolidar/En_Espera mezclados (abrirModalPreparar los exime del
+    // bloqueo de stock y los capea a lo disponible), así que solo hace falta el AVISO, no un botón
+    // nuevo — salvo En_Espera_Reseller, que sí necesita su propia acción para registrar la respuesta.
+    var _mixPC    = _avisosMixPreparado(p, n, null, true);
+    var _esperaPC = _avisoEnEsperaSecundario(p, n);
+    btns += _mixPC.avisos + _esperaPC.avisos;
     btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Listo para despachar</button>';
     btns += '<button class="btn btn-amber" onclick="abrirModalFaltante(\'' + n + '\')">⚠ Faltan ítems en stock</button>';
+    btns += _esperaPC.acciones;
   }
   if (est === 'En_Espera_Reseller') {
     // Antes había un botón "Preparar lo disponible" acá al lado de "Despachar lo disponible" con
@@ -2549,7 +2561,12 @@ function renderAcciones(p) {
     // el estado hermano Reservado_Consolidar más abajo — evita repetir la ambigüedad con "Despachar
     // lo disponible" (btn-teal secundario vs. btn-success primario). El aviso post-Preparar (ver
     // confirmarPreparar → _teniaEnEspera) ya avisa explícitamente que esto NO despacha ni avisa al reseller.
+    // Generalización: "Preparar por adelantado"/"Despachar lo disponible" ya manejan bien un
+    // ítem Backorder/Reservado_Consolidar mezclado (mismo motivo que en Pendiente/Confirmado más
+    // arriba) — solo hace falta el aviso informativo, sin botón nuevo.
+    var _mixEE = _avisosMixPreparado(p, n, null, true);
     btns += '<div class="parcial-aviso parcial-aviso-espera">⏳ El reseller fue notificado de los ítems faltantes y aún no respondió. Podés preparar lo disponible por adelantado (SN + peso), despacharlo ahora sin esperar su respuesta, o registrar su respuesta si ya contestó.</div>';
+    btns += _mixEE.avisos;
     btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar por adelantado</button>';
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Despachar lo disponible</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>';
@@ -2558,7 +2575,12 @@ function renderAcciones(p) {
     // OT: se retuvo a propósito lo disponible para consolidar en 1 solo envío — no se ofrece
     // "Despachar ahora" directo (saltearía WOS_procesarRespuestaManual y su bookkeeping);
     // el override pasa por la misma vía que un cambio de decisión telefónico.
+    // Generalización: si además hay un ítem en Backorder, "Preparar por adelantado" ya lo cubre
+    // (mismo motivo que arriba) — solo aviso, sin botón nuevo. omitir='Reservado_Consolidar'
+    // porque esta rama ya es la propia dueña de ese aviso (evita duplicarlo).
+    var _mixRC = _avisosMixPreparado(p, n, 'Reservado_Consolidar', true);
     btns += '<div class="parcial-aviso parcial-aviso-espera">🟣 Retenido para consolidar en un solo envío — se libera solo cuando llegue el resto. Podés preparar (N° de serie + peso) por adelantado; o registrar si el contacto de la OT pidió despachar ahora.</div>';
+    btns += _mixRC.avisos;
     btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\')">📦 Preparar por adelantado</button>';
     btns += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El contacto respondió</button>';
   }
@@ -2608,8 +2630,23 @@ function renderAcciones(p) {
     btns += '<button class="btn btn-success" onclick="abrirModalDespacho(\'' + n + '\')">✅ Generar nota de entrega</button>';
   }
   if (est === 'Backorder') {
-    btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería, prepará lo que llegó (podés preparar cantidades parciales por ítem); lo que falte queda en backorder para el próximo envío.</div>' + btns;
+    // Generalización: Backorder es el estado de MENOR prioridad de EST_PRIORIDAD salvo
+    // Reservado_Consolidar — así que un ítem Reservado_Consolidar SÍ puede convivir acá como
+    // secundario (ej. pedido de OT con un ítem sin stock y otro retenido para consolidar), y a
+    // diferencia de los otros casos de arriba, acá NO hay ningún botón que ya cubra "registrar
+    // que el contacto respondió" — gap real encontrado al auditar las 21 combinaciones posibles
+    // de EST_PRIORIDAD, no solo las 4 ya reportadas. omitir='Backorder' porque esta rama ya es
+    // la propia dueña de ese aviso.
+    var _mixBO = _avisosMixPreparado(p, n, 'Backorder', false);
+    // Feedback del usuario: mismo criterio que _avisosMixPreparado — si _esBackorderListo(p) ya
+    // dice que hay stock para cubrir TODO lo pendiente, el aviso acá (donde se decide la acción)
+    // tiene que reflejarlo en vez de seguir diciendo "sin stock suficiente".
+    var _avisoBO = _esBackorderListo(p)
+      ? '<div class="parcial-aviso parcial-aviso-listo">✅ Ya llegó todo lo que faltaba — hay stock para completar el pedido entero. Preparalo para despacharlo completo.</div>'
+      : '<div class="parcial-aviso parcial-aviso-espera">⏳ Sin stock suficiente al momento del pedido. Cuando llegue mercadería, prepará lo que llegó (podés preparar cantidades parciales por ítem); lo que falte queda en backorder para el próximo envío.</div>';
+    btns = _mixBO.avisos + _avisoBO + btns;
     btns += '<button class="btn btn-success" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+    btns += _mixBO.acciones;
   }
 
   if (est === 'Listo_Retiro') {
@@ -2642,19 +2679,44 @@ function _btnAdminCancelar(n) {
 }
 
 // Avisos/acciones para ítems que quedan "pendientes de otra cosa" (Backorder / Reservado_Consolidar)
-// mezclados con un pedido cuyo estado agregado ya es Preparado/Preparado Parcial — usado por las
-// dos ramas de renderAcciones() para no duplicar esta lógica.
-function _avisosMixPreparado(p, n) {
+// mezclados con un pedido cuyo estado DOMINANTE (ped.estado, ver EST_PRIORIDAD en WOS_Pedidos.js)
+// es otro. Generalizado a TODAS las ramas de renderAcciones() (antes solo se llamaba desde
+// Preparado/Preparado Parcial) — causa raíz de varios bugs esta sesión: EST_PRIORIDAD tapa
+// acciones de los estados de menor prioridad cuando conviven con uno más avanzado.
+//   omitir:    la clave que el propio branch dominante ya es dueño (evita aviso duplicado de
+//              sí mismo — ej. la rama Backorder pasa omitir='Backorder').
+//   soloAviso: cuando el branch dominante YA tiene un botón que cubre la misma acción (ej.
+//              "Preparar por adelantado" de En_Espera_Reseller/Reservado_Consolidar ya prepara
+//              lo que llegó de un backorder mezclado, vía abrirModalPreparar) — solo agrega el
+//              texto informativo, sin un botón redundante.
+function _avisosMixPreparado(p, n, omitir, soloAviso) {
   var avisos = '', acciones = '';
-  if (p.estadoSet && p.estadoSet['Backorder']) {
-    avisos += '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>';
-    acciones += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+  if (omitir !== 'Backorder' && p.estadoSet && p.estadoSet['Backorder']) {
+    // Feedback del usuario: el aviso de backorder no distinguía "todavía falta stock" de "ya
+    // llegó todo lo que faltaba" — el operador solo se enteraba mirando el badge "📦 finalizable"
+    // de la cabecera (_esBackorderListo), no acá donde realmente decide la acción.
+    avisos += _esBackorderListo(p)
+      ? '<div class="parcial-aviso parcial-aviso-listo">✅ Ya llegó todo lo que faltaba en backorder — se puede completar el pedido entero.</div>'
+      : '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>';
+    if (!soloAviso) acciones += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
   }
-  if (p.estadoSet && p.estadoSet['Reservado_Consolidar']) {
+  if (omitir !== 'Reservado_Consolidar' && p.estadoSet && p.estadoSet['Reservado_Consolidar']) {
     avisos += '<div class="parcial-aviso parcial-aviso-espera">🟣 Hay un ítem retenido para consolidar en un solo envío — se libera cuando llegue el resto, o si el contacto de la OT pidió despachar ahora.</div>';
-    acciones += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El contacto respondió</button>';
+    if (!soloAviso) acciones += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El contacto respondió</button>';
   }
   return { avisos: avisos, acciones: acciones };
+}
+
+// Aviso cuando hay un ítem En_Espera_Reseller "escondido" detrás de un pedido cuyo estado
+// dominante es Pendiente_Revision/Confirmado — el único caso posible: En_Espera_Reseller tiene
+// más prioridad que Preparado/Preparado Parcial/Backorder/Reservado_Consolidar en EST_PRIORIDAD,
+// así que en cualquier otra combinación ya sería el estado dominante, nunca uno "escondido".
+function _avisoEnEsperaSecundario(p, n) {
+  if (!p.estadoSet || !p.estadoSet['En_Espera_Reseller']) return { avisos: '', acciones: '' };
+  return {
+    avisos: '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay un ítem esperando la respuesta del reseller sobre un faltante — el botón de abajo ya prepara/despacha lo disponible; si el reseller ya contestó, registralo acá.</div>',
+    acciones: '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El reseller ya respondió</button>'
+  };
 }
 
 // ── Toggle expand ─────────────────────────────────────────────
@@ -2857,7 +2919,10 @@ function abrirModalPreparar(numero, parcial) {
     _modalPrep.items.push({
       row: it.row, sku: it.sku, desc: it.desc || '', cantPend: it.cantPend,
       qtyPrep: qty, target: qty, qMax: qMax, parcial: itParcial,
-      prevSers: prev, prevBags: _prevBags, mode: _mode, bulto: _bulto, bagsSeeded: false
+      prevSers: prev, prevBags: _prevBags, mode: _mode, bulto: _bulto, bagsSeeded: false,
+      // Firma capturada AL ABRIR el modal — verificada por WOS_prepararConSeriales antes de
+      // escribir, mismo patrón que el despacho (ver comentario ahí).
+      firma: it.sku + '|' + (it.desc || '') + '|' + it.precio
     });
     html += '<div class="prep-item" style="padding:10px 0;border-bottom:1px solid var(--surf)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">' +
@@ -3433,7 +3498,7 @@ function confirmarPreparar() {
       payload.push({
         row: it.row, sku: it.sku, desc: it.desc, qtyPrep: sum,
         seriales: _bagsToManifest(clean), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
-        porBolsa: true, bulto: _prepBultoRepresentativo(clean, it.bulto)
+        porBolsa: true, bulto: _prepBultoRepresentativo(clean, it.bulto), firma: it.firma
       });
     } else {
       var inputs = document.querySelectorAll('#prep-ser-wrap-' + it.row + ' .prep-ser');
@@ -3442,7 +3507,7 @@ function confirmarPreparar() {
       payload.push({
         row: it.row, sku: it.sku, desc: it.desc, qtyPrep: codes.length,
         seriales: codes.join(', '), ubicaciones: _getBinAllocForRow(it.row, 'prep'),
-        porBolsa: false, bulto: 0
+        porBolsa: false, bulto: 0, firma: it.firma
       });
     }
   }
@@ -3471,6 +3536,13 @@ function confirmarPreparar() {
   google.script.run
     .withSuccessHandler(function(res) {
       sp(false);
+      if (res && res.desactualizado) {
+        alert('⚠️ El pedido ' + numero + ' cambió mientras tenías Preparar abierto (alguien corrigió ' +
+              'SKU, descripción o precio) — no se guardó nada, para no preparar el ítem viejo.\n\n' +
+              'Se va a actualizar la lista con los datos correctos. Volvé a abrir Preparar.');
+        cargar();
+        return;
+      }
       if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'Error desconocido'), 'err'); return; }
       _cargarMaestro();   // refrescar qué SKU quedó marcado por bolsa
       try { localStorage.removeItem('wos_pick_' + numero); if (typeof _pickState !== 'undefined') delete _pickState[numero]; } catch(e) {}
@@ -4778,6 +4850,11 @@ function confirmarFaltante() {
   }
   if (!faltantes.length) { toast('Marcá al menos un ítem como faltante', 'err'); return; }
   var numero = _modalFalt.numero;
+  // Gate obligatorio antes de mandar el mail al reseller (plan "sistema a prueba de errores")
+  // — hasta ahora salía directo al tocar el botón, sin ningún repaso previo de qué se iba a
+  // decir. Mismo espíritu que el confirm() ya usado para la etiqueta de Retiro.
+  var _resumenFalt = faltantes.map(function(f) { return f.sku + ': pedido ' + f.cantSol + ' · disponible ' + f.cantDisp; }).join('\n');
+  if (!confirm('Se le va a avisar al reseller que faltan estos ítems (elige esperar o cancelar):\n\n' + _resumenFalt + '\n\n¿Confirmás el envío?')) return;
   cerrarModal('faltante');
   wosLoadStart(STEPS_FALTANTE);
   google.script.run
@@ -4819,15 +4896,45 @@ var _modalCanc = null;
 
 function abrirModalCancelar(numero) {
   _modalCanc = { numero: numero };
-  document.getElementById('modal-canc-sub').textContent = 'Pedido ' + numero;
+  var ped = _buscarPedido(numero);
+  document.getElementById('modal-canc-sub').textContent = 'Pedido ' + numero + (ped ? ' · ' + ped.reseller : '');
   document.getElementById('modal-canc-motivo').value = '';
+
+  // Bloqueo duro (pedido del usuario): si algún ítem ya se entregó, no se puede cancelar el
+  // pedido entero desde acá — hay que usar "Editar pedido (Admin)" para tocar solo lo pendiente.
+  // Esto es solo un aviso rápido con lo que el cliente tiene cargado; la verdad autoritativa se
+  // revalida del lado servidor con una lectura fresca (WOS_cancelarPedido).
+  var yaEntregado = false, totalPend = 0, nItems = 0;
+  if (ped) {
+    for (var i = 0; i < ped.items.length; i++) {
+      var it = ped.items[i];
+      if (it.cantDesp > 0) yaEntregado = true;
+      if (it.cantPend > 0) { totalPend += it.cantPend; nItems++; }
+    }
+  }
+  var btn = document.getElementById('btn-canc-confirmar');
+  var resumenEl = document.getElementById('modal-canc-resumen');
+  if (yaEntregado) {
+    resumenEl.innerHTML = '<div style="background:var(--red-l);border:1px solid var(--red-m);border-radius:6px;padding:9px 11px;font-size:12px;color:var(--red-m);font-weight:600;line-height:1.5">' +
+      '🚫 Este pedido ya tiene ítems entregados — no se puede cancelar entero. Usá "✏️ Editar pedido (Admin)" para modificar solo lo que sigue pendiente.</div>';
+    btn.disabled = true;
+    document.getElementById('modal-canc-motivo').disabled = true;
+  } else {
+    resumenEl.innerHTML = '<div style="background:var(--surf);border:1px solid var(--brd);border-radius:6px;padding:9px 11px;font-size:12px;color:var(--tx-m);line-height:1.5">' +
+      'Se va a cancelar <strong>' + totalPend + ' u.</strong> en ' + nItems + ' ítem' + (nItems === 1 ? '' : 's') + ' pendiente' + (nItems === 1 ? '' : 's') + '. ' +
+      (ped && ped.reseller ? '<strong>' + escH(ped.reseller) + '</strong> va a recibir el mail de cancelación.' : '') + '</div>';
+    btn.disabled = false;
+    document.getElementById('modal-canc-motivo').disabled = false;
+  }
+
   document.getElementById('modal-cancelar').style.display = 'flex';
-  setTimeout(function() { document.getElementById('modal-canc-motivo').focus(); }, 60);
+  if (!yaEntregado) setTimeout(function() { document.getElementById('modal-canc-motivo').focus(); }, 60);
 }
 
 function confirmarCancelacion() {
   if (!_modalCanc) return;
   var motivo = (document.getElementById('modal-canc-motivo').value || '').trim();
+  if (!motivo) { toast('Indicá el motivo de la cancelación.', 'err'); return; }
   var numero = _modalCanc.numero;
   cerrarModal('cancelar');
   sp(true, 'Cancelando pedido y notificando al reseller…');
@@ -4920,7 +5027,11 @@ function confirmarEdicionAdmin() {
   for (var i = 0; i < _modalEditar.items.length; i++) {
     var it = _modalEditar.items[i];
     if (it.cantPend <= 0) continue;
-    if (_modalEditar.eliminar[it.row]) { cambios.push({ row: it.row, accion: 'eliminar' }); continue; }
+    // Firma capturada AL ABRIR el modal (abrirModalEditarAdmin) — WOS_adminEditarPedido la
+    // verifica contra la hoja recién leída antes de aplicar nada, mismo patrón que Despacho/
+    // Preparar: si alguien más tocó esta línea mientras el admin la tenía abierta, se aborta.
+    var _firmaRow = it.sku + '|' + it.desc + '|' + it.precio;
+    if (_modalEditar.eliminar[it.row]) { cambios.push({ row: it.row, accion: 'eliminar', firma: _firmaRow }); continue; }
     var skuInp = document.getElementById('ae-sku-' + it.row);
     var descInp = document.getElementById('ae-desc-' + it.row);
     var cantInp = document.getElementById('ae-cant-' + it.row);
@@ -4929,7 +5040,7 @@ function confirmarEdicionAdmin() {
     var nSku = skuInp.value.trim(), nDesc = descInp.value.trim();
     var nCant = parseInt(cantInp.value, 10) || 0, nPrecio = parseFloat(precioInp.value) || 0;
     if (nSku === it.sku && nDesc === it.desc && nCant === it.cantSol && nPrecio === it.precio) continue; // sin cambios
-    cambios.push({ row: it.row, accion: 'editar', sku: nSku, desc: nDesc, cantSol: nCant, precio: nPrecio });
+    cambios.push({ row: it.row, accion: 'editar', sku: nSku, desc: nDesc, cantSol: nCant, precio: nPrecio, firma: _firmaRow });
   }
   if (!cambios.length) { toast('No hiciste ningún cambio.', 'err'); return; }
 
@@ -4939,6 +5050,13 @@ function confirmarEdicionAdmin() {
   google.script.run
     .withSuccessHandler(function(res) {
       sp(false);
+      if (res && res.desactualizado) {
+        alert('⚠️ El pedido ' + numero + ' cambió mientras tenías Editar Admin abierto (alguien más tocó ' +
+              'una de estas líneas) — no se aplicó ningún cambio, para no pisar esa otra edición.\n\n' +
+              'Se va a actualizar la lista con los datos correctos. Volvé a abrir Editar Admin.');
+        cargar();
+        return;
+      }
       if (!res || !res.ok) { toast('Error: ' + ((res && res.error) || 'No se pudo aplicar el cambio'), 'err'); return; }
       toast('Pedido ' + numero + ' actualizado (' + res.cambios + ' cambio' + (res.cambios === 1 ? '' : 's') + ')', 'ok');
       toast(res.avisoEnviado ? 'Reseller notificado por email' : 'No se pudo avisar por email (sin contacto) — cambios igual aplicados', res.avisoEnviado ? 'email' : 'err', res.avisoEnviado ? '📧' : undefined);

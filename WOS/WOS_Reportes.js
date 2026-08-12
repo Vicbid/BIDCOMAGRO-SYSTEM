@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  WOS — Reportes: resumen de envíos por reseller/mes + reporte
 //  de backorder (demanda perdida) por mail + su trigger.
@@ -593,5 +593,152 @@ function WOS_instalarTriggerBackorder() {
   ScriptApp.newTrigger('WOS_reporteBackorder').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(10).create();
   ScriptApp.newTrigger('WOS_reporteBackorder').timeBased().onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(10).create();
   ScriptApp.newTrigger('WOS_reporteBackorder').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(10).create();
+  Logger.log('Triggers instalados: Lunes, Miércoles y Viernes a las 10 hs');
+}
+
+
+// ── REPORTE "PREPARADO SIN DESPACHAR" (Lun/Mie/Vie 10hs) ─────────────────────
+// Pedido del usuario dentro del plan "sistema a prueba de errores": un pedido puede quedar
+// en Preparado/Preparado Parcial (N° de serie + peso ya cargados) sin que nadie termine el
+// paso final ("Generar nota de entrega") — nada en el dashboard obliga a mirarlo salvo el
+// badge SLA, que solo lo ve quien esté mirando la lista en ese momento. Mismo umbral que ya
+// usa el resto de la app para "día hábil" (cuenta horas de Lun-Vie, no franja horaria):
+// 3 días hábiles = 72 horas hábiles, decidido con el usuario.
+var UMBRAL_HORAS_HABILES_PREPARADO = 72;
+
+// Igual algoritmo que _horasHabilesDesde en Despacho_Index.html (cliente) — Apps Script no
+// puede compartir código entre el HTML Service y el backend, así que queda duplicado acá.
+function _wosHorasHabilesDesde(startDate) {
+  if (!(startDate instanceof Date)) return 0;
+  var now = new Date();
+  if (startDate >= now) return 0;
+  var cursor = new Date(startDate.getTime());
+  var horas = 0;
+  while (cursor < now) {
+    var dow = cursor.getDay(); // 0=Dom, 6=Sab
+    if (dow !== 0 && dow !== 6) {
+      var sigDia = new Date(cursor.getTime());
+      sigDia.setDate(sigDia.getDate() + 1);
+      sigDia.setHours(0, 0, 0, 0);
+      var corte = sigDia < now ? sigDia : now;
+      horas += (corte.getTime() - cursor.getTime()) / 3600000;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+    cursor.setHours(0, 0, 0, 0);
+  }
+  return horas;
+}
+
+function WOS_reportePreparadosSinDespachar() {
+  try {
+    var masterSS = SpreadsheetApp.openById(MASTER_SS_ID);
+
+    // Mismo público que WOS_reporteBackorder: Usuarios_Internos col B=email, col F='si'.
+    var hojaU = masterSS.getSheetByName('Usuarios_Internos');
+    if (!hojaU) { Logger.log('WOS_reportePreparadosSinDespachar: hoja Usuarios_Internos no encontrada'); return; }
+    var usrs = hojaU.getDataRange().getValues();
+    var destinatarios = [];
+    for (var u = 1; u < usrs.length; u++) {
+      var email  = String(usrs[u][1] || '').trim();
+      var logInt = String(usrs[u][5] || '').trim().toLowerCase();
+      if (email && logInt === 'si') destinatarios.push(email);
+    }
+    if (!destinatarios.length) { Logger.log('WOS_reportePreparadosSinDespachar: sin destinatarios logística internacional'); return; }
+
+    var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
+    var porPedido = {}; // numero → {numero, reseller, items:[{sku,desc,pend}], horas}
+    for (var h = 0; h < hojas.length; h++) {
+      var datos = hojas[h].getDataRange().getValues();
+      for (var i = 1; i < datos.length; i++) {
+        var est = String(datos[i][COL.ESTADO] || '').trim();
+        if (est !== EST.PREPARADO && est !== EST.PREP_PARCIAL) continue;
+        // Pendiente real (E-F-Z), no la fórmula de la celda — mismo criterio que WOS_reporteBackorder.
+        var pend = Number(datos[i][COL.CANT_SOL] || 0) - Number(datos[i][COL.CANT_DESP] || 0) - Number(datos[i][COL.CANT_CANCEL] || 0);
+        if (pend <= 0) continue;
+        var feRaw  = datos[i][COL.FECHA_ESTADO];
+        var feDate = (feRaw instanceof Date) ? feRaw : null;
+        if (!feDate) continue;
+        var horas = _wosHorasHabilesDesde(feDate);
+        if (horas < UMBRAL_HORAS_HABILES_PREPARADO) continue;
+        var numero = String(datos[i][COL.NUMERO] || '').trim();
+        if (!numero) continue;
+        if (!porPedido[numero]) {
+          porPedido[numero] = { numero: numero, reseller: String(datos[i][COL.RESELLER] || '').trim(), items: [], horas: horas };
+        }
+        porPedido[numero].items.push({
+          sku:  String(datos[i][COL.SKU]  || '').trim(),
+          desc: String(datos[i][COL.DESC] || '').trim(),
+          pend: pend
+        });
+        if (horas > porPedido[numero].horas) porPedido[numero].horas = horas;
+      }
+    }
+
+    var lista = [];
+    for (var n in porPedido) lista.push(porPedido[n]);
+    if (!lista.length) { Logger.log('WOS_reportePreparadosSinDespachar: nada estancado, no se envía mail'); return; }
+    lista.sort(function(a, b) { return b.horas - a.horas; });
+
+    var fechaStr = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', "EEEE dd/MM/yyyy 'a las' HH:mm");
+    var html     = _wosPreparadosStuckEmailHTML(lista, fechaStr);
+    var asunto   = 'WOS — ' + lista.length + ' pedido' + (lista.length !== 1 ? 's' : '') + ' preparado' + (lista.length !== 1 ? 's' : '') + ' sin despachar hace 3+ días hábiles';
+    GmailApp.sendEmail(destinatarios[0], asunto, '', { htmlBody: html, name: 'WOS · BidcomAgro', cc: destinatarios.slice(1).join(',') });
+    _wosRegistrarEmailLog('REPORTE_PREPARADOS_STUCK', destinatarios.join(', '), 'Reporte preparados sin despachar', asunto, 'OK', '');
+    Logger.log('WOS_reportePreparadosSinDespachar enviado a: ' + destinatarios.join(', ') + ' | pedidos: ' + lista.length);
+  } catch(e) {
+    Logger.log('WOS_reportePreparadosSinDespachar ERROR: ' + e);
+    _wosRegistrarEmailLog('REPORTE_PREPARADOS_STUCK', '', 'Reporte preparados sin despachar', 'WOS preparados sin despachar', 'ERROR: ' + String(e).substring(0, 150), '');
+  }
+}
+
+function _wosPreparadosStuckEmailHTML(lista, fechaStr) {
+  var rows = '';
+  for (var i = 0; i < lista.length; i++) {
+    var p = lista[i];
+    var itemsTxt = p.items.map(function(it) { return it.sku + ' (' + it.pend + 'u)'; }).join('<br>');
+    var dias = Math.floor(p.horas / 24);
+    rows +=
+      '<tr style="border-bottom:1px solid #e5e7eb">' +
+      '<td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1a56db;white-space:nowrap">' + p.numero + '</td>' +
+      '<td style="padding:8px 12px;font-size:12px;color:#111">' + p.reseller + '</td>' +
+      '<td style="padding:8px 12px;font-size:11px;color:#555;line-height:1.6">' + itemsTxt + '</td>' +
+      '<td style="padding:8px 12px;text-align:center;font-weight:800;font-size:14px;color:#dc2626;background:#fef2f2">' + dias + 'd</td>' +
+      '</tr>';
+  }
+  return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">' +
+    '<div style="max-width:720px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.09)">' +
+    '<div style="background:#1e3a8a;padding:20px 28px;display:flex;align-items:center;gap:14px">' +
+    '<div style="background:#fff;color:#1e3a8a;font-weight:900;font-size:16px;padding:4px 10px;border-radius:6px;letter-spacing:-0.5px;flex-shrink:0">WOS</div>' +
+    '<div><div style="color:#fff;font-size:15px;font-weight:700">Preparados sin despachar</div>' +
+    '<div style="color:#93c5fd;font-size:12px">' + fechaStr + '</div></div>' +
+    '</div>' +
+    '<div style="padding:24px 28px">' +
+    '<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:0 6px 6px 0;margin-bottom:20px">' +
+    '<strong style="color:#b91c1c;font-size:14px">⚠ ' + lista.length + ' pedido' + (lista.length !== 1 ? 's' : '') + ' con N° de serie/peso ya cargados hace 3+ días hábiles, sin generar la nota de entrega</strong>' +
+    '<div style="font-size:12px;color:#7f1d1d;margin-top:4px">Quedaron en "Preparado"/"Preparado Parcial" sin pasar a Despachado — revisar si falta un paso o si ya se entregó y no se registró en WOS.</div></div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">' +
+    '<th style="padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#475569;text-align:left">Pedido</th>' +
+    '<th style="padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#475569;text-align:left">Reseller</th>' +
+    '<th style="padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#475569;text-align:left">Ítems pendientes</th>' +
+    '<th style="padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#475569;text-align:center">Hace</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '</div>' +
+    '<div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 28px;font-size:11px;color:#94a3b8;text-align:center">' +
+    'WOS · BidcomAgro · Reporte automático — Lunes, Miércoles y Viernes a las 10 hs' +
+    '</div></div></body></html>';
+}
+
+// Correr UNA VEZ desde el editor para instalar los 3 triggers de este reporte
+function WOS_instalarTriggerPreparadosStuck() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var t = 0; t < triggers.length; t++) {
+    if (triggers[t].getHandlerFunction() === 'WOS_reportePreparadosSinDespachar') {
+      ScriptApp.deleteTrigger(triggers[t]);
+    }
+  }
+  ScriptApp.newTrigger('WOS_reportePreparadosSinDespachar').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(10).create();
+  ScriptApp.newTrigger('WOS_reportePreparadosSinDespachar').timeBased().onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(10).create();
+  ScriptApp.newTrigger('WOS_reportePreparadosSinDespachar').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(10).create();
   Logger.log('Triggers instalados: Lunes, Miércoles y Viernes a las 10 hs');
 }

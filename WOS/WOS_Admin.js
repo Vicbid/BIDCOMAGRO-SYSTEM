@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Edición administrativa de pedidos: cambiar SKU, descripción,
 //  precio o cantidad de un ítem, o cancelar el pendiente de una línea
@@ -83,6 +83,18 @@ function WOS_adminEditarPedido(numero, cambios, motivo, operario) {
       var curCantDesp= Number(datos[idx][COL.CANT_DESP])|| 0;
       var curCantPend= Number(datos[idx][COL.CANT_PEND])|| 0;
       var curCantCanc= Number(datos[idx][COL.CANT_CANCEL]) || 0;
+
+      // BUG-PROOFING (plan "sistema a prueba de errores"): mismo patrón que WOS_despacharCompleto/
+      // WOS_prepararConSeriales — el cliente manda la firma (sku|desc|precio) que vio al abrir el
+      // modal de Editar Admin; si cambió desde entonces (otro admin, u otra vía), se aborta el
+      // LOTE ENTERO antes de tocar nada, para no pisar una edición ajena sin que nadie se entere.
+      if (cb.firma) {
+        var _firmaActualAE = curSku + '|' + curDesc + '|' + curPrecio;
+        if (cb.firma !== _firmaActualAE) {
+          return { ok: false, desactualizado: true, numero: numero,
+            error: curSku + ' (fila ' + fil + '): cambió desde que se abrió Editar Admin. No se aplicó nada.' };
+        }
+      }
 
       if (cb.accion === 'eliminar') {
         if (curCantPend <= 0) return { ok: false, error: curSku + ': no tiene cantidad pendiente, no hay nada para eliminar.' };

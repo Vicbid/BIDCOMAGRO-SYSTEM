@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  WOS — Pedidos: CRUD, estado, maestro de artículos/bolsas,
 //  preparación con seriales, backorder por pedido.
@@ -275,18 +275,34 @@ function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
   try {
     motivo   = String(motivo   || '').trim();
     operario = String(operario || '').trim();
-    if (motivo) {
-      var hoja  = _getHojaPorNumero(numero);
-      if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
-      var datos = hoja.getDataRange().getValues();
-      for (var i = 1; i < datos.length; i++) {
-        if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
-        var obsActual = String(datos[i][COL.OBS] || '').trim();
-        var obsNueva  = motivo + (obsActual ? ' · ' + obsActual : '');
-        hoja.getRange(i + 1, COL.OBS + 1).setValue(obsNueva);
+    // Motivo obligatorio (plan "sistema a prueba de errores") — antes se cancelaba igual sin
+    // motivo, solo se omitía escribirlo en OBS. El front ya lo exige, esto lo hace autoritativo.
+    if (!motivo) return { ok: false, error: 'El motivo es obligatorio.' };
+
+    var hoja  = _getHojaPorNumero(numero);
+    if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
+    var datos = hoja.getDataRange().getValues();
+
+    // Bloqueo duro (decidido con el usuario): si algún ítem de este pedido ya está entregado,
+    // no se puede cancelar el pedido ENTERO desde acá — WOS_cambiarEstado no distingue filas y
+    // pondría Cancelado hasta en lo ya entregado. Para tocar solo lo pendiente hay que usar
+    // "Editar pedido (Admin)" (WOS_adminEditarPedido), que sí opera fila por fila. Lectura fresca
+    // (recién leída arriba), no depende de lo que el cliente tenía cargado al abrir el modal.
+    for (var iChk = 1; iChk < datos.length; iChk++) {
+      if (String(datos[iChk][COL.NUMERO] || '').trim() !== numero) continue;
+      var estChk = String(datos[iChk][COL.ESTADO] || '').trim();
+      if (estChk === EST.ENTREGADO || estChk === EST.ENTREGADO_CONF || estChk === EST.LISTO_RETIRO) {
+        return { ok: false, error: 'El pedido ' + numero + ' ya tiene ítems entregados — no se puede cancelar entero. Usá "Editar pedido (Admin)" para modificar solo lo que sigue pendiente.' };
       }
-      SpreadsheetApp.flush();
     }
+
+    for (var i = 1; i < datos.length; i++) {
+      if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+      var obsActual = String(datos[i][COL.OBS] || '').trim();
+      var obsNueva  = motivo + (obsActual ? ' · ' + obsActual : '');
+      hoja.getRange(i + 1, COL.OBS + 1).setValue(obsNueva);
+    }
+    SpreadsheetApp.flush();
     return WOS_cambiarEstado(numero, EST.CANCELADO, operario);
   } catch(e) {
     Logger.log('WOS_cancelarPedido: ' + e);
@@ -547,6 +563,27 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
           }
         }
       }
+    }
+
+    // BUG-PROOFING (plan "sistema a prueba de errores"): mismo patrón que WOS_despacharCompleto
+    // (WOS_GmailFlow.js) — el cliente manda la "firma" (sku|desc|precio) que vio al ABRIR el
+    // modal de Preparar por cada fila; si cambió desde entonces (ej. alguien la corrigió vía
+    // Editar Admin mientras el operador estaba preparando), se aborta TODO antes de escribir nada.
+    var _desactualizadosPrep = [];
+    if (Object.prototype.toString.call(seriales) === '[object Array]') {
+      for (var fp = 0; fp < seriales.length; fp++) {
+        var _rowP = parseInt(seriales[fp].row, 10);
+        if (!(_rowP > 0) || !seriales[fp].firma) continue;
+        var _dRowP = datos[_rowP - 1];
+        if (!_dRowP) continue;
+        var _firmaActualP = String(_dRowP[COL.SKU] || '') + '|' + String(_dRowP[COL.DESC] || '') + '|' + (Number(_dRowP[COL.PRECIO]) || 0);
+        if (seriales[fp].firma !== _firmaActualP) _desactualizadosPrep.push(_rowP);
+      }
+    }
+    if (_desactualizadosPrep.length) {
+      Logger.log('WOS_prepararConSeriales: ' + numero + ' desactualizado, filas ' + _desactualizadosPrep.join(','));
+      return { ok: false, desactualizado: true, numero: numero,
+        error: 'El pedido ' + numero + ' cambió (SKU/descripción/precio) desde que se abrió Preparar. No se guardó nada.' };
     }
 
     var reseller = '', tocadas = 0;
@@ -873,16 +910,23 @@ function WOS_getHistorial(numero) {
 
 
 // Actualiza el campo de observaciones de todas las filas del pedido
-function WOS_actualizarObs(numero, obs) {
+function WOS_actualizarObs(numero, obs, operario) {
   try {
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
     var datos = hoja.getDataRange().getValues();
+    var reseller = '', obsAnterior = '';
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
+      reseller    = reseller    || String(datos[i][COL.RESELLER] || '').trim();
+      obsAnterior = obsAnterior || String(datos[i][COL.OBS]       || '').trim();
       hoja.getRange(i + 1, COL.OBS + 1).setValue(obs || '');
     }
     SpreadsheetApp.flush();
+    // Bug reportado por el usuario (auditoría, "sistema a prueba de errores"): esta función
+    // pisaba OBS sin dejar ningún rastro — quién lo cambió, ni el valor anterior.
+    _wosLogAccion('Observación editada', numero, reseller, String(operario || ''),
+      '"' + obsAnterior + '" → "' + String(obs || '') + '"');
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_actualizarObs: ' + e);
