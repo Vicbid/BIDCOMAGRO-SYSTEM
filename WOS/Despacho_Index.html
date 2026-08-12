@@ -1,4 +1,4 @@
-<!-- @version 3.64 -->
+<!-- @version 3.65 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -304,6 +304,7 @@ table.items-tbl tr:hover td{background:var(--surf)}
 .bo-ready-txt strong{color:var(--yellow)}
 .bo-ready-banner .btn{flex-shrink:0}
 .bo-listo-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--yellow-m);border-radius:4px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
+.bo-parcial-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:var(--orange-m);border-radius:4px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
 
 /* ── MODAL ────────────────────────────────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(9,30,66,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
@@ -2337,7 +2338,9 @@ function renderCard(p) {
         : '') +
       '<span class="card-num">' + escH(p.numero) + '</span>' +
       '<span class="card-reseller">' + escH(p.reseller) + '</span>' +
-      (_esBackorderListo(p) ? '<span class="bo-listo-badge" title="Hay stock para cubrir todo lo pendiente — se puede finalizar completo">📦 finalizable</span>' : '') +
+      (_esBackorderListo(p)
+        ? '<span class="bo-listo-badge" title="Hay stock para cubrir todo lo pendiente — se puede finalizar completo">📦 finalizable</span>'
+        : (_tieneBackorderParcialConStock(p) ? '<span class="bo-parcial-badge" title="Llegó parte de lo que estaba en backorder — hay stock para preparar y sumarlo al envío, aunque no cubra el pendiente entero">📦 llegó backorder</span>' : '')) +
       (function() {
         var pct = p.totalSol > 0 ? Math.round(p.totalDesp / p.totalSol * 100) : 0;
         var pctCap = Math.min(pct, 100);
@@ -3407,6 +3410,21 @@ function _esBackorderListo(p) {
     if (stk < it.cantPend) return false;   // algún ítem no se cubre entero → no finalizable
   }
   return tieneBO;
+}
+// ¿el pedido tiene algún ítem en Backorder con AL MENOS algo de stock ya disponible, aunque
+// no alcance para cubrir el pendiente entero? Bug reportado por el usuario: si el pedido tenía
+// otras cosas ya más avanzadas (Preparado/Preparado Parcial/etc.) y el backorder mezclado no
+// llegaba a cubrirse entero, _esBackorderListo() no lo marcaba y el operador solo se enteraba
+// del ingreso parcial al abrir el pedido y bajar hasta el aviso de renderAcciones — quedaba
+// invisible en la cabecera de la lista principal. Complementa (no reemplaza) a esa función.
+function _tieneBackorderParcialConStock(p) {
+  for (var j = 0; j < (p.items || []).length; j++) {
+    var it = p.items[j];
+    if (it.estado !== 'Backorder' || !(it.cantPend > 0)) continue;
+    var stk = (typeof it.stockActual === 'number') ? it.stockActual : 0;
+    if (stk > 0) return true;
+  }
+  return false;
 }
 // Todos los pedidos con backorder listo para despachar (cualquier reseller)
 function _backordersListos() {
