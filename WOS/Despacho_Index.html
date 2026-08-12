@@ -1,4 +1,4 @@
-<!-- @version 3.62 -->
+<!-- @version 3.63 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -2442,9 +2442,10 @@ function renderAcciones(p) {
     // Mismo bug que 'Preparado' de acá abajo: Preparado Parcial también tiene más prioridad que
     // Backorder en EST_PRIORIDAD, así que esta rama tampoco ofrecía "Preparar" para el ítem recién
     // llegado cuando coexistía con uno ya Preparado Parcial. Mismo fix.
-    if (p.estadoSet && p.estadoSet['Backorder']) {
-      btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Este pedido tiene ítems con cantidad menor a la solicitada, y además hay otro en backorder pendiente — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>' + btns;
-      btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+    var _mixPP = _avisosMixPreparado(p, n);
+    if (_mixPP.avisos) {
+      btns = _mixPP.avisos + btns;
+      btns += _mixPP.acciones;
     } else {
       btns = '<div class="parcial-aviso">⚠ Este pedido tiene ítems con cantidad menor a la solicitada — revisá las cantidades en la tabla antes de despachar.</div>' + btns;
     }
@@ -2457,10 +2458,14 @@ function renderAcciones(p) {
     // forma de cargar el N° de serie del ítem recién llegado (esa carga solo vive en el modal de
     // Preparar: escáner de pistola/cámara, ubicación WMS). Mismo patrón que el fix de
     // En_Espera_Reseller (ver Despacho_Index.html 3.59): se reincorpora el botón "Preparar" con
-    // el mismo texto que ya usa sin problema el estado puro Backorder más abajo.
-    if (p.estadoSet && p.estadoSet['Backorder']) {
-      btns = '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>' + btns;
-      btns += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+    // el mismo texto que ya usa sin problema el estado puro Backorder más abajo. Mismo tratamiento
+    // para un ítem Reservado_Consolidar mezclado (pedido del usuario): antes no mostraba el botón
+    // "📞 El contacto respondió" — no bloqueaba (el modal de despacho ya permite anular esa línea a
+    // mano) pero quedaba invisible que había una acción pendiente ahí.
+    var _mixP = _avisosMixPreparado(p, n);
+    if (_mixP.avisos) {
+      btns = _mixP.avisos + btns;
+      btns += _mixP.acciones;
     } else if (p.estadoSet && p.estadoSet['Preparado Parcial']) {
       btns = '<div class="parcial-aviso">⚠ Algunos ítems tienen cantidad parcial — revisá las cantidades en la tabla antes de despachar.</div>' + btns;
     }
@@ -2498,6 +2503,22 @@ function renderAcciones(p) {
 
 function _btnAdminCancelar(n) {
   return '<button class="btn btn-ghost" onclick="abrirModalCancelar(\'' + n + '\')" style="color:var(--red);border-color:var(--red);opacity:.75" title="Cancelacion administrativa — solo admins">⚠ Cancelar (Admin)</button>';
+}
+
+// Avisos/acciones para ítems que quedan "pendientes de otra cosa" (Backorder / Reservado_Consolidar)
+// mezclados con un pedido cuyo estado agregado ya es Preparado/Preparado Parcial — usado por las
+// dos ramas de renderAcciones() para no duplicar esta lógica.
+function _avisosMixPreparado(p, n) {
+  var avisos = '', acciones = '';
+  if (p.estadoSet && p.estadoSet['Backorder']) {
+    avisos += '<div class="parcial-aviso parcial-aviso-espera">⏳ Hay ítems en backorder pendientes — cargá el N° de serie de lo que llegó y después despachá; el resto irá en un 2° envío cuando llegue el stock.</div>';
+    acciones += '<button class="btn btn-teal" onclick="abrirModalPreparar(\'' + n + '\', true)">📦 Preparar lo que llegó</button>';
+  }
+  if (p.estadoSet && p.estadoSet['Reservado_Consolidar']) {
+    avisos += '<div class="parcial-aviso parcial-aviso-espera">🟣 Hay un ítem retenido para consolidar en un solo envío — se libera cuando llegue el resto, o si el contacto de la OT pidió despachar ahora.</div>';
+    acciones += '<button class="btn btn-primary" onclick="abrirRespuestaTelefonica(\'' + n + '\')">📞 El contacto respondió</button>';
+  }
+  return { avisos: avisos, acciones: acciones };
 }
 
 // ── Toggle expand ─────────────────────────────────────────────
