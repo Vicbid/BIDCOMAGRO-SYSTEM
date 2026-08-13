@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -209,6 +209,47 @@ function _cpRemitoInfo(idVenta) {
     }
     return null;
   } catch (e) { Logger.log('_cpRemitoInfo error: ' + e); return null; }
+}
+
+// Diagnóstico manual (solo lectura) — correr desde el editor de Apps Script con Ctrl+Enter,
+// cambiando el idVenta de ejemplo, y revisar el resultado en "Ver registros" (Ctrl+Enter logs)
+// o el valor de retorno en el panel de ejecución. No escribe nada.
+// Reportado por el usuario: el chip "Remito" no aparece en los mails de ComandasPedidos — esto
+// dice si es porque la fila no existe en "AGRAS Y BRUMBY", porque el ID no matchea tal cual está
+// escrito ahí, o porque la fila existe pero las columnas AJ/AK están vacías.
+function _cpDiagnosticoRemito(idVenta) {
+  var out = { idVentaBuscado: idVenta, key: _s(idVenta).toUpperCase() };
+  try {
+    var ss = _cpSS(CP_REMITOS_SS_ID);
+    var h = ss.getSheetByName(CP_REMITOS_TAB);
+    if (!h) { out.veredicto = 'ERROR: no se encontró la pestaña "' + CP_REMITOS_TAB + '" en la planilla de remitos.'; Logger.log(JSON.stringify(out, null, 2)); return out; }
+    var d = h.getDataRange().getValues();
+    out.filasTotales = d.length - 1;
+    var exacta = null, parecidas = [];
+    for (var i = 1; i < d.length; i++) {
+      var idFila = _s(d[i][4]);
+      if (idFila.toUpperCase() === out.key) { exacta = { fila: i + 1, idVenta: idFila, aj_numero: _s(d[i][35]), ak_url: _s(d[i][36]) }; break; }
+      // Parecido = mismo texto salvo mayúsculas/espacios ya cubierto arriba; acá buscamos si el
+      // ID buscado aparece CONTENIDO dentro de otro (o viceversa) — indicio de formato distinto
+      // (ej. con guiones, con prefijo, con sufijo de comanda pegado).
+      if (idFila && (idFila.toUpperCase().indexOf(out.key) >= 0 || out.key.indexOf(idFila.toUpperCase()) >= 0)) {
+        parecidas.push({ fila: i + 1, idVenta: idFila });
+      }
+    }
+    if (exacta) {
+      out.encontrada = exacta;
+      out.veredicto = (exacta.aj_numero || exacta.ak_url)
+        ? 'OK: hay fila con ese ID Venta exacto y tiene remito cargado (col AJ/AK) — si el mail no lo muestra, el problema NO es esta hoja, revisar cuándo se mandó el mail vs. cuándo se cargó esta fila.'
+        : 'La fila existe con ese ID Venta exacto, pero las columnas AJ (número) y AK (link) están VACÍAS — todavía no se cargó el remito para esta venta.';
+    } else if (parecidas.length) {
+      out.parecidas = parecidas;
+      out.veredicto = 'NO hay match exacto, pero hay ' + parecidas.length + ' fila(s) con un ID parecido (ver "parecidas") — probablemente el formato del ID Venta en esta hoja no es idéntico al que usa Comandas (mayúsculas ya se ignoran; revisar guiones, espacios o prefijos distintos).';
+    } else {
+      out.veredicto = 'NO se encontró ninguna fila con ese ID Venta (ni exacta ni parecida) entre las ' + out.filasTotales + ' filas de la hoja — probablemente todavía no se cargó esa venta en "AGRAS Y BRUMBY".';
+    }
+  } catch (e) { out.veredicto = 'ERROR al leer la planilla: ' + e; }
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
 }
 
 
