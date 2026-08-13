@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.02 -->
+<!-- @version 2.03 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5750,7 +5750,9 @@ function _cotBuscar(immediate) {
   var noRes  = document.getElementById('cot-no-result');
   if (q.length < 2) { resDiv.style.display = 'none'; noRes.style.display = 'none'; return; }
 
-  if (typeof _pedIndice !== 'undefined' && _pedIndice !== null) {
+  // Mismo fix que _pedBuscar: [] es la señal de "el índice falló, usar servidor", no "índice
+  // listo pero vacío" — antes esto cortaba acá y buscaba local sobre nada.
+  if (typeof _pedIndice !== 'undefined' && _pedIndice && _pedIndice.length > 0) {
     _cotRenderResultados(_pedBuscarLocal(q));
     return;
   }
@@ -7018,8 +7020,13 @@ function _pedBuscar(immediate) {
     return;
   }
 
-  // Índice local cargado → búsqueda instantánea sin servidor
-  if (_pedIndice !== null) {
+  // Índice local cargado → búsqueda instantánea sin servidor. OJO: si `obtenerIndiceRepuestosPortal`
+  // falló, _pedCargarIndice deja _pedIndice=[] a propósito como señal de "usar servidor" (ver
+  // comentario ahí) — pero un simple "!== null" trataba ese [] como índice YA listo (vacío) y
+  // buscaba local sobre nada, sin caer nunca al fallback de servidor de más abajo. Bug real
+  // reportado por el usuario ("el cotizador no encuentra ningún repuesto") — afectaba a los 2
+  // buscadores por igual, ya que ambos comparten _pedIndice.
+  if (_pedIndice && _pedIndice.length > 0) {
     _pedRenderResultados({ ok: true, items: _pedBuscarLocal(q) });
     return;
   }
@@ -7082,9 +7089,15 @@ function _pedCargarIndice() {
       if (catModal && catModal.style.display === 'block' && _catConjActual) _catAbrir(_catConjActual.id);
       // Si el reseller ya había escrito algo mientras el índice cargaba, la búsqueda había
       // quedado en "Preparando catálogo…" (ver _pedBuscar) — ahora que está listo, reintentar.
+      // Se reintentan LOS 2 buscadores que dependen de este índice (Carrito de Repuestos Y
+      // Cotizador) — antes solo se reintentaba el de Carrito, así que si el reseller abría
+      // el Cotizador primero y escribía mientras el índice todavía cargaba, esa búsqueda
+      // quedaba stuck y nunca se reintentaba sola (bug reportado por el usuario).
       var idsPend = _repIds();
       var qPend = (document.getElementById(idsPend.qId) || {}).value || '';
       if (qPend.trim().length >= 2) _pedBuscar(true);
+      var cotQEl = document.getElementById('cot-q');
+      if (cotQEl && cotQEl.value.trim().length >= 2) _cotBuscar(true);
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
