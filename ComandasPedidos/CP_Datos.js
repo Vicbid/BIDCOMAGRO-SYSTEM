@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -211,9 +211,11 @@ function _cpRemitoInfo(idVenta) {
   } catch (e) { Logger.log('_cpRemitoInfo error: ' + e); return null; }
 }
 
-// Diagnóstico manual (solo lectura) — correr desde el editor de Apps Script con Ctrl+Enter,
-// cambiando el idVenta de ejemplo, y revisar el resultado en "Ver registros" (Ctrl+Enter logs)
-// o el valor de retorno en el panel de ejecución. No escribe nada.
+// Diagnóstico manual (solo lectura, no escribe nada) — recibe idVenta como parámetro, así que
+// el botón "Ejecutar" del editor (que siempre llama sin argumentos) NO sirve para correrla
+// directo. Usar el wrapper de abajo (_cpDiagnosticoRemitoTest): seleccionarlo en el desplegable
+// de funciones de arriba y ahí sí darle "Ejecutar" — el resultado queda en "Ver registros de
+// ejecución" (Ctrl+Enter).
 // Reportado por el usuario: el chip "Remito" no aparece en los mails de ComandasPedidos — esto
 // dice si es porque la fila no existe en "AGRAS Y BRUMBY", porque el ID no matchea tal cual está
 // escrito ahí, o porque la fila existe pero las columnas AJ/AK están vacías.
@@ -250,6 +252,12 @@ function _cpDiagnosticoRemito(idVenta) {
   } catch (e) { out.veredicto = 'ERROR al leer la planilla: ' + e; }
   Logger.log(JSON.stringify(out, null, 2));
   return out;
+}
+
+// Wrapper SIN parámetros — este es el que hay que seleccionar en el desplegable de funciones
+// del editor y correr con "Ejecutar". Cambiar el ID de acá adentro si hace falta probar otro.
+function _cpDiagnosticoRemitoTest() {
+  _cpDiagnosticoRemito('A260804.004');
 }
 
 
