@@ -1,4 +1,4 @@
-<!-- @version 2.26 -->
+<!-- @version 2.27 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -823,6 +823,15 @@ body.compact tbody td{padding:6px 14px!important}
         <div>
           <label class="flbl">Descripción de falla <span style="color:var(--red)">*</span></label>
           <textarea id="nev-falla" class="form-control" rows="3" placeholder="Describir el problema reportado por el cliente…" style="font-size:13px;resize:vertical"></textarea>
+        </div>
+        <!-- Link de fotos/documentación — mismo campo que ya existe en Portal Reseller al
+             cargar una reparación; acá faltaba para las OTs creadas directo desde el HUB.
+             Se guarda como mensaje inicial (col MENSAJES) con el mismo patrón "📁 Drive: url"
+             que ya usa enviarCasoAlHub, así lo levanta el mismo badge de la vista de detalle
+             (ver driveMatch en actualizarInfoStrip) sin tocar nada de esa lógica. -->
+        <div>
+          <label class="flbl">Link de fotos/documentación <span style="color:var(--tx-d);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+          <input type="url" id="nev-drive" class="form-control" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off" style="font-size:13px">
         </div>
         <!-- CAS / FWRC — un solo caso DJI (es CAS o FWRC, nunca los dos a la vez) -->
         <div>
@@ -3246,6 +3255,7 @@ function crearCaso() {
   document.getElementById('nev-falla').value = '';
   document.getElementById('nev-fecha-act').value = '';
   document.getElementById('nev-cas').value = '';
+  document.getElementById('nev-drive').value = '';
   _nevSetGar('IW');
   _nevSetCirc('Taller');
   _nevSetPrio('NORMAL');
@@ -3351,12 +3361,15 @@ function confirmarNuevaOT() {
   var fechaAct = document.getElementById('nev-fecha-act').value;
   var tecnico  = document.getElementById('nev-tec').value;
   var cas      = document.getElementById('nev-cas').value.trim();
+  var driveUrl = document.getElementById('nev-drive').value.trim();
 
   if (!reseller) { toast('Seleccioná un reseller.', 'err'); return; }
   if (!equipo)   { toast('Ingresá el modelo del equipo.', 'err'); return; }
   if (!sn)       { toast('Ingresá el número de serie.', 'err'); return; }
   if (!falla)    { toast('Describí la falla.', 'err'); return; }
   if (_nevGar === 'IW' && !fechaAct) { toast('La fecha de activación es obligatoria para garantías IW.', 'err'); return; }
+  // Misma validación que Portal Reseller (inp-drive): evita pegar cualquier URL como si fuera Drive.
+  if (driveUrl && driveUrl.indexOf('drive.google.com') === -1) { toast('El link de Drive debe ser una URL de drive.google.com', 'err'); return; }
 
   var datos = {
     reseller: reseller,
@@ -3368,7 +3381,8 @@ function confirmarNuevaOT() {
     trabajo:  falla,
     fechaActivacion: fechaAct,
     prioridad: _nevPrio,
-    cas:      cas
+    cas:      cas,
+    driveUrl: driveUrl
   };
 
   bootstrap.Modal.getInstance(document.getElementById('modal-nueva-ot')).hide();

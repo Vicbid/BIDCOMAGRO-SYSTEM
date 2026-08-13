@@ -1,4 +1,4 @@
-// @version 1.6
+// @version 1.7
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -761,6 +761,18 @@ function crearNuevaOT(datos) {
     row[17] = datos.prioridad || "NORMAL";
     row[18] = datos.circuito  || "Taller";
     row[20] = new Date();
+
+    // Link de fotos/documentación (opcional): mismo patrón "📁 Drive: url" que ya usa
+    // enviarCasoAlHub (Portal Reseller) en el mensaje inicial — así lo levanta el mismo
+    // driveMatch de la vista de detalle sin tocar esa lógica. Solo se escribe si vino un
+    // link; si no, MENSAJES queda igual que antes ("").
+    if (datos.driveUrl) {
+      var autorMsg = Session.getActiveUser().getEmail() || 'BIDCOMAGRO';
+      var fechaMsg = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+      var msgBody  = "Orden creada desde el HUB.\n\n📁 Drive: " + datos.driveUrl;
+      row[SCHEMA.OT.MENSAJES] = "💬 [" + fechaMsg + "] — " + autorMsg + ":\n" + msgBody + "\n\n[LEIDO]";
+    }
+
     hoja.appendRow(row);
 
     registrarLog(nOT, datos.reseller || "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
