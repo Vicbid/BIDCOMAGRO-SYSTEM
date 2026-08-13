@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.08 -->
+<!-- @version 2.09 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -178,6 +178,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .dm-row-title{font-size:13px;font-weight:700;color:var(--tx)}
 .dm-row-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;transition:filter .13s}
 .dm-row-btn:hover{filter:brightness(.94)}
+/* Botones Básico/Full del modo "Kits" en Agregar Repuestos (Pedidos) */
+.btn-kit-nivel{flex:1;padding:10px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);font-size:13px;font-weight:700;border-radius:var(--rm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .13s}
+.btn-kit-nivel:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:var(--blue-a)}
+.btn-kit-nivel:disabled{opacity:.4;cursor:not-allowed}
 /* Estrellas de la encuesta de satisfacción postventa (#enc-modal) */
 .enc-estrellas{display:flex;gap:6px}
 .enc-estrellas i{font-size:22px;color:var(--brd2);cursor:pointer;transition:color .1s}
@@ -1905,6 +1909,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <button class="gest-mode-btn active" id="ped-mode-manual" onclick="_pedSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
             </button>
+            <button class="gest-mode-btn" id="ped-mode-kits" onclick="_pedSetMode('kits')">
+              <i class="fa fa-box-open"></i> Kits
+            </button>
             <button class="gest-mode-btn cat-nuevo" id="ped-mode-catalogo" onclick="_pedSetMode('catalogo')">
               <i class="fa fa-sitemap"></i> Catálogo <span class="cat-nuevo-badge">Nuevo</span>
             </button>
@@ -1931,6 +1938,25 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
                 <i class="fa fa-plus"></i> Agregar como pedido especial
               </button>
             </div>
+          </div>
+
+          <!-- MODO KITS (Básico/Full predefinidos por equipo) -->
+          <div id="ped-panel-kits" style="display:none">
+            <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
+              <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Elegí tu equipo y cargá un kit predefinido de una sola vez.
+            </div>
+            <select id="ped-kits-equipo" class="form-control" style="margin-bottom:10px" onchange="_pedRenderBotonesKits()">
+              <option value="">— Elegí tu equipo —</option>
+            </select>
+            <div style="display:flex;gap:8px">
+              <button type="button" id="ped-kits-btn-basico" class="btn-kit-nivel" disabled onclick="_pedCargarKit('Básico')">
+                <i class="fa fa-box"></i> Básico
+              </button>
+              <button type="button" id="ped-kits-btn-full" class="btn-kit-nivel" disabled onclick="_pedCargarKit('Full')">
+                <i class="fa fa-boxes-stacked"></i> Full
+              </button>
+            </div>
+            <div id="ped-kits-vacio" style="display:none;margin-top:10px;font-size:11px;color:var(--tx-d);font-style:italic">Todavía no hay kits cargados para ese equipo.</div>
           </div>
 
           <!-- MODO CATÁLOGO (despieces DJI) -->
@@ -6942,12 +6968,102 @@ function _pedSetMode(mode) {
   _repCtx = 'ped';
   _pedMode = mode;
   document.getElementById('ped-mode-manual').classList.toggle('active', mode === 'manual');
+  document.getElementById('ped-mode-kits').classList.toggle('active', mode === 'kits');
   document.getElementById('ped-mode-catalogo').classList.toggle('active', mode === 'catalogo');
   document.getElementById('ped-mode-excel').classList.toggle('active',  mode === 'excel');
   document.getElementById('ped-panel-manual').style.display = mode === 'manual' ? 'block' : 'none';
+  document.getElementById('ped-panel-kits').style.display = mode === 'kits' ? 'block' : 'none';
   document.getElementById('ped-panel-catalogo').style.display = mode === 'catalogo' ? 'block' : 'none';
   document.getElementById('ped-panel-excel').style.display  = mode === 'excel'  ? 'block' : 'none';
   if (mode === 'catalogo') { if (!_catData) _catCargar(); else _catRenderModelos(); }
+  if (mode === 'kits' && !_pedKitsCargados) _pedCargarKitsPedidos();
+}
+
+// ── Kits de Pedido (Básico/Full por equipo) — modo "Kits" en Agregar Repuestos ─────
+// Lista general armada por BIDCOM desde el Launcher (RS_Pedidos.js:RS_listarKitsPedidos).
+// Se carga una sola vez, la primera vez que se entra a este modo.
+var _pedKitsPedidos       = [];   // [{equipo, nivel, items:[{sku,descripcion,cantidad}]}]
+var _pedKitsCargados      = false;
+var _pedKitPendiente      = false; // igual que _cotPlantillaPendiente: si tocaron "Cargar" antes
+var _pedKitPendienteNivel = '';    // de que _pedIndice terminara de cargar, se reintenta solo
+
+function _pedCargarKitsPedidos() {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _pedKitsPedidos  = (r && r.ok) ? r.kits : [];
+      _pedKitsCargados = true;
+      _pedPoblarSelectEquiposKits();
+      _pedRenderBotonesKits();
+    })
+    .withFailureHandler(function() { _pedKitsPedidos = []; _pedKitsCargados = true; })
+    .RS_listarKitsPedidos();
+}
+
+function _pedPoblarSelectEquiposKits() {
+  var sel = document.getElementById('ped-kits-equipo');
+  if (!sel || sel.options.length > 1) return; // ya poblado
+  for (var j = 0; j < listaEquipos.length; j++) {
+    var opt = document.createElement('option');
+    opt.value = listaEquipos[j].nombre; opt.textContent = listaEquipos[j].nombre;
+    sel.appendChild(opt);
+  }
+}
+
+function _pedRenderBotonesKits() {
+  var equipo = document.getElementById('ped-kits-equipo').value;
+  var tieneBasico = false, tieneFull = false;
+  for (var i = 0; i < _pedKitsPedidos.length; i++) {
+    if (_pedKitsPedidos[i].equipo !== equipo) continue;
+    if (_pedKitsPedidos[i].nivel === 'Básico') tieneBasico = true;
+    if (_pedKitsPedidos[i].nivel === 'Full')   tieneFull = true;
+  }
+  document.getElementById('ped-kits-btn-basico').disabled = !tieneBasico;
+  document.getElementById('ped-kits-btn-full').disabled   = !tieneFull;
+  document.getElementById('ped-kits-vacio').style.display = (equipo && !tieneBasico && !tieneFull) ? 'block' : 'none';
+}
+
+// Carga TODOS los ítems del kit al carrito de una vez, reemplazando lo que había — mismo
+// patrón que _cotCargarPlantilla: precio/descripción/foto se re-derivan de _pedIndice (nunca
+// un precio congelado), con el mismo diferido si el índice todavía está cargando.
+function _pedCargarKit(nivel) {
+  var equipo = document.getElementById('ped-kits-equipo').value;
+  if (!equipo) { toast('Elegí tu equipo primero', 'err'); return; }
+
+  if (_pedIndice === null) {
+    _pedKitPendiente = true;
+    _pedKitPendienteNivel = nivel;
+    toast('Preparando catálogo… el kit se carga en un momento', 'inf');
+    return;
+  }
+
+  var kit = null;
+  for (var i = 0; i < _pedKitsPedidos.length; i++) {
+    if (_pedKitsPedidos[i].equipo === equipo && _pedKitsPedidos[i].nivel === nivel) { kit = _pedKitsPedidos[i]; break; }
+  }
+  if (!kit || !kit.items.length) { toast('No hay kit ' + nivel + ' cargado para ese equipo', 'err'); return; }
+
+  if (_pedCart.length && !confirm('Esto va a reemplazar el carrito que tenés armado. ¿Continuar?')) return;
+
+  _pedCart = [];
+  for (var j = 0; j < kit.items.length; j++) {
+    var it = kit.items[j];
+    var desc = it.descripcion || it.sku, estado = 'consultar_Backorder', precio = 0, modelos = '', stockActual = null, reemplazadoPor = '', foto = '';
+    if (it.sku && _pedIndice) {
+      var skuUp = String(it.sku).toUpperCase();
+      for (var r = 0; r < _pedIndice.length; r++) {
+        if ((_pedIndice[r][0] || '').toUpperCase() === skuUp) {
+          var row = _pedIndice[r];
+          desc = row[1] || desc; modelos = row[2] || ''; estado = _pedEstMap[row[3]] || estado; precio = row[4] || 0;
+          stockActual = (row[5] !== undefined && row[5] >= 0) ? row[5] : null;
+          reemplazadoPor = row[7] || ''; foto = row[11] || '';
+          break;
+        }
+      }
+    }
+    _pedCart.push({ sku: it.sku, descripcion: desc, estado: estado, cantidad: it.cantidad, precio: precio, modelos: modelos, stockActual: stockActual, reemplazadoPor: reemplazadoPor, foto: foto });
+  }
+  _pedRenderCarrito();
+  toast('Kit ' + nivel + ' de ' + equipo + ' cargado — ' + kit.items.length + ' ítem(s)', 'ok');
 }
 
 // Mismo switcher que _pedSetMode, pero para el Cotizador (ver _catAgregarCot para el
@@ -7581,6 +7697,10 @@ function _pedCargarIndice() {
       // el índice todavía cargaba (ver _cotCargarPlantilla) — se reintenta solo, ahora sí con
       // fotos/precios/descripciones actuales.
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
+      // Idem si ya habían tocado "Básico"/"Full" en el modo Kits de Pedidos mientras el
+      // índice todavía cargaba (ver _pedCargarKit) — se reintenta solo, ahora con fotos/
+      // precios actuales.
+      if (_pedKitPendiente) { _pedKitPendiente = false; _pedCargarKit(_pedKitPendienteNivel); }
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
@@ -7591,6 +7711,7 @@ function _pedCargarIndice() {
       // el mismo fallback que ya tiene el resto del Cotizador) en vez de quedar stuck sin
       // reaccionar al click de "Cargar" de hace un rato.
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
+      if (_pedKitPendiente) { _pedKitPendiente = false; _pedCargarKit(_pedKitPendienteNivel); }
     })
     .obtenerIndiceRepuestosPortal(_sesionToken, _pedCtxReseller(), _pedDtoOverride());
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito

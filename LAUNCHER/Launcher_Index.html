@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.19 -->
+<!-- @version 1.20 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -390,7 +390,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       <span id="mn-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
       <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalPlantillasCotizador()">
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalPlantillasCotizador()">
       <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
         <i class="fa fa-layer-group"></i>
       </div>
@@ -399,6 +399,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Presupuestos predefinidos (ej. mantenimientos) — repuestos + mano de obra</div>
       </div>
       <span id="pl-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalKitsPedido()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(92,95,192,.1);color:#5c5fc0;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-box-open"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Kits de Pedido · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Básico/Full por equipo — el reseller los carga de un clic en Pedidos</div>
+      </div>
+      <span id="kp-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
       <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
   </div>
@@ -1080,6 +1091,70 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   </div>
 </div>
 
+<!-- MODAL KITS DE PEDIDO (Básico/Full por equipo) -->
+<div class="modal-bg" id="modal-kits-pedido">
+  <div class="modal-box" style="width:620px;max-height:90vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(92,95,192,.1);color:#5c5fc0;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-box-open"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Kits de Pedido · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Básico/Full por equipo — el reseller los carga de un clic en "Agregar Repuestos" → Kits</div>
+      </div>
+      <button onclick="cerrarModalKitsPedido()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="kp-equipo-original">
+      <input type="hidden" id="kp-nivel-original">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Kit cargado</label>
+          <select id="kp-sel" onchange="kpCargarKit()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+            <option value="__new">➕ Nuevo</option>
+          </select>
+        </div>
+        <button onclick="kpNuevo()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-plus"></i> Nuevo</button>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Equipo</label>
+          <input id="kp-equipo" type="text" placeholder="Ej: T40" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+        </div>
+        <div style="width:180px">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nivel</label>
+          <div style="display:flex;gap:6px">
+            <button type="button" id="kp-btn-nivel-basico" onclick="_kpSetNivel('Básico')" style="flex:1;padding:9px 8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #e0e3e8;background:#fff;color:#5e6778">Básico</button>
+            <button type="button" id="kp-btn-nivel-full" onclick="_kpSetNivel('Full')" style="flex:1;padding:9px 8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #e0e3e8;background:#fff;color:#5e6778">Full</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-cog" style="color:var(--blue);margin-right:4px"></i>Repuestos</label>
+        <div id="kp-items-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button onclick="_kpAgregarItemRow()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer"><i class="fa fa-plus"></i> Agregar repuesto</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <button id="kp-btn-eliminar" onclick="kpEliminar()" style="display:none;background:none;border:1px solid rgba(214,48,49,.3);color:#d63031;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer">
+          <i class="fa fa-trash"></i> Eliminar
+        </button>
+        <span id="kp-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="kpGuardar()" style="background:#5c5fc0;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar kit
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+        <i class="fa fa-list" style="margin-right:5px;color:#9ba5b4"></i>Cargados — <span id="kp-total">0</span>
+      </div>
+      <div id="kp-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
+        <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay kits cargados.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL SOLICITUDES DE RESELLERS -->
 <div class="modal-bg" id="modal-solicitudes">
   <div class="modal-box" style="width:560px;max-height:88vh;overflow-y:auto;padding:0">
@@ -1564,6 +1639,7 @@ cmCargarLista();          // badge de la tarjeta Material de Cursos
 rrCargarLista();          // badge de la tarjeta Repuestos recomendados DJI
 mnCargarLista();          // badge de la tarjeta Mantenimiento sugerido DJI
 plCargarLista();          // badge de la tarjeta Plantillas Cotizador
+kpCargarLista();          // badge de la tarjeta Kits de Pedido
 solCargarLista();         // badge de la tarjeta Solicitudes de Resellers
 encCargarLista();         // badge de la tarjeta Encuestas de Satisfacción
 prospectosCargarConfig(); // subtítulo de la tarjeta Venta a prospectos (RTV)
@@ -2688,6 +2764,167 @@ function plEliminar() {
     })
     .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
     .LAUNCH_eliminarPlantillaCotizador(nombre);
+}
+
+// ── Kits de Pedido (Básico/Full por equipo, Portal Reseller — Pedidos) ─────────
+// Mismo esqueleto que Plantillas Cotizador de arriba, pero la clave de cada kit es
+// Equipo+Nivel en vez de un nombre libre — sin mano de obra (acá son solo repuestos).
+var _kpKits = [];
+var _kpItemRowSeq = 0, _kpItemRows = [];   // [{id, sku, cantidad}]
+var _kpNivel = 'Básico';
+
+function abrirModalKitsPedido() {
+  document.getElementById('modal-kits-pedido').classList.add('show');
+  kpCargarLista();
+}
+function cerrarModalKitsPedido() {
+  document.getElementById('modal-kits-pedido').classList.remove('show');
+}
+function _kpKey(equipo, nivel) { return equipo + '|' + nivel; }
+function _kpBuscar(equipo, nivel) {
+  for (var i = 0; i < _kpKits.length; i++) if (_kpKits[i].equipo === equipo && _kpKits[i].nivel === nivel) return _kpKits[i];
+  return null;
+}
+function _kpSetNivel(n) {
+  _kpNivel = n;
+  var b = document.getElementById('kp-btn-nivel-basico'), f = document.getElementById('kp-btn-nivel-full');
+  b.style.background = n === 'Básico' ? 'rgba(92,95,192,.1)' : '#fff';
+  b.style.borderColor = n === 'Básico' ? '#5c5fc0' : '#e0e3e8';
+  b.style.color       = n === 'Básico' ? '#5c5fc0' : '#5e6778';
+  f.style.background = n === 'Full' ? 'rgba(92,95,192,.1)' : '#fff';
+  f.style.borderColor = n === 'Full' ? '#5c5fc0' : '#e0e3e8';
+  f.style.color       = n === 'Full' ? '#5c5fc0' : '#5e6778';
+}
+function _kpActualizarCard() {
+  var badge = document.getElementById('kp-card-badge');
+  if (!badge) return;
+  badge.textContent = _kpKits.length ? (_kpKits.length + ' cargado' + (_kpKits.length === 1 ? '' : 's')) : 'SIN CARGAR';
+  badge.style.background = _kpKits.length ? 'rgba(92,95,192,.1)' : '#f0f2f5';
+  badge.style.color      = _kpKits.length ? '#5c5fc0'            : '#9ba5b4';
+}
+function _kpRenderChips() {
+  var cont = document.getElementById('kp-lista-chips');
+  document.getElementById('kp-total').textContent = _kpKits.length;
+  if (!_kpKits.length) {
+    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay kits cargados.</span>';
+    return;
+  }
+  cont.innerHTML = _kpKits.map(function(k) {
+    var n = k.items.length + ' ítem(s)';
+    return '<span onclick="kpEditarDesdeChip(\'' + _cmEsc(k.equipo).replace(/'/g, "\\'") + '\',\'' + k.nivel + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:rgba(92,95,192,.1);color:#5c5fc0">' + _cmEsc(k.equipo) + ' — ' + k.nivel + ' · ' + n + '</span>';
+  }).join('');
+}
+function kpEditarDesdeChip(equipo, nivel) {
+  var sel = document.getElementById('kp-sel');
+  sel.value = _kpKey(equipo, nivel);
+  kpCargarKit();
+}
+function kpCargarLista(selEquipo, selNivel) {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _kpKits = (r && r.ok && r.kits) ? r.kits : [];
+      var sel  = document.getElementById('kp-sel');
+      var keepEquipo = selEquipo || document.getElementById('kp-equipo-original').value;
+      var keepNivel  = selNivel  || document.getElementById('kp-nivel-original').value;
+      var opts = '<option value="__new">➕ Nuevo</option>';
+      for (var i = 0; i < _kpKits.length; i++) {
+        var k = _kpKits[i];
+        opts += '<option value="' + _cmEsc(_kpKey(k.equipo, k.nivel)) + '">' + _cmEsc(k.equipo) + ' — ' + k.nivel + '</option>';
+      }
+      sel.innerHTML = opts;
+      _kpActualizarCard();
+      _kpRenderChips();
+      if (keepEquipo && _kpBuscar(keepEquipo, keepNivel)) { sel.value = _kpKey(keepEquipo, keepNivel); kpCargarKit(); }
+      else kpNuevo();
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getKitsPedidos();
+}
+function _kpRenderItemRows() {
+  var cont = document.getElementById('kp-items-list');
+  if (!_kpItemRows.length) { cont.innerHTML = '<div style="font-size:11px;color:#c0c8d4;font-style:italic">Sin repuestos todavía.</div>'; return; }
+  cont.innerHTML = _kpItemRows.map(function(r) {
+    return '<div style="display:flex;gap:6px;align-items:center">' +
+      '<input type="text" value="' + _cmEsc(r.sku) + '" placeholder="SKU" oninput="_kpSetItemField(' + r.id + ',\'sku\',this.value)" style="flex:1;padding:7px 10px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;font-family:inherit;text-transform:uppercase">' +
+      '<input type="number" min="1" value="' + (r.cantidad || 1) + '" oninput="_kpSetItemField(' + r.id + ',\'cantidad\',this.value)" style="width:64px;padding:7px 8px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;text-align:center" title="Cantidad">' +
+      '<button onclick="_kpQuitarItemRow(' + r.id + ')" style="background:none;border:none;color:#d63031;cursor:pointer;font-size:14px" title="Quitar"><i class="fa fa-times"></i></button>' +
+    '</div>';
+  }).join('');
+}
+function _kpAgregarItemRow() { _kpItemRows.push({ id: ++_kpItemRowSeq, sku: '', cantidad: 1 }); _kpRenderItemRows(); }
+function _kpQuitarItemRow(id) { _kpItemRows = _kpItemRows.filter(function(r) { return r.id !== id; }); _kpRenderItemRows(); }
+function _kpSetItemField(id, field, val) {
+  for (var i = 0; i < _kpItemRows.length; i++) {
+    if (_kpItemRows[i].id !== id) continue;
+    _kpItemRows[i][field] = (field === 'cantidad') ? (parseInt(val) || 1) : val;
+    break;
+  }
+}
+function kpNuevo() {
+  var sel = document.getElementById('kp-sel'); if (sel) sel.value = '__new';
+  document.getElementById('kp-equipo-original').value = '';
+  document.getElementById('kp-nivel-original').value = '';
+  document.getElementById('kp-equipo').value = '';
+  _kpSetNivel('Básico');
+  _kpItemRows = [];
+  _kpRenderItemRows();
+  document.getElementById('kp-btn-eliminar').style.display = 'none';
+}
+function kpCargarKit() {
+  var v = document.getElementById('kp-sel').value;
+  if (v === '__new') { kpNuevo(); return; }
+  var partes = v.split('|');
+  var k = _kpBuscar(partes[0], partes[1]);
+  if (!k) { kpNuevo(); return; }
+  document.getElementById('kp-equipo-original').value = k.equipo;
+  document.getElementById('kp-nivel-original').value = k.nivel;
+  document.getElementById('kp-equipo').value = k.equipo;
+  _kpSetNivel(k.nivel);
+  _kpItemRows = k.items.map(function(it) { return { id: ++_kpItemRowSeq, sku: it.sku, cantidad: it.cantidad || 1 }; });
+  _kpRenderItemRows();
+  document.getElementById('kp-btn-eliminar').style.display = 'inline-block';
+}
+function kpGuardar() {
+  var st = document.getElementById('kp-status');
+  var equipo = document.getElementById('kp-equipo').value.trim();
+  if (!equipo) { st.textContent = '✗ Falta el equipo'; st.style.color = 'var(--red)'; return; }
+  var items = _kpItemRows.filter(function(r) { return r.sku.trim(); }).map(function(r) { return { sku: r.sku.trim(), cantidad: r.cantidad }; });
+  if (!items.length) { st.textContent = '✗ Agregá al menos un repuesto'; st.style.color = 'var(--red)'; return; }
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var data = {
+    equipo: equipo, nivel: _kpNivel,
+    equipoOriginal: document.getElementById('kp-equipo-original').value.trim(),
+    nivelOriginal:  document.getElementById('kp-nivel-original').value.trim(),
+    items: items
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) {
+        document.getElementById('kp-equipo-original').value = equipo;
+        document.getElementById('kp-nivel-original').value = _kpNivel;
+        kpCargarLista(equipo, _kpNivel);
+      }
+      setTimeout(function() { st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_guardarKitPedido(data);
+}
+function kpEliminar() {
+  var equipo = document.getElementById('kp-equipo-original').value.trim();
+  var nivel  = document.getElementById('kp-nivel-original').value.trim();
+  if (!equipo || !nivel) return;
+  if (!confirm('¿Eliminar el kit ' + nivel + ' de ' + equipo + '?')) return;
+  var st = document.getElementById('kp-status');
+  st.textContent = 'Eliminando…'; st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) { kpCargarLista(); }
+      else { st.textContent = '✗ ' + (res.error || 'Error'); st.style.color = 'var(--red)'; }
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_eliminarKitPedido(equipo, nivel);
 }
 
 // ── Venta a prospectos (RTV) ──────────────────────────────────

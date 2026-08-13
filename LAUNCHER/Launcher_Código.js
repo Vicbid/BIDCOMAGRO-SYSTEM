@@ -1,4 +1,4 @@
-// @version 1.16
+// @version 1.17
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1172,6 +1172,118 @@ function LAUNCH_eliminarPlantillaCotizador(nombre) {
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_eliminarPlantillaCotizador: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+
+// ── Kits de Pedido (Básico / Full) por equipo (Portal Reseller — Pedidos) ──────
+// Pedido del usuario: "voy a armar kits basicos y full para cada equipo... para los reseller
+// que no saben por donde comenzar" — pidió puntualmente un modo nuevo entre "Buscar SKU" y
+// "Catálogo" en Pedidos (no una pestaña del Portal ni una card aparte, ver Index.html Portal).
+// Mismo criterio que Plantillas Cotizador (hoja normalizada, 1 fila por línea de ítem, sin
+// JSON) pero agrupado por Equipo+Nivel en vez de por nombre de plantilla, y sin variante
+// privada por reseller — acá TODO es general, lo arma únicamente BIDCOM desde acá.
+var _LAUNCH_KITS_PEDIDOS_TAB = 'KITS_PEDIDOS';
+function _launchKitsPedidosHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_KITS_PEDIDOS_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_KITS_PEDIDOS_TAB);
+    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(4, 260);
+  }
+  return hoja;
+}
+
+function LAUNCH_getKitsPedidos() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchKitsPedidosHoja(ss);
+    var d    = hoja.getDataRange().getValues();
+    var mapa = {}; // "equipo|nivel" → { equipo, nivel, items }
+    for (var i = 1; i < d.length; i++) {
+      var equipo = String(d[i][0] || '').trim();
+      var nivel  = String(d[i][1] || '').trim();
+      if (!equipo || !nivel) continue;
+      var key = equipo + '|' + nivel;
+      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, items: [] };
+      var sku  = String(d[i][2] || '').trim();
+      var desc = String(d[i][3] || '').trim();
+      if (!sku && !desc) continue;
+      mapa[key].items.push({ sku: sku, descripcion: desc, cantidad: Number(d[i][4]) || 1 });
+    }
+    var out = [];
+    for (var k in mapa) out.push(mapa[k]);
+    out.sort(function(a, b) { return a.equipo.localeCompare(b.equipo) || a.nivel.localeCompare(b.nivel); });
+    return { ok: true, kits: out };
+  } catch(e) { Logger.log('LAUNCH_getKitsPedidos: ' + e); return { ok: false, error: e.toString(), kits: [] }; }
+}
+
+// data = { equipo, nivel, equipoOriginal, nivelOriginal (para renombrar sin duplicar),
+//          items: [{sku,cantidad,descripcion}] }. Reemplaza TODAS las filas de esa
+// combinación (borra + reescribe) — mismo criterio que Plantillas Cotizador.
+function LAUNCH_guardarKitPedido(data) {
+  try {
+    data = data || {};
+    var equipo = String(data.equipo || '').trim();
+    var nivel  = String(data.nivel  || '').trim();
+    if (!equipo) return { ok: false, error: 'Falta el equipo.' };
+    if (nivel !== 'Básico' && nivel !== 'Full') return { ok: false, error: 'El nivel debe ser Básico o Full.' };
+    var items = data.items || [];
+    if (!items.length) return { ok: false, error: 'Agregá al menos un repuesto.' };
+
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchKitsPedidosHoja(ss);
+    var buscarEquipo = String(data.equipoOriginal || equipo).trim().toLowerCase();
+    var buscarNivel  = String(data.nivelOriginal  || nivel).trim();
+    var d = hoja.getDataRange().getValues();
+    var filasBorrar = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() === buscarEquipo && String(d[i][1] || '').trim() === buscarNivel) {
+        filasBorrar.push(i + 1);
+      }
+    }
+    filasBorrar.sort(function(a, b) { return b - a; });
+    for (var f = 0; f < filasBorrar.length; f++) hoja.deleteRow(filasBorrar[f]);
+
+    var ahora = new Date();
+    var filas = [];
+    for (var j = 0; j < items.length; j++) {
+      var it  = items[j];
+      var sku = String(it.sku || '').trim();
+      var descIt = String(it.descripcion || '').trim();
+      if (!sku && !descIt) continue;
+      var cant = Math.floor(Number(it.cantidad)) || 1;
+      filas.push([equipo, nivel, sku, descIt, cant, ahora]);
+    }
+    if (!filas.length) return { ok: false, error: 'Agregá al menos un repuesto.' };
+    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 6).setValues(filas);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_guardarKitPedido: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+function LAUNCH_eliminarKitPedido(equipo, nivel) {
+  try {
+    equipo = String(equipo || '').trim();
+    nivel  = String(nivel  || '').trim();
+    if (!equipo || !nivel) return { ok: false, error: 'Falta el equipo o el nivel.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchKitsPedidosHoja(ss);
+    var d = hoja.getDataRange().getValues();
+    var equipoLower = equipo.toLowerCase();
+    var filasBorrar = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() === equipoLower && String(d[i][1] || '').trim() === nivel) {
+        filasBorrar.push(i + 1);
+      }
+    }
+    if (!filasBorrar.length) return { ok: false, error: 'No se encontró ese kit.' };
+    filasBorrar.sort(function(a, b) { return b - a; });
+    for (var f = 0; f < filasBorrar.length; f++) hoja.deleteRow(filasBorrar[f]);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_eliminarKitPedido: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 

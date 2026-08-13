@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.20
+// @version 2.21
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -2109,4 +2109,53 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
   } catch(eL) { Logger.log('_enviarEmailPedidoPortal log: ' + eL); }
 
   return threadIdLog || '';
+}
+
+
+// ── Kits de Pedido (Básico / Full) por equipo ──────────────────────────
+// Hoja normalizada 1 fila por línea de ítem (mismo criterio que PLANTILLAS_COTIZADOR,
+// RS_Cotizador.js) — pero acá NO hay variante por reseller: son generales, las arma
+// únicamente BIDCOM desde el LAUNCHER, pensadas para el reseller que "no sabe por dónde
+// arrancar" y solo necesita elegir su equipo y Básico/Full. Sin JSON, sin cache de precio:
+// _pedCargarKit (Index.html) re-deriva foto/precio/descripción actuales desde _pedIndice al
+// cargar, igual que ya hace _cotCargarPlantilla con las Plantillas del Cotizador.
+function _asegurarHojaKitsPedidos() {
+  var ss = getDb();
+  var hoja = ss.getSheetByName(SCHEMA.SHEETS.KITS_PEDIDOS);
+  if (!hoja) {
+    hoja = ss.insertSheet(SCHEMA.SHEETS.KITS_PEDIDOS);
+    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(4, 260);
+  }
+  return hoja;
+}
+
+// Sin token: contenido general, igual que obtenerRepuestosRecomendadosPortal/
+// obtenerMantenimientoDjiPortal (RS_DocsModelo.js) — cualquier reseller logueado lo ve igual.
+function RS_listarKitsPedidos() {
+  try {
+    _asegurarHojaKitsPedidos();
+    var d = getSheetValues(SCHEMA.SHEETS.KITS_PEDIDOS);
+    var mapa = {}; // "equipo|nivel" → { equipo, nivel, items }
+    for (var i = 1; i < d.length; i++) {
+      var equipo = String(d[i][0] || '').trim();
+      var nivel  = String(d[i][1] || '').trim();
+      if (!equipo || !nivel) continue;
+      var key = equipo + '|' + nivel;
+      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, items: [] };
+      var sku = String(d[i][2] || '').trim();
+      var desc = String(d[i][3] || '').trim();
+      if (!sku && !desc) continue;
+      mapa[key].items.push({ sku: sku, descripcion: desc, cantidad: Number(d[i][4]) || 1 });
+    }
+    var kits = [];
+    for (var k in mapa) kits.push(mapa[k]);
+    kits.sort(function(a, b) { return a.equipo.localeCompare(b.equipo) || a.nivel.localeCompare(b.nivel); });
+    return { ok: true, kits: kits };
+  } catch(e) {
+    Logger.log('RS_listarKitsPedidos: ' + e);
+    return { ok: false, error: e.toString(), kits: [] };
+  }
 }
