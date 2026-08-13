@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.21 -->
+<!-- @version 1.22 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1119,7 +1119,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       <div style="display:flex;gap:10px">
         <div style="flex:1">
           <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Equipo</label>
-          <input id="kp-equipo" type="text" placeholder="Ej: T40" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+          <select id="kp-equipo" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+            <option value="">— Elegí un equipo —</option>
+          </select>
         </div>
         <div style="width:180px">
           <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nivel</label>
@@ -2781,9 +2783,28 @@ var _kpKits = [];
 var _kpItemRowSeq = 0, _kpItemRows = [];   // [{id, sku, cantidad}]
 var _kpNivel = 'Básico';
 
+var _kpEquiposCache = null; // lista canónica (LAUNCH_getEquipos), se carga 1 vez
+
 function abrirModalKitsPedido() {
   document.getElementById('modal-kits-pedido').classList.add('show');
-  kpCargarLista();
+  if (_kpEquiposCache) kpCargarLista();
+  else _kpCargarEquipos();
+}
+// Puebla el <select> de Equipo con la lista canónica (hoja EQUIPOS) — antes era texto libre,
+// y cualquier diferencia de tipeo contra listaEquipos del Portal hacía que el kit nunca
+// apareciera como disponible para ningún reseller (bug reportado por el usuario).
+function _kpCargarEquipos() {
+  var sel = document.getElementById('kp-equipo');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _kpEquiposCache = (r && r.ok) ? r.equipos : [];
+      var opts = '<option value="">— Elegí un equipo —</option>';
+      for (var i = 0; i < _kpEquiposCache.length; i++) opts += '<option value="' + _cmEsc(_kpEquiposCache[i]) + '">' + _cmEsc(_kpEquiposCache[i]) + '</option>';
+      sel.innerHTML = opts;
+      kpCargarLista();
+    })
+    .withFailureHandler(function() { _kpEquiposCache = []; kpCargarLista(); })
+    .LAUNCH_getEquipos();
 }
 function cerrarModalKitsPedido() {
   document.getElementById('modal-kits-pedido').classList.remove('show');

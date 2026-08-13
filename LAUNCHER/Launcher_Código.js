@@ -1,4 +1,4 @@
-// @version 1.18
+// @version 1.19
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1182,6 +1182,30 @@ function LAUNCH_eliminarPlantillaCotizador(nombre) {
 // Mismo criterio que Plantillas Cotizador (hoja normalizada, 1 fila por línea de ítem, sin
 // JSON) pero agrupado por Equipo+Nivel en vez de por nombre de plantilla, y sin variante
 // privada por reseller — acá TODO es general, lo arma únicamente BIDCOM desde acá.
+// Lista canónica de equipos (hoja EQUIPOS, col A) — mismos nombres exactos que ve el reseller
+// en el selector de Pedidos (listaEquipos, Index.html Portal). Bug reportado por el usuario:
+// "cuando toco 'elegí tu equipo' se me despliega la lista... pero nunca toma en cuenta lo que
+// yo cargué en el Launcher" — causa: el campo Equipo del editor de Kits era texto libre, y el
+// match en el Portal es exacto (=== contra listaEquipos) — cualquier diferencia de tipeo
+// (espacios, mayúsculas, nombre corto vs. completo) hacía que nunca coincidiera con nada. Se
+// reemplaza el input libre por un <select> con esta misma lista, para que sea imposible tipear
+// un nombre que no exista.
+function LAUNCH_getEquipos() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = ss.getSheetByName('EQUIPOS');
+    if (!hoja) return { ok: true, equipos: [] };
+    var d = hoja.getDataRange().getValues();
+    var equipos = [];
+    for (var i = 1; i < d.length; i++) {
+      var nombre = String(d[i][0] || '').trim();
+      if (nombre) equipos.push(nombre);
+    }
+    equipos.sort(function(a, b) { return a.localeCompare(b); });
+    return { ok: true, equipos: equipos };
+  } catch(e) { Logger.log('LAUNCH_getEquipos: ' + e); return { ok: false, error: e.toString(), equipos: [] }; }
+}
+
 var _LAUNCH_KITS_PEDIDOS_TAB = 'KITS_PEDIDOS';
 function _launchKitsPedidosHoja(ss) {
   var hoja = ss.getSheetByName(_LAUNCH_KITS_PEDIDOS_TAB);
