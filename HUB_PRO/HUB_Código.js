@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.29
+// @version 2.30
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -258,9 +258,17 @@ function _obtenerThreadIdLog(ot, destinatario) {
 // estados (armarAsunto agrega/saca "[URGENTE]" y el cliente según el momento), así que se
 // busca por eso en vez del asunto completo — encuentra el hilo aunque el asunto exacto haya
 // variado entre envíos.
+// 2do bug reportado, misma familia: Portal Reseller abre el caso con _notificarNuevaOT
+// (RS_Email.js) mandando el mail "to: supervisor, cc: reseller" — el reseller queda solo en
+// copia. Si ESE envío no llegó a capturar su ThreadID (mismo problema de arriba), cuando el
+// HUB necesita escribirle al reseller directamente busca acá con "to:(reseller)" — y Gmail no
+// siempre matchea un destinatario que estuvo en copia con el operador "to:", así que el hilo
+// original no aparecía y salía uno nuevo. Fix: "{to:(x) cc:(x)}" (OR de Gmail) para encontrar
+// el hilo sin importar si `para` estuvo en To o en Cc del mail original — se mantiene igual de
+// acotado por el número de OT en el asunto, así que no arriesga cruzar con el hilo de otra OT.
 function _buscarThreadPorAsuntoOT(ot, para) {
   try {
-    var query = 'to:(' + para + ') subject:("OT ' + ot + '")';
+    var query = '{to:(' + para + ') cc:(' + para + ')} subject:("OT ' + ot + '")';
     var hilos = GmailApp.search(query, 0, 1);
     if (hilos.length) return hilos[0].getId();
   } catch(e) { Logger.log('_buscarThreadPorAsuntoOT: ' + e); }
