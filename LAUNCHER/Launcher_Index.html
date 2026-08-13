@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.18 -->
+<!-- @version 1.19 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -415,6 +415,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
         <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Pedidos libres desde "Contacto y soporte"</div>
       </div>
       <span id="sol-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalEncuestas()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(212,137,10,.1);color:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-star"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Encuestas de Satisfacción · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Puntuación de Portal, garantías y compra de repuestos</div>
+      </div>
+      <span id="enc-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
       <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
     <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalAviso()">
@@ -1088,6 +1099,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   </div>
 </div>
 
+<!-- MODAL ENCUESTAS DE SATISFACCIÓN (Portal Reseller) — solo lectura, sin acción de responder -->
+<div class="modal-bg" id="modal-encuestas">
+  <div class="modal-box" style="width:560px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(212,137,10,.1);color:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-star"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Encuestas de Satisfacción · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Encuesta corta post-login (cada 3 meses) — Portal, casos en garantía y compra de repuestos</div>
+      </div>
+      <button onclick="cerrarModalEncuestas()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="enc-resumen" style="padding:14px 22px;border-bottom:1px solid #f0f2f5;display:flex;gap:10px"></div>
+    <div id="enc-lista" style="padding:16px 22px;display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px">Cargando…</div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VENTA A PROSPECTOS (RTV) -->
 <div class="modal-bg" id="modal-prospectos">
   <div class="modal-box" style="width:440px;padding:0">
@@ -1534,6 +1565,7 @@ rrCargarLista();          // badge de la tarjeta Repuestos recomendados DJI
 mnCargarLista();          // badge de la tarjeta Mantenimiento sugerido DJI
 plCargarLista();          // badge de la tarjeta Plantillas Cotizador
 solCargarLista();         // badge de la tarjeta Solicitudes de Resellers
+encCargarLista();         // badge de la tarjeta Encuestas de Satisfacción
 prospectosCargarConfig(); // subtítulo de la tarjeta Venta a prospectos (RTV)
 
 var _resellerEstados = {}; // nombre → activo (bool)
@@ -2407,6 +2439,94 @@ function solReabrir(id) {
     })
     .withFailureHandler(function(e) { alert('Error: ' + e.message); })
     .LAUNCH_responderSolicitud({ id: id, estado: 'Pendiente', respuesta: '' });
+}
+
+// ── Encuestas de Satisfacción Postventa (Portal Reseller) ──────────────────
+// Solo lectura: acá no hay nada que "resolver" como en Solicitudes, es el reporte de lo
+// que ya contestaron los resellers (RS_Encuestas.js / _mostrarEncuestaPostLogin).
+var _encData = [];
+
+function abrirModalEncuestas() {
+  document.getElementById('modal-encuestas').classList.add('show');
+  encCargarLista();
+}
+function cerrarModalEncuestas() {
+  document.getElementById('modal-encuestas').classList.remove('show');
+}
+
+function _encEstrellasHtml(valor) {
+  var out = '';
+  for (var i = 1; i <= 5; i++) {
+    out += '<i class="fa fa-star" style="font-size:11px;color:' + (i <= valor ? 'var(--yellow)' : '#e0e3e8') + '"></i>';
+  }
+  return out;
+}
+
+function encCargarLista() {
+  var cont = document.getElementById('enc-lista');
+  cont.innerHTML = '<div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px"><i class="fa fa-spinner fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _encData = (r && r.ok) ? r : { items: [], total: 0, promPortal: 0, promGarantia: 0, promRepuesto: 0 };
+      encRenderResumen();
+      encRenderLista();
+      encActualizarBadge();
+    })
+    .withFailureHandler(function() {
+      cont.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">No se pudo cargar.</div>';
+    })
+    .LAUNCH_getEncuestas();
+}
+
+function encRenderResumen() {
+  var cont = document.getElementById('enc-resumen');
+  var dims = [
+    ['Portal Reseller', _encData.promPortal],
+    ['Casos en garantía', _encData.promGarantia],
+    ['Compra de repuestos', _encData.promRepuesto]
+  ];
+  cont.innerHTML = dims.map(function(d) {
+    return '<div style="flex:1;text-align:center;background:#f7f8fa;border-radius:8px;padding:10px 8px">' +
+      '<div style="font-size:18px;font-weight:700;color:#1a1f2e">' + (_encData.total ? d[1].toFixed(1) : '—') + '</div>' +
+      '<div style="font-size:9px;color:#9ba5b4;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">' + d[0] + '</div>' +
+    '</div>';
+  }).join('') +
+  '<div style="flex:1;text-align:center;background:#f7f8fa;border-radius:8px;padding:10px 8px">' +
+    '<div style="font-size:18px;font-weight:700;color:#1a1f2e">' + _encData.total + '</div>' +
+    '<div style="font-size:9px;color:#9ba5b4;text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Respuestas</div>' +
+  '</div>';
+}
+
+function encActualizarBadge() {
+  var badge = document.getElementById('enc-card-badge');
+  if (!badge) return;
+  if (!_encData.total) {
+    badge.textContent = 'SIN RESPUESTAS';
+    badge.style.background = '#f0f2f5'; badge.style.color = '#9ba5b4';
+    return;
+  }
+  var prom = (_encData.promPortal + _encData.promGarantia + _encData.promRepuesto) / 3;
+  badge.textContent = prom.toFixed(1) + ' ★ (' + _encData.total + ')';
+  badge.style.background = 'rgba(212,137,10,.12)'; badge.style.color = 'var(--yellow)';
+}
+
+function encRenderLista() {
+  var cont = document.getElementById('enc-lista');
+  var items = _encData.items || [];
+  if (!items.length) {
+    cont.innerHTML = '<div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px">Todavía no hay respuestas.</div>';
+    return;
+  }
+  cont.innerHTML = items.map(function(it) {
+    return '<div style="border:1px solid #e0e3e8;border-radius:10px;padding:11px 15px">' +
+      '<div style="font-size:11px;font-weight:700;color:var(--blue)">' + _cmEsc(it.reseller) + '<span style="color:#c0c8d4;font-weight:400"> · ' + _cmEsc(it.fecha) + '</span></div>' +
+      '<div style="display:flex;gap:18px;margin-top:7px;flex-wrap:wrap">' +
+        '<div><div style="font-size:9px;color:#9ba5b4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Portal</div>' + _encEstrellasHtml(it.puntPortal) + '</div>' +
+        '<div><div style="font-size:9px;color:#9ba5b4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Garantía</div>' + _encEstrellasHtml(it.puntGarantia) + '</div>' +
+        '<div><div style="font-size:9px;color:#9ba5b4;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Repuestos</div>' + _encEstrellasHtml(it.puntRepuesto) + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ── Plantillas Cotizador (Portal Reseller) ─────────────────────

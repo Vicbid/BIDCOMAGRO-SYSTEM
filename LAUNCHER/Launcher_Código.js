@@ -1,4 +1,4 @@
-// @version 1.15
+// @version 1.16
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1337,6 +1337,60 @@ function LAUNCH_responderSolicitud(data) {
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_responderSolicitud: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+// ── Encuestas de Satisfacción Postventa (Portal Reseller) — solo lectura, sin acción de
+// responder: es el reporte de lo que ya contestaron los resellers, no una cola para resolver.
+var _LAUNCH_ENCUESTAS_TAB = 'ENCUESTA_POSTVENTA';
+function _launchEncuestasHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_ENCUESTAS_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_ENCUESTAS_TAB);
+    hoja.appendRow(['ID', 'Fecha', 'Reseller', 'PuntPortal', 'PuntGarantia', 'PuntRepuesto']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+  }
+  return hoja;
+}
+
+// Todas las respuestas + los 3 promedios generales, ya calculados server-side.
+function LAUNCH_getEncuestas() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchEncuestasHoja(ss);
+    var d    = hoja.getDataRange().getValues();
+    var out  = [];
+    var sumaPortal = 0, sumaGarantia = 0, sumaRepuesto = 0;
+    for (var i = 1; i < d.length; i++) {
+      var id = String(d[i][0] || '').trim();
+      if (!id) continue;
+      var fechaCell   = d[i][1];
+      var pPortal     = Number(d[i][3]) || 0;
+      var pGarantia   = Number(d[i][4]) || 0;
+      var pRepuesto   = Number(d[i][5]) || 0;
+      sumaPortal += pPortal; sumaGarantia += pGarantia; sumaRepuesto += pRepuesto;
+      out.push({
+        id:           id,
+        fecha:        fechaCell instanceof Date ? Utilities.formatDate(fechaCell, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : String(fechaCell || ''),
+        fechaOrden:   fechaCell instanceof Date ? fechaCell.getTime() : 0,
+        reseller:     String(d[i][2] || '').trim(),
+        puntPortal:   pPortal,
+        puntGarantia: pGarantia,
+        puntRepuesto: pRepuesto
+      });
+    }
+    out.sort(function(a, b) { return b.fechaOrden - a.fechaOrden; });
+    var n = out.length;
+    return {
+      ok: true, items: out, total: n,
+      promPortal:   n ? Math.round((sumaPortal   / n) * 10) / 10 : 0,
+      promGarantia: n ? Math.round((sumaGarantia / n) * 10) / 10 : 0,
+      promRepuesto: n ? Math.round((sumaRepuesto / n) * 10) / 10 : 0
+    };
+  } catch(e) {
+    Logger.log('LAUNCH_getEncuestas: ' + e);
+    return { ok: false, error: e.toString(), items: [], total: 0, promPortal: 0, promGarantia: 0, promRepuesto: 0 };
+  }
 }
 
 

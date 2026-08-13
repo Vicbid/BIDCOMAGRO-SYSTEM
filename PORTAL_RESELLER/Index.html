@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.07 -->
+<!-- @version 2.08 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -178,6 +178,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .dm-row-title{font-size:13px;font-weight:700;color:var(--tx)}
 .dm-row-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;transition:filter .13s}
 .dm-row-btn:hover{filter:brightness(.94)}
+/* Estrellas de la encuesta de satisfacción postventa (#enc-modal) */
+.enc-estrellas{display:flex;gap:6px}
+.enc-estrellas i{font-size:22px;color:var(--brd2);cursor:pointer;transition:color .1s}
+.enc-estrellas i:hover{color:var(--yellow)}
+.enc-estrellas i.activa{color:var(--yellow)}
 .contacto-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 .contacto-item{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:14px 16px;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--tx);transition:all .13s}
 .contacto-item:hover{border-color:var(--blue);background:#fff;color:var(--tx)}
@@ -491,6 +496,60 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <div style="padding:12px 18px;border-top:1px solid var(--brd);background:var(--surf);display:flex;justify-content:flex-end">
       <button onclick="_cerrarAviso()" class="btn-main" style="width:auto;padding:9px 24px;font-size:13px">
         <i class="fa fa-check"></i>Entendido
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ENCUESTA DE SATISFACCIÓN POSTVENTA — corta (3 estrellas), periódica, postergable
+     (ver _mostrarEncuestaPostLogin en el JS de abajo, encadenada después de _mostrarAvisoPostLogin) -->
+<div id="enc-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:480px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;animation:aviso-in .2s ease;border:1px solid var(--brd)">
+    <div style="background:var(--yellow);padding:14px 18px;display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-star" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1">
+        <div style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">¿Cómo estuvo tu experiencia?</div>
+        <div style="color:rgba(255,255,255,.75);font-size:10px;margin-top:2px;letter-spacing:.04em">Encuesta rápida de servicio postventa · BIDCOMAGRO</div>
+      </div>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px">Portal Reseller</div>
+        <div class="enc-estrellas" id="enc-estrellas-portal">
+          <i class="fa fa-star" data-val="1" onclick="_encPintarEstrellas('portal',1)"></i>
+          <i class="fa fa-star" data-val="2" onclick="_encPintarEstrellas('portal',2)"></i>
+          <i class="fa fa-star" data-val="3" onclick="_encPintarEstrellas('portal',3)"></i>
+          <i class="fa fa-star" data-val="4" onclick="_encPintarEstrellas('portal',4)"></i>
+          <i class="fa fa-star" data-val="5" onclick="_encPintarEstrellas('portal',5)"></i>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px">Casos en garantía</div>
+        <div class="enc-estrellas" id="enc-estrellas-garantia">
+          <i class="fa fa-star" data-val="1" onclick="_encPintarEstrellas('garantia',1)"></i>
+          <i class="fa fa-star" data-val="2" onclick="_encPintarEstrellas('garantia',2)"></i>
+          <i class="fa fa-star" data-val="3" onclick="_encPintarEstrellas('garantia',3)"></i>
+          <i class="fa fa-star" data-val="4" onclick="_encPintarEstrellas('garantia',4)"></i>
+          <i class="fa fa-star" data-val="5" onclick="_encPintarEstrellas('garantia',5)"></i>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px">Compra de repuestos</div>
+        <div class="enc-estrellas" id="enc-estrellas-repuesto">
+          <i class="fa fa-star" data-val="1" onclick="_encPintarEstrellas('repuesto',1)"></i>
+          <i class="fa fa-star" data-val="2" onclick="_encPintarEstrellas('repuesto',2)"></i>
+          <i class="fa fa-star" data-val="3" onclick="_encPintarEstrellas('repuesto',3)"></i>
+          <i class="fa fa-star" data-val="4" onclick="_encPintarEstrellas('repuesto',4)"></i>
+          <i class="fa fa-star" data-val="5" onclick="_encPintarEstrellas('repuesto',5)"></i>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--brd);background:var(--surf);display:flex;justify-content:space-between;align-items:center">
+      <button onclick="_encPosponer()" style="background:none;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Recordar después</button>
+      <button id="enc-btn-enviar" onclick="_encEnviar()" class="btn-main" disabled style="width:auto;padding:9px 24px;font-size:13px;opacity:.5;cursor:not-allowed">
+        <i class="fa fa-check"></i>Enviar
       </button>
     </div>
   </div>
@@ -3036,7 +3095,7 @@ window.onload = function() {
     document.getElementById('btn-header-logout').style.display = 'inline-flex';
     _bloquearSelectorReseller();
     _mostrarBotonesLogueado();
-    _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
+    _mostrarAvisoPostLogin(function(){ _mostrarEncuestaPostLogin(function(){ document.getElementById('login-overlay').remove(); }); });
     _campCheckVisible();
   } else {
     // Verificar sesión del reseller por email (Google account o RTV)
@@ -3052,7 +3111,7 @@ window.onload = function() {
           document.getElementById('btn-header-logout').style.display = 'inline-flex';
           _bloquearSelectorReseller();
           _mostrarBotonesLogueado();
-          _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
+          _mostrarAvisoPostLogin(function(){ _mostrarEncuestaPostLogin(function(){ document.getElementById('login-overlay').remove(); }); });
         } else {
           // Sin sesión de reseller: verificar si es RTV antes de mostrar modal
           google.script.run
@@ -3207,6 +3266,80 @@ function _cerrarAviso() {
   modal._done = null;
   if (resellerActual) google.script.run.RS_registrarVistaAviso(resellerActual);
   if (typeof done === 'function') done();
+}
+
+// ══════════════════════════════════════════
+//  ENCUESTA DE SATISFACCIÓN POSTVENTA — corta (3 estrellas), periódica, postergable.
+//  Encadenada después de _mostrarAvisoPostLogin (mismo patrón "done()" que el aviso):
+//  solo se llama en logins de reseller real, nunca en la sesión de RTV.
+// ══════════════════════════════════════════
+var _encValores = {};
+
+function _mostrarEncuestaPostLogin(done) {
+  if (!resellerActual) { done(); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok && r.pendiente) {
+        _encValores = {};
+        ['portal', 'garantia', 'repuesto'].forEach(function(dim) { _encPintarEstrellas(dim, 0); });
+        _encActualizarBotonEnviar();
+        var modal = document.getElementById('enc-modal');
+        modal.style.display = 'flex';
+        modal._done = done;
+      } else {
+        done();
+      }
+    })
+    .withFailureHandler(function() { done(); })
+    .RS_getEncuestaPendiente({ token: _sesionToken, reseller: resellerActual });
+}
+
+function _encPintarEstrellas(dim, valor) {
+  _encValores[dim] = valor;
+  var cont = document.getElementById('enc-estrellas-' + dim);
+  if (cont) {
+    var estrellas = cont.querySelectorAll('i');
+    for (var i = 0; i < estrellas.length; i++) {
+      estrellas[i].classList.toggle('activa', Number(estrellas[i].dataset.val) <= valor);
+    }
+  }
+  _encActualizarBotonEnviar();
+}
+
+function _encActualizarBotonEnviar() {
+  var listo = _encValores.portal > 0 && _encValores.garantia > 0 && _encValores.repuesto > 0;
+  var btn = document.getElementById('enc-btn-enviar');
+  btn.disabled = !listo;
+  btn.style.opacity = listo ? '1' : '.5';
+  btn.style.cursor  = listo ? 'pointer' : 'not-allowed';
+}
+
+function _encCerrar() {
+  var modal = document.getElementById('enc-modal');
+  var done  = modal._done;
+  modal.style.display = 'none';
+  modal._done = null;
+  if (typeof done === 'function') done();
+}
+
+function _encPosponer() {
+  _encCerrar();
+}
+
+function _encEnviar() {
+  if (!(_encValores.portal > 0 && _encValores.garantia > 0 && _encValores.repuesto > 0)) return;
+  var btn = document.getElementById('enc-btn-enviar');
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) { _encCerrar(); }
+      else { toast((res && res.error) || 'No se pudo enviar la encuesta', 'err'); _encActualizarBotonEnviar(); }
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + e.message, 'err'); _encActualizarBotonEnviar(); })
+    .RS_responderEncuesta({
+      token: _sesionToken, reseller: resellerActual,
+      puntPortal: _encValores.portal, puntGarantia: _encValores.garantia, puntRepuesto: _encValores.repuesto
+    });
 }
 
 // ══════════════════════════════════════════
@@ -3378,7 +3511,7 @@ function login() {
         _campCheckVisible();
         _cursoCheckBadge();   // reevaluar el aviso de Curso con el reseller ya identificado
         // Liberar el overlay de login
-        _mostrarAvisoPostLogin(function(){ document.getElementById('login-overlay').remove(); });
+        _mostrarAvisoPostLogin(function(){ _mostrarEncuestaPostLogin(function(){ document.getElementById('login-overlay').remove(); }); });
       } else {
         var msgErr = (res && res.motivo === 'inactivo')
           ? 'Esta cuenta está desactivada. Contactá a soporte.'
