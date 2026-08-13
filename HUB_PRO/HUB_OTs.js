@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -602,14 +602,20 @@ function actualizarOrden(data) {
 // ============================================================
 //  CANCELAR CASO
 //  1. Marca la OT como CANCELADO en 'Ordenes de trabajo'.
-//  2. Registra el evento en LOGS.
+//  2. Registra el evento en LOGS (con el motivo).
+//  3. Avisa al reseller — mismo canal que un mensaje del HUB (enviarMensajeHUB,
+//     HUB_Sistema.js): queda como bloque "💬" en MENSAJES (visible en el detalle
+//     de la OT y en "Mensajes" del Portal Reseller, que lee esa misma columna) y
+//     dispara el mail "Nuevo mensaje en tu orden de trabajo" con el motivo adentro.
 // ============================================================
-function cancelarCaso(idOT) {
+function cancelarCaso(idOT, motivo) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
     var otBusc = String(idOT).trim();
     if (!otBusc) throw new Error('ID de OT inválido');
+    var motivoTxt = String(motivo || '').trim();
+    if (!motivoTxt) return { ok: false, msg: 'Falta el motivo de la cancelación.' };
 
     // ── 1. Actualizar estado en 'Ordenes de trabajo' ──────────
     var hojaOT   = getSheet(SCHEMA.SHEETS.OT);
@@ -638,7 +644,7 @@ function cancelarCaso(idOT) {
       hojaLog.appendRow([
         new Date(), otBusc, '', '', '',
         estadoAnterior, 'CANCELADO',
-        'Caso cancelado',
+        'Caso cancelado — Motivo: ' + motivoTxt,
         Session.getActiveUser().getEmail()
       ]);
       invalidateSheetValues(SCHEMA.SHEETS.LOGS);
@@ -646,6 +652,11 @@ function cancelarCaso(idOT) {
 
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.OT);
+
+    // ── 3. Avisar al reseller ───────────────────────────────────
+    try {
+      enviarMensajeHUB(filaOT, 'Tu orden de trabajo fue cancelada.\n\nMotivo: ' + motivoTxt);
+    } catch(eNotif) { Logger.log('cancelarCaso notif: ' + eNotif); }
 
     return { ok: true, ot: otBusc };
   } catch(e) {

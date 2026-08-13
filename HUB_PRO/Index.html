@@ -1,4 +1,4 @@
-<!-- @version 2.27 -->
+<!-- @version 2.28 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -743,13 +743,17 @@ body.compact tbody td{padding:6px 14px!important}
       </div>
       <div class="modal-body" style="padding:20px 18px">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:6px">
-          ¿Estás seguro? Esto anulará el caso y liberará los repuestos solicitados.
+          ¿Estás seguro? Esto anulará el caso.
         </p>
         <div id="cancel-ot-lbl" style="font-size:12px;font-weight:700;color:var(--tx);background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:8px 12px;margin-top:12px"></div>
+        <div style="margin-top:14px">
+          <label class="flbl">Motivo de la cancelación <span style="color:var(--red)">*</span></label>
+          <textarea id="cancel-motivo" class="form-control" rows="3" placeholder="Ej: el reseller desistió de la reparación..." style="font-size:13px;resize:vertical" oninput="document.getElementById('cancel-motivo-err').style.display='none'"></textarea>
+          <div id="cancel-motivo-err" style="font-size:11px;color:var(--red);margin-top:4px;display:none">Ingresá el motivo de la cancelación.</div>
+        </div>
         <p style="font-size:11px;color:var(--tx-d);margin-top:10px">
           <i class="fa fa-info-circle" style="margin-right:4px"></i>
-          Las solicitudes de despacho <strong>Pendientes</strong> de esta OT pasarán a estado <strong>Cancelado</strong>.
-          Esta acción no se puede deshacer.
+          Se le avisará al reseller (mensaje + email) con el motivo. Esta acción no se puede deshacer.
         </p>
       </div>
       <div class="modal-footer" style="background:var(--surf);border-top:1px solid var(--brd);padding:10px 16px;gap:8px">
@@ -3204,19 +3208,23 @@ function pedirCancelarCaso() {
   if (!actual) return;
   if (actual.estado === 'CANCELADO') { toast('Este caso ya está cancelado','err'); return; }
   document.getElementById('cancel-ot-lbl').textContent = actual.ot + ' · ' + actual.equipo + ' · ' + actual.reseller;
+  document.getElementById('cancel-motivo').value = '';
+  document.getElementById('cancel-motivo-err').style.display = 'none';
   var m = new bootstrap.Modal(document.getElementById('modal-cancelar-caso'));
   m.show();
 }
 
 function cancelarCasoEjecutar() {
   if (!actual) return;
+  var motivo = document.getElementById('cancel-motivo').value.trim();
+  if (!motivo) { document.getElementById('cancel-motivo-err').style.display = 'block'; return; }
   bootstrap.Modal.getInstance(document.getElementById('modal-cancelar-caso')).hide();
   hubLoadStart(STEPS_CANCELAR);
   google.script.run
     .withSuccessHandler(function(res) {
       hubLoadDone();
       if (res.ok) {
-        toast('Caso ' + actual.ot + ' cancelado \xB7 ' + res.solicitudesCanceladas + ' solicitud(es) liberada(s)', 'ok');
+        toast('Caso ' + actual.ot + ' cancelado — se avisó al reseller', 'ok');
         isDirty = false;
         cerrarV();
         load();
@@ -3225,7 +3233,7 @@ function cancelarCasoEjecutar() {
       }
     })
     .withFailureHandler(function(e) { hubLoadDone(); toast('Error de conexi\xF3n: ' + e.message, 'err'); })
-    .cancelarCaso(actual.ot);
+    .cancelarCaso(actual.ot, motivo);
 }
 
 function crearCaso() {
