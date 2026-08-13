@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.15 -->
+<!-- @version 1.16 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1403,6 +1403,21 @@ google.script.run
   })
   .LAUNCH_getCampana();
 campanaCargarStats();
+
+// _dmModalInit crea rrCargarLista/mnCargarLista (y abrirModalRepuestosRecomendados/
+// abrirModalMantenimientoDji) como window[...] en tiempo de ejecución — a diferencia de
+// las demás funciones de esta secuencia (declaradas con "function", hoisted), estas NO
+// existen hasta que _dmModalInit corre. Por eso van ANTES de la secuencia de carga de
+// abajo: si quedan más adelante en el archivo, rrCargarLista()/mnCargarLista() truena acá
+// con ReferenceError y aborta el resto del script — incluida la creación de las funciones
+// abrirModal*, dejando esas 2 tarjetas del dashboard sin reaccionar a los clicks.
+_dmModalInit({ pref: 'rr', suf: 'RepuestosRecomendados', modal: 'repuestos-rec', cardBadgeId: 'rr-card-badge',
+  getFn: 'LAUNCH_getRepuestosRecomendados', saveFn: 'LAUNCH_saveRepuestoRecomendado', delFn: 'LAUNCH_eliminarRepuestoRecomendado',
+  colorHex: '#e67e22', colorBg: 'rgba(230,126,34,.1)' });
+_dmModalInit({ pref: 'mn', suf: 'MantenimientoDji', modal: 'mantenimiento-dji', cardBadgeId: 'mn-card-badge',
+  getFn: 'LAUNCH_getMantenimientoDji', saveFn: 'LAUNCH_saveMantenimientoDji', delFn: 'LAUNCH_eliminarMantenimientoDji',
+  colorHex: '#7c4dff', colorBg: 'rgba(124,77,255,.1)' });
+
 cursoCargarLista();       // badge de la tarjeta Curso/Eventos
 videosCargarLista();      // badge de la tarjeta Videos armado/desarmado
 cmCargarLista();          // badge de la tarjeta Material de Cursos
@@ -2195,13 +2210,6 @@ function _dmModalInit(p) {
       [p.delFn](modelo);
   };
 }
-_dmModalInit({ pref: 'rr', suf: 'RepuestosRecomendados', modal: 'repuestos-rec', cardBadgeId: 'rr-card-badge',
-  getFn: 'LAUNCH_getRepuestosRecomendados', saveFn: 'LAUNCH_saveRepuestoRecomendado', delFn: 'LAUNCH_eliminarRepuestoRecomendado',
-  colorHex: '#e67e22', colorBg: 'rgba(230,126,34,.1)' });
-_dmModalInit({ pref: 'mn', suf: 'MantenimientoDji', modal: 'mantenimiento-dji', cardBadgeId: 'mn-card-badge',
-  getFn: 'LAUNCH_getMantenimientoDji', saveFn: 'LAUNCH_saveMantenimientoDji', delFn: 'LAUNCH_eliminarMantenimientoDji',
-  colorHex: '#7c4dff', colorBg: 'rgba(124,77,255,.1)' });
-
 // ── Plantillas Cotizador (Portal Reseller) ─────────────────────
 var _plPlantillas = [];
 var _plItemRowSeq = 0, _plItemRows = [];   // [{id, sku, cantidad}]
