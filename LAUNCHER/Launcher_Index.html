@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.16 -->
+<!-- @version 1.17 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -130,6 +130,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 .tool-btn.run:hover{filter:brightness(1.08)}
 .tool-btn.run:disabled{background:#b0cfe8;cursor:not-allowed;filter:none}
 .tool-editor-note{font-size:10px;color:#9ba5b4;background:#f0f2f5;border-radius:6px;padding:5px 9px;font-family:monospace;margin-top:6px;display:inline-block}
+
+/* ── CONFIGURACIÓN Y CONTENIDO: buscador + grupos ── */
+.cfg-search-wrap{position:relative;margin-bottom:22px}
+.cfg-search{width:100%;padding:13px 40px 13px 44px;border:none;border-radius:12px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:#1a1f2e;box-shadow:0 2px 10px rgba(0,0,0,.1);transition:box-shadow .15s}
+.cfg-search:focus{box-shadow:0 0 0 3px rgba(0,163,224,.25)}
+.cfg-search::placeholder{color:#9ba5b4}
+.cfg-search-wrap>.fa-search{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#9ba5b4;font-size:13px;pointer-events:none}
+.cfg-search-clear{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#c0c8d4;cursor:pointer;font-size:14px;display:none}
+.cfg-search-clear:hover{color:#7a8494}
+.cfg-section{margin-bottom:24px}
+.cfg-section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);margin-bottom:10px;display:flex;align-items:center;gap:8px;padding:0 2px}
+.cfg-section-title::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.12)}
+.cfg-section.cfg-hidden,.cfg-card.cfg-hidden{display:none}
+.cfg-empty{display:none;text-align:center;padding:34px 20px;color:rgba(255,255,255,.35);font-size:13px}
 </style>
 </head>
 <body>
@@ -309,149 +323,176 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   </div>
 </div>
 
-<!-- AVISO PORTAL — fila compacta -->
+<!-- CONFIGURACIÓN Y CONTENIDO — buscador + grupos con nombre -->
 <div class="main" style="padding-top:0">
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalAviso()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-bullhorn"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Aviso · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Comunicado post-login</div>
-    </div>
-    <span id="aviso-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVO</span>
-    <span id="aviso-vistas-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-eye" style="margin-right:4px"></i>0</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  <div class="cfg-search-wrap">
+    <i class="fa fa-search"></i>
+    <input type="text" id="cfg-search" class="cfg-search" placeholder="Buscar una opción… (ej: video, mantenimiento, pin, campaña)" oninput="_cfgFiltrar()" autocomplete="off">
+    <i class="fa fa-times-circle cfg-search-clear" id="cfg-search-clear" onclick="_cfgLimpiarBusqueda()" title="Limpiar búsqueda"></i>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalWos()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,163,224,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-warehouse"></i>
+
+  <div class="cfg-section" id="cfg-sec-contenido">
+    <div class="cfg-section-title"><i class="fa fa-store" style="color:var(--orange)"></i> Portal Reseller · Contenido para resellers</div>
+
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalCurso()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-graduation-cap"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Curso / Eventos · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="curso-card-sub">Inscripción de resellers</div>
+      </div>
+      <span id="curso-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <span id="curso-card-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · WOS</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Email facturación · Email soporte · Carpeta PDFs</div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalVideos()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(214,48,49,.1);color:#d63031;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-video"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Videos armado/desarmado · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Links de DJI por modelo — armado y desarmado</div>
+      </div>
+      <span id="videos-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalCursosMaterial()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-book-reader"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Material de Cursos · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Material de cursos ya dictados — buscable en el Portal</div>
+      </div>
+      <span id="cursos-mat-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalRepuestosRecomendados()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:#e67e22;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-cog"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Repuestos recomendados DJI · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Lista de compra recomendada por DJI, por modelo</div>
+      </div>
+      <span id="rr-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalMantenimientoDji()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:#7c4dff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-screwdriver-wrench"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Mantenimiento sugerido DJI · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Plan de mantenimiento sugerido por DJI, por modelo</div>
+      </div>
+      <span id="mn-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalPlantillasCotizador()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-layer-group"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Plantillas Cotizador · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Presupuestos predefinidos (ej. mantenimientos) — repuestos + mano de obra</div>
+      </div>
+      <span id="pl-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalComandas()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(13,148,136,.1);color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-clipboard-list"></i>
+
+  <div class="cfg-section" id="cfg-sec-comercial">
+    <div class="cfg-section-title"><i class="fa fa-bullhorn" style="color:var(--purple)"></i> Portal Reseller · Comercial y accesos</div>
+
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalAviso()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-bullhorn"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Aviso · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Comunicado post-login</div>
+      </div>
+      <span id="aviso-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVO</span>
+      <span id="aviso-vistas-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-eye" style="margin-right:4px"></i>0</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · Comandas</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Mails de despacho · modo prueba · SLA · permisos</div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalCampana()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-seedling"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Campaña · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="camp-fila-sub">Estimado sin compromiso</div>
+      </div>
+      <span id="camp-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVA</span>
+      <span id="camp-resellers-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalProspectos()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,58,237,.1);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-user-clock"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Venta a prospectos (RTV) · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="prospectos-card-sub">Quién autoriza y con qué descuento</div>
+      </div>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalPin()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-key"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">PIN · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Recordar o resetear credenciales de acceso</div>
+      </div>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCampana()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-seedling"></i>
+
+  <div class="cfg-section" id="cfg-sec-sistemas">
+    <div class="cfg-section-title"><i class="fa fa-sliders-h" style="color:var(--blue)"></i> Configuración de sistemas</div>
+
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalWos()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,163,224,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-warehouse"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · WOS</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Email facturación · Email soporte · Carpeta PDFs</div>
+      </div>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Campaña · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="camp-fila-sub">Estimado sin compromiso</div>
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalComandas()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(13,148,136,.1);color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-clipboard-list"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Configuración · Comandas</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Mails de despacho · modo prueba · SLA · permisos</div>
+      </div>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <span id="camp-estado-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">INACTIVA</span>
-    <span id="camp-resellers-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCurso()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-graduation-cap"></i>
+
+  <div class="cfg-section" id="cfg-sec-mantenimiento" style="margin-bottom:28px">
+    <div class="cfg-section-title"><i class="fa fa-wrench" style="color:#7a8494"></i> Mantenimiento</div>
+
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:0;cursor:pointer" onclick="abrirModalRepFix()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-wrench"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Reparar repuestos Portal ↔ HUB</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Normaliza OTs viejas donde el HUB lee solo el primer repuesto</div>
+      </div>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
     </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Curso / Eventos · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="curso-card-sub">Inscripción de resellers</div>
-    </div>
-    <span id="curso-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <span id="curso-card-mini" style="font-size:11px;color:#9ba5b4;white-space:nowrap"><i class="fa fa-users" style="margin-right:4px"></i>0</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalVideos()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(214,48,49,.1);color:#d63031;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-video"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Videos armado/desarmado · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Links de DJI por modelo — armado y desarmado</div>
-    </div>
-    <span id="videos-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalCursosMaterial()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-book-reader"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Material de Cursos · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Material de cursos ya dictados — buscable en el Portal</div>
-    </div>
-    <span id="cursos-mat-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalRepuestosRecomendados()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:#e67e22;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-cog"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Repuestos recomendados DJI · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Lista de compra recomendada por DJI, por modelo</div>
-    </div>
-    <span id="rr-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalMantenimientoDji()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:#7c4dff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-screwdriver-wrench"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Mantenimiento sugerido DJI · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Plan de mantenimiento sugerido por DJI, por modelo</div>
-    </div>
-    <span id="mn-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalPlantillasCotizador()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-layer-group"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Plantillas Cotizador · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Presupuestos predefinidos (ej. mantenimientos) — repuestos + mano de obra</div>
-    </div>
-    <span id="pl-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalProspectos()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,58,237,.1);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-user-clock"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Venta a prospectos (RTV) · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px" id="prospectos-card-sub">Quién autoriza y con qué descuento</div>
-    </div>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalPin()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-key"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">PIN · Portal Reseller</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Recordar o resetear credenciales de acceso</div>
-    </div>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
-  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:28px;cursor:pointer" onclick="abrirModalRepFix()">
-    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,120,220,.1);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
-      <i class="fa fa-wrench"></i>
-    </div>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Reparar repuestos Portal ↔ HUB</div>
-      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Normaliza OTs viejas donde el HUB lee solo el primer repuesto</div>
-    </div>
-    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
-  </div>
+
+  <div class="cfg-empty" id="cfg-empty"><i class="fa fa-search" style="font-size:20px;margin-bottom:8px;display:block;opacity:.6"></i>Ninguna opción coincide con "<span id="cfg-empty-q"></span>"</div>
 </div>
 
 <!-- MODAL AVISO -->
@@ -1284,6 +1325,44 @@ function saveConfig() {
   google.script.run
     .withSuccessHandler(function() { closeConfig(); load(); })
     .guardarUrls(hub, stock, portal, wos);
+}
+
+// ── Buscador de Configuración y Contenido ───────────────────────
+// Filtra las tarjetas .cfg-card por texto (título+subtítulo, vía textContent — no
+// hay que mantener un índice aparte en sync). Oculta también la sección entera
+// (.cfg-section) cuando ninguna de sus tarjetas matchea, y muestra el estado vacío
+// cuando no queda ninguna tarjeta visible en toda la página.
+function _cfgNormalizar(s) {
+  var s2 = String(s || '').toLowerCase().normalize('NFD');
+  var out = '';
+  for (var i = 0; i < s2.length; i++) {
+    var code = s2.charCodeAt(i);
+    if (code < 0x0300 || code > 0x036f) out += s2[i];
+  }
+  return out.trim();
+}
+function _cfgFiltrar() {
+  var qRaw = document.getElementById('cfg-search').value;
+  var q = _cfgNormalizar(qRaw);
+  document.getElementById('cfg-search-clear').style.display = qRaw ? 'block' : 'none';
+  var totalVisible = 0;
+  document.querySelectorAll('.cfg-section').forEach(function(sec) {
+    var visiblesSeccion = 0;
+    sec.querySelectorAll('.cfg-card').forEach(function(card) {
+      var match = !q || _cfgNormalizar(card.textContent).indexOf(q) !== -1;
+      card.classList.toggle('cfg-hidden', !match);
+      if (match) visiblesSeccion++;
+    });
+    sec.classList.toggle('cfg-hidden', visiblesSeccion === 0);
+    totalVisible += visiblesSeccion;
+  });
+  document.getElementById('cfg-empty-q').textContent = qRaw;
+  document.getElementById('cfg-empty').style.display = (q && totalVisible === 0) ? 'block' : 'none';
+}
+function _cfgLimpiarBusqueda() {
+  document.getElementById('cfg-search').value = '';
+  _cfgFiltrar();
+  document.getElementById('cfg-search').focus();
 }
 
 // ── Herramientas ──────────────────────────────────────────────
