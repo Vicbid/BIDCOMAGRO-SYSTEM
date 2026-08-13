@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.7
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -191,6 +191,22 @@ function _cpDocsDefinidosBlobs() {
    Col E = IDVenta | Col AJ = N° de remito | Col AK = link al remito.
 ════════════════════════════════════════════════════════════ */
 
+// Busca una pestaña por nombre tolerando espacios de más/mayúsculas — la planilla de remitos es
+// externa (AGRAS Y BRUMBY, ajena a Masterchief) y no la controlamos: el bug real fue que la
+// pestaña real se llama "AGRAS Y BRUMBY " (con un espacio al final) y getSheetByName exige
+// coincidencia exacta, así que _cpRemitoInfo nunca la encontró desde que se armó este feature.
+// Con esto, si alguien la retoca de nuevo (espacios, mayúsculas) no vuelve a romperse en silencio.
+function _cpHojaPorNombreFlexible(ss, nombre) {
+  var exacta = ss.getSheetByName(nombre);
+  if (exacta) return exacta;
+  var target = String(nombre || '').trim().toUpperCase();
+  var hojas = ss.getSheets();
+  for (var i = 0; i < hojas.length; i++) {
+    if (hojas[i].getName().trim().toUpperCase() === target) return hojas[i];
+  }
+  return null;
+}
+
 // { numero, url } del remito de una venta, o null si esa venta todavía no tiene
 // remito cargado en esa hoja (o la hoja/pestaña no está disponible).
 function _cpRemitoInfo(idVenta) {
@@ -198,7 +214,7 @@ function _cpRemitoInfo(idVenta) {
     var key = _s(idVenta).toUpperCase();
     if (!key) return null;
     var ss = _cpSS(CP_REMITOS_SS_ID);
-    var h = ss.getSheetByName(CP_REMITOS_TAB);
+    var h = _cpHojaPorNombreFlexible(ss, CP_REMITOS_TAB);
     if (!h) { Logger.log('Tab remitos no encontrada: ' + CP_REMITOS_TAB); return null; }
     var d = h.getDataRange().getValues();
     for (var i = 1; i < d.length; i++) {
@@ -223,8 +239,14 @@ function _cpDiagnosticoRemito(idVenta) {
   var out = { idVentaBuscado: idVenta, key: _s(idVenta).toUpperCase() };
   try {
     var ss = _cpSS(CP_REMITOS_SS_ID);
-    var h = ss.getSheetByName(CP_REMITOS_TAB);
-    if (!h) { out.veredicto = 'ERROR: no se encontró la pestaña "' + CP_REMITOS_TAB + '" en la planilla de remitos.'; Logger.log(JSON.stringify(out, null, 2)); return out; }
+    out.planillaAbierta = ss.getName();
+    var h = _cpHojaPorNombreFlexible(ss, CP_REMITOS_TAB);
+    if (!h) {
+      out.pestañasReales = ss.getSheets().map(function(s) { return s.getName(); });
+      out.veredicto = 'ERROR: no se encontró la pestaña "' + CP_REMITOS_TAB + '" en la planilla "' + out.planillaAbierta + '" — ver "pestañasReales" para la lista de las que sí existen (revisar CP_REMITOS_TAB en Env.js si se renombró, o CP_REMITOS_SS_ID si es la planilla equivocada).';
+      Logger.log(JSON.stringify(out, null, 2));
+      return out;
+    }
     var d = h.getDataRange().getValues();
     out.filasTotales = d.length - 1;
     var exacta = null, parecidas = [];

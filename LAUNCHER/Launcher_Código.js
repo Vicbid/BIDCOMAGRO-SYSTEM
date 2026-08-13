@@ -1,4 +1,4 @@
-// @version 1.12
+// @version 1.13
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1059,6 +1059,119 @@ function LAUNCH_saveCursoMaterial(data) {
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_saveCursoMaterial: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+
+// ── Plantillas Cotizador — hoja compartida con PORTAL_RESELLER (RS_Cotizador.js) ──
+// Mismo nombre de pestaña y MISMO esquema de columnas que
+// _asegurarHojaPlantillasCotizador() de RS_Cotizador.js — no reordenar ni agregar columnas
+// acá sin actualizar ese archivo también, los dos proyectos leen/escriben la misma hoja.
+// PLANTILLAS_COTIZADOR: A=Plantilla B=Reseller (vacío=general, acá SIEMPRE vacío — las
+// privadas de un reseller se arman desde el Portal, no desde acá) C=Tipo (REPUESTO|MANO_OBRA)
+// D=SKU_Codigo E=Descripción F=Cantidad G=Fecha. Cada plantilla = varias filas.
+var _LAUNCH_PLANTILLAS_TAB = 'PLANTILLAS_COTIZADOR';
+
+function _launchPlantillasHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_PLANTILLAS_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_PLANTILLAS_TAB);
+    hoja.appendRow(['Plantilla', 'Reseller', 'Tipo', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 7).setBackground('#3a9e3a').setFontColor('#fff').setFontWeight('bold');
+  }
+  return hoja;
+}
+
+// Solo las GENERALES (Reseller vacío) — las privadas de cada reseller no se administran acá.
+function LAUNCH_getPlantillasCotizador() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchPlantillasHoja(ss);
+    var d    = hoja.getDataRange().getValues();
+    var mapa = {};
+    for (var i = 1; i < d.length; i++) {
+      var nombre = String(d[i][0] || '').trim();
+      if (!nombre) continue;
+      if (String(d[i][1] || '').trim()) continue; // con Reseller cargado → privada, no es de acá
+      if (!mapa[nombre]) mapa[nombre] = { nombre: nombre, items: [], mo: [] };
+      var tipo  = String(d[i][2] || '').trim().toUpperCase();
+      var linea = { sku: String(d[i][3] || '').trim(), descripcion: String(d[i][4] || '').trim(), cantidad: Number(d[i][5]) || 1 };
+      if (tipo === 'MANO_OBRA') mapa[nombre].mo.push(linea); else mapa[nombre].items.push(linea);
+    }
+    var out = [];
+    for (var k in mapa) out.push(mapa[k]);
+    out.sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+    return { ok: true, plantillas: out };
+  } catch(e) { Logger.log('LAUNCH_getPlantillasCotizador: ' + e); return { ok: false, error: e.toString(), plantillas: [] }; }
+}
+
+// data = { nombre, nombreOriginal (para renombrar sin duplicar), items: [{sku,cantidad,descripcion}],
+//          mo: [{sku,descripcion}] }. Reemplaza TODAS las filas de la plantilla (borra + reescribe)
+// en vez de tratar de mergear línea por línea — más simple y sin riesgo de filas huérfanas.
+function LAUNCH_guardarPlantillaCotizador(data) {
+  try {
+    data = data || {};
+    var nombre = String(data.nombre || '').trim();
+    if (!nombre) return { ok: false, error: 'Falta el nombre de la plantilla.' };
+    var items = data.items || [];
+    var mo    = data.mo || [];
+    if (!items.length && !mo.length) return { ok: false, error: 'Agregá al menos un repuesto o una mano de obra.' };
+
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchPlantillasHoja(ss);
+    var buscar = String(data.nombreOriginal || nombre).trim().toLowerCase();
+    var d = hoja.getDataRange().getValues();
+    var filasBorrar = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim()) continue; // solo generales
+      if (String(d[i][0] || '').trim().toLowerCase() === buscar) filasBorrar.push(i + 1);
+    }
+    filasBorrar.sort(function(a, b) { return b - a; });
+    for (var f = 0; f < filasBorrar.length; f++) hoja.deleteRow(filasBorrar[f]);
+
+    var ahora = new Date();
+    var filas = [];
+    for (var j = 0; j < items.length; j++) {
+      var it = items[j];
+      var sku = String(it.sku || '').trim();
+      var descIt = String(it.descripcion || '').trim();
+      if (!sku && !descIt) continue;
+      var cant = Math.floor(Number(it.cantidad)) || 1;
+      filas.push([nombre, '', 'REPUESTO', sku, descIt, cant, ahora]);
+    }
+    for (var m = 0; m < mo.length; m++) {
+      var mm = mo[m];
+      var cod = String(mm.sku || '').trim();
+      var dsc = String(mm.descripcion || '').trim();
+      if (!cod && !dsc) continue;
+      filas.push([nombre, '', 'MANO_OBRA', cod, dsc, 1, ahora]);
+    }
+    if (!filas.length) return { ok: false, error: 'Agregá al menos un repuesto o una mano de obra.' };
+    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 7).setValues(filas);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_guardarPlantillaCotizador: ' + e); return { ok: false, error: e.toString() }; }
+}
+
+function LAUNCH_eliminarPlantillaCotizador(nombre) {
+  try {
+    nombre = String(nombre || '').trim();
+    if (!nombre) return { ok: false, error: 'Falta el nombre de la plantilla.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchPlantillasHoja(ss);
+    var d = hoja.getDataRange().getValues();
+    var nombreLower = nombre.toLowerCase();
+    var filasBorrar = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim()) continue; // solo generales
+      if (String(d[i][0] || '').trim().toLowerCase() === nombreLower) filasBorrar.push(i + 1);
+    }
+    if (!filasBorrar.length) return { ok: false, error: 'No se encontró esa plantilla.' };
+    filasBorrar.sort(function(a, b) { return b - a; });
+    for (var f = 0; f < filasBorrar.length; f++) hoja.deleteRow(filasBorrar[f]);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_eliminarPlantillaCotizador: ' + e); return { ok: false, error: e.toString() }; }
 }
 
 

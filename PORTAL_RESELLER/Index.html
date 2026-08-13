@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.00 -->
+<!-- @version 2.01 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1993,6 +1993,23 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         </div>
       </div>
 
+      <!-- Plantillas predefinidas -->
+      <div class="dji-card">
+        <div class="dji-card-head"><i class="fa fa-layer-group"></i> Plantillas</div>
+        <div class="dji-card-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="cot-plant-sel" class="form-select" style="flex:1;min-width:200px;font-size:13px">
+              <option value="">— Elegí una plantilla… —</option>
+            </select>
+            <button class="btn-help" onclick="_cotCargarPlantilla()"><i class="fa fa-download"></i> Cargar</button>
+          </div>
+          <div id="cot-plant-mias" style="margin-top:8px;display:none">
+            <div style="font-size:10px;font-weight:700;color:var(--tx-d);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Mis plantillas</div>
+            <div id="cot-plant-mias-list" style="display:flex;flex-direction:column;gap:4px"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Agregar ítems -->
       <div class="dji-card">
         <div class="dji-card-head"><i class="fa fa-plus-circle"></i> Agregar Repuestos</div>
@@ -2029,9 +2046,14 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div class="dji-card" id="cot-cart-card" style="display:none">
         <div class="dji-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
           <span><i class="fa fa-file-invoice-dollar" style="color:#3a9e3a"></i> Presupuesto — <span id="cot-cart-count">0</span> ítem(s)</span>
-          <button class="btn-help" style="background:rgba(214,48,49,.08);border-color:rgba(214,48,49,.2);color:var(--red)" onclick="_cotVaciar()">
-            <i class="fa fa-trash"></i> Vaciar
-          </button>
+          <div style="display:flex;gap:6px">
+            <button class="btn-help" onclick="_cotGuardarComoPlantilla()">
+              <i class="fa fa-floppy-disk"></i> Guardar como plantilla
+            </button>
+            <button class="btn-help" style="background:rgba(214,48,49,.08);border-color:rgba(214,48,49,.2);color:var(--red)" onclick="_cotVaciar()">
+              <i class="fa fa-trash"></i> Vaciar
+            </button>
+          </div>
         </div>
         <div class="dji-card-body" style="padding:0">
           <div id="cot-cart-ui"></div>
@@ -5420,7 +5442,135 @@ function _cotMostrarMain() {
   document.getElementById('cot-main').style.display  = 'block';
   if (typeof _pedIndice === 'undefined' || _pedIndice === null) { try { _pedCargarIndice(); } catch(e) {} }
   if (!_cotMOCatalogo.length) _cotCargarManoObra();
+  _cotCargarPlantillas();
   _cotRenderCart();
+}
+
+// ── Plantillas predefinidas (generales de BIDCOM + propias del reseller) ──
+var _cotPlantillas = { generales: [], mias: [] };
+
+function _cotCargarPlantillas() {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _cotPlantillas = (r && r.ok) ? r : { generales: [], mias: [] };
+      _cotRenderPlantillas();
+    })
+    .withFailureHandler(function() { _cotPlantillas = { generales: [], mias: [] }; _cotRenderPlantillas(); })
+    .RS_listarPlantillasCotizador({ token: _sesionToken, reseller: resellerActual });
+}
+
+function _cotRenderPlantillas() {
+  var sel = document.getElementById('cot-plant-sel');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Elegí una plantilla… —</option>';
+    if (_cotPlantillas.generales.length) {
+      var og1 = document.createElement('optgroup'); og1.label = 'BIDCOM';
+      for (var i = 0; i < _cotPlantillas.generales.length; i++) {
+        var o = document.createElement('option'); o.value = 'g:' + i; o.textContent = _cotPlantillas.generales[i].nombre; og1.appendChild(o);
+      }
+      sel.appendChild(og1);
+    }
+    if (_cotPlantillas.mias.length) {
+      var og2 = document.createElement('optgroup'); og2.label = 'Mis plantillas';
+      for (var j = 0; j < _cotPlantillas.mias.length; j++) {
+        var o2 = document.createElement('option'); o2.value = 'm:' + j; o2.textContent = _cotPlantillas.mias[j].nombre; og2.appendChild(o2);
+      }
+      sel.appendChild(og2);
+    }
+  }
+  var wrap = document.getElementById('cot-plant-mias');
+  var list = document.getElementById('cot-plant-mias-list');
+  if (!wrap || !list) return;
+  if (!_cotPlantillas.mias.length) { wrap.style.display = 'none'; list.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '';
+  for (var k = 0; k < _cotPlantillas.mias.length; k++) {
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 8px;background:var(--bg-2,#f4f5f7);border-radius:6px">' +
+      '<span>' + _escHtml(_cotPlantillas.mias[k].nombre) + '</span>' +
+      '<button onclick="_cotEliminarPlantilla(' + k + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px" title="Eliminar"><i class="fa fa-trash"></i></button>' +
+    '</div>';
+  }
+  list.innerHTML = html;
+}
+
+// Carga una plantilla al carrito, reemplazando lo que había — precio de repuestos re-derivado
+// del catálogo actual (_pedIndice) y de mano de obra del catálogo recomendado (_cotMOCatalogo),
+// nunca un precio "congelado" desde que se guardó la plantilla. Mismo criterio que
+// _cotRepetirCotizacion (repetir un presupuesto del historial).
+function _cotCargarPlantilla() {
+  var sel = document.getElementById('cot-plant-sel');
+  var val = sel ? sel.value : '';
+  if (!val) { toast('Elegí una plantilla primero', 'err'); return; }
+  var partes = val.split(':');
+  var lista = partes[0] === 'g' ? _cotPlantillas.generales : _cotPlantillas.mias;
+  var plant = lista[parseInt(partes[1], 10)];
+  if (!plant) return;
+  if ((_cotCart.length || _cotMO.length) && !confirm('Esto va a reemplazar el presupuesto que tenés armado. ¿Continuar?')) return;
+
+  _cotCart = [];
+  _cotMO   = [];
+  var added = 0;
+  for (var i = 0; i < plant.items.length; i++) {
+    var it = plant.items[i];
+    var precioLista = 0, desc = it.descripcion || '', modelos = '', foto = '';
+    if (it.sku && typeof _pedIndice !== 'undefined' && _pedIndice) {
+      var skuUp = String(it.sku).toUpperCase();
+      for (var r = 0; r < _pedIndice.length; r++) {
+        if ((_pedIndice[r][0] || '').toUpperCase() === skuUp) {
+          desc = _pedIndice[r][1] || desc; modelos = _pedIndice[r][2] || ''; precioLista = _cotBaseDesde40(_pedIndice[r][4] || 0); foto = _pedIndice[r][11] || '';
+          break;
+        }
+      }
+    }
+    _cotCart.push({ sku: it.sku || '', descripcion: desc, modelos: modelos, cantidad: Number(it.cantidad) || 1, precioLista: precioLista, descuento: 25, foto: foto });
+    added++;
+  }
+  for (var j = 0; j < plant.mo.length; j++) {
+    var m = plant.mo[j];
+    var precioMo = 0, descMo = m.descripcion || m.sku || '';
+    if (m.sku && _cotMOCatalogo && _cotMOCatalogo.length) {
+      var codUp = String(m.sku).toUpperCase();
+      for (var k2 = 0; k2 < _cotMOCatalogo.length; k2++) {
+        if (String(_cotMOCatalogo[k2].codigo || '').toUpperCase() === codUp) { precioMo = _cotMOCatalogo[k2].precio || 0; descMo = _cotMOCatalogo[k2].descripcion || descMo; break; }
+      }
+    }
+    _cotMO.push({ codigo: m.sku || '', descripcion: descMo, precio: precioMo, cantidad: 1 });
+    added++;
+  }
+  _cotAfterChange();
+  toast(added + ' ítem(s) cargados de "' + plant.nombre + '"', 'ok');
+  var card = document.getElementById('cot-cart-card');
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _cotGuardarComoPlantilla() {
+  if (!_cotCart.length && !_cotMO.length) { toast('Armá el presupuesto antes de guardarlo como plantilla', 'err'); return; }
+  var nombre = prompt('Nombre de la plantilla (ej. "Mantenimiento T40 50h"):');
+  if (nombre === null) return;
+  nombre = nombre.trim();
+  if (!nombre) { toast('Poné un nombre para la plantilla', 'err'); return; }
+  var items = _cotCart.map(function(it) { return { sku: it.sku, descripcion: it.descripcion, cantidad: it.cantidad }; });
+  var mo    = _cotMO.map(function(m) { return { sku: m.codigo, descripcion: m.descripcion }; });
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) { toast('Plantilla "' + nombre + '" guardada', 'ok'); _cotCargarPlantillas(); }
+      else toast((r && r.error) || 'No se pudo guardar la plantilla', 'err');
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + (e && (e.message || e)), 'err'); })
+    .RS_guardarPlantillaCotizador({ token: _sesionToken, reseller: resellerActual, nombre: nombre, items: items, mo: mo });
+}
+
+function _cotEliminarPlantilla(idx) {
+  var plant = _cotPlantillas.mias[idx];
+  if (!plant) return;
+  if (!confirm('¿Eliminar la plantilla "' + plant.nombre + '"?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) { toast('Plantilla eliminada', 'ok'); _cotCargarPlantillas(); }
+      else toast((r && r.error) || 'No se pudo eliminar', 'err');
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + (e && (e.message || e)), 'err'); })
+    .RS_eliminarPlantillaCotizador({ token: _sesionToken, reseller: resellerActual, nombre: plant.nombre });
 }
 
 function _cotCargarManoObra() {

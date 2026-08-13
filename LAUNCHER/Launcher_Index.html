@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.13 -->
+<!-- @version 1.14 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -387,6 +387,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Material de cursos ya dictados — buscable en el Portal</div>
     </div>
     <span id="cursos-mat-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+    <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+  </div>
+  <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalPlantillasCotizador()">
+    <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+      <i class="fa fa-layer-group"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:#1a1f2e">Plantillas Cotizador · Portal Reseller</div>
+      <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Presupuestos predefinidos (ej. mantenimientos) — repuestos + mano de obra</div>
+    </div>
+    <span id="pl-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
     <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
   </div>
   <div style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer" onclick="abrirModalProspectos()">
@@ -806,6 +817,65 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
       </div>
       <div id="cm-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
         <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay cursos cargados.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PLANTILLAS COTIZADOR -->
+<div class="modal-bg" id="modal-plantillas-cot">
+  <div class="modal-box" style="width:620px;max-height:90vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(230,126,34,.1);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-layer-group"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Plantillas Cotizador · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Presupuestos predefinidos que cualquier reseller puede cargar de un clic en el Cotizador — SKU a mano, sin buscador</div>
+      </div>
+      <button onclick="cerrarModalPlantillasCotizador()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="pl-nombre-original">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Plantilla cargada</label>
+          <select id="pl-sel" onchange="plCargarPlantilla()" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e;background:#fff">
+            <option value="__new">➕ Nueva</option>
+          </select>
+        </div>
+        <button onclick="plNuevo()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap"><i class="fa fa-plus"></i> Nueva</button>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Nombre</label>
+        <input id="pl-nombre" type="text" placeholder="Ej: Mantenimiento T40 50h" style="width:100%;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-cog" style="color:var(--blue);margin-right:4px"></i>Repuestos</label>
+        <div id="pl-items-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button onclick="_plAgregarItemRow()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer"><i class="fa fa-plus"></i> Agregar repuesto</button>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-screwdriver-wrench" style="color:var(--orange);margin-right:4px"></i>Mano de obra</label>
+        <div id="pl-mo-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button onclick="_plAgregarMoRow()" style="background:#f0f2f5;color:#5e6778;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer"><i class="fa fa-plus"></i> Agregar mano de obra</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end">
+        <button id="pl-btn-eliminar" onclick="plEliminar()" style="display:none;background:none;border:1px solid rgba(214,48,49,.3);color:#d63031;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer">
+          <i class="fa fa-trash"></i> Eliminar
+        </button>
+        <span id="pl-status" style="font-size:11px;color:#9ba5b4"></span>
+        <button onclick="plGuardar()" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px">
+          <i class="fa fa-save"></i> Guardar plantilla
+        </button>
+      </div>
+    </div>
+    <div style="border-top:1px solid #f0f2f5;padding:14px 22px;background:#fafbfc">
+      <div style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">
+        <i class="fa fa-list" style="margin-right:5px;color:#9ba5b4"></i>Cargadas — <span id="pl-total">0</span>
+      </div>
+      <div id="pl-lista-chips" style="display:flex;flex-wrap:wrap;gap:6px">
+        <span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay plantillas cargadas.</span>
       </div>
     </div>
   </div>
@@ -1856,6 +1926,167 @@ function cmGuardar() {
     })
     .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
     .LAUNCH_saveCursoMaterial(data);
+}
+
+// ── Plantillas Cotizador (Portal Reseller) ─────────────────────
+var _plPlantillas = [];
+var _plItemRowSeq = 0, _plItemRows = [];   // [{id, sku, cantidad}]
+var _plMoRowSeq   = 0, _plMoRows   = [];   // [{id, sku, descripcion}]
+
+function abrirModalPlantillasCotizador() {
+  document.getElementById('modal-plantillas-cot').classList.add('show');
+  plCargarLista();
+}
+function cerrarModalPlantillasCotizador() {
+  document.getElementById('modal-plantillas-cot').classList.remove('show');
+}
+function _plBuscar(nombre) {
+  var n = String(nombre || '').trim().toLowerCase();
+  for (var i = 0; i < _plPlantillas.length; i++) if (_plPlantillas[i].nombre.trim().toLowerCase() === n) return _plPlantillas[i];
+  return null;
+}
+function _plActualizarCard() {
+  var badge = document.getElementById('pl-card-badge');
+  if (!badge) return;
+  badge.textContent = _plPlantillas.length ? (_plPlantillas.length + ' cargada' + (_plPlantillas.length === 1 ? '' : 's')) : 'SIN CARGAR';
+  badge.style.background = _plPlantillas.length ? 'rgba(230,126,34,.1)' : '#f0f2f5';
+  badge.style.color      = _plPlantillas.length ? 'var(--orange)'       : '#9ba5b4';
+}
+function _plRenderChips() {
+  var cont = document.getElementById('pl-lista-chips');
+  document.getElementById('pl-total').textContent = _plPlantillas.length;
+  if (!_plPlantillas.length) {
+    cont.innerHTML = '<span style="color:#c0c8d4;font-style:italic;font-size:12px">Todavía no hay plantillas cargadas.</span>';
+    return;
+  }
+  cont.innerHTML = _plPlantillas.map(function(p) {
+    var n = (p.items.length + p.mo.length) + ' ítem(s)';
+    return '<span onclick="plEditarDesdeChip(\'' + _cmEsc(p.nombre).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;background:rgba(230,126,34,.1);color:var(--orange)">' + _cmEsc(p.nombre) + ' · ' + n + '</span>';
+  }).join('');
+}
+function plEditarDesdeChip(nombre) {
+  var sel = document.getElementById('pl-sel');
+  sel.value = nombre;
+  plCargarPlantilla();
+}
+function plCargarLista(selNombre) {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _plPlantillas = (r && r.ok && r.plantillas) ? r.plantillas : [];
+      var sel  = document.getElementById('pl-sel');
+      var keep = selNombre || document.getElementById('pl-nombre-original').value;
+      var opts = '<option value="__new">➕ Nueva</option>';
+      for (var i = 0; i < _plPlantillas.length; i++) {
+        opts += '<option value="' + _cmEsc(_plPlantillas[i].nombre) + '">' + _cmEsc(_plPlantillas[i].nombre) + '</option>';
+      }
+      sel.innerHTML = opts;
+      _plActualizarCard();
+      _plRenderChips();
+      if (keep && _plBuscar(keep)) { sel.value = keep; plCargarPlantilla(); }
+      else plNuevo();
+    })
+    .withFailureHandler(function() {})
+    .LAUNCH_getPlantillasCotizador();
+}
+function _plRenderItemRows() {
+  var cont = document.getElementById('pl-items-list');
+  if (!_plItemRows.length) { cont.innerHTML = '<div style="font-size:11px;color:#c0c8d4;font-style:italic">Sin repuestos todavía.</div>'; return; }
+  cont.innerHTML = _plItemRows.map(function(r) {
+    return '<div style="display:flex;gap:6px;align-items:center">' +
+      '<input type="text" value="' + _cmEsc(r.sku) + '" placeholder="SKU" oninput="_plSetItemField(' + r.id + ',\'sku\',this.value)" style="flex:1;padding:7px 10px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;font-family:inherit;text-transform:uppercase">' +
+      '<input type="number" min="1" value="' + (r.cantidad || 1) + '" oninput="_plSetItemField(' + r.id + ',\'cantidad\',this.value)" style="width:64px;padding:7px 8px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;text-align:center" title="Cantidad">' +
+      '<button onclick="_plQuitarItemRow(' + r.id + ')" style="background:none;border:none;color:#d63031;cursor:pointer;font-size:14px" title="Quitar"><i class="fa fa-times"></i></button>' +
+    '</div>';
+  }).join('');
+}
+function _plAgregarItemRow() { _plItemRows.push({ id: ++_plItemRowSeq, sku: '', cantidad: 1 }); _plRenderItemRows(); }
+function _plQuitarItemRow(id) { _plItemRows = _plItemRows.filter(function(r) { return r.id !== id; }); _plRenderItemRows(); }
+function _plSetItemField(id, field, val) {
+  for (var i = 0; i < _plItemRows.length; i++) {
+    if (_plItemRows[i].id !== id) continue;
+    _plItemRows[i][field] = (field === 'cantidad') ? (parseInt(val) || 1) : val;
+    break;
+  }
+}
+function _plRenderMoRows() {
+  var cont = document.getElementById('pl-mo-list');
+  if (!_plMoRows.length) { cont.innerHTML = '<div style="font-size:11px;color:#c0c8d4;font-style:italic">Sin mano de obra todavía.</div>'; return; }
+  cont.innerHTML = _plMoRows.map(function(r) {
+    return '<div style="display:flex;gap:6px;align-items:center">' +
+      '<input type="text" value="' + _cmEsc(r.sku) + '" placeholder="Código (catálogo mano de obra, opcional)" oninput="_plSetMoField(' + r.id + ',\'sku\',this.value)" style="width:140px;padding:7px 10px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;font-family:inherit;text-transform:uppercase">' +
+      '<input type="text" value="' + _cmEsc(r.descripcion) + '" placeholder="Descripción de la tarea" oninput="_plSetMoField(' + r.id + ',\'descripcion\',this.value)" style="flex:1;padding:7px 10px;border:1px solid #e0e3e8;border-radius:6px;font-size:12px;font-family:inherit">' +
+      '<button onclick="_plQuitarMoRow(' + r.id + ')" style="background:none;border:none;color:#d63031;cursor:pointer;font-size:14px" title="Quitar"><i class="fa fa-times"></i></button>' +
+    '</div>';
+  }).join('');
+}
+function _plAgregarMoRow() { _plMoRows.push({ id: ++_plMoRowSeq, sku: '', descripcion: '' }); _plRenderMoRows(); }
+function _plQuitarMoRow(id) { _plMoRows = _plMoRows.filter(function(r) { return r.id !== id; }); _plRenderMoRows(); }
+function _plSetMoField(id, field, val) {
+  for (var i = 0; i < _plMoRows.length; i++) {
+    if (_plMoRows[i].id !== id) continue;
+    _plMoRows[i][field] = val;
+    break;
+  }
+}
+function plNuevo() {
+  var sel = document.getElementById('pl-sel'); if (sel) sel.value = '__new';
+  document.getElementById('pl-nombre-original').value = '';
+  document.getElementById('pl-nombre').value = '';
+  _plItemRows = []; _plMoRows = [];
+  _plRenderItemRows(); _plRenderMoRows();
+  document.getElementById('pl-btn-eliminar').style.display = 'none';
+}
+function plCargarPlantilla() {
+  var v = document.getElementById('pl-sel').value;
+  if (v === '__new') { plNuevo(); return; }
+  var p = _plBuscar(v);
+  if (!p) { plNuevo(); return; }
+  document.getElementById('pl-nombre-original').value = p.nombre;
+  document.getElementById('pl-nombre').value = p.nombre;
+  _plItemRows = p.items.map(function(it) { return { id: ++_plItemRowSeq, sku: it.sku, cantidad: it.cantidad || 1 }; });
+  _plMoRows   = p.mo.map(function(m)   { return { id: ++_plMoRowSeq, sku: m.sku, descripcion: m.descripcion }; });
+  _plRenderItemRows(); _plRenderMoRows();
+  document.getElementById('pl-btn-eliminar').style.display = 'inline-block';
+}
+function plGuardar() {
+  var st = document.getElementById('pl-status');
+  var nombre = document.getElementById('pl-nombre').value.trim();
+  if (!nombre) { st.textContent = '✗ Falta el nombre'; st.style.color = 'var(--red)'; return; }
+  var items = _plItemRows.filter(function(r) { return r.sku.trim(); }).map(function(r) { return { sku: r.sku.trim(), cantidad: r.cantidad }; });
+  var mo    = _plMoRows.filter(function(r) { return r.sku.trim() || r.descripcion.trim(); }).map(function(r) { return { sku: r.sku.trim(), descripcion: r.descripcion.trim() }; });
+  if (!items.length && !mo.length) { st.textContent = '✗ Agregá al menos un repuesto o una mano de obra'; st.style.color = 'var(--red)'; return; }
+  st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
+  var data = {
+    nombre: nombre,
+    nombreOriginal: document.getElementById('pl-nombre-original').value.trim(),
+    items: items, mo: mo
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      st.textContent = res.ok ? '✓ Guardado' : '✗ ' + (res.error || 'Error');
+      st.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+      if (res.ok) {
+        document.getElementById('pl-nombre-original').value = nombre;
+        plCargarLista(nombre);
+      }
+      setTimeout(function() { st.textContent = ''; }, 3000);
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_guardarPlantillaCotizador(data);
+}
+function plEliminar() {
+  var nombre = document.getElementById('pl-nombre-original').value.trim();
+  if (!nombre) return;
+  if (!confirm('¿Eliminar la plantilla "' + nombre + '"? Los resellers que la tengan ya cargada en un presupuesto sin confirmar no se ven afectados.')) return;
+  var st = document.getElementById('pl-status');
+  st.textContent = 'Eliminando…'; st.style.color = '#9ba5b4';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) { plCargarLista(); }
+      else { st.textContent = '✗ ' + (res.error || 'Error'); st.style.color = 'var(--red)'; }
+    })
+    .withFailureHandler(function(e) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; })
+    .LAUNCH_eliminarPlantillaCotizador(nombre);
 }
 
 // ── Venta a prospectos (RTV) ──────────────────────────────────

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.9
+// @version 1.10
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -126,6 +126,145 @@ function _cotNormalizarMO(moItems) {
     out.push({ codigo: cod, descripcion: desc || cod, cantidad: 1, precio: precio, subtotal: precio });
   }
   return { items: out, total: Math.round(total * 100) / 100 };
+}
+
+// ── Plantillas de Cotización (predefinidas) ───────────────────────────
+// Hoja normalizada 1 fila por línea de ítem (repuesto o mano de obra) — mismo criterio que
+// KITS (RS_Pedidos.js): legible/editable a mano si hiciera falta, sin JSON.
+// Reseller vacío = plantilla general (la arma BIDCOM desde el LAUNCHER); con nombre = privada
+// de ese reseller (la armó y la ve solo él, desde "Guardar como plantilla" en el Cotizador).
+function _asegurarHojaPlantillasCotizador() {
+  var ss = getDb();
+  var hoja = ss.getSheetByName(SCHEMA.SHEETS.PLANTILLAS_COTIZADOR);
+  if (!hoja) {
+    hoja = ss.insertSheet(SCHEMA.SHEETS.PLANTILLAS_COTIZADOR);
+    hoja.appendRow(['Plantilla', 'Reseller', 'Tipo', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 7).setBackground('#3a9e3a').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(1, 200);
+    hoja.setColumnWidth(5, 260);
+  }
+  return hoja;
+}
+
+// params: { token, reseller } — devuelve { generales: [...], mias: [...] }, cada plantilla
+// como { nombre, items: [{sku,descripcion,cantidad}], mo: [{sku,descripcion,cantidad}] }.
+function RS_listarPlantillasCotizador(params) {
+  try {
+    params = params || {};
+    var _ses = _sesionResolver(params.token, params.reseller);
+    if (!_ses) return { ok: false, error: 'Sesión inválida o expirada.', generales: [], mias: [] };
+    var reseller = _ses.nombre;
+
+    _asegurarHojaPlantillasCotizador();
+    var d = getSheetValues(SCHEMA.SHEETS.PLANTILLAS_COTIZADOR);
+    var mapa = {}; // "nombre|reseller" → { nombre, reseller, items, mo }
+    for (var i = 1; i < d.length; i++) {
+      var nombre = String(d[i][0] || '').trim();
+      if (!nombre) continue;
+      var resFila = String(d[i][1] || '').trim();
+      var tipo    = String(d[i][2] || '').trim().toUpperCase();
+      var key = nombre + '|' + resFila;
+      if (!mapa[key]) mapa[key] = { nombre: nombre, reseller: resFila, items: [], mo: [] };
+      var linea = { sku: String(d[i][3] || '').trim(), descripcion: String(d[i][4] || '').trim(), cantidad: Number(d[i][5]) || 1 };
+      if (tipo === 'MANO_OBRA') mapa[key].mo.push(linea); else mapa[key].items.push(linea);
+    }
+    var generales = [], mias = [];
+    for (var k in mapa) {
+      var p = mapa[k];
+      if (!p.reseller) generales.push(p);
+      else if (p.reseller === reseller) mias.push(p);
+    }
+    var porNombre = function(a, b) { return a.nombre.localeCompare(b.nombre); };
+    generales.sort(porNombre); mias.sort(porNombre);
+    return { ok: true, generales: generales, mias: mias };
+  } catch(e) {
+    Logger.log('RS_listarPlantillasCotizador: ' + e);
+    return { ok: false, error: e.toString(), generales: [], mias: [] };
+  }
+}
+
+// params: { token, reseller, nombre, items: [{sku,descripcion,cantidad}], mo: [{sku,descripcion}] }
+// SIEMPRE guarda con el reseller de la sesión — un reseller nunca puede crear una plantilla
+// general (Reseller vacío) desde acá, esas solo se cargan desde el panel del LAUNCHER.
+function RS_guardarPlantillaCotizador(params) {
+  try {
+    params = params || {};
+    var _ses = _sesionResolver(params.token, params.reseller);
+    if (!_ses) return { ok: false, error: 'Sesión inválida o expirada.' };
+    var reseller = _ses.nombre;
+    var nombre = String(params.nombre || '').trim();
+    if (!nombre) return { ok: false, error: 'Poné un nombre para la plantilla.' };
+    var items = params.items || [];
+    var mo    = params.mo || [];
+    if (!items.length && !mo.length) return { ok: false, error: 'El presupuesto está vacío.' };
+
+    var hoja = _asegurarHojaPlantillasCotizador();
+    var d = hoja.getDataRange().getValues();
+    var nombreLower = nombre.toLowerCase();
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim() === reseller && String(d[i][0] || '').trim().toLowerCase() === nombreLower) {
+        return { ok: false, error: 'Ya tenés una plantilla con ese nombre — borrala primero si querés reemplazarla.' };
+      }
+    }
+    var ahora = new Date();
+    var filas = [];
+    for (var j = 0; j < items.length; j++) {
+      var it = items[j];
+      var sku = String(it.sku || '').trim();
+      var descIt = String(it.descripcion || '').trim();
+      if (!sku && !descIt) continue;
+      var cant = Math.floor(Number(it.cantidad)) || 1;
+      filas.push([nombre, reseller, 'REPUESTO', sku, descIt, cant, ahora]);
+    }
+    for (var k = 0; k < mo.length; k++) {
+      var m = mo[k];
+      var cod = String(m.sku || m.codigo || '').trim();
+      var dsc = String(m.descripcion || '').trim();
+      if (!cod && !dsc) continue;
+      filas.push([nombre, reseller, 'MANO_OBRA', cod, dsc, 1, ahora]);
+    }
+    if (!filas.length) return { ok: false, error: 'El presupuesto está vacío.' };
+    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 7).setValues(filas);
+    SpreadsheetApp.flush();
+    invalidateSheetValues(SCHEMA.SHEETS.PLANTILLAS_COTIZADOR);
+    return { ok: true };
+  } catch(e) {
+    Logger.log('RS_guardarPlantillaCotizador: ' + e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// params: { token, reseller, nombre } — solo borra si la plantilla es de ESE reseller
+// (nunca una general ni la de otro reseller).
+function RS_eliminarPlantillaCotizador(params) {
+  try {
+    params = params || {};
+    var _ses = _sesionResolver(params.token, params.reseller);
+    if (!_ses) return { ok: false, error: 'Sesión inválida o expirada.' };
+    var reseller = _ses.nombre;
+    var nombre = String(params.nombre || '').trim();
+    if (!nombre) return { ok: false, error: 'Falta el nombre de la plantilla.' };
+
+    var hoja = _asegurarHojaPlantillasCotizador();
+    var d = hoja.getDataRange().getValues();
+    var nombreLower = nombre.toLowerCase();
+    var filasBorrar = [];
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][1] || '').trim() === reseller && String(d[i][0] || '').trim().toLowerCase() === nombreLower) {
+        filasBorrar.push(i + 1);
+      }
+    }
+    if (!filasBorrar.length) return { ok: false, error: 'No se encontró esa plantilla.' };
+    filasBorrar.sort(function(a, b) { return b - a; });
+    for (var f = 0; f < filasBorrar.length; f++) hoja.deleteRow(filasBorrar[f]);
+    SpreadsheetApp.flush();
+    invalidateSheetValues(SCHEMA.SHEETS.PLANTILLAS_COTIZADOR);
+    return { ok: true };
+  } catch(e) {
+    Logger.log('RS_eliminarPlantillaCotizador: ' + e);
+    return { ok: false, error: e.toString() };
+  }
 }
 
 // ── Confirmar cotización — genera PDF, guarda historial, manda email ──

@@ -1,4 +1,4 @@
-// @version 1.14
+// @version 1.15
 var MASTER_SHEET_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var STOCK_SHEET_ID  = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI';
 var LISTA_PRECIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
@@ -27,6 +27,7 @@ var SCHEMA = {
     LOG_DEMANDA_PERDIDA:'LOG_DEMANDA_PERDIDA',
     PEDIDOS_CAMPANA:    'Pedidos_Campaña',
     COTIZACIONES:       'COTIZACIONES',
+    PLANTILLAS_COTIZADOR: 'PLANTILLAS_COTIZADOR',
     KITS:               'KITS',
     NOVEDADES:          'NOVEDADES',
     EVENTOS:               'EVENTOS',
