@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.05 -->
+<!-- @version 2.06 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5622,6 +5622,7 @@ function _cotMostrarMain() {
 
 // ── Plantillas predefinidas (generales de BIDCOM + propias del reseller) ──
 var _cotPlantillas = { generales: [], mias: [] };
+var _cotPlantillaPendiente = false; // true = el reseller pidió "Cargar" antes de que _pedIndice terminara de cargar (ver _cotCargarPlantilla)
 
 function _cotCargarPlantillas() {
   google.script.run
@@ -5675,6 +5676,19 @@ function _cotCargarPlantilla() {
   var sel = document.getElementById('cot-plant-sel');
   var val = sel ? sel.value : '';
   if (!val) { toast('Elegí una plantilla primero', 'err'); return; }
+
+  // La foto/precio/descripción de cada ítem salen de _pedIndice (ver más abajo) — si todavía
+  // está cargando (null), no armar el carrito con eso en blanco: se guarda el pedido y
+  // _pedCargarIndice() reintenta este mismo llamado solo apenas el índice está listo. Bug
+  // reportado por el usuario ("cargo una plantilla y no salen las fotos") — la card de
+  // Plantillas es de las primeras cosas que se ven al entrar al Cotizador, así que era fácil
+  // tocar "Cargar" antes de que el índice (que arranca en paralelo) terminara.
+  if (typeof _pedIndice === 'undefined' || _pedIndice === null) {
+    _cotPlantillaPendiente = true;
+    toast('Preparando catálogo… la plantilla se carga en un momento', 'inf');
+    return;
+  }
+
   var partes = val.split(':');
   var lista = partes[0] === 'g' ? _cotPlantillas.generales : _cotPlantillas.mias;
   var plant = lista[parseInt(partes[1], 10)];
@@ -7299,12 +7313,20 @@ function _pedCargarIndice() {
       if (qPend.trim().length >= 2) _pedBuscar(true);
       var cotQEl = document.getElementById('cot-q');
       if (cotQEl && cotQEl.value.trim().length >= 2) _cotBuscar(true);
+      // Idem si el reseller ya había tocado "Cargar" en una plantilla del Cotizador mientras
+      // el índice todavía cargaba (ver _cotCargarPlantilla) — se reintenta solo, ahora sí con
+      // fotos/precios/descripciones actuales.
+      if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
       _pedIndice = []; // fallback a búsqueda en servidor
       var inp2 = document.getElementById('ped-q');
       if (inp2) inp2.placeholder = 'Código o nombre del repuesto…';
+      // Si el índice falló, la plantilla pendiente igual se carga (con foto/precio en blanco,
+      // el mismo fallback que ya tiene el resto del Cotizador) en vez de quedar stuck sin
+      // reaccionar al click de "Cargar" de hace un rato.
+      if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
     })
     .obtenerIndiceRepuestosPortal(_sesionToken, _pedCtxReseller(), _pedDtoOverride());
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
