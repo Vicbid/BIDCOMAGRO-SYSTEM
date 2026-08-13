@@ -1,4 +1,4 @@
-// @version 1.14
+// @version 1.15
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1263,6 +1263,81 @@ function LAUNCH_eliminarRepuestoRecomendado(modelo){ return _launchDocModeloElim
 function LAUNCH_getMantenimientoDji()        { return _launchDocModeloGet(_LAUNCH_MANTENIMIENTO_TAB); }
 function LAUNCH_saveMantenimientoDji(data)   { return _launchDocModeloSave(_LAUNCH_MANTENIMIENTO_TAB, data); }
 function LAUNCH_eliminarMantenimientoDji(modelo) { return _launchDocModeloEliminar(_LAUNCH_MANTENIMIENTO_TAB, modelo); }
+
+
+// ── "Pedir algo a BIDCOM" — solicitudes libres que mandan los resellers desde "Contacto y
+// soporte" del Portal (RS_Solicitudes.js). No es un catálogo para editar (nombre+link) como
+// el resto de este archivo — es una cola de pedidos para marcar resueltos, así que no tiene
+// un "guardar" genérico tipo _launchDocModeloSave: cada card de la lista responde directo.
+var _LAUNCH_SOLICITUDES_TAB = 'SOLICITUDES_RESELLER';
+
+function _launchSolicitudesHoja(ss) {
+  var hoja = ss.getSheetByName(_LAUNCH_SOLICITUDES_TAB);
+  if (!hoja) {
+    hoja = ss.insertSheet(_LAUNCH_SOLICITUDES_TAB);
+    hoja.appendRow(['ID', 'Fecha', 'Reseller', 'Asunto', 'Detalle', 'Estado', 'Respuesta', 'FechaRespuesta']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 8).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(4, 220);
+    hoja.setColumnWidth(5, 320);
+    hoja.setColumnWidth(7, 320);
+  }
+  return hoja;
+}
+
+// Todas las solicitudes de todos los resellers — Pendientes primero, y dentro de cada grupo
+// (Pendiente/Resuelto) las más recientes arriba.
+function LAUNCH_getSolicitudes() {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchSolicitudesHoja(ss);
+    var d    = hoja.getDataRange().getValues();
+    var out  = [];
+    for (var i = 1; i < d.length; i++) {
+      var id = String(d[i][0] || '').trim();
+      if (!id) continue;
+      var fechaCell = d[i][1];
+      out.push({
+        id:         id,
+        fecha:      fechaCell instanceof Date ? Utilities.formatDate(fechaCell, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm') : String(fechaCell || ''),
+        fechaOrden: fechaCell instanceof Date ? fechaCell.getTime() : 0,
+        reseller:   String(d[i][2] || '').trim(),
+        asunto:     String(d[i][3] || '').trim(),
+        detalle:    String(d[i][4] || '').trim(),
+        estado:     String(d[i][5] || 'Pendiente').trim(),
+        respuesta:  String(d[i][6] || '').trim()
+      });
+    }
+    out.sort(function(a, b) {
+      var aPend = a.estado !== 'Resuelto', bPend = b.estado !== 'Resuelto';
+      if (aPend !== bPend) return aPend ? -1 : 1;
+      return b.fechaOrden - a.fechaOrden;
+    });
+    return { ok: true, items: out };
+  } catch(e) { Logger.log('LAUNCH_getSolicitudes: ' + e); return { ok: false, error: e.toString(), items: [] }; }
+}
+
+// data = { id, estado, respuesta } — estado: 'Resuelto' o 'Pendiente' (reabrir una ya resuelta).
+function LAUNCH_responderSolicitud(data) {
+  try {
+    data = data || {};
+    var id = String(data.id || '').trim();
+    if (!id) return { ok: false, error: 'Falta el ID de la solicitud.' };
+    var estado = data.estado === 'Pendiente' ? 'Pendiente' : 'Resuelto';
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchSolicitudesHoja(ss);
+    var d = hoja.getDataRange().getValues();
+    var filaIdx = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim() === id) { filaIdx = i + 1; break; }
+    }
+    if (filaIdx < 0) return { ok: false, error: 'No se encontró esa solicitud.' };
+    var respuesta = String(data.respuesta || '').trim();
+    hoja.getRange(filaIdx, 6, 1, 3).setValues([[estado, respuesta, estado === 'Resuelto' ? new Date() : '']]);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('LAUNCH_responderSolicitud: ' + e); return { ok: false, error: e.toString() }; }
+}
 
 
 // ── Config "Venta a prospectos (RTV)" — hoja Clave/Valor en el master, leída directo ──

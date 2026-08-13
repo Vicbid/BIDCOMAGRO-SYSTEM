@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.0
+// @version 1.1
 //  PORTAL RESELLER BIDCOM — Helpers de email y notificaciones
 // ============================================================
 
@@ -143,6 +143,32 @@ function _notificarLoteOT(reseller, items, ots, ss) {
     if (!hojaLog) { hojaLog = ss.insertSheet("EMAIL_LOGS"); hojaLog.appendRow(["Fecha","OT","Destinatario","Rol","Asunto","Estado"]); }
     hojaLog.appendRow([new Date(), "LOTE", PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor (Portal)", asunto, "OK"]);
   } catch(e) { Logger.log("_notificarLoteOT: " + e); }
+}
+
+// Mismo patrón que _notificarNuevaOT: aviso a BIDCOM cuando un reseller manda una solicitud
+// libre desde "Contacto y soporte" (RS_Solicitudes.js) — sin OT/repuesto/cotización de por
+// medio, así que no hay número que anclar en EMAIL_LOGS (se guarda con OT="SOLICITUD").
+function _notificarNuevaSolicitud(id, reseller, asunto, detalle) {
+  try {
+    var asuntoMail = "Solicitud de " + reseller + " — " + asunto;
+    var html = _construirEmailHTML(
+      "Nueva solicitud desde el Portal", "Supervisor",
+      "<p style='font-size:14px;color:#444;margin:0 0 20px'>El reseller <strong>" + reseller + "</strong> mandó una solicitud desde \"Contacto y soporte\" del Portal.</p>" +
+      "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
+        _filaDetalle("Reseller", reseller) +
+        _filaDetalle("Asunto", asunto) +
+        (detalle ? _filaDetalle("Detalle", String(detalle).replace(/\n/g, '<br>')) : '') +
+      "</div>",
+      "Respondé desde el panel de Solicitudes del Launcher — el reseller ve tu respuesta la próxima vez que entra al Portal."
+    );
+
+    var mailOpts = { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR };
+    var emailReseller = _emailReseller(reseller);
+    if (emailReseller) mailOpts.cc = emailReseller;
+
+    GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asuntoMail, "", mailOpts);
+    _logEmail('SOLICITUD ' + id, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor (Portal)", asuntoMail, "OK", "");
+  } catch(e) { Logger.log("_notificarNuevaSolicitud: " + e); }
 }
 
 function obtenerEmailLogsPorReseller(nombreReseller) {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.17 -->
+<!-- @version 1.18 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -406,6 +406,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   <div class="cfg-section" id="cfg-sec-comercial">
     <div class="cfg-section-title"><i class="fa fa-bullhorn" style="color:var(--purple)"></i> Portal Reseller · Comercial y accesos</div>
 
+    <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalSolicitudes()">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-comment-dots"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1a1f2e">Solicitudes de Resellers · Portal Reseller</div>
+        <div style="font-size:11px;color:#9ba5b4;margin-top:1px">Pedidos libres desde "Contacto y soporte"</div>
+      </div>
+      <span id="sol-card-badge" style="font-size:10px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:#f0f2f5;color:#9ba5b4">—</span>
+      <i class="fa fa-chevron-right" style="color:#c0c8d4;font-size:11px"></i>
+    </div>
     <div class="cfg-card" style="background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:13px 18px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer" onclick="abrirModalAviso()">
       <div style="width:34px;height:34px;border-radius:8px;background:rgba(124,77,255,.1);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
         <i class="fa fa-bullhorn"></i>
@@ -1058,6 +1069,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
   </div>
 </div>
 
+<!-- MODAL SOLICITUDES DE RESELLERS -->
+<div class="modal-bg" id="modal-solicitudes">
+  <div class="modal-box" style="width:560px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(26,158,74,.1);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+        <i class="fa fa-comment-dots"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#1a1f2e">Solicitudes de Resellers · Portal Reseller</div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:1px">Pedidos libres desde "Contacto y soporte" — respondé acá, lo ven en "Mis solicitudes"</div>
+      </div>
+      <button onclick="cerrarModalSolicitudes()" style="background:none;border:none;font-size:18px;color:#9ba5b4;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="sol-lista" style="padding:16px 22px;display:flex;flex-direction:column;gap:12px">
+      <div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px">Cargando…</div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VENTA A PROSPECTOS (RTV) -->
 <div class="modal-bg" id="modal-prospectos">
   <div class="modal-box" style="width:440px;padding:0">
@@ -1503,6 +1533,7 @@ cmCargarLista();          // badge de la tarjeta Material de Cursos
 rrCargarLista();          // badge de la tarjeta Repuestos recomendados DJI
 mnCargarLista();          // badge de la tarjeta Mantenimiento sugerido DJI
 plCargarLista();          // badge de la tarjeta Plantillas Cotizador
+solCargarLista();         // badge de la tarjeta Solicitudes de Resellers
 prospectosCargarConfig(); // subtítulo de la tarjeta Venta a prospectos (RTV)
 
 var _resellerEstados = {}; // nombre → activo (bool)
@@ -2289,6 +2320,95 @@ function _dmModalInit(p) {
       [p.delFn](modelo);
   };
 }
+// ── Solicitudes de Resellers (Portal Reseller) ──────────────────
+// No sigue el patrón _dmModalInit (catálogo nombre+link) porque acá no se "crea" nada — es
+// una cola de pedidos que ya mandó el reseller, cada card de la lista responde inline.
+var _solData = [];
+
+function abrirModalSolicitudes() {
+  document.getElementById('modal-solicitudes').classList.add('show');
+  solCargarLista();
+}
+function cerrarModalSolicitudes() {
+  document.getElementById('modal-solicitudes').classList.remove('show');
+}
+
+function solCargarLista() {
+  var cont = document.getElementById('sol-lista');
+  cont.innerHTML = '<div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px"><i class="fa fa-spinner fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _solData = (r && r.ok && r.items) ? r.items : [];
+      solRenderLista();
+      solActualizarBadge();
+    })
+    .withFailureHandler(function() {
+      cont.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red);font-size:12px">No se pudo cargar.</div>';
+    })
+    .LAUNCH_getSolicitudes();
+}
+
+function solActualizarBadge() {
+  var badge = document.getElementById('sol-card-badge');
+  if (!badge) return;
+  var pend = 0;
+  for (var i = 0; i < _solData.length; i++) if (_solData[i].estado !== 'Resuelto') pend++;
+  badge.textContent = _solData.length ? (pend + ' pendiente' + (pend === 1 ? '' : 's')) : 'SIN SOLICITUDES';
+  badge.style.background = pend > 0 ? 'rgba(212,137,10,.12)' : '#f0f2f5';
+  badge.style.color      = pend > 0 ? '#d4890a' : '#9ba5b4';
+}
+
+function solRenderLista() {
+  var cont = document.getElementById('sol-lista');
+  if (!_solData.length) {
+    cont.innerHTML = '<div style="text-align:center;padding:24px;color:#9ba5b4;font-size:12px">Todavía no hay solicitudes.</div>';
+    return;
+  }
+  cont.innerHTML = _solData.map(function(it) {
+    var esResuelto = it.estado === 'Resuelto';
+    var badge = '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;flex-shrink:0;white-space:nowrap;background:' +
+      (esResuelto ? 'rgba(26,158,74,.1);color:#1a9e4a' : 'rgba(212,137,10,.12);color:#d4890a') + '">' + _cmEsc(it.estado) + '</span>';
+    var accion = esResuelto
+      ? ('<div style="margin-top:8px;padding:9px 11px;background:#f0fff5;border:1px solid #c8ecd4;border-radius:8px;font-size:12px;color:#1a1f2e"><strong>Tu respuesta:</strong> ' + (it.respuesta ? _cmEsc(it.respuesta) : '<span style="color:#9ba5b4;font-style:italic">(sin texto)</span>') + '</div>' +
+         '<button onclick="solReabrir(\'' + it.id + '\')" style="margin-top:6px;background:none;border:none;color:#9ba5b4;font-size:11px;cursor:pointer;text-decoration:underline">Reabrir</button>')
+      : ('<textarea id="sol-resp-' + it.id + '" placeholder="Respuesta (opcional)…" style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid #e0e3e8;border-radius:8px;font-size:12px;font-family:inherit;min-height:50px;resize:vertical;box-sizing:border-box"></textarea>' +
+         '<button onclick="solResponder(\'' + it.id + '\')" style="margin-top:6px;background:#1a9e4a;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer"><i class="fa fa-check"></i> Marcar resuelta</button>');
+    return '<div style="border:1px solid #e0e3e8;border-radius:10px;padding:13px 15px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
+        '<div style="min-width:0">' +
+          '<div style="font-size:11px;font-weight:700;color:var(--blue)">' + _cmEsc(it.reseller) + '<span style="color:#c0c8d4;font-weight:400"> · ' + _cmEsc(it.fecha) + '</span></div>' +
+          '<div style="font-size:13px;font-weight:700;color:#1a1f2e;margin-top:3px">' + _cmEsc(it.asunto) + '</div>' +
+        '</div>' + badge +
+      '</div>' +
+      (it.detalle ? '<div style="font-size:12px;color:#5e6778;margin-top:6px;line-height:1.5">' + _cmEsc(it.detalle) + '</div>' : '') +
+      accion +
+    '</div>';
+  }).join('');
+}
+
+function solResponder(id) {
+  var ta = document.getElementById('sol-resp-' + id);
+  var respuesta = ta ? ta.value.trim() : '';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) solCargarLista();
+      else alert((res && res.error) || 'No se pudo guardar');
+    })
+    .withFailureHandler(function(e) { alert('Error: ' + e.message); })
+    .LAUNCH_responderSolicitud({ id: id, estado: 'Resuelto', respuesta: respuesta });
+}
+
+function solReabrir(id) {
+  if (!confirm('¿Volver a marcar esta solicitud como Pendiente?')) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) solCargarLista();
+      else alert((res && res.error) || 'No se pudo guardar');
+    })
+    .withFailureHandler(function(e) { alert('Error: ' + e.message); })
+    .LAUNCH_responderSolicitud({ id: id, estado: 'Pendiente', respuesta: '' });
+}
+
 // ── Plantillas Cotizador (Portal Reseller) ─────────────────────
 var _plPlantillas = [];
 var _plItemRowSeq = 0, _plItemRows = [];   // [{id, sku, cantidad}]

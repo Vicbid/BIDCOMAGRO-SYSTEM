@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.06 -->
+<!-- @version 2.07 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -581,6 +581,46 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       </div>
     </div>
     <div id="mn-modal-body" style="padding:12px 18px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+<!-- MODAL SOLICITUDES ("Pedir algo a BIDCOM") -->
+<div id="sol-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerrarSolicitudes()">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:480px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:var(--green);padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-comment-dots" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">Pedir algo a BIDCOM</div>
+        <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px;letter-spacing:.03em">Contanos qué necesitás — vas a ver la respuesta acá mismo</div>
+      </div>
+      <button onclick="cerrarSolicitudes()" style="background:rgba(255,255,255,.15);border:none;width:26px;height:26px;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div style="padding:16px 18px;overflow-y:auto;flex:1">
+      <div style="margin-bottom:10px">
+        <label class="flbl">Asunto <span style="color:var(--red);font-weight:700">*</span></label>
+        <input type="text" id="sol-asunto" class="form-control" placeholder="Ej: Necesito más kits de aspersión para T50" style="font-size:13px">
+      </div>
+      <div style="margin-bottom:6px">
+        <label class="flbl">Detalle <span style="font-size:10px;font-weight:400;color:var(--tx-d)">(opcional)</span></label>
+        <textarea id="sol-detalle" class="form-control" placeholder="Contanos más si hace falta…" style="min-height:70px;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px">
+        <span id="sol-status" style="font-size:11px;color:var(--tx-d)"></span>
+        <button class="btn-main" style="width:auto;padding:9px 20px;background:var(--green)" onclick="_solEnviar()">
+          <i class="fa fa-paper-plane"></i> Enviar solicitud
+        </button>
+      </div>
+
+      <div style="margin-top:18px;border-top:1px solid var(--brd);padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="_solToggleMias()">
+          <span style="font-size:11px;font-weight:700;color:var(--tx-m);text-transform:uppercase;letter-spacing:.06em"><i class="fa fa-clock-rotate-left" style="margin-right:5px"></i>Mis solicitudes</span>
+          <span id="sol-mias-toggle-ico"><i class="fa fa-chevron-down"></i></span>
+        </div>
+        <div id="sol-mias-body" style="display:none;margin-top:10px"></div>
+      </div>
+    </div>
   </div>
 </div>
 <style>
@@ -1652,6 +1692,13 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--tx)">WhatsApp soporte</div>
                 <div style="font-size:10px;color:var(--tx-m)">+54 9 11 3064-1898</div>
+              </div>
+            </a>
+            <a href="javascript:void(0)" onclick="abrirSolicitudes()" class="contacto-item">
+              <i class="fa fa-comment-dots" style="color:var(--green)"></i>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--tx)">Pedir algo a BIDCOM</div>
+                <div style="font-size:10px;color:var(--tx-m)">Algo que no encontrás acá — mandanos qué necesitás</div>
               </div>
             </a>
             <a href="javascript:void(0)" onclick="abrirGuia()" class="contacto-item" style="grid-column:1/-1">
@@ -3404,6 +3451,90 @@ function cerrarSesion() {
 // ══════════════════════════════════════════
 function abrirGuia() {
   window.open(_deployUrl + '?action=guia', '_blank');
+}
+
+// ── "Pedir algo a BIDCOM" — solicitud libre desde "Contacto y soporte", sin OT/repuesto/
+// cotización de por medio (para eso ya está "Mensajes", que está atado a una OT puntual).
+var _solMiasAbierto = false;
+var _solMiasCargado = false; // false tras enviar una nueva, para que se refresque si ya estaba abierta
+
+function abrirSolicitudes() {
+  if (!resellerActual) { _pendingTab = 'rec'; pedirPin(); return; } // mismo patrón que abrirPerfil()
+  document.getElementById('sol-modal').style.display = 'flex';
+}
+function cerrarSolicitudes() {
+  document.getElementById('sol-modal').style.display = 'none';
+}
+
+function _solEnviar() {
+  var asuntoEl = document.getElementById('sol-asunto');
+  var asunto = (asuntoEl.value || '').trim();
+  if (!asunto) { toast('Poné un asunto para la solicitud', 'err'); asuntoEl.focus(); return; }
+  var detalle = (document.getElementById('sol-detalle').value || '').trim();
+  var st = document.getElementById('sol-status');
+  st.textContent = 'Enviando…'; st.style.color = 'var(--tx-d)';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      st.textContent = '';
+      if (r && r.ok) {
+        toast('Solicitud enviada — la vas a ver en "Mis solicitudes"', 'ok');
+        asuntoEl.value = '';
+        document.getElementById('sol-detalle').value = '';
+        _solMiasCargado = false;
+        if (_solMiasAbierto) _solCargarMias();
+      } else {
+        toast((r && r.error) || 'No se pudo enviar', 'err');
+      }
+    })
+    .withFailureHandler(function(e) { st.textContent = ''; toast('Error: ' + (e && (e.message || e)), 'err'); })
+    .RS_crearSolicitud({ token: _sesionToken, reseller: resellerActual, asunto: asunto, detalle: detalle });
+}
+
+function _solToggleMias() {
+  _solMiasAbierto = !_solMiasAbierto;
+  var body = document.getElementById('sol-mias-body');
+  var ico  = document.getElementById('sol-mias-toggle-ico');
+  body.style.display = _solMiasAbierto ? 'block' : 'none';
+  ico.innerHTML = '<i class="fa fa-chevron-' + (_solMiasAbierto ? 'up' : 'down') + '"></i>';
+  if (_solMiasAbierto && !_solMiasCargado) _solCargarMias();
+}
+
+function _solCargarMias() {
+  var body = document.getElementById('sol-mias-body');
+  body.innerHTML = '<div style="text-align:center;padding:14px;color:var(--tx-d);font-size:12px"><i class="fa fa-spinner fa-spin"></i> Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      _solMiasCargado = true;
+      _solRenderMias((r && r.ok) ? (r.items || []) : []);
+    })
+    .withFailureHandler(function() {
+      body.innerHTML = '<div style="text-align:center;padding:14px;color:var(--red);font-size:12px">No se pudo cargar. Reintentá más tarde.</div>';
+    })
+    .RS_listarMisSolicitudes({ token: _sesionToken, reseller: resellerActual });
+}
+
+function _solRenderMias(items) {
+  var body = document.getElementById('sol-mias-body');
+  if (!items.length) {
+    body.innerHTML = '<div style="text-align:center;padding:14px;color:var(--tx-d);font-size:12px">Todavía no mandaste ninguna solicitud.</div>';
+    return;
+  }
+  body.innerHTML = items.map(function(it) {
+    var esResuelto = it.estado === 'Resuelto';
+    var badge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;white-space:nowrap;background:' +
+      (esResuelto ? 'rgba(26,158,74,.1);color:var(--green)' : 'rgba(212,137,10,.12);color:var(--yellow)') + '">' +
+      (esResuelto ? 'Resuelto' : 'Pendiente') + '</span>';
+    return '<div style="border:1px solid var(--brd);border-radius:var(--rm);padding:10px 12px;margin-bottom:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+        '<div style="min-width:0">' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--tx)">' + _escHtml(it.asunto) + '</div>' +
+          '<div style="font-size:10px;color:var(--tx-d);margin-top:2px">' + _escHtml(it.fecha) + '</div>' +
+        '</div>' + badge +
+      '</div>' +
+      (it.detalle ? '<div style="font-size:11.5px;color:var(--tx-m);margin-top:6px;line-height:1.5">' + _escHtml(it.detalle) + '</div>' : '') +
+      (it.respuesta ? '<div style="font-size:11.5px;color:var(--tx);margin-top:8px;padding:8px 10px;background:rgba(26,158,74,.06);border-left:2px solid var(--green);border-radius:0 var(--r) var(--r) 0"><strong>BIDCOM respondió:</strong> ' + _escHtml(it.respuesta) + '</div>' : '') +
+    '</div>';
+  }).join('');
 }
 
 // ── Videos de armado y desarmado (links directos que comparte DJI, 2 por modelo) ──
