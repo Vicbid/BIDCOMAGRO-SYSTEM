@@ -1,4 +1,4 @@
-// @version 3.29
+// @version 3.31
 // ============================================================
 //  WOS — Router HTTP (doGet) + utilidades de sesión/log
 //  El resto de la lógica se reorganizó (2026-07-30, sin cambios
@@ -14,7 +14,7 @@
 // Despacho_Index.html — el cliente la trae embebida al cargar la página y la vuelve a consultar
 // cada tanto (WOS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta. Ver
 // _wosChequearVersionNueva en Despacho_Index.html.
-var WOS_VERSION = '3.53';
+var WOS_VERSION = '3.71';
 
 function WOS_obtenerVersionActual() { return WOS_VERSION; }
 
