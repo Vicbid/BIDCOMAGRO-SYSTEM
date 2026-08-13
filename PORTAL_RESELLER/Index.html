@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.01 -->
+<!-- @version 2.02 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -531,6 +531,48 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       </div>
     </div>
     <div id="cm-modal-body" style="padding:12px 18px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+<div id="rr-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerrarRepuestosRecomendados()">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:480px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:#e67e22;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-cog" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">Repuestos recomendados DJI</div>
+        <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px;letter-spacing:.03em">Lista de compra recomendada por DJI · por modelo</div>
+      </div>
+      <button onclick="cerrarRepuestosRecomendados()" style="background:rgba(255,255,255,.15);border:none;width:26px;height:26px;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div style="padding:10px 18px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <div style="position:relative">
+        <i class="fa fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx-m);font-size:12px"></i>
+        <input id="rr-search" type="text" placeholder="Buscar modelo…" oninput="_rrFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:9px 12px 9px 30px;border:1px solid var(--brd);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surf);color:var(--tx)">
+      </div>
+    </div>
+    <div id="rr-modal-body" style="padding:12px 18px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+<div id="mn-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)cerrarMantenimientoDji()">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:480px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:#7c4dff;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-screwdriver-wrench" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">Mantenimiento sugerido DJI</div>
+        <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px;letter-spacing:.03em">Plan de mantenimiento sugerido por DJI · por modelo</div>
+      </div>
+      <button onclick="cerrarMantenimientoDji()" style="background:rgba(255,255,255,.15);border:none;width:26px;height:26px;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div style="padding:10px 18px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <div style="position:relative">
+        <i class="fa fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx-m);font-size:12px"></i>
+        <input id="mn-search" type="text" placeholder="Buscar modelo…" oninput="_mnFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:9px 12px 9px 30px;border:1px solid var(--brd);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surf);color:var(--tx)">
+      </div>
+    </div>
+    <div id="mn-modal-body" style="padding:12px 18px;overflow-y:auto;flex:1"></div>
   </div>
 </div>
 <style>
@@ -1565,6 +1607,14 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <a href="javascript:void(0)" onclick="abrirCursosMaterial()" class="recurso-card" title="Material de cursos ya dictados a resellers">
               <div class="recurso-icon" style="background:rgba(26,158,74,.1)"><i class="fa fa-book-reader" style="color:var(--green)"></i></div>
               <div class="recurso-name">Material de cursos</div>
+            </a>
+            <a href="javascript:void(0)" onclick="abrirRepuestosRecomendados()" class="recurso-card" title="Repuestos recomendados por DJI para compra, por modelo">
+              <div class="recurso-icon" style="background:rgba(230,126,34,.1)"><i class="fa fa-cog" style="color:#e67e22"></i></div>
+              <div class="recurso-name">Repuestos recomendados DJI</div>
+            </a>
+            <a href="javascript:void(0)" onclick="abrirMantenimientoDji()" class="recurso-card" title="Mantenimiento sugerido por DJI, por modelo">
+              <div class="recurso-icon" style="background:rgba(124,77,255,.1)"><i class="fa fa-screwdriver-wrench" style="color:#7c4dff"></i></div>
+              <div class="recurso-name">Mantenimiento sugerido DJI</div>
             </a>
             <a href="https://usyhrzxlgz5.jp.larksuite.com/app/QkBAbcZA4arDbVsytnXjjfNapxh?pageId=pgee3FO7lbtzWOmh" target="_blank" class="recurso-card" title="Base de conocimiento y recursos en Lark Suite">
               <div class="recurso-icon" style="background:rgba(100,100,255,.1)"><i class="fa fa-book-open" style="color:#6464ff"></i></div>
@@ -3463,6 +3513,10 @@ function _renderVideosModelos(items) {
 // armado/desarmado un curso no tiene "piezas"). Config desde el LAUNCHER, solo lectura acá.
 var _cmData  = null;
 var _cmQuery = '';
+var _rrData  = null;
+var _rrQuery = '';
+var _mnData  = null;
+var _mnQuery = '';
 function abrirCursosMaterial() {
   document.getElementById('cm-modal').style.display = 'flex';
   var buscador = document.getElementById('cm-search');
@@ -3526,6 +3580,70 @@ function _cmFiltrar(q) {
   _cmQuery = String(q || '').trim().toLowerCase();
   _cmDibujar();
 }
+
+// ── Repuestos recomendados DJI / Mantenimiento sugerido DJI ──────────────
+// Mismo patrón que Material de cursos (arriba), pero más simple: 1 link por
+// modelo, sin categoría/fecha/descripción — decisión confirmada con el
+// usuario (sin la complejidad de accesorios compartidos entre varios
+// modelos que sí tiene Videos armado/desarmado).
+function _dmCardHtml(it) {
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--brd);border-radius:var(--rm);padding:11px 13px;margin-bottom:8px">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--tx);min-width:0">' + _catEsc(it.modelo) + '</div>' +
+    '<a href="' + _catEsc(it.link) + '" target="_blank" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surf);border:1px solid var(--brd);color:var(--tx);border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap"><i class="fa fa-arrow-up-right-from-square" style="font-size:9px"></i>Ver</a>' +
+  '</div>';
+}
+
+function abrirRepuestosRecomendados() {
+  document.getElementById('rr-modal').style.display = 'flex';
+  var buscador = document.getElementById('rr-search');
+  if (buscador) buscador.value = '';
+  _rrQuery = '';
+  if (_rrData) { _rrDibujar(); return; }
+  var body = document.getElementById('rr-modal-body');
+  body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px"><i class="fa fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:8px"></i>Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) { _rrData = (r && r.ok) ? (r.items || []) : []; _rrDibujar(); })
+    .withFailureHandler(function() { body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--red);font-size:13px">No se pudo cargar. Reintentá más tarde.</div>'; })
+    .obtenerRepuestosRecomendadosPortal();
+}
+function cerrarRepuestosRecomendados() { document.getElementById('rr-modal').style.display = 'none'; }
+function _rrDibujar() {
+  var body = document.getElementById('rr-modal-body');
+  if (!_rrData || !_rrData.length) {
+    body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px">Todavía no hay repuestos recomendados cargados.<br>Volvé a intentar más adelante.</div>';
+    return;
+  }
+  var visibles = !_rrQuery ? _rrData : _rrData.filter(function(it) { return _cmMatch(it.modelo, _rrQuery); });
+  if (!visibles.length) { body.innerHTML = '<div style="text-align:center;padding:30px 10px;color:var(--tx-m);font-size:13px">No encontramos nada con "' + _catEsc(_rrQuery) + '".</div>'; return; }
+  body.innerHTML = visibles.map(_dmCardHtml).join('');
+}
+function _rrFiltrar(q) { _rrQuery = String(q || '').trim().toLowerCase(); _rrDibujar(); }
+
+function abrirMantenimientoDji() {
+  document.getElementById('mn-modal').style.display = 'flex';
+  var buscador = document.getElementById('mn-search');
+  if (buscador) buscador.value = '';
+  _mnQuery = '';
+  if (_mnData) { _mnDibujar(); return; }
+  var body = document.getElementById('mn-modal-body');
+  body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px"><i class="fa fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:8px"></i>Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(function(r) { _mnData = (r && r.ok) ? (r.items || []) : []; _mnDibujar(); })
+    .withFailureHandler(function() { body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--red);font-size:13px">No se pudo cargar. Reintentá más tarde.</div>'; })
+    .obtenerMantenimientoDjiPortal();
+}
+function cerrarMantenimientoDji() { document.getElementById('mn-modal').style.display = 'none'; }
+function _mnDibujar() {
+  var body = document.getElementById('mn-modal-body');
+  if (!_mnData || !_mnData.length) {
+    body.innerHTML = '<div style="text-align:center;padding:34px 10px;color:var(--tx-m);font-size:13px">Todavía no hay planes de mantenimiento cargados.<br>Volvé a intentar más adelante.</div>';
+    return;
+  }
+  var visibles = !_mnQuery ? _mnData : _mnData.filter(function(it) { return _cmMatch(it.modelo, _mnQuery); });
+  if (!visibles.length) { body.innerHTML = '<div style="text-align:center;padding:30px 10px;color:var(--tx-m);font-size:13px">No encontramos nada con "' + _catEsc(_mnQuery) + '".</div>'; return; }
+  body.innerHTML = visibles.map(_dmCardHtml).join('');
+}
+function _mnFiltrar(q) { _mnQuery = String(q || '').trim().toLowerCase(); _mnDibujar(); }
 
 function actualizarPortal() {
   if (!resellerActual) return;

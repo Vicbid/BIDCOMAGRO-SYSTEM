@@ -1,4 +1,4 @@
-// @version 1.13
+// @version 1.14
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1173,6 +1173,96 @@ function LAUNCH_eliminarPlantillaCotizador(nombre) {
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_eliminarPlantillaCotizador: ' + e); return { ok: false, error: e.toString() }; }
 }
+
+
+// ── Repuestos recomendados DJI / Mantenimiento sugerido DJI (Portal Reseller) ──
+// Pedido del usuario: 2 listas más en "Documentación técnica", cada una "1 link por
+// modelo" (sin la complejidad de accesorios compartidos entre modelos que sí tiene
+// Videos armado/desarmado — decisión confirmada). Mismo modelo de datos plano que
+// CURSOS_MATERIAL, pero con Modelo como clave en vez de Título. Hojas independientes
+// (no comparten pestaña) porque conceptualmente son documentos distintos — mismo
+// criterio que Videos/Cursos siendo pestañas separadas.
+//   REPUESTOS_RECOMENDADOS_DJI / MANTENIMIENTO_DJI: A=Modelo B=Link C=Activo (vacío/SI visible)
+var _LAUNCH_REPUESTOS_REC_TAB = 'REPUESTOS_RECOMENDADOS_DJI';
+var _LAUNCH_MANTENIMIENTO_TAB = 'MANTENIMIENTO_DJI';
+
+function _launchDocModeloHoja(ss, nombreTab) {
+  var hoja = ss.getSheetByName(nombreTab);
+  if (!hoja) {
+    hoja = ss.insertSheet(nombreTab);
+    hoja.appendRow(['Modelo', 'Link', 'Activo']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 3).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(2, 360);
+  }
+  return hoja;
+}
+function _launchDocModeloGet(nombreTab) {
+  try {
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchDocModeloHoja(ss, nombreTab);
+    var d    = hoja.getDataRange().getValues();
+    var out  = [];
+    for (var i = 1; i < d.length; i++) {
+      var modelo = String(d[i][0] || '').trim();
+      if (!modelo) continue;
+      out.push({ modelo: modelo, link: String(d[i][1] || '').trim(), activo: _launchEvActivo(d[i][2]) });
+    }
+    out.sort(function(a, b) { return a.modelo.localeCompare(b.modelo); });
+    return { ok: true, items: out };
+  } catch(e) { Logger.log('_launchDocModeloGet(' + nombreTab + '): ' + e); return { ok: false, error: e.toString(), items: [] }; }
+}
+// data = { modelo, link, activo, modeloOriginal } — mismo criterio de upsert por clave que
+// LAUNCH_saveCursoMaterial (acá la clave es el Modelo, renombrable vía modeloOriginal).
+function _launchDocModeloSave(nombreTab, data) {
+  try {
+    data = data || {};
+    var modelo = String(data.modelo || '').trim();
+    if (!modelo) return { ok: false, error: 'Falta el modelo.' };
+    var link = String(data.link || '').trim();
+    if (!link) return { ok: false, error: 'Cargá el link.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchDocModeloHoja(ss, nombreTab);
+    var fila = [modelo, link, data.activo === false ? 'NO' : 'SI'];
+    var buscar = String(data.modeloOriginal || modelo).trim().toLowerCase();
+    var d = hoja.getDataRange().getValues();
+    var filaIdx = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() !== buscar) continue;
+      filaIdx = i + 1; break;
+    }
+    if (filaIdx > 0) hoja.getRange(filaIdx, 1, 1, 3).setValues([fila]);
+    else             hoja.appendRow(fila);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('_launchDocModeloSave(' + nombreTab + '): ' + e); return { ok: false, error: e.toString() }; }
+}
+function _launchDocModeloEliminar(nombreTab, modelo) {
+  try {
+    modelo = String(modelo || '').trim();
+    if (!modelo) return { ok: false, error: 'Falta el modelo.' };
+    var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
+    var hoja = _launchDocModeloHoja(ss, nombreTab);
+    var d = hoja.getDataRange().getValues();
+    var modeloLower = modelo.toLowerCase();
+    var fila = -1;
+    for (var i = 1; i < d.length; i++) {
+      if (String(d[i][0] || '').trim().toLowerCase() === modeloLower) { fila = i + 1; break; }
+    }
+    if (fila < 0) return { ok: false, error: 'No se encontró ese modelo.' };
+    hoja.deleteRow(fila);
+    SpreadsheetApp.flush();
+    return { ok: true };
+  } catch(e) { Logger.log('_launchDocModeloEliminar(' + nombreTab + '): ' + e); return { ok: false, error: e.toString() }; }
+}
+
+function LAUNCH_getRepuestosRecomendados()        { return _launchDocModeloGet(_LAUNCH_REPUESTOS_REC_TAB); }
+function LAUNCH_saveRepuestoRecomendado(data)      { return _launchDocModeloSave(_LAUNCH_REPUESTOS_REC_TAB, data); }
+function LAUNCH_eliminarRepuestoRecomendado(modelo){ return _launchDocModeloEliminar(_LAUNCH_REPUESTOS_REC_TAB, modelo); }
+
+function LAUNCH_getMantenimientoDji()        { return _launchDocModeloGet(_LAUNCH_MANTENIMIENTO_TAB); }
+function LAUNCH_saveMantenimientoDji(data)   { return _launchDocModeloSave(_LAUNCH_MANTENIMIENTO_TAB, data); }
+function LAUNCH_eliminarMantenimientoDji(modelo) { return _launchDocModeloEliminar(_LAUNCH_MANTENIMIENTO_TAB, modelo); }
 
 
 // ── Config "Venta a prospectos (RTV)" — hoja Clave/Valor en el master, leída directo ──
