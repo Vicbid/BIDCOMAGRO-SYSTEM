@@ -1265,7 +1265,7 @@ function LAUNCH_saveMantenimientoDji(data)   { return _launchDocModeloSave(_LAUN
 function LAUNCH_eliminarMantenimientoDji(modelo) { return _launchDocModeloEliminar(_LAUNCH_MANTENIMIENTO_TAB, modelo); }
 
 
-// ── "Pedir algo a BIDCOM" — solicitudes libres que mandan los resellers desde "Contacto y
+// ── "Pedir algo a BidcomAgro" — solicitudes libres que mandan los resellers desde "Contacto y
 // soporte" del Portal (RS_Solicitudes.js). No es un catálogo para editar (nombre+link) como
 // el resto de este archivo — es una cola de pedidos para marcar resueltos, así que no tiene
 // un "guardar" genérico tipo _launchDocModeloSave: cada card de la lista responde directo.

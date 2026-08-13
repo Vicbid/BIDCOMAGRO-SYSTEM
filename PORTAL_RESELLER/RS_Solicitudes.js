@@ -1,6 +1,6 @@
 // @version 1.0
 // ══════════════════════════════════════════════════════════════
-//  "PEDIR ALGO A BIDCOM" — solicitudes libres de resellers, sin OT/repuesto/
+//  "Pedir algo a BidcomAgro" — solicitudes libres de resellers, sin OT/repuesto/
 //  cotización de por medio (para eso ya está "Mensajes", atado a una OT puntual).
 //  El reseller manda Asunto (obligatorio) + Detalle (opcional) desde "Contacto y
 //  soporte"; BIDCOM recibe un mail (RS_Email.js:_notificarNuevaSolicitud) y
