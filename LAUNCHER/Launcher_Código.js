@@ -1,4 +1,4 @@
-// @version 1.17
+// @version 1.18
 var MASTER_SS_ID = '1YeQl4vTQ5pTFahZ8Z9Jab7rP42xFD4_hEvpW_JDXjRc';
 var NOTAS_SS_ID  = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var CARMEN_SS_ID = '1-BH5m-LXFYhBZxqpSFVhIz5jwzFgJmLWH8Qvkh4PSCI'; // stock en vivo (tab 'STOCK'), para LAUNCH_recuperarPedidos
@@ -1187,26 +1187,32 @@ function _launchKitsPedidosHoja(ss) {
   var hoja = ss.getSheetByName(_LAUNCH_KITS_PEDIDOS_TAB);
   if (!hoja) {
     hoja = ss.insertSheet(_LAUNCH_KITS_PEDIDOS_TAB);
-    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Foto', 'Fecha']);
     hoja.setFrozenRows(1);
-    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.getRange(1, 1, 1, 7).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
     hoja.setColumnWidth(4, 260);
+    hoja.setColumnWidth(6, 260);
   }
   return hoja;
 }
 
+// Foto: link de Drive con una imagen del kit COMPLETO (pedido del usuario: "quiero que
+// puedan ver el detalle y una foto que incluye todo") — se repite en todas las filas de un
+// mismo Equipo+Nivel, se toma la primera no vacía que aparezca.
 function LAUNCH_getKitsPedidos() {
   try {
     var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
     var hoja = _launchKitsPedidosHoja(ss);
     var d    = hoja.getDataRange().getValues();
-    var mapa = {}; // "equipo|nivel" → { equipo, nivel, items }
+    var mapa = {}; // "equipo|nivel" → { equipo, nivel, foto, items }
     for (var i = 1; i < d.length; i++) {
       var equipo = String(d[i][0] || '').trim();
       var nivel  = String(d[i][1] || '').trim();
       if (!equipo || !nivel) continue;
       var key = equipo + '|' + nivel;
-      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, items: [] };
+      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, foto: '', items: [] };
+      var fotoFila = String(d[i][5] || '').trim();
+      if (fotoFila && !mapa[key].foto) mapa[key].foto = fotoFila;
       var sku  = String(d[i][2] || '').trim();
       var desc = String(d[i][3] || '').trim();
       if (!sku && !desc) continue;
@@ -1231,6 +1237,7 @@ function LAUNCH_guardarKitPedido(data) {
     if (nivel !== 'Básico' && nivel !== 'Full') return { ok: false, error: 'El nivel debe ser Básico o Full.' };
     var items = data.items || [];
     if (!items.length) return { ok: false, error: 'Agregá al menos un repuesto.' };
+    var foto = String(data.foto || '').trim();
 
     var ss   = SpreadsheetApp.openById(MASTER_SS_ID);
     var hoja = _launchKitsPedidosHoja(ss);
@@ -1254,10 +1261,10 @@ function LAUNCH_guardarKitPedido(data) {
       var descIt = String(it.descripcion || '').trim();
       if (!sku && !descIt) continue;
       var cant = Math.floor(Number(it.cantidad)) || 1;
-      filas.push([equipo, nivel, sku, descIt, cant, ahora]);
+      filas.push([equipo, nivel, sku, descIt, cant, foto, ahora]);
     }
     if (!filas.length) return { ok: false, error: 'Agregá al menos un repuesto.' };
-    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 6).setValues(filas);
+    hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, 7).setValues(filas);
     SpreadsheetApp.flush();
     return { ok: true };
   } catch(e) { Logger.log('LAUNCH_guardarKitPedido: ' + e); return { ok: false, error: e.toString() }; }

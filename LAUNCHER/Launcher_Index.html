@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.20 -->
+<!-- @version 1.21 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1128,6 +1128,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
             <button type="button" id="kp-btn-nivel-full" onclick="_kpSetNivel('Full')" style="flex:1;padding:9px 8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #e0e3e8;background:#fff;color:#5e6778">Full</button>
           </div>
         </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Foto del kit completo (link de Drive)</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input id="kp-foto" type="text" placeholder="https://drive.google.com/file/d/..." oninput="_kpActualizarFotoPreview()" style="flex:1;padding:9px 12px;border:1px solid #e0e3e8;border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:#1a1f2e">
+          <img id="kp-foto-preview" style="display:none;width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid #e0e3e8;flex-shrink:0">
+        </div>
+        <div style="font-size:10px;color:#9ba5b4;margin-top:4px">Se le muestra al reseller antes de cargar el kit al carrito, junto con el detalle de repuestos.</div>
       </div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#5e6778;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px"><i class="fa fa-cog" style="color:var(--blue);margin-right:4px"></i>Repuestos</label>
@@ -2860,11 +2868,30 @@ function _kpSetItemField(id, field, val) {
     break;
   }
 }
+// Convierte cualquier link de Drive al formato directo usable en <img> — versión cliente
+// (Launcher es un proyecto de Apps Script separado de Portal Reseller, sin acceso a
+// _driveUrlToImg de RS_Repuestos.js) solo para la vista previa mientras se edita acá.
+function _kpFotoPreviewUrl(url) {
+  if (!url) return '';
+  var m = url.match(/\/file\/d\/([A-Za-z0-9_-]+)/);
+  if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  m = url.match(/[?&]id=([A-Za-z0-9_-]+)/);
+  if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  return url;
+}
+function _kpActualizarFotoPreview() {
+  var url = document.getElementById('kp-foto').value.trim();
+  var img = document.getElementById('kp-foto-preview');
+  if (url) { img.src = _kpFotoPreviewUrl(url); img.style.display = 'block'; }
+  else { img.style.display = 'none'; img.removeAttribute('src'); }
+}
 function kpNuevo() {
   var sel = document.getElementById('kp-sel'); if (sel) sel.value = '__new';
   document.getElementById('kp-equipo-original').value = '';
   document.getElementById('kp-nivel-original').value = '';
   document.getElementById('kp-equipo').value = '';
+  document.getElementById('kp-foto').value = '';
+  _kpActualizarFotoPreview();
   _kpSetNivel('Básico');
   _kpItemRows = [];
   _kpRenderItemRows();
@@ -2879,6 +2906,8 @@ function kpCargarKit() {
   document.getElementById('kp-equipo-original').value = k.equipo;
   document.getElementById('kp-nivel-original').value = k.nivel;
   document.getElementById('kp-equipo').value = k.equipo;
+  document.getElementById('kp-foto').value = k.foto || '';
+  _kpActualizarFotoPreview();
   _kpSetNivel(k.nivel);
   _kpItemRows = k.items.map(function(it) { return { id: ++_kpItemRowSeq, sku: it.sku, cantidad: it.cantidad || 1 }; });
   _kpRenderItemRows();
@@ -2893,6 +2922,7 @@ function kpGuardar() {
   st.textContent = 'Guardando…'; st.style.color = '#9ba5b4';
   var data = {
     equipo: equipo, nivel: _kpNivel,
+    foto: document.getElementById('kp-foto').value.trim(),
     equipoOriginal: document.getElementById('kp-equipo-original').value.trim(),
     nivelOriginal:  document.getElementById('kp-nivel-original').value.trim(),
     items: items

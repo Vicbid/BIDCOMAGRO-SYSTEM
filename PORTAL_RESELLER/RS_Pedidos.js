@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.21
+// @version 2.22
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -2117,17 +2117,22 @@ function _enviarEmailPedidoPortal(numero, reseller, emailReseller, items, obs, t
 // RS_Cotizador.js) — pero acá NO hay variante por reseller: son generales, las arma
 // únicamente BIDCOM desde el LAUNCHER, pensadas para el reseller que "no sabe por dónde
 // arrancar" y solo necesita elegir su equipo y Básico/Full. Sin JSON, sin cache de precio:
-// _pedCargarKit (Index.html) re-deriva foto/precio/descripción actuales desde _pedIndice al
-// cargar, igual que ya hace _cotCargarPlantilla con las Plantillas del Cotizador.
+// _pedVerKit/_pedConfirmarCargarKit (Index.html) re-derivan foto/precio/descripción de cada
+// ítem desde _pedIndice al cargar, igual que ya hace _cotCargarPlantilla con las Plantillas
+// del Cotizador. La columna Foto es aparte: es la foto DEL KIT completo (la carga BIDCOM,
+// "que incluye todo" — pedido del usuario), no la de cada repuesto individual — se repite en
+// todas las filas de un mismo Equipo+Nivel (mismo valor), simple de leer/escribir sin
+// necesitar una hoja "cabecera" aparte.
 function _asegurarHojaKitsPedidos() {
   var ss = getDb();
   var hoja = ss.getSheetByName(SCHEMA.SHEETS.KITS_PEDIDOS);
   if (!hoja) {
     hoja = ss.insertSheet(SCHEMA.SHEETS.KITS_PEDIDOS);
-    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Fecha']);
+    hoja.appendRow(['Equipo', 'Nivel', 'SKU_Codigo', 'Descripción', 'Cantidad', 'Foto', 'Fecha']);
     hoja.setFrozenRows(1);
-    hoja.getRange(1, 1, 1, 6).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.getRange(1, 1, 1, 7).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
     hoja.setColumnWidth(4, 260);
+    hoja.setColumnWidth(6, 260);
   }
   return hoja;
 }
@@ -2138,13 +2143,15 @@ function RS_listarKitsPedidos() {
   try {
     _asegurarHojaKitsPedidos();
     var d = getSheetValues(SCHEMA.SHEETS.KITS_PEDIDOS);
-    var mapa = {}; // "equipo|nivel" → { equipo, nivel, items }
+    var mapa = {}; // "equipo|nivel" → { equipo, nivel, foto, items }
     for (var i = 1; i < d.length; i++) {
       var equipo = String(d[i][0] || '').trim();
       var nivel  = String(d[i][1] || '').trim();
       if (!equipo || !nivel) continue;
       var key = equipo + '|' + nivel;
-      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, items: [] };
+      if (!mapa[key]) mapa[key] = { equipo: equipo, nivel: nivel, foto: '', items: [] };
+      var fotoFila = String(d[i][5] || '').trim();
+      if (fotoFila && !mapa[key].foto) mapa[key].foto = _driveUrlToImg(fotoFila);
       var sku = String(d[i][2] || '').trim();
       var desc = String(d[i][3] || '').trim();
       if (!sku && !desc) continue;

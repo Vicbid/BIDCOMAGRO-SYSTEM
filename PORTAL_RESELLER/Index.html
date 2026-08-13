@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.09 -->
+<!-- @version 2.10 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -554,6 +554,33 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <button onclick="_encPosponer()" style="background:none;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Recordar después</button>
       <button id="enc-btn-enviar" onclick="_encEnviar()" class="btn-main" disabled style="width:auto;padding:9px 24px;font-size:13px;opacity:.5;cursor:not-allowed">
         <i class="fa fa-check"></i>Enviar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE DE KIT DE PEDIDO (Básico/Full) — foto + lista de repuestos antes de
+     cargar al carrito (ver _pedVerKit / _pedConfirmarCargarKit en el JS de abajo) -->
+<div id="kit-modal" style="display:none;position:fixed;inset:0;z-index:1060;background:rgba(26,31,46,.55);align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_pedCerrarKitModal()">
+  <div style="background:var(--panel);border-radius:var(--rl);max-width:480px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--brd)">
+    <div style="background:var(--blue);padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:var(--rm);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fa fa-box-open" style="color:#fff;font-size:14px"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div id="kit-modal-titulo" style="color:#fff;font-weight:700;font-size:14px;line-height:1.2">Kit</div>
+        <div style="color:rgba(255,255,255,.75);font-size:10px;margin-top:2px">Revisá el contenido antes de cargarlo al carrito</div>
+      </div>
+      <button onclick="_pedCerrarKitModal()" style="background:none;border:none;font-size:18px;color:rgba(255,255,255,.8);cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:16px 18px;overflow-y:auto;flex:1">
+      <img id="kit-modal-foto" src="" style="display:none;width:100%;border-radius:var(--rm);margin-bottom:14px;object-fit:cover;max-height:220px">
+      <div id="kit-modal-items"></div>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--brd);background:var(--surf);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <button onclick="_pedCerrarKitModal()" style="background:none;border:none;color:var(--tx-d);font-size:12px;cursor:pointer">Volver</button>
+      <button onclick="_pedConfirmarCargarKit()" class="btn-main" style="width:auto;padding:9px 22px;font-size:13px">
+        <i class="fa fa-cart-plus"></i> Cargar al carrito
       </button>
     </div>
   </div>
@@ -1943,16 +1970,16 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <!-- MODO KITS (Básico/Full predefinidos por equipo) -->
           <div id="ped-panel-kits" style="display:none">
             <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
-              <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Elegí tu equipo y cargá un kit predefinido de una sola vez.
+              <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Elegí tu equipo, mirá el contenido del kit (con foto y detalle) y cargalo al carrito con un clic.
             </div>
             <select id="ped-kits-equipo" class="form-control" style="margin-bottom:10px" onchange="_pedRenderBotonesKits()">
               <option value="">— Elegí tu equipo —</option>
             </select>
             <div style="display:flex;gap:8px">
-              <button type="button" id="ped-kits-btn-basico" class="btn-kit-nivel" disabled onclick="_pedCargarKit('Básico')">
+              <button type="button" id="ped-kits-btn-basico" class="btn-kit-nivel" disabled onclick="_pedVerKit('Básico')">
                 <i class="fa fa-box"></i> Básico
               </button>
-              <button type="button" id="ped-kits-btn-full" class="btn-kit-nivel" disabled onclick="_pedCargarKit('Full')">
+              <button type="button" id="ped-kits-btn-full" class="btn-kit-nivel" disabled onclick="_pedVerKit('Full')">
                 <i class="fa fa-boxes-stacked"></i> Full
               </button>
             </div>
@@ -7025,14 +7052,18 @@ function _pedRenderBotonesKits() {
 // Carga TODOS los ítems del kit al carrito de una vez, reemplazando lo que había — mismo
 // patrón que _cotCargarPlantilla: precio/descripción/foto se re-derivan de _pedIndice (nunca
 // un precio congelado), con el mismo diferido si el índice todavía está cargando.
-function _pedCargarKit(nivel) {
+// Kit que se está mostrando en #kit-modal (pedido del usuario: "quiero que puedan ver el
+// detalle y una foto que carga [BIDCOM] que incluye todo, antes de seleccionar Full o Básico").
+var _pedKitModalActual = null; // {equipo, nivel}
+
+function _pedVerKit(nivel) {
   var equipo = document.getElementById('ped-kits-equipo').value;
   if (!equipo) { toast('Elegí tu equipo primero', 'err'); return; }
 
   if (_pedIndice === null) {
     _pedKitPendiente = true;
     _pedKitPendienteNivel = nivel;
-    toast('Preparando catálogo… el kit se carga en un momento', 'inf');
+    toast('Preparando catálogo… probá de nuevo en un momento', 'inf');
     return;
   }
 
@@ -7041,6 +7072,55 @@ function _pedCargarKit(nivel) {
     if (_pedKitsPedidos[i].equipo === equipo && _pedKitsPedidos[i].nivel === nivel) { kit = _pedKitsPedidos[i]; break; }
   }
   if (!kit || !kit.items.length) { toast('No hay kit ' + nivel + ' cargado para ese equipo', 'err'); return; }
+
+  _pedKitModalActual = { equipo: equipo, nivel: nivel };
+  document.getElementById('kit-modal-titulo').textContent = equipo + ' — Kit ' + nivel;
+
+  var fotoEl = document.getElementById('kit-modal-foto');
+  if (kit.foto) { fotoEl.src = kit.foto; fotoEl.style.display = 'block'; }
+  else { fotoEl.style.display = 'none'; fotoEl.removeAttribute('src'); }
+
+  var html = '';
+  for (var j = 0; j < kit.items.length; j++) {
+    var it = kit.items[j];
+    var desc = it.descripcion || it.sku, fotoIt = '';
+    if (it.sku && _pedIndice) {
+      var skuUp = String(it.sku).toUpperCase();
+      for (var r = 0; r < _pedIndice.length; r++) {
+        if ((_pedIndice[r][0] || '').toUpperCase() === skuUp) { desc = _pedIndice[r][1] || desc; fotoIt = _pedIndice[r][11] || ''; break; }
+      }
+    }
+    var thumb = fotoIt ? ('<img src="' + _escHtml(fotoIt) + '" loading="lazy">') : '<i class="fa fa-image"></i>';
+    html +=
+      '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--brd)">' +
+        '<div class="rep-thumb">' + thumb + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:11px;font-weight:700;color:var(--blue);font-family:monospace">' + _escHtml(it.sku || '—') + '</div>' +
+          '<div style="font-size:12px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _escHtml(desc) + '">' + _escHtml(desc) + '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:var(--tx-m);white-space:nowrap">x' + it.cantidad + '</div>' +
+      '</div>';
+  }
+  document.getElementById('kit-modal-items').innerHTML = html;
+  document.getElementById('kit-modal').style.display = 'flex';
+}
+
+function _pedCerrarKitModal() {
+  document.getElementById('kit-modal').style.display = 'none';
+  _pedKitModalActual = null;
+}
+
+// Carga TODOS los ítems del kit al carrito de una vez, reemplazando lo que había — precio/
+// descripción/foto se re-derivan de _pedIndice (nunca un precio congelado), mismo patrón que
+// _cotCargarPlantilla.
+function _pedConfirmarCargarKit() {
+  if (!_pedKitModalActual) return;
+  var equipo = _pedKitModalActual.equipo, nivel = _pedKitModalActual.nivel;
+  var kit = null;
+  for (var i = 0; i < _pedKitsPedidos.length; i++) {
+    if (_pedKitsPedidos[i].equipo === equipo && _pedKitsPedidos[i].nivel === nivel) { kit = _pedKitsPedidos[i]; break; }
+  }
+  if (!kit) { _pedCerrarKitModal(); return; }
 
   if (_pedCart.length && !confirm('Esto va a reemplazar el carrito que tenés armado. ¿Continuar?')) return;
 
@@ -7064,6 +7144,7 @@ function _pedCargarKit(nivel) {
   }
   _pedRenderCarrito();
   toast('Kit ' + nivel + ' de ' + equipo + ' cargado — ' + kit.items.length + ' ítem(s)', 'ok');
+  _pedCerrarKitModal();
 }
 
 // Mismo switcher que _pedSetMode, pero para el Cotizador (ver _catAgregarCot para el
@@ -7698,9 +7779,9 @@ function _pedCargarIndice() {
       // fotos/precios/descripciones actuales.
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
       // Idem si ya habían tocado "Básico"/"Full" en el modo Kits de Pedidos mientras el
-      // índice todavía cargaba (ver _pedCargarKit) — se reintenta solo, ahora con fotos/
+      // índice todavía cargaba (ver _pedVerKit) — se reintenta solo, ahora con fotos/
       // precios actuales.
-      if (_pedKitPendiente) { _pedKitPendiente = false; _pedCargarKit(_pedKitPendienteNivel); }
+      if (_pedKitPendiente) { _pedKitPendiente = false; _pedVerKit(_pedKitPendienteNivel); }
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
@@ -7711,7 +7792,7 @@ function _pedCargarIndice() {
       // el mismo fallback que ya tiene el resto del Cotizador) en vez de quedar stuck sin
       // reaccionar al click de "Cargar" de hace un rato.
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
-      if (_pedKitPendiente) { _pedKitPendiente = false; _pedCargarKit(_pedKitPendienteNivel); }
+      if (_pedKitPendiente) { _pedKitPendiente = false; _pedVerKit(_pedKitPendienteNivel); }
     })
     .obtenerIndiceRepuestosPortal(_sesionToken, _pedCtxReseller(), _pedDtoOverride());
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
