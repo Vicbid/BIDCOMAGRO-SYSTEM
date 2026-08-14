@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.13 -->
+<!-- @version 2.14 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -579,7 +579,10 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     </div>
     <div id="kit-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
     <div style="padding:12px 16px;border-top:1px solid var(--brd);background:var(--surf);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:10px">
-      <div style="font-size:12px;color:var(--tx-m)">Total del kit: <strong id="kit-modal-total" style="color:var(--tx)"></strong></div>
+      <div style="line-height:1.3">
+        <div id="kit-modal-total-pvp" style="display:none;font-size:9px;color:var(--tx-d);text-decoration:line-through"></div>
+        <div style="font-size:12px;color:var(--tx-m)">Total del kit: <strong id="kit-modal-total" style="color:var(--tx)"></strong></div>
+      </div>
       <button onclick="_pedAgregarKitDesdeModal()" class="btn-main" style="width:auto;padding:9px 22px;font-size:13px">
         <i class="fa fa-cart-plus"></i> Agregar este kit al carrito
       </button>
@@ -1972,11 +1975,15 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <div id="ped-panel-kits" style="display:none">
             <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
               <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Tocá un kit para ver la foto y el detalle con precios, o tildalo directo — podés elegir varios y agregarlos juntos al carrito.
+              <br><span style="font-size:10px;color:var(--tx-d)">La foto es solo de referencia del equipo completo: al carrito se agrega exactamente la lista de repuestos del kit, con sus cantidades y precios.</span>
             </div>
             <div id="ped-kits-lista"></div>
             <div id="ped-kits-sin-datos" style="display:none;font-size:11px;color:var(--tx-d);font-style:italic">Todavía no hay ningún kit cargado — probá más tarde.</div>
             <div id="ped-kits-footer" style="display:none;margin-top:4px;padding-top:12px;border-top:1px solid var(--brd);align-items:center;justify-content:space-between;gap:10px">
-              <div style="font-size:12px;color:var(--tx-m)">Total seleccionado: <strong id="ped-kits-total" style="color:var(--tx)">USD 0</strong></div>
+              <div style="line-height:1.3">
+                <div id="ped-kits-total-pvp" style="display:none;font-size:9px;color:var(--tx-d);text-decoration:line-through"></div>
+                <div style="font-size:12px;color:var(--tx-m)">Total seleccionado: <strong id="ped-kits-total" style="color:var(--tx)">USD 0</strong></div>
+              </div>
               <button type="button" id="ped-kits-btn-agregar" class="btn-main" disabled style="width:auto;padding:9px 20px;font-size:13px;opacity:.5;cursor:not-allowed" onclick="_pedAgregarKitsSeleccionados()">
                 <i class="fa fa-cart-plus"></i> Agregar al carrito
               </button>
@@ -7041,13 +7048,14 @@ function _pedFilaIndice(sku) {
 // Total (y si hay ítems sin precio cargado) de un kit — usado tanto en la fila compacta como
 // en el detalle del modal.
 function _pedTotalKit(kit) {
-  var total = 0, hayConsultar = false;
+  var total = 0, totalPvp = 0, hayConsultar = false;
   for (var j = 0; j < kit.items.length; j++) {
     var row = _pedFilaIndice(kit.items[j].sku);
     var precio = row ? (row[4] || 0) : 0;
-    if (precio > 0) total += precio * kit.items[j].cantidad; else hayConsultar = true;
+    if (precio > 0) { total += precio * kit.items[j].cantidad; totalPvp += _pedPvpDesde(precio) * kit.items[j].cantidad; }
+    else hayConsultar = true;
   }
-  return { total: total, hayConsultar: hayConsultar };
+  return { total: total, totalPvp: totalPvp, hayConsultar: hayConsultar };
 }
 
 // Filas compactas (1 por Equipo+Nivel) — el check tilda para agregado múltiple, tocar la fila
@@ -7065,6 +7073,7 @@ function _pedRenderListaKits() {
     var t = _pedTotalKit(kit);
     var fotoKit  = kit.foto ? ('<img src="' + _escHtml(kit.foto) + '" loading="lazy">') : '<i class="fa fa-box-open"></i>';
     var totalTxt = t.total > 0 ? (_fmtPedUsd(t.total) + (t.hayConsultar ? ' +' : '')) : 'A consultar';
+    var pvpTxt   = (_pedTieneDto() && t.totalPvp > 0) ? _fmtPedUsd(t.totalPvp) + (t.hayConsultar ? ' +' : '') : '';
     var checked  = _pedKitsSeleccionados[key] ? 'checked' : '';
     var keyEsc   = key.replace(/'/g, "\\'");
 
@@ -7075,7 +7084,10 @@ function _pedRenderListaKits() {
         '<div class="kit-row-nombre">' + _escHtml(kit.equipo) + ' — Kit ' + kit.nivel + '</div>' +
         '<div class="kit-row-sub">' + kit.items.length + ' ítem(s)' + (t.hayConsultar ? ' · algunos a consultar' : '') + '</div>' +
       '</div>' +
-      '<div class="kit-row-total">' + totalTxt + '</div>' +
+      '<div style="text-align:right;line-height:1.25">' +
+        (pvpTxt ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + pvpTxt + '</div>' : '') +
+        '<div class="kit-row-total">' + totalTxt + '</div>' +
+      '</div>' +
       '<i class="fa fa-chevron-right" style="color:var(--tx-d);font-size:11px"></i>' +
     '</div>';
   }).join('');
@@ -7089,15 +7101,22 @@ function _pedToggleKitSel(key, checked) {
 }
 
 function _pedRenderTotalKits() {
-  var total = 0, n = 0, hayConsultar = false;
+  var total = 0, totalPvp = 0, n = 0, hayConsultar = false;
   for (var i = 0; i < _pedKitsPedidos.length; i++) {
     var kit = _pedKitsPedidos[i];
     if (!_pedKitsSeleccionados[_pedKitKey(kit.equipo, kit.nivel)]) continue;
     n++;
     var t = _pedTotalKit(kit);
-    total += t.total; if (t.hayConsultar) hayConsultar = true;
+    total += t.total; totalPvp += t.totalPvp; if (t.hayConsultar) hayConsultar = true;
   }
   document.getElementById('ped-kits-total').textContent = _fmtPedUsd(total) + (hayConsultar ? ' +' : '');
+  var pvpEl = document.getElementById('ped-kits-total-pvp');
+  if (_pedTieneDto() && totalPvp > 0) {
+    pvpEl.textContent = 'PVP ' + _fmtPedUsd(totalPvp) + (hayConsultar ? ' +' : '');
+    pvpEl.style.display = 'block';
+  } else {
+    pvpEl.style.display = 'none';
+  }
   document.getElementById('ped-kits-footer').style.display = n ? 'flex' : 'none';
   var btn = document.getElementById('ped-kits-btn-agregar');
   btn.disabled = !n;
@@ -7126,6 +7145,7 @@ function _pedAbrirKitModal(key) {
         '<img class="cat-modal-img" src="' + _escHtml(kit.foto) + '" alt="' + _escHtml(kit.equipo) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);background:#fff" onerror="_catImgError(this)">' +
         '<button onclick="_catZoomAbrir(this.parentNode.querySelector(\'img\').src)" title="Ver a pantalla completa" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:13px;cursor:pointer;z-index:6"><i class="fa fa-expand"></i></button>' +
       '</div>' +
+      '<div style="margin-top:6px;padding:6px 9px;text-align:center;font-size:10px;color:var(--tx-d);background:var(--surf);border:1px dashed var(--brd);border-radius:var(--r);line-height:1.4"><i class="fa fa-circle-info"></i> Foto de referencia del equipo completo — al carrito se agrega exactamente lo que figura en la lista de repuestos, no la imagen.</div>' +
       '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen.</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-box-open" style="font-size:22px;display:block;margin-bottom:8px"></i>Sin foto cargada.</div>';
 
@@ -7136,8 +7156,12 @@ function _pedAbrirKitModal(key) {
     var foto = (row && row[11]) || '';
     var precio = row ? (row[4] || 0) : 0;
     var subtotal = precio * it.cantidad;
+    var subtotalPvp = _pedPvpDesde(precio) * it.cantidad;
     var precioHtml = precio > 0
-      ? '<span style="font-weight:700;color:var(--tx)">' + _fmtPedUsd(subtotal) + '</span>'
+      ? '<div style="line-height:1.2">' +
+          (_pedTieneDto() && subtotalPvp > 0 ? '<div style="font-size:9px;color:var(--tx-d);text-decoration:line-through;white-space:nowrap">PVP ' + _fmtPedUsd(subtotalPvp) + '</div>' : '') +
+          '<div style="font-weight:700;color:var(--tx);white-space:nowrap">' + _fmtPedUsd(subtotal) + '</div>' +
+        '</div>'
       : (_pedIndice === null
           ? '<span style="color:var(--tx-d);font-size:10px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</span>'
           : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
@@ -7167,6 +7191,13 @@ function _pedAbrirKitModal(key) {
 
   var t = _pedTotalKit(kit);
   document.getElementById('kit-modal-total').textContent = t.total > 0 ? (_fmtPedUsd(t.total) + (t.hayConsultar ? ' +' : '')) : 'A consultar';
+  var kitPvpEl = document.getElementById('kit-modal-total-pvp');
+  if (_pedTieneDto() && t.totalPvp > 0) {
+    kitPvpEl.textContent = 'PVP ' + _fmtPedUsd(t.totalPvp) + (t.hayConsultar ? ' +' : '');
+    kitPvpEl.style.display = 'block';
+  } else {
+    kitPvpEl.style.display = 'none';
+  }
 
   _catOverlayEnBody('kit-modal').style.display = 'block';
 }
