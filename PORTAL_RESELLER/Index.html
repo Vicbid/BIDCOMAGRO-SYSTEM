@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.18 -->
+<!-- @version 2.19 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2766,6 +2766,7 @@ var grupoActual    = null; // { nombre, resellers:[] } cuando el login es de gru
 // llamada sensible para que el servidor resuelva la identidad real, en vez de confiar en
 // resellerActual (una simple variable de JS que cualquiera puede editar desde la consola).
 var _sesionToken   = "";
+var _resellerAftersales = false; // col L (SCHEMA.RESELLERS.AFTERSALES) — para preseleccionar el flujo correcto en "¿Cómo cargo una garantía?"
 var _otsReseller   = [];  // cache de órdenes para el panel mensajes
 var _dashSubTab    = 'activas';
 var _pendingTab    = '';  // tab a mostrar después del login
@@ -3149,6 +3150,7 @@ window.onload = function() {
     grupoActual    = _sesionGuardada.esGrupo
       ? { nombre: _sesionGuardada.nombre, resellers: _sesionGuardada.resellers || [] }
       : null;
+    _resellerAftersales = !!_sesionGuardada.aftersales;
     var _badge = document.getElementById('header-reseller-badge');
     _badge.textContent   = _sesionGuardada.esGrupo ? ('★ ' + _sesionGuardada.nombre) : _sesionGuardada.nombre;
     _badge.style.display = 'inline';
@@ -3165,6 +3167,7 @@ window.onload = function() {
         if (res && res.ok && res.nombre) {
           resellerActual = res.nombre;
           _sesionToken   = res.token || '';
+          _resellerAftersales = !!res.aftersales;
           var badge = document.getElementById('header-reseller-badge');
           badge.textContent = res.nombre;
           badge.style.display = 'inline';
@@ -3539,12 +3542,14 @@ function login() {
         resellerActual = res.nombre;
         _sesionToken   = res.token || '';
         grupoActual    = res.esGrupo ? { nombre: res.nombre, resellers: res.resellers || [] } : null;
+        _resellerAftersales = !!res.aftersales;
         try {
           sessionStorage.setItem('portal_session', JSON.stringify({
-            nombre:    res.nombre,
-            esGrupo:   res.esGrupo   || false,
-            resellers: res.resellers || [],
-            token:     res.token     || ''
+            nombre:     res.nombre,
+            esGrupo:    res.esGrupo    || false,
+            resellers:  res.resellers  || [],
+            token:      res.token      || '',
+            aftersales: res.aftersales || false
           }));
         } catch(e) {}
         _bloquearSelectorReseller();
@@ -5528,13 +5533,43 @@ var _guiaGarantiaFlujos = {
       { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
         x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Recibís el N° de OT y el caso queda enviado al Hub.' }
     ]
+  },
+  aftersales: {
+    nombre: 'Aftersales propio',
+    desc: 'Gestión local con DJI',
+    icon: 'fa-cog',
+    intro: 'Usá este flujo si tenés autorización de Aftersales DJI y gestionás la garantía directamente con DJI desde su propio portal — acá pedís la reposición de los repuestos.',
+    pasos: [
+      { t: 'Gestioná el caso en el Portal de Aftersales DJI', tag: null,
+        x: 'Cargá y gestioná la garantía directamente en el <strong>Portal de Aftersales de DJI</strong>. El <strong>N° CAS / FWRC</strong> lo encontrás ahí, en el detalle del caso ya aprobado.' },
+      { t: 'Ingresá al portal', tag: null,
+        x: 'Entrá al Portal Aftersales con tu <strong>usuario y clave</strong>.' },
+      { t: 'Nueva Reparación → "Aftersales propio"', tag: 'Tipo de gestión', tagc: 'green',
+        x: 'En la pestaña <strong>Nueva Reparación</strong>, elegí el tipo de gestión <strong>"Aftersales propio"</strong>.' },
+      { t: 'Completá los datos del equipo', tag: null,
+        x: 'Seleccioná el <strong>Reseller</strong> y la <strong>garantía</strong> (IW / OOW), cargá el <strong>Modelo</strong> y el <strong>N° de Serie</strong>, y describí la falla.' },
+      { t: 'N° CAS / FWRC', tag: 'Obligatorio', tagc: 'green',
+        x: 'Pegá el <strong>N° CAS / FWRC</strong> del caso ya aprobado por DJI.' },
+      { t: 'Estado de la reparación', tag: 'Obligatorio', tagc: 'green',
+        x: 'Elegí <strong>"Ya reparé"</strong> (el repuesto es para reposición de tu stock) o <strong>"Pendiente"</strong> (necesitás que te enviemos el repuesto antes de poder reparar).' },
+      { t: 'Agregá los repuestos', tag: null,
+        x: 'Buscá cada <strong>SKU</strong> que usaste o vas a necesitar para esta reparación y agregalo, o cargá el Excel.' },
+      { t: 'Carpeta de Drive', tag: 'Opcional', tagc: null,
+        x: 'Si ya tenés fotos o documentación de la reparación, pegá acá el link de la carpeta — se adjunta al hilo de la OT.' },
+      { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
+        x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Recibís el N° de OT y el caso queda enviado al Hub.' }
+    ]
   }
 };
 
 function abrirGuiaGarantia(flujo) {
   var claves = Object.keys(_guiaGarantiaFlujos);
   if (!claves.length) return;
-  var actual = (flujo && _guiaGarantiaFlujos[flujo]) ? flujo : claves[0];
+  // Sin flujo explícito (botón "¿Cómo cargo una garantía?"): preseleccionar según si este
+  // reseller tramita Aftersales propio (col L de Resellers, ver _resellerAftersales) — así no
+  // tiene que buscar manualmente la tarjeta que le corresponde cada vez.
+  var default_ = (_resellerAftersales && _guiaGarantiaFlujos.aftersales) ? 'aftersales' : claves[0];
+  var actual = (flujo && _guiaGarantiaFlujos[flujo]) ? flujo : default_;
   var cfg = _guiaGarantiaFlujos[actual];
 
   // Selector de flujos (si hay más de uno)
