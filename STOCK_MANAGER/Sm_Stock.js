@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — Stock ─────────────────────────────────────
-// @version 1.1
+// @version 1.2
 
 //  CATÁLOGO REPUESTOS DJI (para Borrador de Pedido)
 function cargarCatalogoBorrador() {
@@ -823,52 +823,32 @@ function registrarPedidoEnviado(items, cas, metodoPago, operador) {
 
 // ============================================================
 //  TRANSFERENCIA INTERNA WMS
-//  Mueve stock entre bins dentro de TABLA_POSICIONES.
-//  No altera el saldo total en STOCK_REPUESTOS.
+//  Mueve stock entre bins — delega en SM_moverStock (Sm_WMS.js), que ya opera sobre la
+//  pestaña UBICACIONES de Carmen (fuente real, ver [[carmen_fuente_stock]]). Antes movía
+//  TABLA_POSICIONES, una hoja legacy del MASTER que el resto del WMS actual (Asignar
+//  ubicación/Contar/Recibir compra) ya no escribe — un SKU mapeado por esos caminos
+//  aparecía sin bins acá ("Sin bins registrados") aunque sí tuviera ubicación real, y a la
+//  inversa, una transferencia hecha desde acá no se reflejaba donde el resto del WMS mira.
+//  No altera el saldo total en Carmen STOCK.
 // ============================================================
 function transferirStock(sku, origen, destino, cant) {
-  var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
-    var cantN  = parseInt(cant) || 0;
-    if (cantN <= 0) throw new Error('La cantidad debe ser mayor a 0');
-    var codKey = String(sku).trim().toUpperCase();
-    var origenK = String(origen).trim();
+    var cantN   = parseInt(cant) || 0;
+    if (cantN <= 0) return { ok: false, msg: 'La cantidad debe ser mayor a 0' };
+    var codKey   = String(sku).trim().toUpperCase();
+    var origenK  = String(origen).trim();
     var destinoK = String(destino).trim();
-    if (!origenK || !destinoK) throw new Error('Origen y destino son requeridos');
-    if (origenK === destinoK) throw new Error('Origen y destino no pueden ser iguales');
+    if (!origenK || !destinoK) return { ok: false, msg: 'Origen y destino son requeridos' };
+    if (origenK.toUpperCase() === destinoK.toUpperCase()) return { ok: false, msg: 'Origen y destino no pueden ser iguales' };
 
-    var hoja    = getSheet(SCHEMA.SHEETS.TABLA_POSICIONES);
-    if (!hoja) throw new Error('Hoja TABLA_POSICIONES no existe. Ejecutá asegurarHojas() primero.');
-    var TP      = SCHEMA.TABLA_POSICIONES;
-    var datos   = hoja.getDataRange().getValues();
-
-    var origenFila  = -1, origenCant = 0;
-    var destinoFila = -1;
-
-    for (var i = 1; i < datos.length; i++) {
-      var fSku = String(datos[i][TP.SKU]    || '').trim().toUpperCase();
-      var fBin = String(datos[i][TP.BIN_ID] || '').trim();
-      if (fSku !== codKey) continue;
-      if (fBin === origenK)  { origenFila  = i + 1; origenCant  = parseInt(datos[i][TP.CANTIDAD]) || 0; }
-      if (fBin === destinoK) { destinoFila = i + 1; }
+    var filas = (_getCarmenUbicMap()[codKey] || []);
+    var origenCant = 0;
+    for (var i = 0; i < filas.length; i++) {
+      if (filas[i].ubicacion.toUpperCase() === origenK.toUpperCase()) { origenCant = filas[i].cantidad; break; }
     }
 
-    if (origenFila < 0) throw new Error('SKU "' + sku + '" no encontrado en bin "' + origenK + '"');
-    if (origenCant < cantN) throw new Error('Stock insuficiente en ' + origenK + '. Disponible: ' + origenCant + ', solicitado: ' + cantN);
-
-    // Decrementar origen
-    hoja.getRange(origenFila, TP.CANTIDAD + 1).setValue(origenCant - cantN);
-
-    // Incrementar destino o crear fila nueva
-    if (destinoFila > 0) {
-      var destCant = parseInt(datos[destinoFila - 1][TP.CANTIDAD]) || 0;
-      hoja.getRange(destinoFila, TP.CANTIDAD + 1).setValue(destCant + cantN);
-    } else {
-      hoja.appendRow([codKey, destinoK, cantN, '']);
-    }
-
-    invalidateSheetValues(SCHEMA.SHEETS.TABLA_POSICIONES);
+    var res = SM_moverStock(codKey, origenK, destinoK, cantN);
+    if (!res.ok) return { ok: false, msg: res.error || 'No se pudo mover el stock' };
 
     _registrarMovimiento(
       'TRANSFERENCIA_INTERNA', codKey, '', 0,
@@ -880,28 +860,33 @@ function transferirStock(sku, origen, destino, cant) {
     return { ok: true, sku: codKey, origen: origenK, destino: destinoK, cantidad: cantN };
   } catch(e) {
     return { ok: false, msg: e.toString() };
-  } finally {
-    try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
   }
 }
 
 // ============================================================
-//  CARGAR BINS DE UN SKU (para el modal WMS)
+//  CARGAR BINS DE UN SKU (para el modal WMS / Transferencia interna)
 // ============================================================
+// Bins + cantidad salen de Carmen UBICACIONES (fuente real). TABLA_POSICIONES se sigue
+// consultando, pero solo como anotación best-effort del TIPO_ALMACEN de cada bin (mismo
+// criterio que ya usa cargarStock) — nunca como fuente de qué bins existen.
 function cargarBinsSKU(sku) {
   try {
-    var codKey = String(sku).trim().toUpperCase();
-    var dPos   = getSheetValues(SCHEMA.SHEETS.TABLA_POSICIONES);
-    var TP     = SCHEMA.TABLA_POSICIONES;
-    var bins   = [];
-    for (var i = 1; i < dPos.length; i++) {
-      if (String(dPos[i][TP.SKU] || '').trim().toUpperCase() !== codKey) continue;
-      bins.push({
-        binId:       String(dPos[i][TP.BIN_ID]       || ''),
-        cantidad:    parseInt(dPos[i][TP.CANTIDAD])   || 0,
-        tipoAlmacen: String(dPos[i][TP.TIPO_ALMACEN] || '')
-      });
+    var codKey  = String(sku).trim().toUpperCase();
+    var propias = _getCarmenUbicMap()[codKey] || [];
+
+    var dPos = [];
+    try { dPos = getSheetValues(SCHEMA.SHEETS.TABLA_POSICIONES); } catch(ep) {}
+    var TP = SCHEMA.TABLA_POSICIONES;
+    var tipoMap = {}; // BIN_ID (upper) → tipoAlmacen
+    for (var p = 1; p < dPos.length; p++) {
+      if (String(dPos[p][TP.SKU] || '').trim().toUpperCase() !== codKey) continue;
+      var tBin = String(dPos[p][TP.BIN_ID] || '').trim().toUpperCase();
+      if (tBin) tipoMap[tBin] = String(dPos[p][TP.TIPO_ALMACEN] || '');
     }
+
+    var bins = propias.map(function(u) {
+      return { binId: u.ubicacion, cantidad: u.cantidad, tipoAlmacen: tipoMap[u.ubicacion.toUpperCase()] || '' };
+    });
     bins.sort(function(a, b) { return _binSortKey(a.binId) < _binSortKey(b.binId) ? -1 : 1; });
     return { ok: true, bins: bins };
   } catch(e) { return { ok: false, msg: e.toString(), bins: [] }; }
