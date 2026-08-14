@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.10 -->
+<!-- @version 2.11 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1975,7 +1975,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <select id="ped-kits-equipo" class="form-control" style="margin-bottom:10px" onchange="_pedRenderBotonesKits()">
               <option value="">— Elegí tu equipo —</option>
             </select>
-            <div style="display:flex;gap:8px">
+            <div id="ped-kits-botones-row" style="display:flex;gap:8px">
               <button type="button" id="ped-kits-btn-basico" class="btn-kit-nivel" disabled onclick="_pedVerKit('Básico')">
                 <i class="fa fa-box"></i> Básico
               </button>
@@ -1984,6 +1984,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               </button>
             </div>
             <div id="ped-kits-vacio" style="display:none;margin-top:10px;font-size:11px;color:var(--tx-d);font-style:italic">Todavía no hay kits cargados para ese equipo.</div>
+            <div id="ped-kits-sin-datos" style="display:none;font-size:11px;color:var(--tx-d);font-style:italic">Todavía no hay ningún kit cargado — probá más tarde.</div>
           </div>
 
           <!-- MODO CATÁLOGO (despieces DJI) -->
@@ -7026,14 +7027,32 @@ function _pedCargarKitsPedidos() {
     .RS_listarKitsPedidos();
 }
 
+// Solo lista equipos que YA tienen al menos un kit (Básico o Full) cargado — pedido del
+// usuario: "los que no tengan ningún kit no los muestres en el portal reseller". Se reconstruye
+// completa cada vez que llega _pedKitsPedidos (no solo la primera vez), por si se recarga el
+// índice con datos nuevos.
 function _pedPoblarSelectEquiposKits() {
   var sel = document.getElementById('ped-kits-equipo');
-  if (!sel || sel.options.length > 1) return; // ya poblado
+  if (!sel) return;
+  var equiposConKit = {};
+  for (var i = 0; i < _pedKitsPedidos.length; i++) equiposConKit[_pedKitsPedidos[i].equipo] = true;
+
+  var valorActual = sel.value;
+  sel.innerHTML = '<option value="">— Elegí tu equipo —</option>';
+  var hayEquipos = false;
   for (var j = 0; j < listaEquipos.length; j++) {
+    var nombre = listaEquipos[j].nombre;
+    if (!equiposConKit[nombre]) continue;
+    hayEquipos = true;
     var opt = document.createElement('option');
-    opt.value = listaEquipos[j].nombre; opt.textContent = listaEquipos[j].nombre;
+    opt.value = nombre; opt.textContent = nombre;
     sel.appendChild(opt);
   }
+  if (valorActual && equiposConKit[valorActual]) sel.value = valorActual;
+
+  sel.style.display = hayEquipos ? '' : 'none';
+  document.getElementById('ped-kits-botones-row').style.display = hayEquipos ? 'flex' : 'none';
+  document.getElementById('ped-kits-sin-datos').style.display = hayEquipos ? 'none' : 'block';
 }
 
 function _pedRenderBotonesKits() {

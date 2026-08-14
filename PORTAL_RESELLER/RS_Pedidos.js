@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.22
+// @version 2.23
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -2139,10 +2139,14 @@ function _asegurarHojaKitsPedidos() {
 
 // Sin token: contenido general, igual que obtenerRepuestosRecomendadosPortal/
 // obtenerMantenimientoDjiPortal (RS_DocsModelo.js) — cualquier reseller logueado lo ve igual.
+// force=true en getSheetValues: KITS_PEDIDOS lo edita el LAUNCHER, que es un proyecto de
+// Apps Script separado y no tiene forma de avisarle a este (invalidateSheetValues) que algo
+// cambió — sin esto, un reseller podía seguir viendo la hoja cacheada (hasta CACHE_TTL=60s)
+// después de que BIDCOM cargara/editara un kit, incluida la foto.
 function RS_listarKitsPedidos() {
   try {
     _asegurarHojaKitsPedidos();
-    var d = getSheetValues(SCHEMA.SHEETS.KITS_PEDIDOS);
+    var d = getSheetValues(SCHEMA.SHEETS.KITS_PEDIDOS, true);
     var mapa = {}; // "equipo|nivel" → { equipo, nivel, foto, items }
     for (var i = 1; i < d.length; i++) {
       var equipo = String(d[i][0] || '').trim();
