@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.14 -->
+<!-- @version 2.15 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -2695,7 +2695,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
     <button onclick="_catZoomBtn(-1)" title="Alejar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;touch-action:manipulation"><i class="fa fa-minus"></i></button>
     <span id="cat-zoom-lvl" style="color:#fff;font-size:12px;min-width:44px;text-align:center">100%</span>
     <button onclick="_catZoomBtn(1)" title="Acercar" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;touch-action:manipulation"><i class="fa fa-plus"></i></button>
-    <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer;touch-action:manipulation"><i class="fa fa-compress"></i> 1:1</button>
+    <button onclick="_catZoomReset()" title="Restablecer" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;height:34px;border-radius:999px;padding:0 12px;font-size:11px;cursor:pointer;touch-action:manipulation"><i class="fa fa-compress"></i> Ajustar</button>
     <span style="color:rgba(255,255,255,.5);font-size:10px;margin-left:4px">Pellizcá para zoom · arrastrá para mover · tocá afuera para cerrar</span>
   </div>
 </div>
@@ -7145,7 +7145,7 @@ function _pedAbrirKitModal(key) {
         '<img class="cat-modal-img" src="' + _escHtml(kit.foto) + '" alt="' + _escHtml(kit.equipo) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);background:#fff" onerror="_catImgError(this)">' +
         '<button onclick="_catZoomAbrir(this.parentNode.querySelector(\'img\').src)" title="Ver a pantalla completa" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:13px;cursor:pointer;z-index:6"><i class="fa fa-expand"></i></button>' +
       '</div>' +
-      '<div style="margin-top:6px;padding:6px 9px;text-align:center;font-size:10px;color:var(--tx-d);background:var(--surf);border:1px dashed var(--brd);border-radius:var(--r);line-height:1.4"><i class="fa fa-circle-info"></i> Foto de referencia del equipo completo — al carrito se agrega exactamente lo que figura en la lista de repuestos, no la imagen.</div>' +
+      '<div style="margin-top:6px;padding:6px 9px;text-align:center;font-size:10px;color:var(--tx-d);background:var(--surf);border:1px dashed var(--brd);border-radius:var(--r);line-height:1.4"><i class="fa fa-circle-info"></i> Foto de referencia  — al carrito se agrega exactamente lo que figura en la lista de repuestos, no la imagen.</div>' +
       '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen.</div>'
     : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-box-open" style="font-size:22px;display:block;margin-bottom:8px"></i>Sin foto cargada.</div>';
 
@@ -7165,7 +7165,7 @@ function _pedAbrirKitModal(key) {
       : (_pedIndice === null
           ? '<span style="color:var(--tx-d);font-size:10px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</span>'
           : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
-    var thumb = foto ? ('<img src="' + _escHtml(foto) + '" loading="lazy">') : '<i class="fa fa-image"></i>';
+    var thumb = foto ? ('<img src="' + _escHtml(foto) + '" loading="lazy" onclick="_repVerFoto(this)">') : '<i class="fa fa-image"></i>';
     return '<tr style="border-bottom:1px solid var(--brd)">' +
       '<td data-label="Foto" style="padding:5px 8px"><div class="rep-thumb" style="width:30px;height:30px">' + thumb + '</div></td>' +
       '<td data-label="SKU" style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _escHtml(it.sku || '—') + '</td>' +
@@ -7684,28 +7684,50 @@ function _catLens(e, wrap) {
 }
 
 // ── ZOOM del despiece (lightbox con rueda + arrastre) ─────────
-var _czScale = 1, _czX = 0, _czY = 0, _czDrag = false, _czSX = 0, _czSY = 0;
+// _czFitScale = escala a la que la foto ENTRA COMPLETA en la pantalla (como object-fit:contain).
+// Sin esto, una foto grande (ej. sacada con el celular, varios megapíxeles) abría a tamaño nativo
+// en píxeles = solo se veía el centro recortado, y como el pan/arrastre recién se habilita por
+// encima de la escala mínima, quedaba "trabada" hasta que el usuario agrandaba más.
+var _czScale = 1, _czFitScale = 1, _czX = 0, _czY = 0, _czDrag = false, _czSX = 0, _czSY = 0;
 
 function _catZoomAbrir(src) {
   if (!src) return;
   var ov = _catOverlayEnBody('cat-zoom');
-  document.getElementById('cat-zoom-img').src = src;
-  _czReset();
+  var im = document.getElementById('cat-zoom-img');
+  im.onload = function () { _czCalcularFit(); _czReset(); };
+  if (im.src === src && im.complete && im.naturalWidth) {
+    // misma imagen ya cargada (se reabre el zoom) — onload no siempre vuelve a dispararse
+    _czCalcularFit();
+    _czReset();
+  } else {
+    im.src = src;
+    _czReset(); // estado provisorio, se corrige apenas termine de cargar (onload de arriba)
+  }
   ov.style.display = 'block';
 }
+function _czCalcularFit() {
+  var im = document.getElementById('cat-zoom-img');
+  var nw = im.naturalWidth, nh = im.naturalHeight;
+  if (!nw || !nh) { _czFitScale = 1; return; }
+  var pad = 32; // margen para que no quede pegada a los bordes/controles del visor
+  var fit = Math.min((window.innerWidth - pad * 2) / nw, (window.innerHeight - pad * 2) / nh, 1);
+  _czFitScale = fit > 0 ? fit : 1;
+}
 function _catZoomCerrar() { document.getElementById('cat-zoom').style.display = 'none'; }
-function _czReset() { _czScale = 1; _czX = 0; _czY = 0; _czApply(); }
+function _czReset() { _czScale = _czFitScale || 1; _czX = 0; _czY = 0; _czApply(); }
 function _catZoomReset() { _czReset(); }
 function _czApply() {
   var im = document.getElementById('cat-zoom-img');
   im.style.transform = 'translate(-50%,-50%) translate(' + _czX + 'px,' + _czY + 'px) scale(' + _czScale + ')';
-  im.style.cursor = _czScale > 1 ? 'grab' : 'zoom-in';
+  var minS = _czFitScale || 1;
+  im.style.cursor = _czScale > minS + .001 ? 'grab' : 'zoom-in';
   var lvl = document.getElementById('cat-zoom-lvl');
-  if (lvl) lvl.textContent = Math.round(_czScale * 100) + '%';
+  if (lvl) lvl.textContent = Math.round((_czScale / minS) * 100) + '%';
 }
 function _czSetScale(ns) {
-  ns = Math.max(1, Math.min(7, ns));
-  if (ns === 1) { _czX = 0; _czY = 0; }
+  var minS = _czFitScale || 1;
+  ns = Math.max(minS, Math.min(7, ns));
+  if (Math.abs(ns - minS) < .001) { _czX = 0; _czY = 0; }
   _czScale = ns;
   _czApply();
 }
@@ -7722,9 +7744,9 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
       e.preventDefault();
       _czSetScale(_czScale * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
     }, { passive: false });
-    // arrastrar = mover (solo con zoom)
+    // arrastrar = mover (solo con zoom por encima del ajuste a pantalla)
     im.addEventListener('mousedown', function (e) {
-      if (_czScale <= 1) return;
+      if (_czScale <= (_czFitScale || 1) + .001) return;
       e.preventDefault(); _czDrag = true; _czSX = e.clientX - _czX; _czSY = e.clientY - _czY; im.style.cursor = 'grabbing';
     });
     window.addEventListener('mousemove', function (e) {
@@ -7732,8 +7754,12 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
       _czX = e.clientX - _czSX; _czY = e.clientY - _czSY; _czApply();
     });
     window.addEventListener('mouseup', function () { if (_czDrag) { _czDrag = false; _czApply(); } });
-    // doble clic = alternar zoom
-    im.addEventListener('dblclick', function (e) { e.preventDefault(); _czSetScale(_czScale > 1 ? 1 : 2.4); });
+    // doble clic = alternar entre ajustado a pantalla y acercado
+    im.addEventListener('dblclick', function (e) {
+      e.preventDefault();
+      var fit = _czFitScale || 1;
+      _czSetScale(_czScale > fit + .001 ? fit : Math.max(2.4, fit * 2));
+    });
     // clic en el fondo del zoom = cerrar zoom
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) _catZoomCerrar(); });
     // ── Touch (celular): sin esto, el zoom quedaba "trabado" — todo lo de arriba es mouse y
@@ -7749,7 +7775,7 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
         _czPinchDist0  = _czTouchDist(e.touches[0], e.touches[1]);
         _czPinchScale0 = _czScale;
         _czDrag = false;
-      } else if (e.touches.length === 1 && _czScale > 1) {
+      } else if (e.touches.length === 1 && _czScale > (_czFitScale || 1) + .001) {
         _czDrag = true;
         _czSX = e.touches[0].clientX - _czX;
         _czSY = e.touches[0].clientY - _czY;
@@ -7771,7 +7797,8 @@ function _catZoomBtn(dir) { _czSetScale(_czScale * (dir > 0 ? 1.4 : 1 / 1.4)); }
       if (!t) return;
       var ahora = Date.now();
       if (ahora - _czTapT < 320 && Math.abs(t.clientX - _czTapX) < 30 && Math.abs(t.clientY - _czTapY) < 30) {
-        _czSetScale(_czScale > 1 ? 1 : 2.4);
+        var fit = _czFitScale || 1;
+        _czSetScale(_czScale > fit + .001 ? fit : Math.max(2.4, fit * 2));
         _czTapT = 0;
       } else {
         _czTapT = ahora; _czTapX = t.clientX; _czTapY = t.clientY;
