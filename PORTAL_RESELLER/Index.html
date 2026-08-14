@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.12 -->
+<!-- @version 2.13 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -178,16 +178,15 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .dm-row-title{font-size:13px;font-weight:700;color:var(--tx)}
 .dm-row-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--r);text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;transition:filter .13s}
 .dm-row-btn:hover{filter:brightness(.94)}
-/* Tarjetas del modo "Kits" en Agregar Repuestos (Pedidos) — 1 por Equipo+Nivel, seleccionable */
-.kit-card{border:1px solid var(--brd);border-radius:var(--rm);margin-bottom:8px;overflow:hidden;transition:border-color .13s}
-.kit-card.sel{border-color:var(--blue)}
-.kit-card-head{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surf);cursor:pointer}
-.kit-card-nombre{font-size:12px;font-weight:700;color:var(--tx)}
-.kit-card-sub{font-size:10px;color:var(--tx-d);margin-top:1px}
-.kit-card-total{font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap}
-.kit-card-items{padding:2px 12px 8px}
-.kit-item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--brd)}
-.kit-item-row:first-child{border-top:none}
+/* Filas del modo "Kits" en Agregar Repuestos (Pedidos) — 1 por Equipo+Nivel. El check tilda
+   para el agregado múltiple; tocar la fila (fuera del check) abre el detalle en #kit-modal
+   con el mismo layout que el Catálogo de despieces. */
+.kit-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--brd);border-radius:var(--rm);margin-bottom:8px;cursor:pointer;transition:border-color .13s}
+.kit-row:hover{border-color:var(--brd2)}
+.kit-row.sel{border-color:var(--blue);background:var(--blue-b)}
+.kit-row-nombre{font-size:12px;font-weight:700;color:var(--tx)}
+.kit-row-sub{font-size:10px;color:var(--tx-d);margin-top:1px}
+.kit-row-total{font-size:13px;font-weight:700;color:var(--blue);white-space:nowrap}
 /* Estrellas de la encuesta de satisfacción postventa (#enc-modal) */
 .enc-estrellas{display:flex;gap:6px}
 .enc-estrellas i{font-size:22px;color:var(--brd2);cursor:pointer;transition:color .1s}
@@ -465,7 +464,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
    imagen a altura fija (flex:0 0 auto) y .cat-modal-listwrap como única
    zona con scroll propio (flex:1 1 auto + min-height:0 para poder achicarse). */
 @media(max-width:680px){
-  #cat-modal-body{display:flex!important;flex-direction:column!important;overflow:hidden!important}
+  #cat-modal-body, #kit-modal-body{display:flex!important;flex-direction:column!important;overflow:hidden!important}
   .cat-modal-row{display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;flex:1 1 auto;min-height:0;gap:10px!important}
   .cat-modal-imgwrap{position:static!important;min-width:0!important;flex:0 0 auto!important}
   .cat-modal-img{max-height:38vh!important}
@@ -479,7 +478,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   .cat-item-table td{display:flex!important;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px!important;text-align:left!important;white-space:normal!important}
   .cat-item-table td::before{content:attr(data-label);font-size:9px;font-weight:700;color:var(--tx-d);text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
   /* Título del conjunto ("Tren de aterrizaje (1) — DJI Agra...") deja de cortarse con "…" */
-  #cat-modal-title{white-space:normal!important;line-height:1.25}
+  #cat-modal-title, #kit-modal-title{white-space:normal!important;line-height:1.25}
 }
 </style>
 </head>
@@ -560,6 +559,29 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <button onclick="_encPosponer()" style="background:none;border:none;color:var(--tx-d);font-size:12px;cursor:pointer;text-decoration:underline">Recordar después</button>
       <button id="enc-btn-enviar" onclick="_encEnviar()" class="btn-main" disabled style="width:auto;padding:9px 24px;font-size:13px;opacity:.5;cursor:not-allowed">
         <i class="fa fa-check"></i>Enviar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE DE KIT DE PEDIDO (Básico/Full) — mismo layout que el Catálogo de despieces:
+     imagen a la izquierda, repuestos con precio a la derecha (reusa .cat-modal-row/
+     .cat-modal-imgwrap/.cat-modal-listwrap/.cat-item-table de _catAbrir, mismo media query
+     680px de responsive) -->
+<div id="kit-modal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.5);padding:2.5vh 2vw" onclick="if(event.target===this)_pedCerrarKitModal()">
+  <div style="background:var(--panel);border:1px solid var(--brd);border-radius:var(--rl);width:min(1500px,96vw);max-width:100%;height:95vh;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--brd);flex-shrink:0">
+      <div style="flex:1;min-width:0;text-align:center">
+        <div id="kit-modal-title" style="font-size:15px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="kit-modal-sub" style="font-size:10px;color:var(--tx-d);margin-top:1px"></div>
+      </div>
+      <button onclick="_pedCerrarKitModal()" title="Cerrar" style="background:var(--surf);border:1px solid var(--brd);color:var(--tx-m);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="kit-modal-body" style="flex:1;overflow:auto;padding:14px 16px"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--brd);background:var(--surf);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:10px">
+      <div style="font-size:12px;color:var(--tx-m)">Total del kit: <strong id="kit-modal-total" style="color:var(--tx)"></strong></div>
+      <button onclick="_pedAgregarKitDesdeModal()" class="btn-main" style="width:auto;padding:9px 22px;font-size:13px">
+        <i class="fa fa-cart-plus"></i> Agregar este kit al carrito
       </button>
     </div>
   </div>
@@ -1949,7 +1971,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <!-- MODO KITS (Básico/Full predefinidos por equipo) -->
           <div id="ped-panel-kits" style="display:none">
             <div style="font-size:11px;color:var(--tx-m);margin-bottom:10px;padding:7px 10px;background:rgba(0,163,224,.05);border:1px solid rgba(0,163,224,.15);border-radius:var(--r);line-height:1.8">
-              <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Tildá uno o varios kits — cada uno muestra el precio por repuesto y el total — y agregalos juntos al carrito.
+              <i class="fa fa-circle-info" style="color:var(--blue)"></i> ¿No sabés por dónde arrancar? Tocá un kit para ver la foto y el detalle con precios, o tildalo directo — podés elegir varios y agregarlos juntos al carrito.
             </div>
             <div id="ped-kits-lista"></div>
             <div id="ped-kits-sin-datos" style="display:none;font-size:11px;color:var(--tx-d);font-style:italic">Todavía no hay ningún kit cargado — probá más tarde.</div>
@@ -7016,6 +7038,21 @@ function _pedFilaIndice(sku) {
   return null;
 }
 
+// Total (y si hay ítems sin precio cargado) de un kit — usado tanto en la fila compacta como
+// en el detalle del modal.
+function _pedTotalKit(kit) {
+  var total = 0, hayConsultar = false;
+  for (var j = 0; j < kit.items.length; j++) {
+    var row = _pedFilaIndice(kit.items[j].sku);
+    var precio = row ? (row[4] || 0) : 0;
+    if (precio > 0) total += precio * kit.items[j].cantidad; else hayConsultar = true;
+  }
+  return { total: total, hayConsultar: hayConsultar };
+}
+
+// Filas compactas (1 por Equipo+Nivel) — el check tilda para agregado múltiple, tocar la fila
+// (fuera del check) abre el detalle en #kit-modal (foto a la izquierda, repuestos con precio a
+// la derecha — mismo layout que "Catálogo", pedido explícito del usuario).
 function _pedRenderListaKits() {
   var cont = document.getElementById('ped-kits-lista');
   document.getElementById('ped-kits-sin-datos').style.display = _pedKitsPedidos.length ? 'none' : 'block';
@@ -7025,41 +7062,21 @@ function _pedRenderListaKits() {
 
   cont.innerHTML = _pedKitsPedidos.map(function(kit) {
     var key = _pedKitKey(kit.equipo, kit.nivel);
-    var total = 0, hayConsultar = false;
-    var itemsHtml = kit.items.map(function(it) {
-      var row = _pedFilaIndice(it.sku);
-      var desc = (row && row[1]) || it.descripcion || it.sku;
-      var foto = (row && row[11]) || '';
-      var precio = row ? (row[4] || 0) : 0;
-      var subtotal = precio * it.cantidad;
-      if (precio > 0) total += subtotal; else hayConsultar = true;
-      var thumb = foto ? ('<img src="' + _escHtml(foto) + '" loading="lazy">') : '<i class="fa fa-image"></i>';
-      var precioTxt = precio > 0 ? _fmtPedUsd(subtotal) : 'A consultar';
-      return '<div class="kit-item-row">' +
-          '<div class="rep-thumb" style="width:26px;height:26px">' + thumb + '</div>' +
-          '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:11px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _escHtml(desc) + '">' + _escHtml(desc) + '</div>' +
-            '<div style="font-size:10px;color:var(--tx-d);font-family:monospace">' + _escHtml(it.sku || '—') + ' · x' + it.cantidad + '</div>' +
-          '</div>' +
-          '<div style="font-size:11px;font-weight:700;color:var(--tx-m);white-space:nowrap">' + precioTxt + '</div>' +
-        '</div>';
-    }).join('');
-
-    var fotoKit  = kit.foto ? ('<img src="' + _escHtml(kit.foto) + '" loading="lazy" onclick="event.preventDefault();event.stopPropagation();_repVerFoto(this)">') : '<i class="fa fa-box-open"></i>';
-    var totalTxt = total > 0 ? (_fmtPedUsd(total) + (hayConsultar ? ' +' : '')) : 'A consultar';
+    var t = _pedTotalKit(kit);
+    var fotoKit  = kit.foto ? ('<img src="' + _escHtml(kit.foto) + '" loading="lazy">') : '<i class="fa fa-box-open"></i>';
+    var totalTxt = t.total > 0 ? (_fmtPedUsd(t.total) + (t.hayConsultar ? ' +' : '')) : 'A consultar';
     var checked  = _pedKitsSeleccionados[key] ? 'checked' : '';
+    var keyEsc   = key.replace(/'/g, "\\'");
 
-    return '<div class="kit-card' + (_pedKitsSeleccionados[key] ? ' sel' : '') + '">' +
-      '<label class="kit-card-head">' +
-        '<input type="checkbox" ' + checked + ' onchange="_pedToggleKitSel(\'' + key.replace(/'/g, "\\'") + '\', this.checked)">' +
-        '<div class="rep-thumb">' + fotoKit + '</div>' +
-        '<div style="flex:1;min-width:0">' +
-          '<div class="kit-card-nombre">' + _escHtml(kit.equipo) + ' — Kit ' + kit.nivel + '</div>' +
-          '<div class="kit-card-sub">' + kit.items.length + ' ítem(s)' + (hayConsultar ? ' · algunos a consultar' : '') + '</div>' +
-        '</div>' +
-        '<div class="kit-card-total">' + totalTxt + '</div>' +
-      '</label>' +
-      '<div class="kit-card-items">' + itemsHtml + '</div>' +
+    return '<div class="kit-row' + (_pedKitsSeleccionados[key] ? ' sel' : '') + '" onclick="_pedAbrirKitModal(\'' + keyEsc + '\')">' +
+      '<input type="checkbox" ' + checked + ' onclick="event.stopPropagation()" onchange="_pedToggleKitSel(\'' + keyEsc + '\', this.checked)">' +
+      '<div class="rep-thumb">' + fotoKit + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div class="kit-row-nombre">' + _escHtml(kit.equipo) + ' — Kit ' + kit.nivel + '</div>' +
+        '<div class="kit-row-sub">' + kit.items.length + ' ítem(s)' + (t.hayConsultar ? ' · algunos a consultar' : '') + '</div>' +
+      '</div>' +
+      '<div class="kit-row-total">' + totalTxt + '</div>' +
+      '<i class="fa fa-chevron-right" style="color:var(--tx-d);font-size:11px"></i>' +
     '</div>';
   }).join('');
 
@@ -7077,11 +7094,8 @@ function _pedRenderTotalKits() {
     var kit = _pedKitsPedidos[i];
     if (!_pedKitsSeleccionados[_pedKitKey(kit.equipo, kit.nivel)]) continue;
     n++;
-    for (var j = 0; j < kit.items.length; j++) {
-      var row = _pedFilaIndice(kit.items[j].sku);
-      var precio = row ? (row[4] || 0) : 0;
-      if (precio > 0) total += precio * kit.items[j].cantidad; else hayConsultar = true;
-    }
+    var t = _pedTotalKit(kit);
+    total += t.total; if (t.hayConsultar) hayConsultar = true;
   }
   document.getElementById('ped-kits-total').textContent = _fmtPedUsd(total) + (hayConsultar ? ' +' : '');
   document.getElementById('ped-kits-footer').style.display = n ? 'flex' : 'none';
@@ -7091,18 +7105,89 @@ function _pedRenderTotalKits() {
   btn.style.cursor  = n ? 'pointer' : 'not-allowed';
 }
 
-// Agrega los ítems de todos los kits tildados al carrito — se SUMAN a lo que ya había (si el
-// mismo SKU ya está en el carrito, o se repite entre kits tildados, se suma la cantidad en vez
-// de duplicar la línea) — mismo criterio que _pedCargarExcel. Precio/descripción/foto se
-// derivan de _pedIndice al momento de agregar, nunca un valor congelado.
-function _pedAgregarKitsSeleccionados() {
-  var keys = Object.keys(_pedKitsSeleccionados);
-  if (!keys.length) return;
+// ── Detalle de un kit — #kit-modal, mismo layout que _catAbrir (Catálogo de despieces):
+// foto a la izquierda (con zoom, _catZoomAbrir), tabla de repuestos con precio a la derecha.
+var _pedKitModalActual = null; // {equipo, nivel} del kit abierto en el modal
 
-  var agregados = 0;
+function _pedAbrirKitModal(key) {
+  var partes = key.split('|');
+  var kit = null;
   for (var i = 0; i < _pedKitsPedidos.length; i++) {
-    var kit = _pedKitsPedidos[i];
-    if (!_pedKitsSeleccionados[_pedKitKey(kit.equipo, kit.nivel)]) continue;
+    if (_pedKitsPedidos[i].equipo === partes[0] && _pedKitsPedidos[i].nivel === partes[1]) { kit = _pedKitsPedidos[i]; break; }
+  }
+  if (!kit) return;
+  _pedKitModalActual = { equipo: kit.equipo, nivel: kit.nivel };
+
+  document.getElementById('kit-modal-title').textContent = kit.equipo + ' — Kit ' + kit.nivel;
+  document.getElementById('kit-modal-sub').textContent = kit.items.length + ' ítem(s)';
+
+  var img = kit.foto
+    ? '<div style="position:relative">' +
+        '<img class="cat-modal-img" src="' + _escHtml(kit.foto) + '" alt="' + _escHtml(kit.equipo) + '" style="width:100%;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--brd);border-radius:var(--rm);background:#fff" onerror="_catImgError(this)">' +
+        '<button onclick="_catZoomAbrir(this.parentNode.querySelector(\'img\').src)" title="Ver a pantalla completa" style="position:absolute;top:8px;right:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;font-size:13px;cursor:pointer;z-index:6"><i class="fa fa-expand"></i></button>' +
+      '</div>' +
+      '<div style="display:none;padding:20px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)">No se pudo cargar la imagen.</div>'
+    : '<div style="padding:24px;text-align:center;color:var(--tx-d);font-size:12px;background:var(--surf);border:1px dashed var(--brd);border-radius:var(--rm)"><i class="fa fa-box-open" style="font-size:22px;display:block;margin-bottom:8px"></i>Sin foto cargada.</div>';
+
+  var thSt = 'position:sticky;top:0;background:var(--surf);padding:7px 8px;font-size:10px;z-index:1;';
+  var rows = kit.items.map(function(it) {
+    var row = _pedFilaIndice(it.sku);
+    var desc = (row && row[1]) || it.descripcion || it.sku;
+    var foto = (row && row[11]) || '';
+    var precio = row ? (row[4] || 0) : 0;
+    var subtotal = precio * it.cantidad;
+    var precioHtml = precio > 0
+      ? '<span style="font-weight:700;color:var(--tx)">' + _fmtPedUsd(subtotal) + '</span>'
+      : (_pedIndice === null
+          ? '<span style="color:var(--tx-d);font-size:10px"><i class="fa fa-circle-notch fa-spin"></i> Cargando…</span>'
+          : '<span style="color:#d4890a;font-weight:600;font-size:10px">A consultar</span>');
+    var thumb = foto ? ('<img src="' + _escHtml(foto) + '" loading="lazy">') : '<i class="fa fa-image"></i>';
+    return '<tr style="border-bottom:1px solid var(--brd)">' +
+      '<td data-label="Foto" style="padding:5px 8px"><div class="rep-thumb" style="width:30px;height:30px">' + thumb + '</div></td>' +
+      '<td data-label="SKU" style="padding:5px 8px;font-family:monospace;font-size:11px;white-space:nowrap">' + _escHtml(it.sku || '—') + '</td>' +
+      '<td data-label="Repuesto" style="padding:5px 8px;font-size:12px;color:var(--tx-m)">' + _escHtml(desc) + '</td>' +
+      '<td data-label="Cant." style="padding:5px 8px;text-align:center;font-weight:700">x' + it.cantidad + '</td>' +
+      '<td data-label="Precio" style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px">' + precioHtml + '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('kit-modal-body').innerHTML =
+    '<div class="cat-modal-row" style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">' +
+      '<div class="cat-modal-imgwrap" style="flex:2 1 480px;min-width:320px;position:sticky;top:0">' + img + '</div>' +
+      '<div class="cat-modal-listwrap" style="flex:1 1 340px;min-width:300px;max-height:80vh;overflow:auto;border:1px solid var(--brd);border-radius:var(--rm)">' +
+        '<table class="cat-item-table" style="width:100%;border-collapse:collapse"><thead><tr>' +
+          '<th style="' + thSt + 'text-align:left">Foto</th>' +
+          '<th style="' + thSt + 'text-align:left">SKU</th>' +
+          '<th style="' + thSt + 'text-align:left">Repuesto</th>' +
+          '<th style="' + thSt + 'text-align:center">Cant.</th>' +
+          '<th style="' + thSt + 'text-align:right">Precio</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      '</div>' +
+    '</div>';
+
+  var t = _pedTotalKit(kit);
+  document.getElementById('kit-modal-total').textContent = t.total > 0 ? (_fmtPedUsd(t.total) + (t.hayConsultar ? ' +' : '')) : 'A consultar';
+
+  _catOverlayEnBody('kit-modal').style.display = 'block';
+}
+
+function _pedCerrarKitModal() {
+  document.getElementById('kit-modal').style.display = 'none';
+  _pedKitModalActual = null;
+}
+
+// Agrega los ítems de los kits indicados (array de {equipo,nivel}) al carrito — se SUMAN a lo
+// que ya había (si el mismo SKU ya está en el carrito, o se repite entre los kits, se suma la
+// cantidad en vez de duplicar la línea) — mismo criterio que _pedCargarExcel. Precio/
+// descripción/foto se derivan de _pedIndice al momento de agregar, nunca un valor congelado.
+function _pedAgregarKitsAlCarrito(refs) {
+  var agregados = 0;
+  for (var i = 0; i < refs.length; i++) {
+    var kit = null;
+    for (var k = 0; k < _pedKitsPedidos.length; k++) {
+      if (_pedKitsPedidos[k].equipo === refs[i].equipo && _pedKitsPedidos[k].nivel === refs[i].nivel) { kit = _pedKitsPedidos[k]; break; }
+    }
+    if (!kit) continue;
     for (var j = 0; j < kit.items.length; j++) {
       var it  = kit.items[j];
       var row = _pedFilaIndice(it.sku);
@@ -7115,8 +7200,8 @@ function _pedAgregarKitsSeleccionados() {
       var foto = (row && row[11]) || '';
 
       var found = false;
-      for (var k = 0; k < _pedCart.length; k++) {
-        if (_pedCart[k].sku === it.sku) { _pedCart[k].cantidad += it.cantidad; found = true; break; }
+      for (var m = 0; m < _pedCart.length; m++) {
+        if (_pedCart[m].sku === it.sku) { _pedCart[m].cantidad += it.cantidad; found = true; break; }
       }
       if (!found) {
         _pedCart.push({ sku: it.sku, descripcion: desc, estado: estado, cantidad: it.cantidad, precio: precio, modelos: modelos, stockActual: stockActual, reemplazadoPor: reemplazadoPor, foto: foto });
@@ -7125,9 +7210,24 @@ function _pedAgregarKitsSeleccionados() {
     }
   }
   _pedRenderCarrito();
+  return agregados;
+}
+
+function _pedAgregarKitsSeleccionados() {
+  var keys = Object.keys(_pedKitsSeleccionados);
+  if (!keys.length) return;
+  var refs = keys.map(function(k) { var p = k.split('|'); return { equipo: p[0], nivel: p[1] }; });
+  var agregados = _pedAgregarKitsAlCarrito(refs);
   toast(keys.length + ' kit(s) agregados al carrito — ' + agregados + ' línea(s)', 'ok');
   _pedKitsSeleccionados = {};
   _pedRenderListaKits();
+}
+
+function _pedAgregarKitDesdeModal() {
+  if (!_pedKitModalActual) return;
+  _pedAgregarKitsAlCarrito([_pedKitModalActual]);
+  toast('Kit ' + _pedKitModalActual.nivel + ' de ' + _pedKitModalActual.equipo + ' agregado al carrito', 'ok');
+  _pedCerrarKitModal();
 }
 
 // Mismo switcher que _pedSetMode, pero para el Cotizador (ver _catAgregarCot para el
@@ -7763,7 +7863,11 @@ function _pedCargarIndice() {
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
       // Idem si la lista de Kits de Pedido se había renderizado con el índice todavía en
       // null (precios/fotos en blanco) — se vuelve a pintar sola, ahora con datos reales.
-      if (_pedKitsListaPendiente) { _pedKitsListaPendiente = false; _pedRenderListaKits(); }
+      if (_pedKitsListaPendiente) {
+        _pedKitsListaPendiente = false;
+        _pedRenderListaKits();
+        if (_pedKitModalActual) _pedAbrirKitModal(_pedKitKey(_pedKitModalActual.equipo, _pedKitModalActual.nivel));
+      }
     })
     .withFailureHandler(function() {
       _pedIndiceCargando = false;
@@ -7774,7 +7878,11 @@ function _pedCargarIndice() {
       // el mismo fallback que ya tiene el resto del Cotizador) en vez de quedar stuck sin
       // reaccionar al click de "Cargar" de hace un rato.
       if (_cotPlantillaPendiente) { _cotPlantillaPendiente = false; _cotCargarPlantilla(); }
-      if (_pedKitsListaPendiente) { _pedKitsListaPendiente = false; _pedRenderListaKits(); }
+      if (_pedKitsListaPendiente) {
+        _pedKitsListaPendiente = false;
+        _pedRenderListaKits();
+        if (_pedKitModalActual) _pedAbrirKitModal(_pedKitKey(_pedKitModalActual.equipo, _pedKitModalActual.nivel));
+      }
     })
     .obtenerIndiceRepuestosPortal(_sesionToken, _pedCtxReseller(), _pedDtoOverride());
   // Mapa de kits (C → A + B) para explotar en vivo al agregar al carrito
