@@ -5,7 +5,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 
 $ROOT = "D:\BIDCOMAGRO-SYSTEM"
-$MODS = @("HUB_PRO", "PORTAL_RESELLER", "STOCK_MANAGER", "LAUNCHER", "WOS", "ComandasPedidos")
+$MODS = @("HUB_PRO", "PORTAL_RESELLER", "STOCK_MANAGER", "LAUNCHER", "WOS", "ComandasPedidos", "FACTURACION_COBRANZA")
 
 function Get-ModuleHash {
     param([string]$path)
@@ -100,7 +100,7 @@ if ($currentBranch -ne "main") {
     Write-Host "  Cambiando a main..." -ForegroundColor Yellow
     git checkout main
 }
-git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos 2>$null
+git add VERSIONS.md WOS PORTAL_RESELLER HUB_PRO STOCK_MANAGER LAUNCHER ComandasPedidos FACTURACION_COBRANZA 2>$null
 git commit -m "release: $tag - $moduleList"
 git tag $tag
 
