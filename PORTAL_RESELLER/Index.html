@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.17 -->
+<!-- @version 2.18 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -5883,7 +5883,7 @@ var _pedBusTimer      = null;
 var _pedBusSeq        = 0;      // anti-race: descarta respuestas de búsquedas viejas
 var _pedIndice        = null;   // null=cargando · array=listo (búsqueda local instantánea)
 var _pedKits          = {};     // { KITSKU: [{sku, cantidadPorKit}] } — explota C → A + B en el carrito
-var _pedDtoPct        = 40;     // % de descuento del reseller actual (lo trae obtenerIndiceRepuestosPortal; default 40)
+var _pedDtoPct        = 0;      // % de descuento del reseller actual (lo trae obtenerIndiceRepuestosPortal) — arranca en 0 (PVP) hasta que llegue el valor real, mismo criterio que el flujo RTV
 // factor = precio que paga / precio de lista (0.60 para 40% dto). Revierte a PVP y decide si mostrar el descuento.
 function _pedFactor()        { return (100 - _pedDtoPct) / 100; }
 function _pedTieneDto()      { return _pedDtoPct > 0; }

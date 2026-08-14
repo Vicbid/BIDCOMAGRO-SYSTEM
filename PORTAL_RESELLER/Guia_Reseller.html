@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 1.5 -->
+<!-- @version 1.6 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -191,7 +191,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
         </p>
         <div class="box-info">
           <i class="fa fa-lock"></i>
-          Para identificarte elegís tu empresa de la lista y escribís tu <strong>PIN de 4 dígitos</strong>. Las secciones con datos (Mis Reparaciones, Carrito, Cotizador, Curso y Mensajes) piden ese PIN.
+          Para entrar al portal elegís tu empresa de la lista y escribís tu <strong>PIN de 4 dígitos</strong>. Es obligatorio para cualquier sección — no hay forma de usar el portal sin identificarte primero.
         </div>
         <div class="box-ok" style="margin-top:0">
           <i class="fa fa-lightbulb"></i>
@@ -238,7 +238,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
 
     <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
-      El portal se organiza en pestañas en la parte superior. Al ingresar se abre la pestaña <strong>Recursos</strong> (inicio). Estas son las secciones:
+      El portal se organiza en pestañas en la parte superior — todas requieren haberte identificado primero (ver <a href="#acceso" style="color:var(--blue)">Sección 1</a>). Al ingresar se abre la pestaña <strong>Recursos</strong> (inicio). Estas son las secciones:
     </p>
 
     <div class="card">
@@ -247,13 +247,13 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
           <thead><tr><th>Sección</th><th>Para qué sirve</th></tr></thead>
           <tbody>
             <tr><td><i class="fa fa-plus-circle" style="color:var(--blue);margin-right:6px"></i>Nueva Reparación</td><td>Cargar un caso de servicio (individual o por Excel)</td></tr>
-            <tr><td><i class="fa fa-clipboard-list" style="color:var(--blue);margin-right:6px"></i>Mis Reparaciones</td><td>Ver el estado y el detalle de todos tus casos <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-clipboard-list" style="color:var(--blue);margin-right:6px"></i>Mis Reparaciones</td><td>Ver el estado y el detalle de todos tus casos</td></tr>
             <tr><td><i class="fa fa-book" style="color:var(--blue);margin-right:6px"></i>Recursos</td><td>Pantalla de inicio con accesos y material útil</td></tr>
             <tr><td><i class="fa fa-bullhorn" style="color:var(--blue);margin-right:6px"></i>Novedades</td><td>Comunicados y anuncios. Un globo rojo marca las no leídas</td></tr>
-            <tr><td><i class="fa fa-graduation-cap" style="color:var(--blue);margin-right:6px"></i>Curso</td><td>Inscripción a cursos y eventos presenciales <span class="ui-tag">PIN</span></td></tr>
-            <tr><td><i class="fa fa-shopping-cart" style="color:var(--blue);margin-right:6px"></i>Carrito de Repuestos</td><td>Pedir repuestos con precio distribuidor <span class="ui-tag">PIN</span></td></tr>
-            <tr><td><i class="fa fa-file-invoice-dollar" style="color:var(--blue);margin-right:6px"></i>Cotizador</td><td>Armar presupuestos para tu cliente final <span class="ui-tag">PIN</span></td></tr>
-            <tr><td><i class="fa fa-comments" style="color:var(--blue);margin-right:6px"></i>Mensajes</td><td>Hablar con el taller sobre un caso <span class="ui-tag">PIN</span></td></tr>
+            <tr><td><i class="fa fa-graduation-cap" style="color:var(--blue);margin-right:6px"></i>Curso</td><td>Inscripción a cursos y eventos presenciales</td></tr>
+            <tr><td><i class="fa fa-shopping-cart" style="color:var(--blue);margin-right:6px"></i>Carrito de Repuestos</td><td>Pedir repuestos con precio distribuidor</td></tr>
+            <tr><td><i class="fa fa-file-invoice-dollar" style="color:var(--blue);margin-right:6px"></i>Cotizador</td><td>Armar presupuestos para tu cliente final</td></tr>
+            <tr><td><i class="fa fa-comments" style="color:var(--blue);margin-right:6px"></i>Mensajes</td><td>Hablar con el taller sobre un caso</td></tr>
           </tbody>
         </table>
       </div>
@@ -273,14 +273,14 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
 
     <div class="card">
-      <div class="card-head"><i class="fa fa-building"></i> Paso 1 — Identificación</div>
+      <div class="card-head"><i class="fa fa-building"></i> Paso 1 — Reseller y tipo de gestión</div>
       <div class="card-body">
         <div class="steps">
           <div class="step">
             <div class="step-num">A</div>
             <div class="step-content">
-              <div class="step-title">Seleccioná tu empresa (Reseller)</div>
-              <div class="step-body">Elegí tu razón social en el desplegable. Si no aparece, contactanos para darte de alta.</div>
+              <div class="step-title">Tu empresa (Reseller)</div>
+              <div class="step-body">Ya viene precargada con la identificación que usaste para entrar al portal — no hace falta tocar nada. Si administrás varias sucursales bajo una misma cuenta, acá elegís para cuál de ellas es este caso puntual.</div>
             </div>
           </div>
           <div class="step">
@@ -586,10 +586,10 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-head"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
-          En <span class="ui-tag blue"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</span> (requiere PIN) ves todos tus casos con su estado. Al abrir un caso ves una <strong>línea de pasos</strong> con la etapa actual, el detalle del equipo, los mensajes y las acciones disponibles.
+          En <span class="ui-tag blue"><i class="fa fa-clipboard-list"></i> Mis Reparaciones</span> ves todos tus casos con su estado. Al abrir un caso ves una <strong>línea de pasos</strong> con la etapa actual, el detalle del equipo, los mensajes y las acciones disponibles.
         </p>
         <div class="steps">
-          <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-body">Clic en <span class="ui-tag blue">Mis Reparaciones</span> → ingresá tu PIN de 4 dígitos.</div></div></div>
+          <div class="step"><div class="step-num">1</div><div class="step-content"><div class="step-body">Clic en <span class="ui-tag blue">Mis Reparaciones</span>.</div></div></div>
           <div class="step"><div class="step-num">2</div><div class="step-content"><div class="step-body">Ves el listado con estado, modelo, S/N y fecha de ingreso.</div></div></div>
           <div class="step"><div class="step-num">3</div><div class="step-content"><div class="step-body">Abrís un caso para ver el detalle, el historial y qué hacer en cada etapa.</div></div></div>
         </div>
@@ -631,7 +631,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
     </div>
 
     <p style="font-size:13px;color:var(--tx-m);margin-bottom:16px">
-      Desde <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> (requiere PIN) pedís repuestos con <strong>precio distribuidor</strong>.
+      Desde <span class="ui-tag blue"><i class="fa fa-shopping-cart"></i> Carrito de Repuestos</span> pedís repuestos con <strong>precio distribuidor</strong>.
     </p>
 
     <div class="card">
@@ -698,7 +698,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-head"><i class="fa fa-file-invoice-dollar"></i> Presupuestos para tu cliente final</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
-          En <span class="ui-tag blue"><i class="fa fa-file-invoice-dollar"></i> Cotizador</span> (requiere PIN) armás un <strong>presupuesto para tu cliente final</strong>. Buscás los repuestos igual que en el carrito y cada ítem arranca con un <strong>descuento sobre el PVP de lista</strong>, que podés editar por ítem.
+          En <span class="ui-tag blue"><i class="fa fa-file-invoice-dollar"></i> Cotizador</span> armás un <strong>presupuesto para tu cliente final</strong>. Buscás los repuestos igual que en el carrito y cada ítem arranca con un <strong>descuento sobre el PVP de lista</strong>, que podés editar por ítem.
         </p>
         <div class="box-info">
           <i class="fa fa-file-pdf"></i>
@@ -719,7 +719,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-head"><i class="fa fa-graduation-cap"></i> Inscripción a cursos y eventos</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);line-height:1.7">
-          Cuando organizamos un curso o evento presencial, aparece en la pestaña <span class="ui-tag blue"><i class="fa fa-graduation-cap"></i> Curso</span> (requiere PIN). Ahí indicás <strong>si vas a asistir y cuántas personas</strong>, con el <strong>nombre</strong> de cada asistente y su <strong>email</strong> (opcional).
+          Cuando organizamos un curso o evento presencial, aparece en la pestaña <span class="ui-tag blue"><i class="fa fa-graduation-cap"></i> Curso</span>. Ahí indicás <strong>si vas a asistir y cuántas personas</strong>, con el <strong>nombre</strong> de cada asistente y su <strong>email</strong> (opcional).
         </p>
         <div class="box-info">
           <i class="fa fa-bell"></i>
@@ -740,7 +740,7 @@ body{background:var(--bg);font-family:var(--f);color:var(--tx);font-size:14px;li
       <div class="card-head"><i class="fa fa-comments"></i> Canal de mensajes</div>
       <div class="card-body">
         <p style="font-size:13px;color:var(--tx-m);margin-bottom:12px">
-          Desde <span class="ui-tag blue"><i class="fa fa-comments"></i> Mensajes</span> (requiere PIN) te comunicás con nuestro equipo sobre cualquier caso. También podés escribir desde el detalle de cada OT en <strong>Mis Reparaciones</strong> — ahí es donde cargás el <strong>tracking / remito</strong> del envío de repuestos dañados.
+          Desde <span class="ui-tag blue"><i class="fa fa-comments"></i> Mensajes</span> te comunicás con nuestro equipo sobre cualquier caso. También podés escribir desde el detalle de cada OT en <strong>Mis Reparaciones</strong> — ahí es donde cargás el <strong>tracking / remito</strong> del envío de repuestos dañados.
         </p>
         <div class="box-info">
           <i class="fa fa-bell"></i>
