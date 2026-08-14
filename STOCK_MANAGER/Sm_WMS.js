@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — WMS ─────────────────────────────────────
-// @version 1.1
+// @version 1.2
 
 // ── WMS — GESTIÓN DE UBICACIONES EN CARMEN ──────────────────
 function cargarUbicacionesItem(sku) {
@@ -113,8 +113,16 @@ function SM_repararFormatoUbicaciones() {
 }
 
 // Mueve `cant` unidades de un SKU de una ubicación a otra en UBICACIONES de Carmen.
+// Lockeada (igual que SM_unificarUbicaciones): lee toda la hoja una vez y después borra/escribe
+// por número de fila calculado de esa lectura — sin lock, dos llamadas casi simultáneas (ahora
+// puede llegar tanto desde "Mover" del WMS como desde "Transferencia Interna", Sm_Stock.js)
+// podían calcular filas antes de que la otra terminara de escribir y pisar/borrar la fila
+// equivocada, perdiendo en silencio la ubicación de un SKU que no tenía nada que ver con esa
+// operación puntual.
 function SM_moverStock(sku, origen, destino, cant) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000);
     var ss       = _getCarmenSS();
     var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
     if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
@@ -155,6 +163,8 @@ function SM_moverStock(sku, origen, destino, cant) {
   } catch(e) {
     Logger.log('SM_moverStock: ' + e);
     return { ok: false, error: e.message };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 
