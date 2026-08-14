@@ -1,5 +1,5 @@
 // ── STOCK MANAGER — WMS ─────────────────────────────────────
-// @version 1.0
+// @version 1.1
 
 // ── WMS — GESTIÓN DE UBICACIONES EN CARMEN ──────────────────
 function cargarUbicacionesItem(sku) {
@@ -281,15 +281,23 @@ function SM_moverCaja(origenBin4, destinoBin4) {
   }
 }
 
-// Escribe el conteo completo de una ubicación: sobrescribe la cantidad de cada SKU provisto,
-// elimina SKUs no incluidos. `items` = [{sku, cantidad}]
+// Escribe el conteo completo de una ubicación: sobrescribe la cantidad de cada SKU provisto
+// (lo borra si lo pusieron en 0). NO toca ningún otro SKU del bin que no venga en `items` —
+// antes sí lo hacía ("lo que no vino en la lista, se borra"), y eso perdía en silencio
+// cualquier ubicación que otro operador hubiera mapeado a ese mismo bin (Recibir compra, Mover
+// stock, etc.) mientras esta pantalla de Contar seguía abierta con una lista vieja: al guardar,
+// ese SKU nuevo no estaba en `items` y se eliminaba aunque el operador nunca lo vio ni lo tocó.
+// Reporte del operador: "hay ubicaciones que estoy seguro que mapeé pero se perdieron" — ver
+// [[carmen_fuente_stock]]. Las bajas explícitas de un ítem puntual ya las maneja
+// `eliminarUbicacion` en tiempo real (botón de tacho de cada fila), así que acá alcanza con
+// nunca borrar lo que el operador no tiene cargado en pantalla. `items` = [{sku, cantidad}]
 function guardarConteoUbicacion(ubicacion, items) {
   try {
     var ss       = _getCarmenSS();
     var hojaUbic = ss.getSheetByName(CARMEN_UBICACIONES_TAB);
     if (!hojaUbic) return { ok: false, error: 'Tab UBICACIONES no existe en Carmen' };
     var ubicKey = String(ubicacion).trim().toUpperCase();
-    // Construir mapa de nuevas cantidades
+    // Construir mapa de cantidades a aplicar (solo los SKUs que el operador tiene en pantalla)
     var nuevoMapa = {};
     for (var k = 0; k < items.length; k++) {
       var s = String(items[k].sku || '').trim().toUpperCase();
@@ -297,23 +305,20 @@ function guardarConteoUbicacion(ubicacion, items) {
       if (s) nuevoMapa[s] = c;
     }
     var d = hojaUbic.getDataRange().getValues();
-    // Procesar filas existentes (en reversa para poder eliminar)
+    // Procesar filas existentes (en reversa para poder eliminar) — solo las que el operador
+    // tiene en `items`; cualquier otra fila del bin se deja intacta.
     var procesadas = {};
     for (var i = d.length - 1; i >= 1; i--) {
       var rowSku  = String(d[i][0] || '').trim().toUpperCase();
       var rowUbic = String(d[i][1] || '').trim().toUpperCase();
       if (rowUbic !== ubicKey) continue;
-      if (nuevoMapa.hasOwnProperty(rowSku)) {
-        if (nuevoMapa[rowSku] === 0) {
-          hojaUbic.deleteRow(i + 1);
-        } else {
-          hojaUbic.getRange(i + 1, 3).setValue(nuevoMapa[rowSku]);
-        }
-        procesadas[rowSku] = true;
-      } else {
-        // SKU no incluido en el conteo → eliminar
+      if (!nuevoMapa.hasOwnProperty(rowSku)) continue;
+      if (nuevoMapa[rowSku] === 0) {
         hojaUbic.deleteRow(i + 1);
+      } else {
+        hojaUbic.getRange(i + 1, 3).setValue(nuevoMapa[rowSku]);
       }
+      procesadas[rowSku] = true;
     }
     // Agregar SKUs nuevos (no existían antes)
     var keys = Object.keys(nuevoMapa);
