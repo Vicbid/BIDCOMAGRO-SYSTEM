@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.21 -->
+<!-- @version 2.22 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -306,6 +306,15 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   .dash-row{grid-template-columns:1fr}
   .contacto-grid{grid-template-columns:1fr}
   .tab-btn{padding:5px 10px;font-size:11px}
+  /* Pedido del usuario: en celular la barra de pestañas (Nueva Reparación, Carrito de
+     Repuestos, etc.) hace scroll horizontal pero se ve "cortada" en los bordes sin ninguna
+     pista de que hay más para deslizar — "se salen de los bordes". Fundido en ambos bordes
+     (siempre visible, no depende de la posición del scroll) para que se lea como "deslizar
+     para ver más" en vez de contenido roto/cortado. */
+  .tab-bar{
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  }
   .rec-2col{grid-template-columns:1fr;gap:0}
   .rec-2col .dji-card{margin-bottom:14px}
 
