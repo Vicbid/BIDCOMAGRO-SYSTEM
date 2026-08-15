@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.22 -->
+<!-- @version 2.23 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -68,7 +68,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .sn-hint.show{display:block}
 
 /* ── TIPO DE GESTIÓN ────────────────────── */
-.tipo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px}
+.tipo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
 .tipo-card{background:var(--surf);border:2px solid var(--brd);border-radius:var(--rm);padding:13px 10px;cursor:pointer;transition:all .13s;text-align:center}
 .tipo-card:hover{border-color:var(--brd2);background:var(--raise)}
 .tipo-card.selected{border-color:var(--blue);background:var(--blue-a)}
@@ -77,6 +77,26 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 .tipo-card .tipo-name{font-size:12px;font-weight:600;color:var(--tx-m)}
 .tipo-card.selected .tipo-name{color:var(--blue)}
 .tipo-card .tipo-desc{font-size:10px;color:var(--tx-d);margin-top:2px}
+
+/* ── SWITCH "¿FUE UN ACCIDENTE?" (Análisis de datos de choque) ──
+   Se separa de las 3 tarjetas de "Tipo de gestión" porque no es una variante más de cómo se
+   repara (esas son 3 formas de resolver lo mismo) — es una bifurcación distinta: no hay
+   reparación, es un análisis de log ante DJI. Un switch grande y con color propio (rojo,
+   coherente con el resto de la UI de choque) evita que se pierda entre las otras opciones. */
+.choque-switch{display:flex;align-items:center;gap:12px;background:var(--surf);border:2px solid var(--brd);border-radius:var(--rm);padding:12px 14px;margin-bottom:14px;cursor:pointer;transition:all .13s}
+.choque-switch:hover{border-color:rgba(214,48,49,.35)}
+.choque-switch.active{border-color:var(--red);background:rgba(214,48,49,.06)}
+.choque-switch i{font-size:20px;color:var(--tx-d);flex-shrink:0}
+.choque-switch.active i{color:var(--red)}
+.choque-switch-txt{flex:1;min-width:0}
+.choque-switch-title{font-size:13px;font-weight:700;color:var(--tx)}
+.choque-switch-desc{font-size:11px;color:var(--tx-m);margin-top:1px}
+.choque-sw{position:relative;flex-shrink:0;width:42px;height:24px}
+.choque-sw input{opacity:0;width:0;height:0}
+.choque-sw-slider{position:absolute;inset:0;background:var(--brd2);border-radius:24px;transition:.13s}
+.choque-sw-slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.13s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.choque-sw input:checked+.choque-sw-slider{background:var(--red)}
+.choque-sw input:checked+.choque-sw-slider::before{transform:translateX(18px)}
 
 /* ── BOTONES ────────────────────────────── */
 .btn-main{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:var(--rm);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(0,163,224,.25)}
@@ -1172,8 +1192,19 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             </select>
           </div>
         </div>
+        <div class="choque-switch" id="choque-switch-row" onclick="document.getElementById('chk-choque').click()">
+          <i class="fa fa-triangle-exclamation"></i>
+          <div class="choque-switch-txt">
+            <div class="choque-switch-title">¿Fue un accidente?</div>
+            <div class="choque-switch-desc">Análisis de datos de choque — le pedimos a DJI que analice el log de vuelo, sin reparación</div>
+          </div>
+          <label class="choque-sw" onclick="event.stopPropagation()">
+            <input type="checkbox" id="chk-choque" onchange="toggleChoque(this.checked)">
+            <span class="choque-sw-slider"></span>
+          </label>
+        </div>
         <label class="flbl">Tipo de gestión</label>
-        <div class="tipo-grid">
+        <div class="tipo-grid" id="tipo-grid-normal">
           <div class="tipo-card" id="tc-taller" onclick="selTipo('Taller','tc-taller')">
             <i class="fa fa-tools"></i>
             <div class="tipo-name">Taller Central</div>
@@ -1188,11 +1219,6 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <i class="fa fa-cog"></i>
             <div class="tipo-name">Aftersales propio</div>
             <div class="tipo-desc">Gestión local DJI</div>
-          </div>
-          <div class="tipo-card" id="tc-check" onclick="selTipo('Check','tc-check')">
-            <i class="fa fa-triangle-exclamation"></i>
-            <div class="tipo-name">Análisis de datos de choque</div>
-            <div class="tipo-desc">Accidente — análisis de log de vuelo</div>
           </div>
         </div>
         <input type="hidden" id="h-circuito" value="">
@@ -4195,7 +4221,8 @@ function restoreDraft() {
     if (d.cliente)  document.getElementById('inp-cliente').value  = d.cliente;
     if (d.circuito) {
       var mapa = { Taller:'tc-taller', Reseller:'tc-reseller', 'Reseller Propio':'tc-propio' };
-      if (mapa[d.circuito]) selTipo(d.circuito, mapa[d.circuito]);
+      if (d.circuito === 'Check') toggleChoque(true);
+      else if (mapa[d.circuito]) selTipo(d.circuito, mapa[d.circuito]);
     }
     validarSN();
   } catch(e) {}
@@ -4207,10 +4234,10 @@ function restoreDraft() {
 function selTipo(val, cardId) {
   tipoSelecto = val;
   document.getElementById('h-circuito').value = val;
-  ['tc-taller','tc-reseller','tc-propio','tc-check'].forEach(function(id){
+  ['tc-taller','tc-reseller','tc-propio'].forEach(function(id){
     document.getElementById(id).classList.remove('selected');
   });
-  document.getElementById(cardId).classList.add('selected');
+  if (cardId) document.getElementById(cardId).classList.add('selected');
   var esPropio   = (val === 'Reseller Propio');
   var esReseller = (val === 'Reseller');
   var esCheck    = (val === 'Check');
@@ -4225,6 +4252,15 @@ function selTipo(val, cardId) {
   if (!esPropio)   { aftEstado = '';      ['aft-ya-repare','aft-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); }); }
   if (!esReseller) { resellerEstado = ''; ['res-ya-repare','res-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); }); }
   save();
+}
+
+// Switch "¿Fue un accidente?" — al activarlo, oculta las 3 tarjetas de Tipo de gestión (no
+// aplican, Check no es una reparación) y deja el switch como única selección visible.
+function toggleChoque(on) {
+  document.getElementById('tipo-grid-normal').style.display = on ? 'none' : '';
+  document.getElementById('choque-switch-row').classList.toggle('active', on);
+  document.getElementById('chk-choque').checked = on;
+  selTipo(on ? 'Check' : '', null);
 }
 
 function selResellerEstado(val, cardId) {
@@ -4406,8 +4442,11 @@ function resetForm() {
   ['sel-equipo','inp-sn','inp-falla','inp-fecha-act','inp-cliente'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('sel-gar').value='IW';
   tipoSelecto=''; aftEstado=''; resellerEstado='';
-  ['tc-taller','tc-reseller','tc-propio','tc-check'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
+  ['tc-taller','tc-reseller','tc-propio'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
   ['aft-ya-repare','aft-pendiente','res-ya-repare','res-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
+  document.getElementById('tipo-grid-normal').style.display = '';
+  document.getElementById('choque-switch-row').classList.remove('active');
+  document.getElementById('chk-choque').checked = false;
   document.getElementById('inp-cas').value = '';
   document.getElementById('inp-drive').value = '';
   document.getElementById('inp-check-drive').value  = '';
