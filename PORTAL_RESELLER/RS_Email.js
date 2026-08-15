@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER BIDCOM — Helpers de email y notificaciones
 // ============================================================
 
@@ -111,6 +111,43 @@ function _notificarNuevaOT(nOT, data, cotizUrl) {
       _logEmail(nOT, emailCC, "Reseller (Portal)", asunto, "OK", threadId || "");
     }
   } catch(e) { Logger.log("_notificarNuevaOT: " + e); }
+}
+
+// Aviso a Slack cuando se carga un caso de "Análisis de datos de choque" (circuito Check) —
+// pedido del usuario: máxima prioridad, el equipo se tiene que enterar al toque. Va a un grupo
+// aparte de los mails al supervisor (PORTAL_CONFIG.SLACK_WEBHOOK_CHOQUE, Incoming Webhook —
+// el usuario define los participantes del lado de Slack). No rompe la creación del caso si
+// Slack falla o si todavía no se configuró el webhook.
+function _notificarSlackChoque(nOT, data) {
+  try {
+    var webhook = PORTAL_CONFIG.SLACK_WEBHOOK_CHOQUE;
+    if (!webhook || webhook.indexOf("TU_WEBHOOK") !== -1) {
+      Logger.log("_notificarSlackChoque: falta configurar PORTAL_CONFIG.SLACK_WEBHOOK_CHOQUE");
+      return;
+    }
+    var fechaAccLabel = data.fechaAccidente
+      ? Utilities.formatDate(new Date(data.fechaAccidente), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
+      : "sin especificar";
+    var texto =
+      "🔴 *Nuevo caso de choque — " + nOT + "*\n" +
+      "*Reseller:* " + data.reseller + "\n" +
+      "*Equipo:* " + data.equipo + "  ·  *S/N:* " + (data.sn || "—") + "\n" +
+      "*Garantía:* " + (data.garantia || "—") + "\n" +
+      "*Fecha del accidente:* " + fechaAccLabel + "\n" +
+      "*Qué intentó el piloto:* " + (data.accionPiloto || "—") + "\n" +
+      (data.driveUrl ? "*Log de vuelo:* <" + data.driveUrl + "|Ver en Drive>\n" : "") +
+      "⏱ Plazo interno: 24 horas hábiles para presentar el caso ante DJI.";
+
+    var res = UrlFetchApp.fetch(webhook, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify({ text: texto }),
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      Logger.log("_notificarSlackChoque: Slack respondió " + res.getResponseCode() + " — " + res.getContentText());
+    }
+  } catch(e) { Logger.log("_notificarSlackChoque: " + e); }
 }
 
 function _notificarLoteOT(reseller, items, ots, ss) {

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.30
+// @version 1.32
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -16,6 +16,12 @@ var PORTAL_CONFIG = {
   COL_PIN_RESELLER:     10,
   COL_FECHA_ACTIVACION: 13,
   DIAS_AVISO_GARANTIA:  30,
+  // Slack Incoming Webhook del canal #analisis-accidente-dji — se avisa ahí cuando se carga
+  // un caso de "Análisis de datos de choque" (ver _notificarSlackChoque, RS_Email.js). Se
+  // creó vía api.slack.com/apps → app "Accidente DJI" → Incoming Webhooks. Mientras quede
+  // vacío o con el placeholder "TU_WEBHOOK", _notificarSlackChoque no manda nada (no rompe
+  // la creación del caso).
+  SLACK_WEBHOOK_CHOQUE: "https://hooks.slack.com/services/***REMOVED***",
   DIAS_ESTIMADOS: {
     "Taller-IW": 30, "Taller-OOW": 30,
     "Reseller-IW": 30, "Reseller-OOW": 30,

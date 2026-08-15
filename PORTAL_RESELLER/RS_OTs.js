@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.15
+// @version 1.16
 // ============================================================
 
 function enviarCasoAlHub(token, data) {
@@ -134,6 +134,7 @@ function enviarCasoAlHub(token, data) {
     }
 
     _notificarNuevaOT(nOT, data, cotizUrl);
+    if (data.circuito === 'Check') _notificarSlackChoque(nOT, data);
     return { nOT: nOT, cotizUrl: cotizUrl };
   } catch(e) {
     if (lock.hasLock()) lock.releaseLock();
