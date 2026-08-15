@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.23 -->
+<!-- @version 2.24 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -356,9 +356,12 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
   .carrito-del{padding:6px 9px;font-size:13px}
   .carrito-item{padding:10px 13px}
 
-  /* Los 3 botones de modo (Buscar SKU / Catálogo / Cargar Excel) quedan muy
-     apretados en una pantalla angosta — se achican para entrar en una fila. */
-  .gest-mode-btn{padding:8px 6px;font-size:11px;gap:4px}
+  /* Los botones de modo (Buscar SKU / Kits / Catálogo / Cargar Excel) no entran en una
+     sola fila en pantalla angosta — reportado por el usuario: "Cargar Excel se sale de los
+     margenes". Se pasa de "todos en 1 fila, cada vez más chicos" a 2 columnas que envuelven
+     (2x2 con 4 botones, 2+1 con 3) — más legible que forzarlos a compartir un ancho mínimo. */
+  .gest-mode-btn{padding:8px 6px;font-size:11px;gap:4px;flex:0 1 calc(50% - 4px)}
+  .gest-mode-row{flex-wrap:wrap;row-gap:6px}
 
   .help-bar{flex-wrap:wrap;row-gap:6px}
 
@@ -1165,7 +1168,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 
     <div class="help-bar">
       <span class="help-bar-title"><i class="fa fa-plus-circle" style="color:var(--blue)"></i> Nueva Reparacion de Servicio</span>
-      <div style="display:flex;gap:6px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <button class="btn-out blue" onclick="abrirModalLote()" style="font-size:11px;font-weight:600;padding:5px 12px">
           📥 Carga Masiva de Reparaciones (Excel)
         </button>
@@ -1350,7 +1353,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
         <p style="font-size:12px;color:var(--tx-m);margin-bottom:12px">
           Buscá los repuestos que necesitás para esta reparación. Se incluirán automáticamente en la OT.
         </p>
-        <div style="display:flex;gap:6px;margin-bottom:14px">
+        <div class="gest-mode-row" style="display:flex;gap:6px;margin-bottom:14px">
           <button class="gest-mode-btn active" id="repnueva-mode-manual" onclick="_repNuevaModo('manual')">
             <i class="fa fa-search"></i> Buscar SKU
           </button>
@@ -2006,7 +2009,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div class="dji-card">
         <div class="dji-card-head"><i class="fa fa-plus-circle"></i> Agregar Repuestos</div>
         <div class="dji-card-body">
-          <div style="display:flex;gap:8px;margin-bottom:16px">
+          <div class="gest-mode-row" style="display:flex;gap:8px;margin-bottom:16px">
             <button class="gest-mode-btn active" id="ped-mode-manual" onclick="_pedSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
             </button>
@@ -2305,7 +2308,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
       <div class="dji-card">
         <div class="dji-card-head"><i class="fa fa-plus-circle"></i> Agregar Repuestos</div>
         <div class="dji-card-body">
-          <div style="display:flex;gap:8px;margin-bottom:16px">
+          <div class="gest-mode-row" style="display:flex;gap:8px;margin-bottom:16px">
             <button class="gest-mode-btn active" id="cot-mode-manual" onclick="_cotSetMode('manual')">
               <i class="fa fa-search"></i> Buscar SKU
             </button>
