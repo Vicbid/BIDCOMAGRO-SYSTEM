@@ -1,4 +1,4 @@
-// @version 1.8
+// @version 1.9
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -166,7 +166,7 @@ function HUB_generarPedidoRepuestos(data) {
 //  Devuelve: ordenes + repuestos + tecnicos + resellers
 // ============================================================
 // Estados "cerrados"/terminales (una OT ya terminada). Debe coincidir con el front.
-var _ESTADOS_CERRADOS = { 'Finalizado':1, 'Entregado':1, 'CANCELADO':1, 'Rechazado DJI':1, 'Sin respuesta · Cerrado':1 };
+var _ESTADOS_CERRADOS = { 'Finalizado':1, 'Entregado':1, 'CANCELADO':1, 'Rechazado DJI':1, 'Sin respuesta · Cerrado':1, 'Aprobado bajo garantía':1, 'No aprobado - Error del piloto':1 };
 function _esCerrada(estado) { return _ESTADOS_CERRADOS[String(estado||'').trim()] === 1; }
 
 
@@ -242,7 +242,8 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
       var tipo = "Taller";
       if (circUp === "SI" || circUp === "RESELLER") tipo = "Reseller";
       else if (circUp === "RESELLER PROPIO")        tipo = "Reseller Propio";
-      
+      else if (circUp === "CHECK")                  tipo = "Check";
+
       var tec = String(f[9] || "").trim();
       if (tec && tec !== "Gestión Reseller") tecSet[tec] = 1;
 
@@ -255,6 +256,12 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
       var msgNoLeido   = lastMsg !== -1 && (lastLeido === -1 || lastMsg > lastLeido);
 
       var rawUM = f[SCHEMA.OT.ULTIMA_MODIFICACION];
+      // Plazo de 24hs hábiles para enviar el caso a DJI (solo mientras sigue sin enviarse) —
+      // ver _sumarHorasHabiles/verificarPlazoDJI en HUB_Sistema.js. null = no aplica.
+      var plazoDjiVence = null;
+      if (tipo === "Check" && String(f[4]||"") === "Pendiente de Aprobación" && f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) {
+        plazoDjiVence = _sumarHorasHabiles(f[SCHEMA.OT.FECHA_INGRESO], 24).getTime();
+      }
       ordenes.push({
         fila:      i+1,
         ot:        otStr,
@@ -287,6 +294,7 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
         fechaIngreso: (f[SCHEMA.OT.FECHA_INGRESO] instanceof Date) ? f[SCHEMA.OT.FECHA_INGRESO].getTime() : null,
         prioridad: String(f[17]).toUpperCase() === "URGENTE",
         circuito:  tipo,
+        plazoDjiVence: plazoDjiVence,
         origenRepuesto: _origenRepuestoDe(f),               // AA: quién pone el repuesto (badge)
         cierreTipo:     String(f[SCHEMA.OT.CIERRE_TIPO]||"").trim(), // AB: reposición vs NC
         esBateria: mapaBaterias[String(f[5]||'').trim().toLowerCase()] === true,
@@ -760,7 +768,10 @@ function crearNuevaOT(datos) {
     row[0]  = new Date();
     row[2]  = nOT;
     row[3]  = datos.garantia  || "OOW";
-    row[4]  = "Abierto";
+    // Check (Análisis de datos de choque) arranca en "Pendiente de Aprobación" — mismo estado
+    // inicial que usa enviarCasoAlHub (Portal Reseller) y el único que existe en EST_CHECK
+    // antes de "Enviado a DJI"; los demás circuitos arrancan en "Abierto" como siempre.
+    row[4]  = (datos.circuito === "Check") ? "Pendiente de Aprobación" : "Abierto";
     row[5]  = datos.equipo    || "";
     row[6]  = datos.sn        || "";
     row[7]  = datos.reseller  || "";
@@ -769,7 +780,8 @@ function crearNuevaOT(datos) {
     row[13] = fechaAct        || "";
     row[14] = datos.cas       || "";   // O: CAS (opcional, único)
     row[15] = datos.fwrc      || "";   // P: FWRC (opcional, único)
-    row[17] = datos.prioridad || "NORMAL";
+    // Check nace URGENTE siempre, igual que por Portal — mismo criterio que enviarCasoAlHub.
+    row[17] = (datos.circuito === "Check") ? "URGENTE" : (datos.prioridad || "NORMAL");
     row[18] = datos.circuito  || "Taller";
     row[20] = new Date();
 

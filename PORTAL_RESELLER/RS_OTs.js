@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.14
+// @version 1.15
 // ============================================================
 
 function enviarCasoAlHub(token, data) {
@@ -15,6 +15,11 @@ function enviarCasoAlHub(token, data) {
     if (!_s) { lock.releaseLock(); return { ok: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' }; }
     data.reseller = _s.nombre;
 
+    if (data.circuito === 'Check' && (!data.driveUrl || String(data.driveUrl).indexOf('drive.google.com') === -1)) {
+      lock.releaseLock();
+      return { ok: false, error: 'Falta el link de Drive con el log de vuelo (QR).' };
+    }
+
     // Conexión directa para garantizar escritura atómica
     var ss   = SpreadsheetApp.openById(MASTER_SHEET_ID);
     var hoja = ss.getSheetByName("Ordenes de trabajo");
@@ -27,7 +32,8 @@ function enviarCasoAlHub(token, data) {
     if (snNorm) {
       var ESTADOS_TERMINAL = {
         'Finalizado': true, 'Entregado': true, 'CANCELADO': true,
-        'Rechazado DJI': true, 'Sin respuesta · Cerrado': true
+        'Rechazado DJI': true, 'Sin respuesta · Cerrado': true,
+        'Aprobado bajo garantía': true, 'No aprobado - Error del piloto': true
       };
       var datosOT = hoja.getDataRange().getValues();
       for (var di = 1; di < datosOT.length; di++) {
@@ -66,16 +72,30 @@ function enviarCasoAlHub(token, data) {
         : '[PENDIENTE — Necesita repuestos para completar la reparación]';
       fallaFinal = estadoLabel + '\n' + fallaFinal;
     }
+    // Análisis de datos de choque: la narrativa del accidente se antepone a la falla, mismo
+    // criterio que aftEstado arriba — evita agregar columnas nuevas a "Ordenes de trabajo".
+    if (data.circuito === 'Check') {
+      var fechaAccLabel = data.fechaAccidente
+        ? Utilities.formatDate(new Date(data.fechaAccidente), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
+        : 'sin especificar';
+      fallaFinal = '[ACCIDENTE — ' + fechaAccLabel + ']\n' + fallaFinal +
+        '\n\nAcción del piloto para evitarlo: ' + (data.accionPiloto || 'sin especificar');
+    }
 
     var fechaStr = Utilities.formatDate(fechaActual, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
     var msgBody = "Caso abierto desde el Portal Reseller.";
     if (data.driveUrl) msgBody += "\n\n📁 Drive: " + data.driveUrl;
     var mensajeInicial = "💬 [" + fechaStr + "] — " + data.reseller + ":\n" + msgBody + "\n\n[LEIDO]";
 
+    // Análisis de datos de choque nace con máxima prioridad — tiene un plazo interno de 24hs
+    // hábiles para enviarse a DJI (ver verificarPlazoDJI en HUB_Sistema.js), no queda a criterio
+    // manual de nadie marcarlo urgente.
+    var prioridadInicial = (data.circuito === 'Check') ? 'URGENTE' : 'NORMAL';
+
     var fila = [
       fechaActual, "", nOT, data.garantia, "Pendiente de Aprobación",
       data.equipo, data.sn, data.reseller, "", "", data.cliente || "", mensajeInicial,
-      fallaFinal, "", data.cas || "", "", repuestosStr, "NORMAL", data.circuito, "", fechaActual
+      fallaFinal, "", data.cas || "", "", repuestosStr, prioridadInicial, data.circuito, "", fechaActual
     ];
 
     if (data.fechaActivacion) {
@@ -189,6 +209,7 @@ function consultarEstado(ot, sn) {
       var flujo    = "Taller";
       if (circRaw === "RESELLER" || circRaw === "SI") flujo = "Reseller";
       else if (circRaw === "RESELLER PROPIO") flujo = "Reseller Propio";
+      else if (circRaw === "CHECK") flujo = "Check";
 
       // Preferimos el informe técnico REAL (lo completa el técnico en HUB_PRO); si todavía no
       // lo cargó (o es un caso viejo, previo a que este campo existiera), mostramos la falla
@@ -304,6 +325,18 @@ function consultarEstado(ot, sn) {
           paso = 5; quePasa = "El caso fue cerrado por inactividad. Si querés retomarlo, contactanos y lo reabrimos.";
         } else {
           paso = 3; quePasa = "El caso está en proceso.";
+        }
+      } else if (flujo === "Check") {
+        if (estKey === "PENDIENTE DE APROBACIÓN") {
+          paso = 1; quePasa = "Recibimos el log de vuelo. Estamos preparando el caso para presentarlo ante DJI.";
+        } else if (estKey === "ENVIADO A DJI") {
+          paso = 2; quePasa = "Presentamos el caso ante DJI. Estamos esperando el resultado del análisis del log de vuelo.";
+        } else if (estKey === "APROBADO BAJO GARANTÍA") {
+          paso = 4; quePasa = "DJI analizó el log de vuelo y aprobó el caso bajo garantía.";
+        } else if (estKey === "NO APROBADO - ERROR DEL PILOTO") {
+          paso = 4; quePasa = "DJI analizó el log de vuelo: el resultado no aprobó el caso bajo garantía (error del piloto).";
+        } else {
+          paso = 2; quePasa = "El caso está siendo gestionado ante DJI. Te avisamos ante cualquier novedad.";
         }
       } else {
         paso = 3; quePasa = "El caso está en proceso. Te avisamos ante cualquier novedad.";
@@ -839,6 +872,10 @@ function RS_buscarOTsGrupo(token) {
 }
 
 function calcularFechaEstimada(circuito, garantia, fechaApertura) {
+  // Análisis de datos de choque no tiene "fecha estimada de finalización" — no hay reparación
+  // ni ETA propia, depende de cuándo responda DJI. Mostrarle al reseller una fecha inventada
+  // sería engañoso, mejor no mostrar nada (ver plazo interno de 24hs hábiles en HUB_Sistema.js).
+  if (circuito === "Check") return "";
   var key  = circuito + "-" + garantia;
   var dias = PORTAL_CONFIG.DIAS_ESTIMADOS[key] || 10;
   var base = (fechaApertura instanceof Date) ? fechaApertura : new Date();

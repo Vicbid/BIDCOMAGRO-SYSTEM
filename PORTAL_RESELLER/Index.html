@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.19 -->
+<!-- @version 2.20 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1180,6 +1180,11 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <div class="tipo-name">Aftersales propio</div>
             <div class="tipo-desc">Gestión local DJI</div>
           </div>
+          <div class="tipo-card" id="tc-check" onclick="selTipo('Check','tc-check')">
+            <i class="fa fa-triangle-exclamation"></i>
+            <div class="tipo-name">Análisis de datos de choque</div>
+            <div class="tipo-desc">Accidente — análisis de log de vuelo</div>
+          </div>
         </div>
         <input type="hidden" id="h-circuito" value="">
       </div>
@@ -1246,6 +1251,32 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
               <div class="tipo-desc" style="font-size:10px">Necesito repuestos para reparar</div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DATOS DEL ACCIDENTE — solo visible cuando se elige "Análisis de datos de choque" ── -->
+    <div class="dji-card" id="panel-check-extra" style="display:none;border-color:rgba(214,48,49,.3)">
+      <div class="dji-card-head" style="background:rgba(214,48,49,.06)">
+        <i class="fa fa-triangle-exclamation" style="color:var(--red)"></i>
+        Datos del accidente
+      </div>
+      <div class="dji-card-body">
+        <div style="margin-bottom:18px">
+          <label class="flbl">Link de Drive al log de vuelo (imagen QR) <span style="color:var(--red)">*</span></label>
+          <input type="url" id="inp-check-drive" class="form-control" placeholder="https://drive.google.com/..." oninput="save()">
+          <div style="font-size:11px;color:var(--tx-m);margin-top:6px">
+            <i class="fa fa-info-circle me-1" style="color:var(--blue)"></i>
+            Subí a Drive la foto del QR del log de vuelo del equipo y pegá acá el link de la carpeta o archivo.
+          </div>
+        </div>
+        <div style="margin-bottom:18px">
+          <label class="flbl">Fecha y hora del accidente <span style="color:var(--red)">*</span></label>
+          <input type="datetime-local" id="inp-check-fecha" class="form-control" oninput="save()">
+        </div>
+        <div>
+          <label class="flbl">¿Qué intentó hacer el piloto para evitarlo? <span style="color:var(--red)">*</span></label>
+          <textarea id="inp-check-piloto" class="form-control" rows="3" placeholder="Describí la maniobra o acción que intentó el piloto..." oninput="save()"></textarea>
         </div>
       </div>
     </div>
@@ -3085,7 +3116,8 @@ function _cursoGuardar(i) {
 }
 
 function _esTerminal(estado) {
-  return estado === 'Finalizado' || estado === 'Entregado' || estado === 'CANCELADO' || estado === 'Rechazado DJI' || estado === 'Sin respuesta · Cerrado';
+  return estado === 'Finalizado' || estado === 'Entregado' || estado === 'CANCELADO' || estado === 'Rechazado DJI' || estado === 'Sin respuesta · Cerrado'
+    || estado === 'Aprobado bajo garantía' || estado === 'No aprobado - Error del piloto';
 }
 
 function switchDashTab(t) {
@@ -4166,15 +4198,17 @@ function restoreDraft() {
 function selTipo(val, cardId) {
   tipoSelecto = val;
   document.getElementById('h-circuito').value = val;
-  ['tc-taller','tc-reseller','tc-propio'].forEach(function(id){
+  ['tc-taller','tc-reseller','tc-propio','tc-check'].forEach(function(id){
     document.getElementById(id).classList.remove('selected');
   });
   document.getElementById(cardId).classList.add('selected');
   var esPropio   = (val === 'Reseller Propio');
   var esReseller = (val === 'Reseller');
+  var esCheck    = (val === 'Check');
   var esLocal    = esPropio || esReseller;
   document.getElementById('panel-aftersales-extra').style.display = esPropio   ? 'block' : 'none';
   document.getElementById('panel-reseller-estado').style.display  = esReseller ? 'block' : 'none';
+  document.getElementById('panel-check-extra').style.display      = esCheck   ? 'block' : 'none';
   document.getElementById('panel-repuestos-nueva').style.display  = esLocal    ? 'block' : 'none';
   document.getElementById('panel-drive-link').style.display       = esLocal    ? 'block' : 'none';
   // Al mostrar el panel de repuestos de la OT, precargar el índice/kits rápidos (mismo que Pedidos)
@@ -4256,6 +4290,18 @@ function registrar() {
       return toast('El link de Drive debe ser una URL de drive.google.com','err');
     }
   }
+  var fechaAccidente = '', accionPiloto = '';
+  if (circuito === 'Check') {
+    driveUrl = (document.getElementById('inp-check-drive').value || '').trim();
+    if (!driveUrl) return toast('Pegá el link de Drive con el log de vuelo (QR)','err');
+    if (driveUrl.indexOf('drive.google.com') === -1) {
+      return toast('El link de Drive debe ser una URL de drive.google.com','err');
+    }
+    fechaAccidente = document.getElementById('inp-check-fecha').value || '';
+    if (!fechaAccidente) return toast('Ingresá la fecha y hora del accidente','err');
+    accionPiloto = document.getElementById('inp-check-piloto').value.trim();
+    if (!accionPiloto) return toast('Describí qué intentó hacer el piloto para evitar el accidente','err');
+  }
 
   sp(true);
   var btn = document.getElementById('btn-registrar');
@@ -4304,7 +4350,9 @@ function registrar() {
           repuestos: _repNueva.length ? JSON.stringify(_repNueva) : '',
           cas: cas,
           aftEstado: circuito === 'Reseller Propio' ? aftEstado : resellerEstado,
-          driveUrl: driveUrl
+          driveUrl: driveUrl,
+          fechaAccidente: fechaAccidente,
+          accionPiloto: accionPiloto
         });
     })
     .withFailureHandler(function() {
@@ -4349,14 +4397,18 @@ function resetForm() {
   ['sel-equipo','inp-sn','inp-falla','inp-fecha-act','inp-cliente'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('sel-gar').value='IW';
   tipoSelecto=''; aftEstado=''; resellerEstado='';
-  ['tc-taller','tc-reseller','tc-propio'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
+  ['tc-taller','tc-reseller','tc-propio','tc-check'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
   ['aft-ya-repare','aft-pendiente','res-ya-repare','res-pendiente'].forEach(function(id){ document.getElementById(id).classList.remove('selected'); });
   document.getElementById('inp-cas').value = '';
   document.getElementById('inp-drive').value = '';
+  document.getElementById('inp-check-drive').value  = '';
+  document.getElementById('inp-check-fecha').value  = '';
+  document.getElementById('inp-check-piloto').value = '';
   document.getElementById('inp-sn').classList.remove('sn-invalid');
   document.getElementById('sn-hint').classList.remove('show');
   document.getElementById('panel-aftersales-extra').style.display  = 'none';
   document.getElementById('panel-reseller-estado').style.display   = 'none';
+  document.getElementById('panel-check-extra').style.display       = 'none';
   document.getElementById('panel-repuestos-nueva').style.display   = 'none';
   document.getElementById('panel-drive-link').style.display        = 'none';
   _limpiarRepNueva();
@@ -5558,6 +5610,30 @@ var _guiaGarantiaFlujos = {
         x: 'Si ya tenés fotos o documentación de la reparación, pegá acá el link de la carpeta — se adjunta al hilo de la OT.' },
       { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
         x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Recibís el N° de OT y el caso queda enviado al Hub.' }
+    ]
+  },
+  check: {
+    nombre: 'Análisis de datos de choque',
+    desc: 'Accidente — log de vuelo',
+    icon: 'fa-triangle-exclamation',
+    intro: 'Usá este flujo cuando el equipo sufrió un accidente y necesitás que presentemos el log de vuelo ante DJI para su análisis. No hace falta enviar el equipo ni repuestos — es solo el análisis del log.',
+    pasos: [
+      { t: 'Subí el log de vuelo a Drive', tag: null,
+        x: 'Sacale una foto al <strong>código QR del log de vuelo</strong> del equipo y subila a una carpeta de Google Drive.' },
+      { t: 'Ingresá al portal', tag: null,
+        x: 'Entrá al Portal Aftersales con tu <strong>usuario y clave</strong>.' },
+      { t: 'Nueva Reparación → "Análisis de datos de choque"', tag: 'Tipo de gestión', tagc: 'green',
+        x: 'En la pestaña <strong>Nueva Reparación</strong>, elegí el tipo de gestión <strong>"Análisis de datos de choque"</strong>.' },
+      { t: 'Completá los datos del equipo', tag: null,
+        x: 'Seleccioná el <strong>Reseller</strong> y la <strong>garantía</strong> (IW / OOW), cargá el <strong>Modelo</strong> y el <strong>N° de Serie</strong>, y describí qué pasó.' },
+      { t: 'Link de Drive al log de vuelo', tag: 'Obligatorio', tagc: 'green',
+        x: 'Pegá el link de la carpeta o archivo de Drive con la foto del QR del log de vuelo.' },
+      { t: 'Fecha y hora del accidente', tag: 'Obligatorio', tagc: 'green',
+        x: 'Indicá cuándo ocurrió el accidente.' },
+      { t: 'Qué intentó hacer el piloto', tag: 'Obligatorio', tagc: 'green',
+        x: 'Describí qué maniobra o acción intentó el piloto para evitar el accidente.' },
+      { t: 'Registrar solicitud', tag: 'Listo', tagc: 'green',
+        x: 'Hacé clic en <strong>"Registrar solicitud"</strong>. Presentamos el caso ante DJI a la brevedad y te avisamos apenas tengamos el resultado del análisis: aprobado bajo garantía o no aprobado.' }
     ]
   }
 };

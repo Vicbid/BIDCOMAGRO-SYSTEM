@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.30
+// @version 2.31
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -52,7 +52,8 @@ var CONFIG = {
     "Abierto","Presupuesto rechazado",
     "Presupuesto aceptado","Espera de repuestos",
     "Repuestos enviados","En reparacion","Rechazado DJI","Sin respuesta · Cerrado","Finalizado",
-    "Caso Enviado","Aprobado por DJI","Bateria enviada a reseller"
+    "Caso Enviado","Aprobado por DJI","Bateria enviada a reseller",
+    "Enviado a DJI","Aprobado bajo garantía","No aprobado - Error del piloto"
   ],
   ESTADOS_NOTIFICAR_TECNICO:    ["Abierto","Presupuesto aceptado","Repuestos enviados"],
   // Vacío: al finalizar ya se avisa al reseller ("Actualización de su Orden de Servicio").

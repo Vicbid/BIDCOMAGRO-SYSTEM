@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  HUB PRO — Sistema: detección/reposición de batería, triggers
 //  (SLA diario + reporte mensual + instalación), diagnóstico general,
@@ -161,6 +161,114 @@ function verificarSLAs() {
 
 
 // ============================================================
+//  PLAZO DE 24HS HÁBILES — envío a DJI del circuito "Check"
+//  (Análisis de datos de choque). Confirmado con el usuario:
+//  horas hábiles = Lun–Vie 08:00–17:00.
+// ============================================================
+
+// Suma horas hábiles a partir de una fecha, saltando fines de semana y fuera de horario.
+// No existe en el resto del codebase un cálculo a nivel de horas (_diasHabilesEntre en
+// RS_Pedidos.js es a nivel de día completo) — este es el único lugar que lo necesita.
+function _sumarHorasHabiles(desde, horas) {
+  var HORA_INI = 8, HORA_FIN = 17; // 9 horas hábiles por día
+  function esHabil(d) { var dow = d.getDay(); return dow !== 0 && dow !== 6; }
+  function empujarAInicioHabil(d) {
+    while (!esHabil(d) || d.getHours() >= HORA_FIN) {
+      d.setDate(d.getDate() + 1);
+      d.setHours(HORA_INI, 0, 0, 0);
+    }
+    if (esHabil(d) && d.getHours() < HORA_INI) d.setHours(HORA_INI, 0, 0, 0);
+    return d;
+  }
+  var cur = empujarAInicioHabil(new Date(desde.getTime()));
+  var restanteMs = horas * 3600000;
+  while (restanteMs > 0) {
+    var finDia = new Date(cur.getTime()); finDia.setHours(HORA_FIN, 0, 0, 0);
+    var disponibleHoyMs = finDia.getTime() - cur.getTime();
+    if (disponibleHoyMs >= restanteMs) {
+      cur = new Date(cur.getTime() + restanteMs);
+      restanteMs = 0;
+    } else {
+      restanteMs -= disponibleHoyMs;
+      cur.setDate(cur.getDate() + 1);
+      cur = empujarAInicioHabil(cur);
+    }
+  }
+  return cur;
+}
+
+// Corre cada hora (ver instalarTodosTriggers). Filtra en memoria a los casos Check todavía sin
+// enviar a DJI — en la enorme mayoría de las corridas no hay ninguno, así que el costo horario
+// es despreciable. Avisa por mail cuando quedan ≤4hs hábiles y cuando ya se venció, una sola vez
+// cada uno (marca un token en NOTAS_INTERNAS — columna interna de staff, no la ve el reseller —
+// para no reenviar el mismo aviso en cada corrida).
+function verificarPlazoDJI() {
+  try {
+    var hoja  = getSheet(SCHEMA.SHEETS.OT);
+    var datos = getSheetValues(hoja);
+    var ahora = new Date();
+    var O     = SCHEMA.OT;
+    var porVencer = [], vencidos = [];
+
+    for (var i = 1; i < datos.length; i++) {
+      var f = datos[i];
+      if (!f[O.OT]) continue;
+      if (String(f[O.CIRCUITO] || "").trim().toUpperCase() !== "CHECK") continue;
+      if (String(f[O.ESTADO] || "").trim() !== "Pendiente de Aprobación") continue;
+      if (!(f[O.FECHA_INGRESO] instanceof Date)) continue;
+
+      var notas   = String(f[O.NOTAS_INTERNAS] || "");
+      var vence   = _sumarHorasHabiles(f[O.FECHA_INGRESO], 24);
+      var horasRestantes = (vence.getTime() - ahora.getTime()) / 3600000;
+      var caso = { fila: i + 1, ot: String(f[O.OT]), reseller: String(f[O.RESELLER] || "—"),
+                   equipo: String(f[O.EQUIPO] || "—"), sn: String(f[O.SN] || "—"), horas: horasRestantes };
+
+      if (horasRestantes <= 0 && notas.indexOf("[ALERTA_DJI:VENCIDO]") === -1) {
+        vencidos.push(caso);
+        hoja.getRange(i + 1, O.NOTAS_INTERNAS + 1).setValue(notas + (notas ? "\n" : "") + "[ALERTA_DJI:VENCIDO]");
+      } else if (horasRestantes > 0 && horasRestantes <= 4 && notas.indexOf("[ALERTA_DJI:4H]") === -1) {
+        porVencer.push(caso);
+        hoja.getRange(i + 1, O.NOTAS_INTERNAS + 1).setValue(notas + (notas ? "\n" : "") + "[ALERTA_DJI:4H]");
+      }
+    }
+
+    if (!porVencer.length && !vencidos.length) return;
+
+    function filaHtml(c, col) {
+      return "<tr><td style='padding:8px 10px;font-size:12px;font-weight:600'>" + c.ot + "</td>" +
+        "<td style='padding:8px 10px;font-size:12px'>" + c.reseller + "</td>" +
+        "<td style='padding:8px 10px;font-size:12px'>" + c.equipo + " · " + c.sn + "</td>" +
+        "<td style='padding:8px 10px;font-size:12px;font-weight:700;color:" + col + "'>" +
+        (c.horas <= 0 ? "VENCIDO" : c.horas.toFixed(1) + "h") + "</td></tr>";
+    }
+    var filas = "";
+    vencidos.forEach(function(c) { filas += filaHtml(c, "#e74c3c"); });
+    porVencer.forEach(function(c) { filas += filaHtml(c, "#e67e22"); });
+    var tabla = "<table style='width:100%;border-collapse:collapse;border:1px solid #e8e8e8'>" +
+      "<thead><tr style='background:#f5f5f5'>" +
+      "<th style='padding:8px 10px;font-size:10px;color:#888;text-align:left'>OT</th>" +
+      "<th style='padding:8px 10px;font-size:10px;color:#888;text-align:left'>Reseller</th>" +
+      "<th style='padding:8px 10px;font-size:10px;color:#888;text-align:left'>Equipo · S/N</th>" +
+      "<th style='padding:8px 10px;font-size:10px;color:#888;text-align:left'>Plazo DJI</th>" +
+      "</tr></thead><tbody>" + filas + "</tbody></table>";
+
+    var asunto = vencidos.length
+      ? "[HUB] 🔴 " + vencidos.length + " caso(s) CHECK con plazo DJI VENCIDO"
+      : "[HUB] ⚠ " + porVencer.length + " caso(s) CHECK por vencer plazo DJI";
+    enviarEmail(
+      CONFIG.EMAIL_SUPERVISOR,
+      asunto,
+      construirEmailHTML("Plazo de envío a DJI — Análisis de datos de choque", "Supervisor",
+        "<p style='font-size:14px;color:#444;margin:0 0 20px'>Estos casos de <strong>Análisis de datos de choque (CHECK)</strong> tienen un plazo interno de <strong>24 horas hábiles</strong> para presentarse ante DJI y " +
+        (vencidos.length ? "<strong style='color:#e74c3c'>ya lo vencieron</strong>." : "<strong style='color:#e67e22'>están por vencerlo</strong>.") +
+        "</p>" + tabla,
+        "Reporte automático — chequeo horario de plazo DJI.")
+    );
+  } catch(e) { Logger.log("verificarPlazoDJI: " + e); }
+}
+
+
+// ============================================================
 //  TRIGGER MENSUAL — REPORTE
 // ============================================================
 function reporteMensual() {
@@ -244,11 +352,12 @@ function instalarTodosTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
     var fn = triggers[i].getHandlerFunction();
-    if (fn === "verificarSLAs" || fn === "reporteMensual") ScriptApp.deleteTrigger(triggers[i]);
+    if (fn === "verificarSLAs" || fn === "reporteMensual" || fn === "verificarPlazoDJI") ScriptApp.deleteTrigger(triggers[i]);
   }
   ScriptApp.newTrigger("verificarSLAs").timeBased().atHour(8).everyDays(1).create();
   ScriptApp.newTrigger("reporteMensual").timeBased().onMonthDay(1).atHour(8).create();
-  Logger.log("✓ Trigger diario (SLA) y mensual instalados.");
+  ScriptApp.newTrigger("verificarPlazoDJI").timeBased().everyHours(1).create();
+  Logger.log("✓ Trigger diario (SLA), mensual y horario (plazo DJI) instalados.");
 }
 
 

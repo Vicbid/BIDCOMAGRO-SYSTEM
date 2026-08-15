@@ -1,4 +1,4 @@
-<!-- @version 2.28 -->
+<!-- @version 2.29 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -815,6 +815,7 @@ body.compact tbody td{padding:6px 14px!important}
               <button class="nev-toggle-btn sel" id="nev-btn-circ-0" onclick="_nevSetCirc('Taller')">Taller</button>
               <button class="nev-toggle-btn" id="nev-btn-circ-1" onclick="_nevSetCirc('Reseller')">Reseller</button>
               <button class="nev-toggle-btn" id="nev-btn-circ-2" onclick="_nevSetCirc('Reseller Propio')">Propio</button>
+              <button class="nev-toggle-btn" id="nev-btn-circ-3" onclick="_nevSetCirc('Check')">CHECK</button>
             </div>
           </div>
         </div>
@@ -931,6 +932,7 @@ body.compact tbody td{padding:6px 14px!important}
           <button class="nb" id="fb-u" onclick="setF('urgentes',this)"><i class="fa fa-exclamation-circle" style="color:var(--red)"></i> Urgentes</button>
           <button class="nb" id="fb-msg" onclick="setF('mensajes',this)"><i class="fa fa-comments" style="color:var(--blue)"></i> Mensajes<span id="kpi-msg-badge" style="display:none;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:auto">0</span></button>
           <button class="nb" id="fb-tc" onclick="setF('taller',this)"><i class="fa fa-tools" style="color:var(--blue)"></i> Taller Central</button>
+          <button class="nb" id="fb-check" onclick="setF('check',this)"><i class="fa fa-triangle-exclamation" style="color:var(--red)"></i> CHECK — Choque</button>
           <button class="nb" id="fb-rep" onclick="setF('esperando_repuesto',this)"><i class="fa fa-tools" style="color:var(--red)"></i> Esperando repuesto</button>
           <button class="nb" id="fb-h" onclick="setF('todos',this)"><i class="fa fa-check-circle" style="color:var(--tx-d)"></i> Finalizados</button>
         </div>
@@ -1201,6 +1203,7 @@ body.compact tbody td{padding:6px 14px!important}
             <option value="Taller">Taller Central</option>
             <option value="Reseller">Reseller Estándar</option>
             <option value="Reseller Propio">Reseller Propio</option>
+            <option value="Check">Análisis de datos de choque</option>
           </select>
         </div>
       </div>
@@ -1430,7 +1433,7 @@ document.addEventListener('DOMContentLoaded', function() {
 var dataset=[], actual=null, urgente=false, filtro='pendientes';
 // B (performance): dataset = solo OTs activas. Las cerradas se traen on-demand (vista Finalizados).
 var datasetCerradas=[], _cerradasLoaded=false, _cerradasCargando=false, _cerradasCount=0;
-var EST_CERRADOS=['Finalizado','Entregado','CANCELADO','Rechazado DJI','Sin respuesta · Cerrado'];
+var EST_CERRADOS=['Finalizado','Entregado','CANCELADO','Rechazado DJI','Sin respuesta · Cerrado','Aprobado bajo garantía','No aprobado - Error del piloto'];
 function _esCerradoCli(e){ return EST_CERRADOS.indexOf(e)!==-1; }
 function _necesitaCerradas(){
   var fe=document.getElementById('fil-est'); var v=fe?fe.value:'';
@@ -1453,6 +1456,7 @@ var EST_T_IW = ['Abierto','Recepcionado','En Revision','Espera de repuestos','En
 var EST_R  = ['Abierto','En reparacion','Pedido de repuestos','Repuestos enviados','Informe de reparacion','Piezas dañadas recibidas','Aprobacion DJI','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
 var EST_RP = ['Abierto','Pedido de repuesto para reparar','En reparacion','Aprobado DJI · Repuestos en preparación','En cierre','Rechazado DJI','Sin respuesta · Cerrado','Finalizado'];
 var EST_BAT = ['Abierto','Caso Enviado','Aprobado por DJI','Rechazado DJI','Scrap Enviado (Evidencias)','Bateria enviada a reseller','Sin respuesta · Cerrado','Finalizado'];
+var EST_CHECK = ['Pendiente de Aprobación','Enviado a DJI','Aprobado bajo garantía','No aprobado - Error del piloto'];
 
 // ── UI HELPERS ────────────────────────────────────────────────
 function sp(on) { document.getElementById('spin').className = on ? 'on' : ''; }
@@ -1743,6 +1747,7 @@ function _listaFiltrada() {
     else if (filtro==='pendientes') f=f.filter(function(c){return !_esCerradoCli(c.estado);});
     else if (filtro==='todos')      f=f.filter(function(c){return _esCerradoCli(c.estado);});
     else if (filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&!_esCerradoCli(c.estado);});
+    else if (filtro==='check')      f=f.filter(function(c){return c.circuito==='Check'&&!_esCerradoCli(c.estado);});
     else if (filtro==='esperando_repuesto') f=f.filter(function(c){
       if (_esCerradoCli(c.estado)) return false;
       var chip=_otRepChip(c);
@@ -1755,6 +1760,13 @@ function _listaFiltrada() {
   var filTecVal = document.getElementById('fil-tec') ? document.getElementById('fil-tec').value : '';
   if (filTecVal) f=f.filter(function(c){return c.tecnico===filTecVal;});
   if (q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+(c.fwrc||'')+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
+  // Análisis de datos de choque (Check) siempre aparece primero, máxima prioridad — el resto
+  // conserva el orden relativo (Array.sort es estable).
+  f.sort(function(a,b){
+    var pa=(a.circuito==='Check'&&!_esCerradoCli(a.estado))?0:1;
+    var pb=(b.circuito==='Check'&&!_esCerradoCli(b.estado))?0:1;
+    return pa-pb;
+  });
   return f;
 }
 
@@ -1826,7 +1838,15 @@ function render() {
     var dEst    = diasEst[keyEst] || 10;
     var fechaEstHTML = '';
     var esTerminal = c.estado === 'Finalizado' || c.estado === 'Entregado' || c.estado === 'CANCELADO' || c.estado === 'Rechazado DJI' || c.estado === 'Sin respuesta · Cerrado';
-    if (!esTerminal && c.dias <= dEst) {
+    if (c.plazoDjiVence) {
+      // Análisis de datos de choque: reemplaza "días estimados" (no aplica acá) por el
+      // contador de horas hábiles restantes para enviar el caso a DJI (plazo de 24hs).
+      var horasRest = (c.plazoDjiVence - Date.now()) / 3600000;
+      var colorDji  = horasRest <= 0 ? 'var(--red)' : (horasRest <= 8 ? 'var(--yellow)' : 'var(--green)');
+      var pesoDji   = horasRest <= 8 ? 'font-weight:700;' : '';
+      fechaEstHTML = '<span style="font-size:10px;' + pesoDji + 'color:' + colorDji + '" title="Plazo para enviar el caso a DJI">' +
+        (horasRest <= 0 ? 'VENCIDO' : horasRest.toFixed(1) + 'h DJI') + '</span>';
+    } else if (!esTerminal && c.dias <= dEst) {
       var restante = dEst - c.dias;
       fechaEstHTML = '<span style="font-size:10px;color:' + (restante<=2?'var(--red)':(restante<=5?'var(--yellow)':'var(--tx-d)')) + '">' + restante + 'd</span>';
     } else if (!esTerminal) {
@@ -2624,7 +2644,7 @@ function abrir(c){
 }
 
 function updBadge(v){
-  var m={Taller:'TALLER',Reseller:'RESELLER','Reseller Propio':'RESELLER PROPIO'};
+  var m={Taller:'TALLER',Reseller:'RESELLER','Reseller Propio':'RESELLER PROPIO',Check:'CHECK'};
   document.getElementById('c-badge').textContent=m[v]||v;
 }
 
@@ -2648,7 +2668,7 @@ function renderEst(){
   updBadge(v);
   // Mostrar/ocultar campo técnico según circuito
   document.getElementById('tec-row').style.display = (v==='Taller') ? '' : 'none';
-  var list=esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T)));
+  var list=esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(v==='Check'?EST_CHECK:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T))));
   var ai=list.indexOf(estadoAct),h='';
   for(var i=0;i<list.length;i++){
     var cls='st-step'+(list[i]===estadoAct?' active':(i<ai?' done':''));
@@ -2670,7 +2690,7 @@ function _recepcionPendiente(circ){
 function clickEst(el,val){
   var v = document.getElementById('f-circ').value;
   if (_recepcionPendiente(v)) {
-    var list = esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T)));
+    var list = esBateriaActual?EST_BAT:(v==='Reseller'?EST_R:(v==='Reseller Propio'?EST_RP:(v==='Check'?EST_CHECK:(actual&&actual.garantia==='IW'?EST_T_IW:EST_T))));
     if (val === 'Recepcionado' || list.indexOf(val) > list.indexOf('Recepcionado')) {
       abrirModalRecepcion();
       return;
@@ -3280,11 +3300,14 @@ function _nevSetGar(v) {
 
 function _nevSetCirc(v) {
   _nevCirc = v;
-  var circs = ['Taller','Reseller','Reseller Propio'];
+  var circs = ['Taller','Reseller','Reseller Propio','Check'];
   for (var i = 0; i < circs.length; i++) {
     document.getElementById('nev-btn-circ-' + i).classList.toggle('sel', circs[i] === v);
   }
   document.getElementById('nev-tec-row').style.display = v === 'Taller' ? '' : 'none';
+  // Check nace URGENTE siempre (ver crearNuevaOT) — reflejarlo en el toggle de prioridad
+  // para que no quede visualmente en "Normal" mientras el server ya lo fuerza a urgente.
+  if (v === 'Check') _nevSetPrio('URGENTE');
 }
 
 function _nevSetPrio(v) {
@@ -3426,6 +3449,7 @@ function exportCSV(){
   else if(filtro==='pendientes') f=f.filter(function(c){return c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
   else if(filtro==='todos')      f=f.filter(function(c){return c.estado==='Finalizado'||c.estado==='CANCELADO';});
   else if(filtro==='taller')     f=f.filter(function(c){return c.circuito==='Taller'&&c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
+  else if(filtro==='check')      f=f.filter(function(c){return c.circuito==='Check'&&c.estado!=='Finalizado'&&c.estado!=='CANCELADO';});
   if(q) f=f.filter(function(c){return(c.ot+c.reseller+c.sn+c.cas+(c.fwrc||'')+c.equipo+c.tecnico).toLowerCase().indexOf(q)!==-1;});
   if(!f.length){toast('No hay datos para exportar','err');return;}
 
