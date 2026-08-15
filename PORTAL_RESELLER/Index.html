@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.24 -->
+<!-- @version 2.25 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1202,7 +1202,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
             <div class="choque-switch-desc">Análisis de datos de choque — le pedimos a DJI que analice el log de vuelo, sin reparación</div>
           </div>
           <label class="choque-sw" onclick="event.stopPropagation()">
-            <input type="checkbox" id="chk-choque" onchange="toggleChoque(this.checked)">
+            <input type="checkbox" id="chk-choque" autocomplete="off" onchange="toggleChoque(this.checked)">
             <span class="choque-sw-slider"></span>
           </label>
         </div>
@@ -4222,10 +4222,13 @@ function restoreDraft() {
     if (d.sn)       document.getElementById('inp-sn').value       = d.sn.toUpperCase();
     if (d.falla)    document.getElementById('inp-falla').value    = d.falla;
     if (d.cliente)  document.getElementById('inp-cliente').value  = d.cliente;
-    if (d.circuito) {
+    // El switch "¿Fue un accidente?" nunca se restaura solo desde un borrador — es una
+    // acción puntual, no algo para "retomar" en la próxima visita, y además los 3 campos
+    // propios del choque (drive/fecha/piloto) ni siquiera se guardan en el borrador (ver
+    // save()), así que restaurarlo dejaba el switch prendido con esos campos vacíos.
+    if (d.circuito && d.circuito !== 'Check') {
       var mapa = { Taller:'tc-taller', Reseller:'tc-reseller', 'Reseller Propio':'tc-propio' };
-      if (d.circuito === 'Check') toggleChoque(true);
-      else if (mapa[d.circuito]) selTipo(d.circuito, mapa[d.circuito]);
+      if (mapa[d.circuito]) selTipo(d.circuito, mapa[d.circuito]);
     }
     validarSN();
   } catch(e) {}
