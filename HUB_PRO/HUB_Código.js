@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.31
+// @version 2.32
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -20,6 +20,23 @@
 //    HUB_Facturacion.js    — solicitud de factura (XLS + mail)
 //    HUB_Sistema.js        — batería, triggers/SLA/reporte mensual, mensajería
 // ============================================================
+
+// Se bumpea a mano junto con "<!-- @version X.Y -->" de Index.html — el cliente la trae
+// embebida al cargar la página y la vuelve a consultar cada tanto (HUB_obtenerVersionActual)
+// para avisar si quedó una pestaña vieja abierta. Ver _chequearVersionNueva en Index.html.
+// Mismo patrón que Portal Reseller (RS_Main.js:PORTAL_VERSION).
+var HUB_VERSION = '2.30';
+
+function HUB_obtenerVersionActual() {
+  return HUB_VERSION;
+}
+
+// Escape HTML compartido — usarlo en cualquier campo de texto libre (reseller/staff) que se
+// interpole en un mail HTML (bloqueCard/filaDetalle/construirEmailHTML/tablas de repuestos).
+function _htmlEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function _fmtNum(n) {
   var num   = Math.abs(Number(n) || 0);
@@ -76,7 +93,9 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
-  return HtmlService.createHtmlOutputFromFile('Index')
+  var tmpl = HtmlService.createTemplateFromFile('Index');
+  tmpl.HUB_VERSION = HUB_VERSION;
+  return tmpl.evaluate()
     .setTitle('DJI HUB PRO')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -176,8 +195,8 @@ function construirTablaRepuestos(rep, cerrada) {
       ? "<span style='color:#e67e22;font-weight:600'>Pendiente (" + back + ")</span>"
       : "<span style='color:#27ae60;font-weight:600'>OK</span>";
     filas += "<tr style='background:" + (back>0?"#fffaf5":"#fff") + "'>" +
-      "<td style='padding:7px 10px;font-size:11px;color:#666;border-bottom:1px solid #f0f0f0'>" + cod + "</td>" +
-      "<td style='padding:7px 10px;font-size:12px;color:#333;border-bottom:1px solid #f0f0f0'>" + des + "</td>" +
+      "<td style='padding:7px 10px;font-size:11px;color:#666;border-bottom:1px solid #f0f0f0'>" + _htmlEsc(cod) + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;color:#333;border-bottom:1px solid #f0f0f0'>" + _htmlEsc(des) + "</td>" +
       "<td style='padding:7px 10px;font-size:12px;text-align:center;border-bottom:1px solid #f0f0f0'>" + env + "/" + ped + "</td>" +
       "<td style='padding:7px 10px;text-align:center;border-bottom:1px solid #f0f0f0'>" + est + "</td></tr>";
   }

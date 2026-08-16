@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  HUB PRO — Sistema: detección/reposición de batería, triggers
 //  (SLA diario + reporte mensual + instalación), diagnóstico general,
@@ -69,17 +69,17 @@ function enviarEmailReposicionBateria(data) {
 
     var cuerpoDetalle =
       filaDetalle("Orden de Trabajo", "<strong>" + data.ot + "</strong>") +
-      filaDetalle("Modelo de batería", "<strong style='color:#00a3e0'>" + data.equipo + "</strong>") +
-      filaDetalle("Nº de Serie", data.sn || "—") +
-      (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", "<strong>" + data.cas + "</strong>") : "") +
-      filaDetalle("Reseller", data.reseller) +
+      filaDetalle("Modelo de batería", "<strong style='color:#00a3e0'>" + _htmlEsc(data.equipo) + "</strong>") +
+      filaDetalle("Nº de Serie", data.sn ? _htmlEsc(data.sn) : "—") +
+      (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", "<strong>" + _htmlEsc(data.cas) + "</strong>") : "") +
+      filaDetalle("Reseller", _htmlEsc(data.reseller)) +
       filaDetalle("Garantía", "IW — En garantía");
 
     var htmlEmail = construirEmailHTML(
       "Reposición de Batería — " + data.ot,
       "Equipos de Administración y Logística,",
       bloqueCard("Caso aprobado — Reposición requerida",
-        "El reseller <strong>" + data.reseller + "</strong> completó los dos pasos requeridos: " +
+        "El reseller <strong>" + _htmlEsc(data.reseller) + "</strong> completó los dos pasos requeridos: " +
         "carga del caso reconocido por DJI como en garantía y envío del scrap. " +
         "Se requiere reponer la batería al reseller, en este orden:",
         "#00a3e0") +
@@ -119,7 +119,7 @@ function verificarSLAs() {
       var f = datos[i];
       if (!f[2]) continue;
       var est = String(f[4]||"");
-      if (est === "Finalizado" || est === "CANCELADO" || est === "Rechazado DJI" || est === "Sin respuesta · Cerrado") continue;
+      if (_esCerrada(est)) continue;
       var dias = (f[0] instanceof Date) ? Math.floor((hoy - f[0]) / 86400000) : 0;
       var urg  = String(f[17]).toUpperCase() === "URGENTE";
       if (!((urg && dias > 1) || (!urg && dias > 7))) continue;
@@ -287,7 +287,7 @@ function reporteMensual() {
       var res = String(f[7]||"Particular");
       var tec = String(f[9]||"—");
       var dias = (f[0] instanceof Date) ? Math.floor((hoy-f[0])/86400000) : 0;
-      if (est !== "Finalizado") {
+      if (!_esCerrada(est)) {
         totAb++;
         if (!porReseller[res]) porReseller[res]={ab:0,fin:0};
         porReseller[res].ab++;
@@ -382,7 +382,11 @@ function diagnosticarSistema() {
 
 
 function marcarMensajesLeidos(fila) {
+  // Lock: la columna MENSAJES también la escribe Portal Reseller (mismo caso que cancelarCaso,
+  // HUB_OTs.js) — sin candado, dos escrituras casi simultáneas pueden pisarse.
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(5000);
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var cell = hoja.getRange(fila, SCHEMA.OT.MENSAJES + 1);
     var actual = String(cell.getValue() || "").trim();
@@ -397,15 +401,19 @@ function marcarMensajesLeidos(fila) {
   } catch(e) {
     Logger.log("marcarMensajesLeidos: " + e);
     return { ok: false };
+  } finally {
+    try { if (lock.hasLock()) lock.releaseLock(); } catch(eL) {}
   }
 }
 
 
 function enviarMensajeHUB(fila, texto) {
+  var lock = LockService.getScriptLock();
   try {
     var filaNum = parseInt(fila);
     if (isNaN(filaNum) || filaNum < 2) return { ok: false, msg: 'Fila inválida' };
     if (!texto || !String(texto).trim()) return { ok: false, msg: 'Mensaje vacío' };
+    lock.waitLock(5000);
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var cell = hoja.getRange(filaNum, SCHEMA.OT.MENSAJES + 1);
     var actual = String(cell.getValue() || "").trim();
@@ -426,7 +434,9 @@ function enviarMensajeHUB(fila, texto) {
       var emailR   = obtenerEmailReseller(reseller);
       if (emailR) {
         var asunto  = 'OT ' + ot + (equipo ? ' — ' + equipo : '');
-        var textoHtml = String(texto).trim().replace(/\n/g, '<br>');
+        // Escapar ANTES de convertir \n a <br> — si se escapara después, el <br> ya insertado
+        // se escaparía también.
+        var textoHtml = _htmlEsc(String(texto).trim()).replace(/\n/g, '<br>');
         var cuerpo =
           "<div style='background:#f0f7ff;border-left:4px solid #00a3e0;border-radius:4px;padding:14px 18px;margin:0 0 18px'>" +
             "<p style='font-size:13px;color:#333;margin:0;line-height:1.7'>" + textoHtml + "</p>" +
@@ -434,9 +444,9 @@ function enviarMensajeHUB(fila, texto) {
           "<p style='font-size:13px;color:#555;margin:0'>Podés responder desde tu portal de reseller o contestando este email.</p>";
         var html = construirEmailHTML(
           'Nuevo mensaje en tu orden de trabajo',
-          'Hola, el equipo de soporte te dejó un mensaje en la OT <strong>' + ot + '</strong>' + (equipo ? ' (' + equipo + ')' : ''),
+          'Hola, el equipo de soporte te dejó un mensaje en la OT <strong>' + ot + '</strong>' + (equipo ? ' (' + _htmlEsc(equipo) + ')' : ''),
           cuerpo,
-          'OT: ' + ot + ' · Reseller: ' + reseller
+          'OT: ' + ot + ' · Reseller: ' + _htmlEsc(reseller)
         );
         var tidMsg = _enviarConHilo(ot, emailR, asunto, html);
         registrarEmailLog(ot, emailR, 'Reseller', asunto, 'OK', tidMsg || '');
@@ -446,6 +456,8 @@ function enviarMensajeHUB(fila, texto) {
     return { ok: true };
   } catch(e) {
     Logger.log("enviarMensajeHUB: " + e);
-    return { ok: false, msg: e.toString() };
+    return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
+  } finally {
+    try { if (lock.hasLock()) lock.releaseLock(); } catch(eL) {}
   }
 }

@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Presupuestos: armado del HTML, tokens de aprobación/
 //  rechazo por link de mail, envío al reseller.
@@ -10,7 +10,11 @@
 // Token HMAC-SHA256 para aprobación de presupuesto 1-click.
 // El mismo secreto debe estar en las Script Properties de HUB y Portal con clave APPROVAL_SECRET.
 function _tokenAprobacion(ot, action) {
-  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET') || 'bidcomagro-default';
+  // Sin este guard, si la Property APPROVAL_SECRET nunca se seteó, "secret" caía en un fallback
+  // fijo visible en el código fuente — cualquiera podía calcular tokens de aprobación válidos.
+  // Ahora, sin secreto configurado, no se genera ningún token (falla cerrado).
+  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET');
+  if (!secret) { Logger.log('_tokenAprobacion: falta APPROVAL_SECRET en Script Properties'); return null; }
   var bytes = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     String(ot) + '|' + String(action) + '|' + secret
@@ -27,6 +31,13 @@ function _bloquesBotonesPresupuesto(ot) {
   var urlBase   = CONFIG.PORTAL_URL;
   var tokAprob  = _tokenAprobacion(ot, 'aprobar');
   var tokRechaz = _tokenAprobacion(ot, 'rechazar');
+  // Sin APPROVAL_SECRET seteado, _tokenAprobacion devuelve null: no armamos links rotos, avisamos
+  // que la aprobación rápida no está disponible en vez de mandar un botón que nunca va a validar.
+  if (!tokAprob || !tokRechaz) {
+    return "<div style='background:#fff8f0;border:1px solid #f0d9b5;border-radius:8px;padding:16px 20px;margin-bottom:16px;text-align:center'>" +
+      "<p style='font-size:13px;color:#a0651a;margin:0'>⚠ La aprobación rápida por link no está disponible en este momento. Contactanos para aprobar o rechazar este presupuesto por otro medio.</p>" +
+    "</div>";
+  }
   var urlAprob  = urlBase + '?action=aprobar&ot='  + encodeURIComponent(ot) + '&token=' + tokAprob;
   var urlRechaz = urlBase + '?action=rechazar&ot=' + encodeURIComponent(ot) + '&token=' + tokRechaz;
   return "<div style='background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;margin-bottom:16px;text-align:center'>" +
@@ -83,8 +94,8 @@ function enviarPresupuesto(data) {
         totalRep   += sub;
         var labelDesc = (data.tipoDestinatario === "cliente") ? "25% desc." : "40% desc.";
         tablaRepHTML += "<tr>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + cod + "</td>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + desc + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + _htmlEsc(cod) + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + _htmlEsc(desc) + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:center'>" + ped + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + (pvpBase ? "USD " + _fmtNum(pvpBase) + " <span style='color:#888;font-size:10px'>(-" + labelDesc + ")</span>" : "—") + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:700'>" + (pvp ? "USD " + _fmtNum(pvp) : "—") + "</td>" +
@@ -113,9 +124,9 @@ function enviarPresupuesto(data) {
         var pMO = parseFloat(String(mo.precio).replace(/[^0-9.]/g,"")) || 0;
         totalMO += pMO;
         tablaMOHTML += "<tr>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + mo.codigo + "</td>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + mo.descripcion + "</td>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + mo.precio + "</td></tr>";
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + _htmlEsc(mo.codigo) + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + _htmlEsc(mo.descripcion) + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + _htmlEsc(mo.precio) + "</td></tr>";
       }
       if (totalMO > 0) {
         tablaMOHTML += "<tr style='background:#f5f5f5;font-weight:700'>" +
@@ -127,18 +138,18 @@ function enviarPresupuesto(data) {
 
     var cuerpoDetalle =
       filaDetalle("Orden de Trabajo", data.ot) +
-      filaDetalle("Equipo / Modelo",  data.equipo) +
-      filaDetalle("Nº de Serie",      data.sn || "—") +
-      (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", data.cas) : "") +
+      filaDetalle("Equipo / Modelo",  _htmlEsc(data.equipo)) +
+      filaDetalle("Nº de Serie",      data.sn ? _htmlEsc(data.sn) : "—") +
+      (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", _htmlEsc(data.cas)) : "") +
       filaDetalle("Garantía", "Fuera de garantía (OOW)");
 
     var bloques =
       bloqueCard("📋 Detalle de la Orden", cuerpoDetalle, "#00a3e0") +
       (data.trabajo ? bloqueCard("📝 Falla reportada",
-        "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + data.trabajo.replace(/\n/g,"<br>") + "</p>",
+        "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + _htmlEsc(data.trabajo).replace(/\n/g,"<br>") + "</p>",
         "#6b7280") : "") +
       (data.informeTecnico ? bloqueCard("🔧 Diagnóstico Técnico",
-        "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + data.informeTecnico.replace(/\n/g,"<br>") + "</p>",
+        "<p style='margin:0;font-size:13px;line-height:1.6;color:#555'>" + _htmlEsc(data.informeTecnico).replace(/\n/g,"<br>") + "</p>",
         "#27ae60") : "") +
       (tablaRepHTML ? "<div style='margin-bottom:16px'><p style='font-size:12px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase'>Repuestos</p>" + tablaRepHTML + "</div>" : "") +
       (tablaMOHTML  ? "<div style='margin-bottom:16px'><p style='font-size:12px;font-weight:700;color:#333;margin-bottom:8px;text-transform:uppercase'>Mano de Obra</p>" + tablaMOHTML + "</div>" : "") +
@@ -146,7 +157,7 @@ function enviarPresupuesto(data) {
 
     var htmlEmail = construirEmailHTML(
       "Presupuesto de Reparación — " + data.ot,
-      "Estimado equipo de <strong>" + data.reseller + "</strong>,<br>Le enviamos el presupuesto para la siguiente orden:",
+      "Estimado equipo de <strong>" + _htmlEsc(data.reseller) + "</strong>,<br>Le enviamos el presupuesto para la siguiente orden:",
       bloques,
       "Ante cualquier consulta no dude en contactarnos."
     );
@@ -164,9 +175,18 @@ function enviarPresupuesto(data) {
       for (var ri = 1; ri < todos.length; ri++) {
         if (String(todos[ri][SCHEMA.OT.OT] || "").trim() === String(data.ot).trim()) {
           var fila = ri + 1;
+          var _estadoAntPres = String(todos[ri][SCHEMA.OT.ESTADO] || "");
+          var _ahoraPres = new Date();
           hoja.getRange(fila, SCHEMA.OT.ESTADO + 1).setValue("Presupuesto enviado");
-          hoja.getRange(fila, SCHEMA.OT.FECHA_ESTADO + 1).setValue(new Date());
-          hoja.getRange(fila, SCHEMA.OT.ULTIMA_MODIFICACION + 1).setValue(new Date());
+          hoja.getRange(fila, SCHEMA.OT.FECHA_ESTADO + 1).setValue(_ahoraPres);
+          // Historial de transiciones — mismo patrón que actualizarOrden (HUB_OTs.js), esta
+          // función cambia el estado por fuera de ahí y hoy no dejaba rastro en el timeline.
+          var _celHistPres = hoja.getRange(fila, SCHEMA.OT.HISTORIAL_ESTADOS + 1);
+          var _histPres = [];
+          try { var _hrPres = _celHistPres.getValue(); if (_hrPres) _histPres = JSON.parse(_hrPres); } catch(e2) {}
+          _histPres.push({ f: _ahoraPres.getTime(), ant: _estadoAntPres, nvo: 'Presupuesto enviado', tec: '' });
+          _celHistPres.setValue(JSON.stringify(_histPres));
+          hoja.getRange(fila, SCHEMA.OT.ULTIMA_MODIFICACION + 1).setValue(_ahoraPres);
           invalidateSheetValues(SCHEMA.SHEETS.OT);
           registrarLog(data.ot, "", Session.getActiveUser().getEmail(), "ACTUALIZACIÓN", "En Revision", "Presupuesto enviado", "Presupuesto enviado via botón");
           break;
@@ -178,7 +198,7 @@ function enviarPresupuesto(data) {
 
   } catch(e) {
     Logger.log("enviarPresupuesto ERROR: " + e);
-    return { ok: false, msg: e.toString() };
+    return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -247,8 +267,8 @@ function obtenerPresupuestoHTML(data) {
         totalRep += sub;
         var labelDesc = (data.tipoDestinatario === "cliente") ? "25% desc." : "40% desc.";
         tablaRepHTML += "<tr>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + cod + "</td>" +
-          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + desc + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + _htmlEsc(cod) + "</td>" +
+          "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + _htmlEsc(desc) + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:center'>" + ped + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + (pvpBase ? "USD " + _fmtNum(pvpBase) + " <span style='color:#888;font-size:10px'>(-" + labelDesc + ")</span>" : "—") + "</td>" +
           "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:700'>" + (pvp ? "USD " + _fmtNum(pvp) : "—") + "</td></tr>";
@@ -321,8 +341,8 @@ function obtenerPresupuestoHTML(data) {
         totalGeneral += sub;
         tablaFilas +=
           '<tr>' +
-          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px;color:#00a3e0;font-weight:700">' + cod + '</td>' +
-          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px">' + desc + '</td>' +
+          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px;color:#00a3e0;font-weight:700">' + _htmlEsc(cod) + '</td>' +
+          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px">' + _htmlEsc(desc) + '</td>' +
           '<td style="padding:4px 7px;border:1px solid #ccc;text-align:right;font-size:10px">' + (pvpBase ? _fmtNum(pvpBase) : '—') + '</td>' +
           '<td style="padding:4px 7px;border:1px solid #ccc;text-align:center;font-size:10px">' + descLabel + '</td>' +
           '<td style="padding:4px 7px;border:1px solid #ccc;text-align:right;font-size:10px">' + (pvpNeto ? _fmtNum(pvpNeto) : '—') + '</td>' +
@@ -339,8 +359,8 @@ function obtenerPresupuestoHTML(data) {
         totalGeneral += pMO;
         tablaFilas +=
           '<tr style="background:#f8fff8">' +
-          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px;color:#27ae60;font-weight:700">' + mo.codigo + '</td>' +
-          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px">' + mo.descripcion + '</td>' +
+          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px;color:#27ae60;font-weight:700">' + _htmlEsc(mo.codigo) + '</td>' +
+          '<td style="padding:4px 7px;border:1px solid #ccc;font-size:10px">' + _htmlEsc(mo.descripcion) + '</td>' +
           '<td colspan="3" style="padding:4px 7px;border:1px solid #ccc;font-size:9px;color:#888;text-align:center">Revisión y mano de obra</td>' +
           '<td style="padding:4px 7px;border:1px solid #ccc;text-align:center;font-size:10px">1</td>' +
           '<td style="padding:4px 7px;border:1px solid #ccc;text-align:right;font-size:10px;font-weight:700">' + _fmtNum(pMO) + '</td>' +
@@ -408,7 +428,7 @@ function obtenerPresupuestoHTML(data) {
       // ── RESELLER INFO ──
       '<table class="it" style="width:100%;margin-bottom:5px"><tr>' +
         '<td style="width:12%;padding:4px 7px" class="lbl">Señores:</td>' +
-        '<td style="width:50%;padding:4px 7px;font-weight:700;font-size:12px">' + data.reseller + '</td>' +
+        '<td style="width:50%;padding:4px 7px;font-weight:700;font-size:12px">' + _htmlEsc(data.reseller) + '</td>' +
         '<td style="width:38%;padding:4px 7px" class="lbl">CUIT N°: <strong style="color:#222">' + (rCuit||'—') + '</strong></td>' +
       '</tr><tr>' +
         '<td style="padding:4px 7px" class="lbl">Domicilio:</td>' +
@@ -421,10 +441,10 @@ function obtenerPresupuestoHTML(data) {
       '</tr><tr>' +
         '<td style="padding:4px 7px" class="lbl">Teléfono:</td>' +
         '<td style="padding:4px 7px;font-size:11px">' + (rTel||'—') + '</td>' +
-        '<td style="padding:4px 7px" class="lbl">Referencia: <strong style="color:#222">' + data.ot + '</strong>' + (data.cas ? ' &nbsp; <span class="lbl">CAS:</span> <strong style="color:#222">' + data.cas + '</strong>' : '') + '</td>' +
+        '<td style="padding:4px 7px" class="lbl">Referencia: <strong style="color:#222">' + data.ot + '</strong>' + (data.cas ? ' &nbsp; <span class="lbl">CAS:</span> <strong style="color:#222">' + _htmlEsc(data.cas) + '</strong>' : '') + '</td>' +
       '</tr>' +
-      (data.trabajo ? '<tr><td style="padding:4px 7px" class="lbl">Falla reportada:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#555;background:#f7f7f7">' + data.trabajo.replace(/\n/g,' ') + '</td></tr>' : '') +
-      (data.informeTecnico ? '<tr><td style="padding:4px 7px" class="lbl">Diagnóstico:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#2d6a3f;background:#f5fff8">' + data.informeTecnico.replace(/\n/g,' ') + '</td></tr>' : '') +
+      (data.trabajo ? '<tr><td style="padding:4px 7px" class="lbl">Falla reportada:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#555;background:#f7f7f7">' + _htmlEsc(data.trabajo).replace(/\n/g,' ') + '</td></tr>' : '') +
+      (data.informeTecnico ? '<tr><td style="padding:4px 7px" class="lbl">Diagnóstico:</td><td colspan="2" style="padding:4px 7px;font-size:10px;color:#2d6a3f;background:#f5fff8">' + _htmlEsc(data.informeTecnico).replace(/\n/g,' ') + '</td></tr>' : '') +
       '</table>' +
       // ── ITEMS TABLE ──
       '<table class="it" style="width:100%;margin-bottom:5px">' +
@@ -455,6 +475,6 @@ function obtenerPresupuestoHTML(data) {
     return { ok: true, html: html };
   } catch(e) {
     Logger.log("obtenerPresupuestoHTML ERROR: " + e);
-    return { ok: false, msg: e.toString() };
+    return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }

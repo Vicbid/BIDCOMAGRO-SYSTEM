@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Solicitud de factura: descuento del reseller, XLS de
 //  detalle, mail a administración/facturación.
@@ -126,8 +126,8 @@ function _construirEmailFacturacion(data, items, totalGeneral, infoCliente, desc
     var bg = i % 2 === 0 ? '#ffffff' : '#f7f9fc';
     tablaHTML +=
       "<tr style='background:" + bg + "'>" +
-      "<td style='padding:7px 10px;border:1px solid #e0e0e0;font-weight:700;color:#00a3e0'>" + item.codigo + "</td>" +
-      "<td style='padding:7px 10px;border:1px solid #e0e0e0'>" + item.descripcion + "</td>" +
+      "<td style='padding:7px 10px;border:1px solid #e0e0e0;font-weight:700;color:#00a3e0'>" + _htmlEsc(item.codigo) + "</td>" +
+      "<td style='padding:7px 10px;border:1px solid #e0e0e0'>" + _htmlEsc(item.descripcion) + "</td>" +
       "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:center'>" + item.cantidad + "</td>" +
       "<td style='padding:7px 10px;border:1px solid #e0e0e0;text-align:right'>" +
         (item.pvp > 0 ? "USD " + _fmtNum(item.pvp) + " <span style='color:#888;font-size:10px'>(-" + Math.round(descuento*100) + "% desc.)</span>" : "—") +
@@ -148,20 +148,20 @@ function _construirEmailFacturacion(data, items, totalGeneral, infoCliente, desc
   tablaHTML += "</tbody></table>";
 
   var resellerInfo =
-    filaDetalle('Reseller / Empresa', '<strong>' + data.reseller + '</strong>') +
+    filaDetalle('Reseller / Empresa', '<strong>' + _htmlEsc(data.reseller) + '</strong>') +
     (infoCliente ? (
-      filaDetalle('CUIT', infoCliente.cuit || '—') +
-      filaDetalle('Dirección', (infoCliente.direccion||'—') + (infoCliente.localidad ? ', ' + infoCliente.localidad : '')) +
-      filaDetalle('Código Postal', infoCliente.cp || '—') +
-      filaDetalle('Teléfono', infoCliente.telefono || '—')
+      filaDetalle('CUIT', _htmlEsc(infoCliente.cuit) || '—') +
+      filaDetalle('Dirección', _htmlEsc((infoCliente.direccion||'—') + (infoCliente.localidad ? ', ' + infoCliente.localidad : ''))) +
+      filaDetalle('Código Postal', _htmlEsc(infoCliente.cp) || '—') +
+      filaDetalle('Teléfono', _htmlEsc(infoCliente.telefono) || '—')
     ) : '');
 
   var cuerpo =
     bloqueCard('📋 Detalle de la Orden',
       filaDetalle('OT', '<strong>' + data.ot + '</strong>') +
-      filaDetalle('Equipo / Modelo', data.equipo || '—') +
-      filaDetalle('N° de Serie', data.sn || '—') +
-      (data.cas ? filaDetalle('Caso DJI (CAS/FWR)', data.cas) : '') +
+      filaDetalle('Equipo / Modelo', data.equipo ? _htmlEsc(data.equipo) : '—') +
+      filaDetalle('N° de Serie', data.sn ? _htmlEsc(data.sn) : '—') +
+      (data.cas ? filaDetalle('Caso DJI (CAS/FWR)', _htmlEsc(data.cas)) : '') +
       filaDetalle('Garantía', 'OOW — Fuera de garantía'),
       '#00a3e0') +
     "<div style='margin-bottom:16px'>" +
@@ -253,8 +253,18 @@ function solicitarFactura(data) {
     var fila    = parseInt(data.fila);
     var hojaOT  = getSheet(SCHEMA.SHEETS.OT);
     var estadoAnt = String(data.estado || '');
+    var _ahoraFact = new Date();
     hojaOT.getRange(fila, SCHEMA.OT.ESTADO      + 1).setValue('ESPERANDO FACTURA');
-    hojaOT.getRange(fila, SCHEMA.OT.FECHA_ESTADO + 1).setValue(new Date());
+    hojaOT.getRange(fila, SCHEMA.OT.FECHA_ESTADO + 1).setValue(_ahoraFact);
+    // Historial + sello de concurrencia (ver actualizarOrden, HUB_OTs.js) — esta OT cambió
+    // server-side, así que el cliente necesita el timestamp nuevo para no chocar con un
+    // CONFLICT falso en el próximo guardado.
+    var _celHistFact = hojaOT.getRange(fila, SCHEMA.OT.HISTORIAL_ESTADOS + 1);
+    var _histFact = [];
+    try { var _hrFact = _celHistFact.getValue(); if (_hrFact) _histFact = JSON.parse(_hrFact); } catch(e2) {}
+    _histFact.push({ f: _ahoraFact.getTime(), ant: estadoAnt, nvo: 'ESPERANDO FACTURA', tec: '' });
+    _celHistFact.setValue(JSON.stringify(_histFact));
+    hojaOT.getRange(fila, SCHEMA.OT.ULTIMA_MODIFICACION + 1).setValue(_ahoraFact);
 
     var operador = Session.getActiveUser().getEmail();
     registrarLog(data.ot, operador, operador, 'FACTURACIÓN', estadoAnt, 'ESPERANDO FACTURA',
@@ -267,7 +277,7 @@ function solicitarFactura(data) {
 
   } catch(e) {
     Logger.log('solicitarFactura: ' + e);
-    return { ok: false, msg: e.toString() };
+    return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
   }

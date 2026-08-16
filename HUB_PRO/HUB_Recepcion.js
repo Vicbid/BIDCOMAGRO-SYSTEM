@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Recepción obligatoria de equipos (circuito Taller)
 //  Registro permanente de con qué accesorios ingresó un equipo al
@@ -67,7 +67,7 @@ function _armarEmailRecepcion(data, rec, usuarioNombre) {
   } else {
     items.push('Control remoto');
   }
-  if (rec.otros) items.push(rec.otros);
+  if (rec.otros) items.push(_htmlEsc(rec.otros));
 
   var listaHtml = "<ul style='margin:0 0 16px;padding-left:18px'>" +
     items.map(function(x) { return "<li style='font-size:13px;color:#333;padding:2px 0'>" + x + "</li>"; }).join('') +
@@ -75,17 +75,17 @@ function _armarEmailRecepcion(data, rec, usuarioNombre) {
 
   var ficha =
     filaDetalle("Orden de trabajo", "<strong>" + data.ot + "</strong>") +
-    (data.equipo ? filaDetalle("Equipo", data.equipo) : "") +
+    (data.equipo ? filaDetalle("Equipo", _htmlEsc(data.equipo)) : "") +
     filaDetalle("Fecha", Utilities.formatDate(new Date(rec.fecha), 'America/Argentina/Buenos_Aires', 'dd/MM/yyyy HH:mm')) +
-    filaDetalle("Registrado por", usuarioNombre);
+    filaDetalle("Registrado por", _htmlEsc(usuarioNombre));
 
   var obsBloque = rec.observaciones
-    ? bloqueCard("Observaciones", rec.observaciones, "#888")
+    ? bloqueCard("Observaciones", _htmlEsc(rec.observaciones), "#888")
     : "";
 
   return construirEmailHTML(
     "Equipo recepcionado",
-    "Estimado/a " + data.reseller,
+    "Estimado/a " + _htmlEsc(data.reseller),
     "<p style='font-size:13px;color:#555;margin:0 0 14px'>Su equipo ingresó a nuestro taller. Se recibió:</p>" +
     listaHtml +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:4px'>" + ficha + "</div>" +
@@ -190,7 +190,7 @@ function confirmarRecepcionEquipo(payload) {
 
   } catch(e) {
     Logger.log('confirmarRecepcionEquipo: ' + e);
-    return { resultado: 'Error: ' + e.toString() };
+    return { resultado: 'Error: No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     SpreadsheetApp.flush();
     if (lock.hasLock()) lock.releaseLock();

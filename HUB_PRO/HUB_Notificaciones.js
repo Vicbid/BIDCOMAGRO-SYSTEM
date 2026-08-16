@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  HUB PRO — Motor de notificaciones por mail ante cambio de estado
 //  de una OT (reseller/técnico/supervisor/facturación) + las 2
@@ -272,8 +272,8 @@ function armarEmailFacturacion(data, tecnico) {
       var pMO = parseFloat(String(mo[i].precio).replace(/[^0-9.]/g, "")) || 0;
       totalMO += pMO;
       filasMO += "<tr>" +
-        "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + mo[i].codigo + "</td>" +
-        "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + mo[i].descripcion + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0;font-weight:600;color:#00a3e0'>" + _htmlEsc(mo[i].codigo) + "</td>" +
+        "<td style='padding:6px 10px;border:1px solid #e0e0e0'>" + _htmlEsc(mo[i].descripcion) + "</td>" +
         "<td style='padding:6px 10px;border:1px solid #e0e0e0;text-align:right'>" + mo[i].precio + "</td></tr>";
     }
     tablaMOHTML = "<div style='margin-top:20px'>" +
@@ -292,12 +292,12 @@ function armarEmailFacturacion(data, tecnico) {
 
   var cuerpoDetalle =
     filaDetalle("Orden de Trabajo", data.ot) +
-    filaDetalle("Reseller", data.reseller) +
-    filaDetalle("Equipo / Modelo", data.equipo) +
-    filaDetalle("Nº de Serie", data.sn || "—") +
-    (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", data.cas) : "") +
+    filaDetalle("Reseller", _htmlEsc(data.reseller)) +
+    filaDetalle("Equipo / Modelo", _htmlEsc(data.equipo)) +
+    filaDetalle("Nº de Serie", data.sn ? _htmlEsc(data.sn) : "—") +
+    (data.cas ? filaDetalle("Caso DJI (CAS/FWR)", _htmlEsc(data.cas)) : "") +
     filaDetalle("Garantía", "Fuera de garantía (OOW)") +
-    (tecnico && tecnico !== "Gestión Reseller" ? filaDetalle("Técnico", tecnico) : "");
+    (tecnico && tecnico !== "Gestión Reseller" ? filaDetalle("Técnico", _htmlEsc(tecnico)) : "");
 
   var repFact = construirTablaRepuestosFacturacion(data.repuestos);
   var totalGeneral = Math.round((totalMO + repFact.total) * 100) / 100;
@@ -416,24 +416,24 @@ function armarEmailReseller(data, ant, nvo, tec) {
   var urgBanner = data.prioridad ? bloqueCard("⚡ Prioridad URGENTE", "Esta orden tiene prioridad máxima.", "#e74c3c") : "";
   var ficha =
     filaDetalle("Orden de trabajo", "<strong>" + data.ot + "</strong>") +
-    filaDetalle("Equipo", data.equipo) +
-    filaDetalle("Nº de Serie", data.sn||"—") +
-    (data.cliente ? filaDetalle("Cliente", data.cliente) : "") +
+    filaDetalle("Equipo", _htmlEsc(data.equipo)) +
+    filaDetalle("Nº de Serie", data.sn ? _htmlEsc(data.sn) : "—") +
+    (data.cliente ? filaDetalle("Cliente", _htmlEsc(data.cliente)) : "") +
     filaDetalle("Garantía", data.garantia==="IW"?"In Warranty (IW)":"Out of Warranty (OOW)") +
-    (data.cas ? filaDetalle("Caso DJI", data.cas) : "") +
+    (data.cas ? filaDetalle("Caso DJI", _htmlEsc(data.cas)) : "") +
     filaDetalle("Estado anterior", ant||"—") +
     filaDetalle("Estado actual", "<strong style='color:#00a3e0'>" + nvo + "</strong>") +
-    filaDetalle("Técnico asignado", (tec&&tec!=="Gestión Reseller") ? tec : "Equipo técnico BIDCOMAGRO") +
+    filaDetalle("Técnico asignado", (tec&&tec!=="Gestión Reseller") ? _htmlEsc(tec) : "Equipo técnico BIDCOMAGRO") +
     estimada;
   // Informe técnico REAL (lo completa el técnico) — si todavía no existe (OTs viejas,
   // anteriores a que este campo se separara de "Falla reportada"), cae a data.trabajo
   // para no mandar el mail de cierre sin ningún contenido.
-  var informeTxt = data.informeTecnico || data.trabajo;
+  var informeTxt = _htmlEsc(data.informeTecnico || data.trabajo);
   var informe = (nvo==="Finalizado" && informeTxt)
     ? "<div style='margin-top:20px;background:#f5f9fc;border-left:3px solid #00a3e0;border-radius:0 6px 6px 0;padding:14px 16px'><p style='font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px'>Informe técnico</p><p style='font-size:13px;color:#444;line-height:1.7;margin:0'>" + informeTxt + "</p></div>"
     : "";
   return construirEmailHTML(
-    "Actualización de su Orden de Servicio", "Estimado/a " + data.reseller,
+    "Actualización de su Orden de Servicio", "Estimado/a " + _htmlEsc(data.reseller),
     urgBanner +
     "<p style='font-size:14px;color:#444;line-height:1.7;margin:0 0 22px'>" + (msgs[nvo]||"Su orden fue actualizada.") + "</p>" +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-bottom:4px'>" + ficha + "</div>" +
@@ -450,14 +450,14 @@ function armarEmailTecnico(data, estado, tec) {
     "Repuestos enviados":"Los repuestos llegaron. Podés retomar la reparación."
   };
   return construirEmailHTML(
-    "OT asignada: " + data.ot, "Hola, " + tec,
+    "OT asignada: " + data.ot, "Hola, " + _htmlEsc(tec),
     "<p style='font-size:14px;color:#444;line-height:1.7;margin:0 0 22px'>" + (msgs[estado]||"Hay una actualización en tu OT.") + "</p>" +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
       filaDetalle("OT", "<strong>" + data.ot + "</strong>") +
-      filaDetalle("Reseller", data.reseller) +
-      filaDetalle("Equipo", data.equipo) +
-      filaDetalle("S/N", data.sn||"—") +
-      (data.cliente ? filaDetalle("Cliente", data.cliente) : "") +
+      filaDetalle("Reseller", _htmlEsc(data.reseller)) +
+      filaDetalle("Equipo", _htmlEsc(data.equipo)) +
+      filaDetalle("S/N", data.sn ? _htmlEsc(data.sn) : "—") +
+      (data.cliente ? filaDetalle("Cliente", _htmlEsc(data.cliente)) : "") +
       filaDetalle("Estado", "<strong style='color:#00a3e0'>" + estado + "</strong>") +
       filaDetalle("Garantía", data.garantia) +
       (data.prioridad ? filaDetalle("Prioridad","<strong style='color:#e74c3c'>URGENTE</strong>") : "") +
@@ -477,14 +477,14 @@ function armarEmailSupervisor(data, ant, nvo, tec, back) {
     alertas +
     "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px;margin-top:16px'>" +
       filaDetalle("OT","<strong>" + data.ot + "</strong>") +
-      filaDetalle("Reseller", data.reseller) +
-      filaDetalle("Equipo", data.equipo + (data.sn?" · S/N: "+data.sn:"")) +
-      (data.cliente ? filaDetalle("Cliente", data.cliente) : "") +
+      filaDetalle("Reseller", _htmlEsc(data.reseller)) +
+      filaDetalle("Equipo", _htmlEsc(data.equipo) + (data.sn?" · S/N: "+_htmlEsc(data.sn):"")) +
+      (data.cliente ? filaDetalle("Cliente", _htmlEsc(data.cliente)) : "") +
       filaDetalle("Estado anterior", ant||"—") +
       filaDetalle("Estado actual","<strong style='color:#00a3e0'>" + nvo + "</strong>") +
-      filaDetalle("Técnico", tec||"Sin asignar") +
+      filaDetalle("Técnico", tec ? _htmlEsc(tec) : "Sin asignar") +
       filaDetalle("Garantía", data.garantia) +
-      (data.cas ? filaDetalle("CAS", data.cas) : "") +
+      (data.cas ? filaDetalle("CAS", _htmlEsc(data.cas)) : "") +
       (data._fechaEstimada ? filaDetalle("Fecha estimada", "<strong>" + data._fechaEstimada + "</strong>") : "") +
     "</div>" + construirTablaRepuestos(data.repuestos),
     "Aviso automático por DJI HUB PRO."
@@ -522,8 +522,8 @@ function construirTablaRepuestosFacturacion(rep) {
     var sub = Math.round(pNeto * ped * 100) / 100;
     total += sub;
     filas += "<tr>" +
-      "<td style='padding:7px 10px;font-size:11px;color:#00a3e0;font-weight:600;border:1px solid #e0e0e0'>" + cod + "</td>" +
-      "<td style='padding:7px 10px;font-size:12px;color:#333;border:1px solid #e0e0e0'>" + des + "</td>" +
+      "<td style='padding:7px 10px;font-size:11px;color:#00a3e0;font-weight:600;border:1px solid #e0e0e0'>" + _htmlEsc(cod) + "</td>" +
+      "<td style='padding:7px 10px;font-size:12px;color:#333;border:1px solid #e0e0e0'>" + _htmlEsc(des) + "</td>" +
       "<td style='padding:7px 10px;font-size:12px;text-align:center;border:1px solid #e0e0e0'>" + ped + "</td>" +
       "<td style='padding:7px 10px;font-size:12px;text-align:right;border:1px solid #e0e0e0'>" + (pNeto ? "USD " + _fmtNum(pNeto) : "—") + "</td>" +
       "<td style='padding:7px 10px;font-size:12px;text-align:right;font-weight:700;border:1px solid #e0e0e0'>" + (sub ? "USD " + _fmtNum(sub) : "—") + "</td></tr>";

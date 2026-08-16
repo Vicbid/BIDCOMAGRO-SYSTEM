@@ -1,4 +1,4 @@
-<!-- @version 2.29 -->
+<!-- @version 2.30 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1010,6 +1010,18 @@ body.compact tbody td{padding:6px 14px!important}
 <!-- MAIN -->
 <div class="mc">
 
+  <!-- Banner: quedó una pestaña vieja abierta (ver _chequearVersionNueva) -->
+  <div id="banner-nueva-version" style="display:none;align-items:center;gap:12px;background:#eef7ff;border:1.5px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+    <i class="fa fa-rotate" style="color:var(--blue);font-size:18px;flex-shrink:0"></i>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:var(--tx)">Hay una versión más nueva del HUB</div>
+      <div style="font-size:12px;color:var(--tx-m);margin-top:2px">Esta pestaña quedó abierta desde antes de la última actualización. Actualizá para ver las últimas mejoras.</div>
+    </div>
+    <button onclick="location.reload()" style="flex-shrink:0;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+      <i class="fa fa-rotate" style="margin-right:5px"></i>Actualizar ahora
+    </button>
+  </div>
+
   <!-- LIST VIEW -->
   <div id="lv">
     <div class="top-bar">
@@ -1024,7 +1036,7 @@ body.compact tbody td{padding:6px 14px!important}
     <div class="kpi-row">
       <div class="kpi-c"><div class="kpi-lbl"><i class="fa fa-clock" style="color:var(--blue)"></i> Pendientes</div><div class="kpi-n" id="kpi-p">—</div></div>
       <div class="kpi-c red"><div class="kpi-lbl"><i class="fa fa-exclamation-triangle" style="color:var(--red)"></i> Urgentes</div><div class="kpi-n red" id="kpi-u">—</div></div>
-      <div class="srch-c"><i class="fa fa-search"></i><input type="text" id="busc" placeholder="Buscar por OT, serie, reseller, CAS..." onkeyup="render()"></div>
+      <div class="srch-c"><i class="fa fa-search"></i><input type="text" id="busc" placeholder="Buscar por OT, serie, reseller, CAS..." onkeyup="_buscDebounced()"></div>
     </div>
     <!-- Tabla normal -->
     <div id="tbl-normal">
@@ -1033,6 +1045,7 @@ body.compact tbody td{padding:6px 14px!important}
           <div class="tbl-cnt"><b id="cnt">0</b> registros</div>
           <div class="tbl-ts" id="ts"></div>
         </div>
+        <div style="overflow-x:auto">
         <table>
           <thead>
             <tr><th>Orden de Trabajo</th><th>Gto.</th><th>Reseller</th><th>Equipo</th><th>Técnico</th><th>Estado</th><th title="Días totales · Días en estado actual">Días</th><th title="Fecha estimada entrega">Est.</th><th title="Estado del repuesto pendiente (pedido a WOS, reserva, o stock)">Repuesto</th></tr>
@@ -1044,6 +1057,7 @@ body.compact tbody td{padding:6px 14px!important}
             </td></tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
     <!-- Vista métricas técnicos -->
@@ -1429,7 +1443,34 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// ── Detección de pestaña vieja abierta ──────────────────────────────────
+// El equipo suele dejar el HUB abierto en una pestaña todo el día — al ser una sola página
+// cargada una vez, no hay forma de que se entere solo de que salió una actualización; hay que
+// preguntarle al servidor cada tanto. Mismo patrón que Portal Reseller (Index.html).
+function _chequearVersionNueva() {
+  var b = document.getElementById('banner-nueva-version');
+  if (b && b.style.display !== 'none') return; // ya avisado, no repetir el llamado
+  google.script.run
+    .withSuccessHandler(function(v) {
+      if (v && _hubVersionCargada && v !== _hubVersionCargada) {
+        var banner = document.getElementById('banner-nueva-version');
+        if (banner) banner.style.display = 'flex';
+      }
+    })
+    .withFailureHandler(function() {})
+    .HUB_obtenerVersionActual();
+}
+(function _versionCheckInit() {
+  // Señal más común: vuelve a una pestaña que había dejado abierta.
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _chequearVersionNueva();
+  });
+  // Respaldo por si la deja abierta y en primer plano varias horas seguidas.
+  setInterval(_chequearVersionNueva, 30 * 60 * 1000);
+})();
+
 // ── ESTADO GLOBAL ─────────────────────────────────────────────
+var _hubVersionCargada = '<?= HUB_VERSION ?>'; // versión con la que cargó ESTA pestaña — ver _chequearVersionNueva
 var dataset=[], actual=null, urgente=false, filtro='pendientes';
 // B (performance): dataset = solo OTs activas. Las cerradas se traen on-demand (vista Finalizados).
 var datasetCerradas=[], _cerradasLoaded=false, _cerradasCargando=false, _cerradasCount=0;
@@ -1770,6 +1811,12 @@ function _listaFiltrada() {
   return f;
 }
 
+var _buscTimer = null;
+function _buscDebounced() {
+  clearTimeout(_buscTimer);
+  _buscTimer = setTimeout(render, 200);
+}
+
 // ── RENDER TABLA (CORREGIDA CON ÍNDICE SEGURO) ────────────────
 function render() {
   var isMet    = (filtro === 'metricas');
@@ -1820,7 +1867,7 @@ function render() {
     
     var esCancelado = c.estado === 'CANCELADO';
     // 🟢 CAMBIO CLAVE: Llamamos a abrirDesdeTabla pasándole el índice "i"
-    h+='<tr class="'+(c.prioridad&&!esCancelado?'urg':'')+(esCancelado?' ot-cancelada':'')+'" onclick="abrirDesdeTabla('+i+')">';
+    h+='<tr class="'+(c.prioridad&&!esCancelado?'urg':'')+(esCancelado?' ot-cancelada':'')+'" onclick="abrirDesdeTabla('+i+')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();abrirDesdeTabla('+i+');}">';
     h+='<td><span class="ot-code">'+c.ot+'</span>'+(c.prioridad&&!esCancelado?'<span class="urg-dot"></span>':'')+msgDot+'</td>';
     h+='<td><span class="'+(c.garantia==='IW'?'b-iw':'b-oow')+'">'+c.garantia+'</span></td>';
     h+='<td>'+c.reseller+'</td>';
@@ -1894,16 +1941,16 @@ function renderMensajes() {
   var h = '';
   for (var i=0; i<lista.length; i++) {
     var c = lista[i];
-    var preview = c.mensajes.replace(/💬/g,'').replace(/\n/g,' ').trim();
+    var preview = _escHtml(c.mensajes.replace(/💬/g,'').replace(/\n/g,' ').trim());
     if (preview.length > 120) preview = preview.substring(0,120) + '…';
-    h += '<div class="msg-item' + (c.msgNoLeido ? ' unread' : '') + '" onclick="abrirMensaje(' + c.fila + ')">';
+    h += '<div class="msg-item' + (c.msgNoLeido ? ' unread' : '') + '" onclick="abrirMensaje(' + c.fila + ')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();abrirMensaje(' + c.fila + ');}">';
     h += '<div class="msg-dot ' + (c.msgNoLeido ? 'new' : 'read') + '"></div>';
     h += '<div style="flex:1;min-width:0">';
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
-    h += '<span class="msg-ot-code">' + c.ot + '</span>';
-    h += '<span class="b-est">' + c.estado + '</span>';
+    h += '<span class="msg-ot-code">' + _escHtml(c.ot) + '</span>';
+    h += '<span class="b-est">' + _escHtml(c.estado) + '</span>';
     if (c.msgNoLeido) h += '<span style="font-size:9px;font-weight:700;color:var(--blue);background:var(--blue-a);padding:1px 6px;border-radius:8px;border:1px solid rgba(0,163,224,.2)">NUEVO</span>';
-    h += '<span style="margin-left:auto;font-size:10px;color:var(--tx-d)">' + c.reseller + '</span>';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--tx-d)">' + _escHtml(c.reseller) + '</span>';
     h += '</div>';
     h += '<div class="msg-preview">' + preview + '</div>';
     h += '</div></div>';
@@ -2029,7 +2076,7 @@ function renderMetricas() {
         var cierreStr = m.promCierre !== null ? m.promCierre + 'd' : '—';
         h += '<div class="met-card">';
         h += '<div class="met-name">' +
-               '<i class="fa fa-user-circle" style="color:var(--blue)"></i>' + _esc(m.tecnico) +
+               '<i class="fa fa-user-circle" style="color:var(--blue)"></i>' + _escHtml(m.tecnico) +
                (m.urgentes > 0 ? '<span style="margin-left:auto;font-size:9px;background:var(--red);color:#fff;border-radius:10px;padding:2px 6px;font-weight:700">'+m.urgentes+' URG</span>' : '') +
              '</div>';
         h += '<div class="met-row"><span>OTs abiertas</span><b>' + m.abiertas + '</b></div>';
@@ -2251,7 +2298,7 @@ function _renderRepCCBanner(lineas, itemsMap) {
   b.className = 'cc-' + peor.sev.nivel;
   b.style.display = 'flex';
   b.innerHTML = '<span>' + frase + '</span>' +
-    (peor.item.pedidoWOS ? '<button class="cc-abrir" onclick="abrirPedidoWOS(\'' + _escHtml(peor.item.pedidoWOS.numero) + '\')">Abrir pedido ↗</button>' : '');
+    (peor.item.pedidoWOS ? '<button class="cc-abrir" onclick="abrirPedidoWOS(\'' + _escHtml(peor.item.pedidoWOS.numero).replace(/'/g, "\\'") + '\')">Abrir pedido ↗</button>' : '');
 }
 
 // Agrega/actualiza el chip de estado debajo de cada fila de "Repuestos utilizados"
@@ -2306,11 +2353,11 @@ function cargarDiagnostico(modelo, falla, ot) {
       for (var i = 0; i < items.length; i++) {
         var it = items[i];
         h += '<div class="diag-card">' +
-               '<div class="diag-ot">' + _esc(it.ot) + ' <span style="color:var(--tx-d);font-weight:400">' + _esc(it.fecha) + '</span></div>' +
-               '<div class="diag-eq">' + _esc(it.equipo) + ' · ' + _esc(it.garantia) + '</div>' +
-               '<div class="diag-desc">' + _esc(it.trabajo) + '</div>' +
+               '<div class="diag-ot">' + _escHtml(it.ot) + ' <span style="color:var(--tx-d);font-weight:400">' + _escHtml(it.fecha) + '</span></div>' +
+               '<div class="diag-eq">' + _escHtml(it.equipo) + ' · ' + _escHtml(it.garantia) + '</div>' +
+               '<div class="diag-desc">' + _escHtml(it.trabajo) + '</div>' +
                (it.repuestos !== 'Sin repuestos'
-                 ? '<div class="diag-reps"><i class="fa fa-tools" style="margin-right:4px"></i>' + _esc(it.repuestos) + '</div>'
+                 ? '<div class="diag-reps"><i class="fa fa-tools" style="margin-right:4px"></i>' + _escHtml(it.repuestos) + '</div>'
                  : '') +
              '</div>';
       }
@@ -2361,8 +2408,8 @@ function _renderTimeline(hist, c) {
     html += '<div class="tl-item">' +
               '<div class="tl-dot ' + dotClass + '"><i class="fa ' + icon + '"></i></div>' +
               '<div class="tl-body">' +
-                '<div class="tl-estado">' + _esc(it.nvo) + '</div>' +
-                '<div class="tl-meta">' + (fechaTxt||'—') + _esc(tecTxt) + '</div>' +
+                '<div class="tl-estado">' + _escHtml(it.nvo) + '</div>' +
+                '<div class="tl-meta">' + (fechaTxt||'—') + _escHtml(tecTxt) + '</div>' +
               '</div></div>';
   }
   tl.innerHTML = html || '<div style="font-size:11px;color:var(--tx-d);padding:4px 0">Sin transiciones registradas aún.</div>';

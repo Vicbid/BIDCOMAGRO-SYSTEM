@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  HUB PRO — Command Center del supervisor: métricas, logs,
 //  pendientes de envío, deuda de resellers, búsquedas/historial de
@@ -45,6 +45,10 @@ function obtenerLogs(ot) {
 // ============================================================
 function obtenerEmailLogs(limite) {
   try {
+    // El botón "Supervisor" del cliente solo se oculta si rol!=='admin' (Index.html) — sin este
+    // guard, cualquier usuario del dominio podía invocar el endpoint igual desde la consola.
+    var _u = identificarUsuario();
+    if (!_u || _u.rol !== 'admin') return [];
     var hoja = getSheet(SCHEMA.SHEETS.EMAIL_LOGS);
     if (!hoja) return [];
     var datos = getSheetValues(hoja);
@@ -75,6 +79,8 @@ function obtenerEmailLogs(limite) {
 // ============================================================
 function obtenerMetricasTecnicos() {
   try {
+    var _u = identificarUsuario();
+    if (!_u || _u.rol !== 'admin') return [];
     var hoja = getSheet(SCHEMA.SHEETS.OT);
     var datos = getSheetValues(hoja);
     var hoy   = new Date();
@@ -97,6 +103,11 @@ function obtenerMetricasTecnicos() {
       if (!tec || tec === "Gestión Reseller" || !f[SCHEMA.OT.OT]) continue;
       var estado = String(f[SCHEMA.OT.ESTADO]||"");
       if (estado === "CANCELADO") continue;
+      // Estados cerrados que no son "Finalizado" (Entregado, Rechazado DJI, etc.) no suman ni a
+      // abiertas ni a finalizadas — mismo criterio que ya se le daba a CANCELADO, generalizado
+      // con _esCerrada (antes solo "Finalizado" salía del conteo de "abiertas", así que el resto
+      // de los estados cerrados inflaba el número de OTs abiertas por técnico).
+      if (estado !== "Finalizado" && _esCerrada(estado)) continue;
       if (!mapa[tec]) mapa[tec] = { tecnico:tec, abiertas:0, finalizadas:0,
                                      diasAbiertasTotal:0, diasAbiertasCount:0,
                                      diasCierreTotal:0, diasCierreCount:0,
@@ -146,6 +157,8 @@ function obtenerMetricasTecnicos() {
 // ============================================================
 function obtenerPendientesEnvio() {
   try {
+    var _u = identificarUsuario();
+    if (!_u || _u.rol !== 'admin') return [];
     var hojaDeuda = getSheet(SCHEMA.SHEETS.DEUDA_RESELLERS);
     var hojaOT    = getSheet(SCHEMA.SHEETS.OT);
     if (!hojaDeuda || !hojaOT) return [];
@@ -260,6 +273,8 @@ function sincronizarDeudaReseller(data) {
 // ============================================================
 function obtenerDatosSupervisor() {
   try {
+    var _u = identificarUsuario();
+    if (!_u || _u.rol !== 'admin') return { backorderPred: [], slaData: {} };
     var hoja   = getSheet(SCHEMA.SHEETS.OT);
     var hojaLog = getSheet(SCHEMA.SHEETS.LOGS);
     var datos  = getSheetValues(hoja);
@@ -372,7 +387,9 @@ function obtenerDatosSupervisor() {
       : null;
 
     // ── Ranking de resellers con más casos abiertos ──────────────
-    var EST_CERRADOS_R = ['CANCELADO', 'Finalizado', 'Entregado', 'Partes dañadas scrapeadas'];
+    // _esCerrada (HUB_OTs.js) es la lista canónica de estados terminales — antes acá había una
+    // lista aparte que le faltaban 4 estados reales y agregaba uno que no existe en ningún otro
+    // lado ('Partes dañadas scrapeadas').
     var resMap = {};
     for (var ri = 1; ri < datos.length; ri++) {
       var rf = datos[ri];
@@ -381,7 +398,7 @@ function obtenerDatosSupervisor() {
       var circR  = String(rf[SCHEMA.OT.CIRCUITO] || '').trim().toUpperCase();
       var esResR = (circR === 'RESELLER' || circR === 'SI' || circR === 'RESELLER PROPIO');
       if (!esResR) continue;
-      if (EST_CERRADOS_R.indexOf(estR) !== -1) continue;
+      if (_esCerrada(estR)) continue;
       var resellerR = String(rf[SCHEMA.OT.RESELLER] || '').trim() || 'Sin nombre';
       resMap[resellerR] = (resMap[resellerR] || 0) + 1;
     }
@@ -633,7 +650,7 @@ function obtenerEstadoRepuestosOT(otRaw, skus) {
     return { ok: true, items: out };
   } catch(e) {
     Logger.log('obtenerEstadoRepuestosOT ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -675,6 +692,6 @@ function obtenerEstadoRepuestosOTs() {
     return { ok: true, pedidos: pedidosPorOT, reservas: reservasPorOT, stockMap: stockMap };
   } catch(e) {
     Logger.log('obtenerEstadoRepuestosOTs ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }

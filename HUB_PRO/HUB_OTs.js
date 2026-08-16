@@ -1,4 +1,4 @@
-// @version 1.9
+// @version 1.10
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -11,7 +11,11 @@ var WOS_SS_ID    = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var WOS_HOJA_PED = 'Pedidos_OTs';
 
 function HUB_generarPedidoRepuestos(data) {
+  // Lock: sin esto, dos pedidos simultáneos de la misma OT con SKUs solapados pueden leer
+  // "existingSKUs" antes de que el otro termine de escribir y duplicar líneas reales hacia WOS.
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(10000);
     var hoja  = SpreadsheetApp.openById(WOS_SS_ID).getSheetByName(WOS_HOJA_PED);
     if (!hoja) return { ok: false, error: 'Hoja Pedidos_OTs no encontrada en el WOS.' };
     var todos = hoja.getDataRange().getValues();
@@ -88,13 +92,13 @@ function HUB_generarPedidoRepuestos(data) {
       var itemsText = '';
       for (var ii = 0; ii < items.length; ii++) {
         var itI = items[ii];
-        itemsText += '• ' + String(itI.cod || '').trim() + ' · ' + String(itI.desc || '').trim() + ' (x' + (Number(itI.qty) || 1) + ')\n';
+        itemsText += '• ' + _htmlEsc(String(itI.cod || '').trim()) + ' · ' + _htmlEsc(String(itI.desc || '').trim()) + ' (x' + (Number(itI.qty) || 1) + ')\n';
       }
       var bodyHtml = existingThreadId
         ? '<p>Ítems adicionales agregados a <strong>' + numero + '</strong>:</p>' +
           '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>'
         : '<p><strong>' + numero + '</strong> — Solicitud de repuestos de reparación</p>' +
-          '<p>Reseller: <strong>' + reseller + '</strong>' + (idVenGar ? ' · Ref: <em>' + idVenGar + '</em>' : '') + '</p>' +
+          '<p>Reseller: <strong>' + _htmlEsc(reseller) + '</strong>' + (idVenGar ? ' · Ref: <em>' + _htmlEsc(idVenGar) + '</em>' : '') + '</p>' +
           '<pre style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:6px">' + itemsText + '</pre>';
       var toAddr = emailReseller || CONFIG.EMAIL_SUPERVISOR;
       threadId = _enviarConHilo(ot, toAddr, asunto, bodyHtml) || threadId;
@@ -155,7 +159,9 @@ function HUB_generarPedidoRepuestos(data) {
     return { ok: true, numero: numero, threadId: threadId };
   } catch(e) {
     Logger.log('HUB_generarPedidoRepuestos ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
+  } finally {
+    try { if (lock.hasLock()) lock.releaseLock(); } catch(eL) {}
   }
 }
 
@@ -336,7 +342,7 @@ function cargarTodo(soloOrdenes, incluirCerradas) {
 
   } catch(e) {
     Logger.log("cargarTodo: " + e);
-    return { ordenes:[], tecnicos:[], error: e.toString() };
+    return { ordenes:[], tecnicos:[], error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -398,7 +404,7 @@ if (hojaMO) {
 return { repuestos: repuestos, resellers: resellersList, equipos: equipos, manoObra: manoObra };
   } catch(e) {
     Logger.log("cargarCatalogo: " + e);
-    return { repuestos: [], resellers: [], equipos: [], error: e.toString() };
+    return { repuestos: [], resellers: [], equipos: [], error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -599,7 +605,7 @@ function actualizarOrden(data) {
 
   } catch(e) {
     Logger.log("actualizarOrden: " + e);
-    return { resultado: "Error: " + e.toString(), ot: data.ot };
+    return { resultado: "Error: No se pudo procesar la solicitud. Intentá de nuevo.", ot: data.ot };
   } finally {
     SpreadsheetApp.flush();
     if (lock.hasLock()) lock.releaseLock();
@@ -642,21 +648,22 @@ function cancelarCaso(idOT, motivo) {
     if (filaOT < 0) throw new Error('OT no encontrada: ' + otBusc);
     if (estadoAnterior === 'CANCELADO') return { ok: false, msg: 'La OT ya está cancelada.' };
 
+    var _ahoraCancel = new Date();
     hojaOT.getRange(filaOT, O.ESTADO       + 1).setValue('CANCELADO');
-    hojaOT.getRange(filaOT, O.FECHA_CIERRE + 1).setValue(new Date());
-    hojaOT.getRange(filaOT, O.FECHA_ESTADO + 1).setValue(new Date());
+    hojaOT.getRange(filaOT, O.FECHA_CIERRE + 1).setValue(_ahoraCancel);
+    hojaOT.getRange(filaOT, O.FECHA_ESTADO + 1).setValue(_ahoraCancel);
+    // Historial + sello de concurrencia (ver actualizarOrden) — esta OT cambió server-side,
+    // así que el cliente necesita el timestamp nuevo para no chocar con un CONFLICT falso.
+    var _celHistCancel = hojaOT.getRange(filaOT, O.HISTORIAL_ESTADOS + 1);
+    var _histCancel = [];
+    try { var _hrCancel = _celHistCancel.getValue(); if (_hrCancel) _histCancel = JSON.parse(_hrCancel); } catch(e3) {}
+    _histCancel.push({ f: _ahoraCancel.getTime(), ant: estadoAnterior, nvo: 'CANCELADO', tec: '' });
+    _celHistCancel.setValue(JSON.stringify(_histCancel));
+    hojaOT.getRange(filaOT, O.ULTIMA_MODIFICACION + 1).setValue(_ahoraCancel);
 
     // ── 2. Registrar en LOGS ──────────────────────────────────
-    var hojaLog = getSheet(SCHEMA.SHEETS.LOGS);
-    if (hojaLog) {
-      hojaLog.appendRow([
-        new Date(), otBusc, '', '', '',
-        estadoAnterior, 'CANCELADO',
-        'Caso cancelado — Motivo: ' + motivoTxt,
-        Session.getActiveUser().getEmail()
-      ]);
-      invalidateSheetValues(SCHEMA.SHEETS.LOGS);
-    }
+    registrarLog(otBusc, '', Session.getActiveUser().getEmail(),
+                 'CANCELACIÓN', estadoAnterior, 'CANCELADO', 'Motivo: ' + motivoTxt);
 
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.OT);
@@ -669,7 +676,7 @@ function cancelarCaso(idOT, motivo) {
     return { ok: true, ot: otBusc };
   } catch(e) {
     Logger.log('cancelarCaso: ' + e);
-    return { ok: false, msg: e.toString() };
+    return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { if (lock.hasLock()) lock.releaseLock(); } catch(el) {}
   }
@@ -694,12 +701,14 @@ function _normCasFwrc(v) {
 // valor se compara contra AMBAS columnas (CAS col O y FWRC col P) de las demás OTs, así no
 // puede colisionar ni con un CAS ni con un FWRC viejo. Normalizado (sin guiones/espacios,
 // case-insensitive). Lee del sheet (force), no del cache.
-function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
+// datosPreloaded (opcional): array ya leído de SCHEMA.SHEETS.OT — evita una segunda lectura
+// force=true de la hoja completa cuando el caller (crearNuevaOT) ya la leyó para otro chequeo.
+function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir, datosPreloaded) {
   var casN  = _normCasFwrc(cas);
   var fwrcN = _normCasFwrc(fwrc);
   if (!casN && !fwrcN) return null;
   var O = SCHEMA.OT;
-  var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+  var datos = datosPreloaded || getSheetValues(SCHEMA.SHEETS.OT, true);
   var excl  = String(otExcluir || "").trim();
   for (var i = 1; i < datos.length; i++) {
     var otRow = String(datos[i][O.OT] || "").trim();
@@ -720,11 +729,11 @@ function _otBuscarDuplicadoCasFwrc(cas, fwrc, otExcluir) {
 // bloquea abrir un caso nuevo para el mismo equipo. S/N vacío se ignora. Lee del sheet
 // (force). otExcluir = nº de OT a saltear (para no chocar consigo misma).
 // Devuelve { sn, ot, estado } del primer conflicto, o null.
-function _otBuscarSnAbierto(sn, otExcluir) {
+function _otBuscarSnAbierto(sn, otExcluir, datosPreloaded) {
   var snN = String(sn == null ? "" : sn).trim().toUpperCase();
   if (!snN) return null;
   var O = SCHEMA.OT;
-  var datos = getSheetValues(SCHEMA.SHEETS.OT, true);
+  var datos = datosPreloaded || getSheetValues(SCHEMA.SHEETS.OT, true);
   var excl  = String(otExcluir || "").trim();
   for (var i = 1; i < datos.length; i++) {
     var otRow = String(datos[i][O.OT] || "").trim();
@@ -744,13 +753,18 @@ function crearNuevaOT(datos) {
   try {
     lock.waitLock(10000);
 
+    // Una sola lectura completa de la hoja OT para los dos chequeos de unicidad de abajo (antes
+    // cada uno hacía su propia lectura force=true — dos full-table reads seguidos en la misma
+    // ejecución para lo mismo).
+    var _datosOTPreload = getSheetValues(SCHEMA.SHEETS.OT, true);
+
     // Unicidad: no permitir dos OTs con el mismo CAS o FWRC (con el lock tomado → sin carreras).
-    var _dup = _otBuscarDuplicadoCasFwrc(datos.cas, datos.fwrc, null);
+    var _dup = _otBuscarDuplicadoCasFwrc(datos.cas, datos.fwrc, null, _datosOTPreload);
     if (_dup) return { resultado: "Error: El " + _dup.campo + " " + _dup.valor + " ya está usado en la orden " + _dup.ot + ".", ot: "", duplicado: _dup };
 
     // Unicidad: no puede haber dos casos ABIERTOS con el mismo N° de serie (incluye los
     // abiertos desde el Portal Reseller, misma hoja). Solo bloquea contra OTs no cerradas.
-    var _dupSn = _otBuscarSnAbierto(datos.sn, null);
+    var _dupSn = _otBuscarSnAbierto(datos.sn, null, _datosOTPreload);
     if (_dupSn) return { resultado: "Error: Ya existe la orden " + _dupSn.ot + " abierta (" + _dupSn.estado + ") con el N° de serie " + _dupSn.sn + ". No puede haber dos casos abiertos para el mismo equipo.", ot: "", duplicado: _dupSn };
 
     var hoja = getSheet(SCHEMA.SHEETS.OT);
@@ -798,7 +812,8 @@ function crearNuevaOT(datos) {
 
     hoja.appendRow(row);
 
-    registrarLog(nOT, datos.reseller || "Sin asignar", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto", "Nueva orden");
+    registrarLog(nOT, "", Session.getActiveUser().getEmail(), "CREACIÓN", "-", "Abierto",
+                 "Nueva orden — Reseller: " + (datos.reseller || "Sin asignar"));
 
     // Notificar la apertura — igual criterio que actualizarOrden: "Abierto" está en
     // ESTADOS_NOTIFICAR_RESELLER/TÉCNICO. Sin esto, las OT creadas desde el HUB (no desde
@@ -827,7 +842,7 @@ function crearNuevaOT(datos) {
 
   } catch(e) {
     Logger.log("crearNuevaOT: " + e);
-    return { resultado: "Error: " + e.toString(), ot: "" };
+    return { resultado: "Error: No se pudo procesar la solicitud. Intentá de nuevo.", ot: "" };
   } finally {
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.OT);
