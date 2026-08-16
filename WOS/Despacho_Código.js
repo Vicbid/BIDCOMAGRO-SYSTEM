@@ -1,4 +1,4 @@
-// @version 3.31
+// @version 3.32
 // ============================================================
 //  WOS — Router HTTP (doGet) + utilidades de sesión/log
 //  El resto de la lógica se reorganizó (2026-07-30, sin cambios
@@ -14,9 +14,24 @@
 // Despacho_Index.html — el cliente la trae embebida al cargar la página y la vuelve a consultar
 // cada tanto (WOS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta. Ver
 // _wosChequearVersionNueva en Despacho_Index.html.
-var WOS_VERSION = '3.71';
+var WOS_VERSION = '3.72';
 
 function WOS_obtenerVersionActual() { return WOS_VERSION; }
+
+// Range.setValue()/.setValues()/.appendRow() interpretan como fórmula cualquier string que
+// empiece con = + - @ (o tab/CR) — mismo comportamiento que tipear a mano en una celda. Mismo
+// helper que ya existe en Portal Reseller (RS_Main.js) y HUB_PRO (HUB_Código.js).
+function _antiFormula(s) {
+  var v = String(s == null ? '' : s);
+  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
+
+// Escape HTML compartido — antes cada archivo tenía el suyo (o ninguno). Mismo criterio que
+// Portal Reseller/HUB_PRO.
+function _htmlEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : '';
@@ -61,7 +76,7 @@ function _doGetRespFaltante(params) {
     // de faltante para pedidos de OT ('OT-...') siempre daba "Pedido no encontrado".
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) {
-      return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + numero + '. Comunicate con nuestro equipo.'));
+      return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + _htmlEsc(numero) + '. Comunicate con nuestro equipo.'));
     }
     var datos = hoja.getDataRange().getValues();
     var reseller = '', hayEnEspera = false;
@@ -71,10 +86,10 @@ function _doGetRespFaltante(params) {
       if (String(datos[i][COL.ESTADO] || '').trim() === EST.EN_ESPERA) { hayEnEspera = true; }
     }
     if (!reseller) {
-      return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + numero + '. Comunicate con nuestro equipo.'));
+      return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + _htmlEsc(numero) + '. Comunicate con nuestro equipo.'));
     }
     if (!hayEnEspera) {
-      return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + reseller + '!', 'Tu respuesta ya fue registrada anteriormente. No se realizaron cambios adicionales.'))
+      return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + _htmlEsc(reseller) + '!', 'Tu respuesta ya fue registrada anteriormente. No se realizaron cambios adicionales.'))
         .setTitle('Ya procesado');
     }
 
@@ -103,7 +118,7 @@ function _doGetRespFaltante(params) {
         ? 'Registramos tu elecci\xf3n: <strong>Opci\xf3n A — Esperar el faltante en un segundo env\xedo.</strong><br>Despachamos lo disponible a la brevedad y los \xedtems faltantes llegan cuando haya stock.'
         : 'Registramos tu elecci\xf3n: <strong>Opci\xf3n B — Cancelar el faltante.</strong><br>Despachamos lo disponible y los \xedtems faltantes quedan cancelados.';
     }
-    return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + reseller + '!', msg))
+    return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + _htmlEsc(reseller) + '!', msg))
       .setTitle('Respuesta registrada \xb7 Pedido ' + numero);
   } catch(e) {
     Logger.log('_doGetRespFaltante ERROR [' + numero + ']: ' + e);
@@ -133,7 +148,7 @@ function _doGetRespIngreso(params) {
     } else {
       msg = 'Registramos tu elecci\xf3n: <strong>Esperar y recibir todo junto en un solo env\xedo.</strong><br>Tus unidades quedan reservadas y te avisamos cuando ingrese el resto.';
     }
-    return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + res.reseller + '!', msg))
+    return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + _htmlEsc(res.reseller) + '!', msg))
       .setTitle('Respuesta registrada \xb7 Pedido ' + numero);
   } catch(e) {
     Logger.log('_doGetRespIngreso ERROR [' + numero + ']: ' + e);
@@ -243,6 +258,8 @@ function _wosMarcarRespondidoIngreso(numero, op) {
 // Cola de avisos de ingreso (NOTIF_INGRESOS_WOS) para el panel de auditoría en WOS: qué se le
 // avisó a cada reseller cuando llegó mercadería bloqueada, y qué resultado tuvo cada aviso.
 function WOS_cargarColaIngresos() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja = SpreadsheetApp.openById(MASTER_SS_ID).getSheetByName(_WOS_NOTIF_ING_SHEET);
     if (!hoja) return { ok: true, rows: [], resumen: {} };
@@ -268,7 +285,7 @@ function WOS_cargarColaIngresos() {
     return { ok: true, rows: rows, resumen: resumen };
   } catch(e) {
     Logger.log('WOS_cargarColaIngresos ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -284,13 +301,13 @@ function _doGetConfirmaEntrega(params) {
   }
   try {
     var hoja = _getHojaPorNumero(numero);
-    if (!hoja) return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + numero + '. Comunicate con nuestro equipo.'));
+    if (!hoja) return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + _htmlEsc(numero) + '. Comunicate con nuestro equipo.'));
     var datos = hoja.getDataRange().getValues();
     var reseller = '';
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() === numero) { reseller = String(datos[i][COL.RESELLER] || ''); break; }
     }
-    if (!reseller) return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + numero + '.'));
+    if (!reseller) return HtmlService.createHtmlOutput(_rfHtml(false, 'Pedido no encontrado', 'No encontramos el pedido ' + _htmlEsc(numero) + '.'));
 
     _wosRegistrarConfirmacion(numero, reseller, r, String(params.nota || ''));
 
@@ -307,13 +324,13 @@ function _doGetConfirmaEntrega(params) {
       }
       SpreadsheetApp.flush();
       _wosLogAccion('Reseller confirm\xf3 recepci\xf3n OK', numero, reseller, 'reseller_click', '');
-      return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + reseller + '!',
-        'Registramos que recibiste el pedido <strong>' + numero + '</strong> <strong>en perfecto estado</strong>. \xa1Gracias por confirmar!'))
+      return HtmlService.createHtmlOutput(_rfHtml(true, '\xa1Gracias, ' + _htmlEsc(reseller) + '!',
+        'Registramos que recibiste el pedido <strong>' + _htmlEsc(numero) + '</strong> <strong>en perfecto estado</strong>. \xa1Gracias por confirmar!'))
         .setTitle('Recepci\xf3n confirmada \xb7 ' + numero);
     }
     _wosLogAccion('Reseller report\xf3 PROBLEMA', numero, reseller, 'reseller_click', '');
-    return HtmlService.createHtmlOutput(_rfHtml(false, 'Gracias por avisar, ' + reseller,
-      'Registramos que hubo un <strong>problema</strong> con el pedido <strong>' + numero + '</strong>. Nuestro equipo se va a comunicar con vos a la brevedad para resolverlo.'))
+    return HtmlService.createHtmlOutput(_rfHtml(false, 'Gracias por avisar, ' + _htmlEsc(reseller),
+      'Registramos que hubo un <strong>problema</strong> con el pedido <strong>' + _htmlEsc(numero) + '</strong>. Nuestro equipo se va a comunicar con vos a la brevedad para resolverlo.'))
       .setTitle('Problema registrado \xb7 ' + numero);
   } catch(e) {
     Logger.log('_doGetConfirmaEntrega ERROR [' + numero + ']: ' + e);
@@ -355,14 +372,18 @@ function WOS_getUsuario() {
                     .getSheetByName('Usuarios_Internos').getDataRange().getValues();
       for (var i = 1; i < datos.length; i++) {
         if (String(datos[i][1] || '').trim().toLowerCase() === emailL) {
-          return { email: email, nombre: String(datos[i][0] || email), tipo: String(datos[i][2] || ''), esAdmin: String(datos[i][2] || '').trim() === 'Admin' };
+          return { email: email, nombre: String(datos[i][0] || email), tipo: String(datos[i][2] || ''), esAdmin: String(datos[i][2] || '').trim() === 'Admin', autorizado: true };
         }
       }
     }
-    return { email: email, nombre: email || 'Desconocido', tipo: '', esAdmin: false };
+    // autorizado:false — antes esto y el caso "encontrado con rol genérico" eran indistinguibles
+    // (ambos daban esAdmin:false). Con access:ANYONE en appsscript.json, cualquier cuenta de Google
+    // (ni siquiera del dominio) llega hasta acá; este flag es lo único que ahora gatea las ~38
+    // funciones que mutan o leen datos reales del depósito.
+    return { email: email, nombre: email || 'Desconocido', tipo: '', esAdmin: false, autorizado: false };
   } catch(e) {
     Logger.log('WOS_getUsuario: ' + e);
-    return { email: '', nombre: 'Desconocido', tipo: '' };
+    return { email: '', nombre: 'Desconocido', tipo: '', esAdmin: false, autorizado: false };
   }
 }
 

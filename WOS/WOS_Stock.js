@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  WOS — Stock: consulta para operarios, despacho parcial/batch,
 //  ubicaciones de picking. (Distinto de WOS_StockSnapshot.js, que
@@ -12,6 +12,8 @@
 // reservas activas) + reservas activas con su ETA, para proyectar con qué lote y qué fecha se
 // cumple cada línea pendiente y mostrar lo ya bloqueado 🔒.
 function WOS_despachoParcialData() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var ec = WOS_getEnCaminoMap();
     if (!ec || !ec.ok) return { ok: false, error: (ec && ec.error) || 'en camino' };
@@ -40,7 +42,7 @@ function WOS_despachoParcialData() {
       }
     }
     return { ok: true, bySku: bySku, reservas: reservas };
-  } catch(e) { Logger.log('WOS_despachoParcialData: ' + e); return { ok: false, error: e.toString() }; }
+  } catch(e) { Logger.log('WOS_despachoParcialData: ' + e); return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' }; }
 }
 
 
@@ -50,6 +52,8 @@ function WOS_despachoParcialData() {
 // necesita reserva. Idempotente: descuenta lo ya reservado por (pedido, SKU) antes de asignar,
 // así el botón se puede tocar las veces que haga falta sin duplicar.
 function WOS_bloquearEnCaminoParciales() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   var lock = LockService.getScriptLock();
   try { lock.waitLock(15000); } catch(eL) { Logger.log('WOS_bloquearEnCaminoParciales lock: ' + eL); }
   try {
@@ -115,7 +119,7 @@ function WOS_bloquearEnCaminoParciales() {
     }
     var nPed = 0; for (var k in pedSet) nPed++;
     return { ok: true, reservas: nuevas.length, cantidad: totalRes, pedidos: nPed };
-  } catch(e) { Logger.log('WOS_bloquearEnCaminoParciales: ' + e); return { ok: false, error: e.toString() }; }
+  } catch(e) { Logger.log('WOS_bloquearEnCaminoParciales: ' + e); return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' }; }
   finally { try { lock.releaseLock(); } catch(eR) {} }
 }
 
@@ -123,6 +127,8 @@ function WOS_bloquearEnCaminoParciales() {
 // Carga las ubicaciones WMS de un conjunto de SKUs en una sola lectura.
 // Devuelve { ok, map: { SKU: [{ubicacion, cantidad}] } } con locs ordenadas desc por cantidad.
 function WOS_cargarUbicacionesPedido(skus) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hojaUbic = SpreadsheetApp.openById(CARMEN_SS_ID).getSheetByName(CARMEN_UBICACIONES_TAB);
     if (!hojaUbic) return { ok: true, map: {} };
@@ -142,7 +148,7 @@ function WOS_cargarUbicacionesPedido(skus) {
     for (var k in map) map[k].sort(function(a, b) { return a.cantidad - b.cantidad; });
     return { ok: true, map: map };
   } catch(e) {
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -203,6 +209,8 @@ function _wosVentasMap() {
 
 
 function WOS_cargarStock(q) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     // Lista principal: CARMEN hoja STOCK (A=SKU, B=nombre, C=stock actual)
     var carmenSS    = SpreadsheetApp.openById(CARMEN_SS_ID);
@@ -352,7 +360,7 @@ function WOS_cargarStock(q) {
     return { ok: true, items: out };
   } catch(e) {
     Logger.log('WOS_cargarStock ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -361,6 +369,8 @@ function WOS_cargarStock(q) {
 // batchItems: [{numero, despachos:[{row,cantDesp}]}]
 // El costo se divide en partes iguales entre los pedidos del batch.
 function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, operario, reqToken) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     if (!batchItems || !batchItems.length) return { ok: false, error: 'Sin pedidos en el batch.' };
     operario = String(operario || '');
@@ -376,7 +386,8 @@ function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, opera
         var res = WOS_despacharCompleto(item.numero, item.despachos, transportista, bultos, costoPorPedido, operario, itemToken);
         resultados.push({ numero: item.numero, ok: res.ok, error: res.error || '', desactualizado: !!res.desactualizado });
       } catch(eI) {
-        resultados.push({ numero: item.numero, ok: false, error: eI.toString() });
+        Logger.log('WOS_despacharBatch item ' + item.numero + ': ' + eI);
+        resultados.push({ numero: item.numero, ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' });
       }
     }
     var errores = [];
@@ -385,6 +396,6 @@ function WOS_despacharBatch(batchItems, transportista, bultos, costoEnvio, opera
     return { ok: true, resultados: resultados, errores: errores };
   } catch(e) {
     Logger.log('WOS_despacharBatch ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }

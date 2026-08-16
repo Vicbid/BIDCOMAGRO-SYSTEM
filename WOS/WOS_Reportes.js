@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ============================================================
 //  WOS — Reportes: resumen de envíos por reseller/mes + reporte
 //  de backorder (demanda perdida) por mail + su trigger.
@@ -11,6 +11,8 @@
 // mesAnio: "YYYY-MM", e.g. "2025-06"
 // Agrupa por NOTA_ENTREGA (cada evento de despacho = una fila).
 function WOS_getResumenEnvios(reseller, mesAnio) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     if (!reseller || !mesAnio) return { ok: false, error: 'Faltan parámetros.' };
     var partes = mesAnio.split('-');
@@ -72,13 +74,15 @@ function WOS_getResumenEnvios(reseller, mesAnio) {
     };
   } catch(e) {
     Logger.log('WOS_getResumenEnvios ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // ── Envía el resumen de envíos por email al reseller ──────────
 function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
+ var _uEnv = WOS_getUsuario();
+ if (!_uEnv.autorizado) return { ok: false, error: 'No autorizado.' };
  return _wosLockIdempot(reqToken, function() {
   try {
     var res = WOS_getResumenEnvios(reseller, mesAnio);
@@ -122,7 +126,7 @@ function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
       "</div>";
 
     var htmlBody = _wosPortalHead('Resumen de Envíos — ' + res.mesLabel) +
-      "<p style='font-size:14px;color:#666;margin:0 0 6px;line-height:1.5'>Hola <strong>" + reseller + "</strong>:</p>" +
+      "<p style='font-size:14px;color:#666;margin:0 0 6px;line-height:1.5'>Hola <strong>" + _htmlEsc(reseller) + "</strong>:</p>" +
       "<p style='font-size:13px;color:#555;margin:0 0 18px'>A continuación el detalle de los <strong>" + res.envios.length + " env" + (res.envios.length === 1 ? "ío" : "íos") + "</strong> realizados durante <strong>" + res.mesLabel + "</strong>.</p>" +
       tablaHtml + totalHtml +
       _wosPortalFoot('Resumen de Envíos · ' + reseller + ' · ' + res.mesLabel + '.');
@@ -155,7 +159,7 @@ function WOS_enviarResumenEnvios(reseller, mesAnio, reqToken) {
   } catch(e) {
     Logger.log('WOS_enviarResumenEnvios ERROR: ' + e);
     _wosRegistrarEmailLog(reseller + ' · ' + mesAnio, (typeof email !== 'undefined' ? email : ''), 'Resumen de envíos', 'Resumen de envíos — ' + reseller, 'ERROR: ' + String(e).substring(0, 150), '');
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
  });
 }
@@ -197,6 +201,8 @@ function _wosMapaCuitResellers() {
 // (un reseller con error no aborta el resto) + token de idempotencia derivado por ítem.
 // Reusa WOS_enviarResumenEnvios tal cual (mismo mail, mismo log) — acá solo se itera.
 function WOS_enviarResumenEnviosLote(mesAnio, reqToken) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     if (!mesAnio) return { ok: false, error: 'Falta el mes.' };
     var resellers = _wosListaResellersConEmail();
@@ -217,7 +223,8 @@ function WOS_enviarResumenEnviosLote(mesAnio, reqToken) {
           resultados.push({ reseller: nombre, ok: false, skip: !!sinEnvios, error: (res && res.error) || 'Error desconocido' });
         }
       } catch(eI) {
-        resultados.push({ reseller: nombre, ok: false, skip: false, error: eI.toString() });
+        Logger.log('WOS_enviarResumenEnviosLote item ' + nombre + ': ' + eI);
+        resultados.push({ reseller: nombre, ok: false, skip: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' });
       }
     }
     var enviados = 0, saltados = 0, errores = 0;
@@ -230,7 +237,7 @@ function WOS_enviarResumenEnviosLote(mesAnio, reqToken) {
     return { ok: true, resultados: resultados, enviados: enviados, saltados: saltados, errores: errores };
   } catch(e) {
     Logger.log('WOS_enviarResumenEnviosLote ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -241,6 +248,8 @@ function WOS_enviarResumenEnviosLote(mesAnio, reqToken) {
 // para los PDFs de nota de entrega, mismo scope ya concedido).
 function WOS_exportarResumenEnviosXLS(mesAnio) {
   var ssTemp = null;
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     if (!mesAnio) return { ok: false, error: 'Falta el mes.' };
     var resellers = _wosListaResellersConEmail();
@@ -311,7 +320,7 @@ function WOS_exportarResumenEnviosXLS(mesAnio) {
   } catch(e) {
     Logger.log('WOS_exportarResumenEnviosXLS ERROR: ' + e);
     if (ssTemp) { try { DriveApp.getFileById(ssTemp.getId()).setTrashed(true); } catch(eT) {} }
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -450,6 +459,17 @@ function WOS_reporteBackorder() {
 }
 
 
+// Wrapper gateado para el botón "Reporte Backorder" del cliente. WOS_reporteBackorder en sí
+// queda sin gate — es el handler de 3 triggers instalados por nombre (Lun/Mié/Vie 10hs, ver
+// WOS_instalarTriggerBackorder), y Session.getActiveUser() no se comporta igual bajo un trigger.
+function WOS_reporteBackorderManual() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
+  WOS_reporteBackorder();
+  return { ok: true };
+}
+
+
 function _wosBackorderEmailHTML(sinCubrir, cubiertos, perdidos, fechaStr) {
   var rowsRojo = '';
   for (var i = 0; i < sinCubrir.length; i++) {
@@ -584,6 +604,8 @@ function _wosSetBackorderThreadId(threadId) {
 
 // Correr UNA VEZ desde el editor para instalar los 3 triggers
 function WOS_instalarTriggerBackorder() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return;
   var triggers = ScriptApp.getProjectTriggers();
   for (var t = 0; t < triggers.length; t++) {
     if (triggers[t].getHandlerFunction() === 'WOS_reporteBackorder') {
@@ -731,6 +753,8 @@ function _wosPreparadosStuckEmailHTML(lista, fechaStr) {
 
 // Correr UNA VEZ desde el editor para instalar los 3 triggers de este reporte
 function WOS_instalarTriggerPreparadosStuck() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return;
   var triggers = ScriptApp.getProjectTriggers();
   for (var t = 0; t < triggers.length; t++) {
     if (triggers[t].getHandlerFunction() === 'WOS_reportePreparadosSinDespachar') {

@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  WOS — Edición administrativa de pedidos: cambiar SKU, descripción,
 //  precio o cantidad de un ítem, o cancelar el pendiente de una línea
@@ -22,7 +22,7 @@ function WOS_obtenerPedidoParaEditar(numero) {
     return { ok: true, numero: numero, reseller: ped.reseller, items: ped.items };
   } catch(e) {
     Logger.log('WOS_obtenerPedidoParaEditar: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -97,7 +97,7 @@ function WOS_adminEditarPedido(numero, cambios, motivo, operario) {
       }
 
       if (cb.accion === 'eliminar') {
-        if (curCantPend <= 0) return { ok: false, error: curSku + ': no tiene cantidad pendiente, no hay nada para eliminar.' };
+        if (curCantPend <= 0) return { ok: false, error: _htmlEsc(curSku) + ': no tiene cantidad pendiente, no hay nada para eliminar.' };
         aplicar.push({
           idx: idx, accion: 'eliminar',
           antes: { sku: curSku, desc: curDesc, cantSol: curCantSol, precio: curPrecio },
@@ -117,11 +117,11 @@ function WOS_adminEditarPedido(numero, cambios, motivo, operario) {
 
       var tocaIdentidad = (nuevoSku !== curSku) || (nuevoDesc !== curDesc) || (nuevoPrecio !== curPrecio);
       if (tocaIdentidad && curCantDesp > 0) {
-        return { ok: false, error: curSku + ' (ya tiene ' + curCantDesp + ' u. despachadas): no se puede cambiar SKU, descripción ni precio de una línea con despacho — solo se puede ajustar la cantidad pendiente.' };
+        return { ok: false, error: _htmlEsc(curSku) + ' (ya tiene ' + curCantDesp + ' u. despachadas): no se puede cambiar SKU, descripción ni precio de una línea con despacho — solo se puede ajustar la cantidad pendiente.' };
       }
       var piso = curCantSol - curCantPend;   // = ya despachado + ya cancelado
       if (nuevoCantSol < piso) {
-        return { ok: false, error: curSku + ': la cantidad no puede bajar de ' + piso + ' (ya despachado/cancelado de esta línea).' };
+        return { ok: false, error: _htmlEsc(curSku) + ': la cantidad no puede bajar de ' + piso + ' (ya despachado/cancelado de esta línea).' };
       }
 
       if (nuevoSku === curSku && nuevoDesc === curDesc && nuevoPrecio === curPrecio && nuevoCantSol === curCantSol) continue; // sin cambios reales
@@ -148,13 +148,13 @@ function WOS_adminEditarPedido(numero, cambios, motivo, operario) {
         rEst.clearDataValidations();
         rEst.setValue(estFinal);
       } else {
-        hoja.getRange(fila, COL.SKU     + 1).setValue(it.despues.sku);
-        hoja.getRange(fila, COL.DESC    + 1).setValue(it.despues.desc);
+        hoja.getRange(fila, COL.SKU     + 1).setValue(_antiFormula(it.despues.sku));
+        hoja.getRange(fila, COL.DESC    + 1).setValue(_antiFormula(it.despues.desc));
         hoja.getRange(fila, COL.PRECIO  + 1).setValue(it.despues.precio);
         hoja.getRange(fila, COL.CANT_SOL+ 1).setValue(it.despues.cantSol);
       }
       hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
-      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
+      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(_antiFormula(operario));
     }
     SpreadsheetApp.flush();
 
@@ -173,7 +173,7 @@ function WOS_adminEditarPedido(numero, cambios, motivo, operario) {
     return { ok: true, cambios: aplicar.length, avisoEnviado: avisoEnviado };
   } catch(e) {
     Logger.log('WOS_adminEditarPedido: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     if (lock.hasLock()) lock.releaseLock();
   }

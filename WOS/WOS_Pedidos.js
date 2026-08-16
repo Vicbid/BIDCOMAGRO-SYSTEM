@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  WOS — Pedidos: CRUD, estado, maestro de artículos/bolsas,
 //  preparación con seriales, backorder por pedido.
@@ -10,6 +10,8 @@
 // ── Setup: actualiza la data validation de columna J ──────────
 // Ejecutar UNA VEZ desde el editor cuando se agregan estados nuevos.
 function WOS_actualizarValidacion() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return 'No autorizado.';
   var estados = [
     'Pendiente_Revision', 'Confirmado', 'En_Espera_Reseller',
     'Cancelado', 'Preparado', 'Backorder', 'Preparado Parcial',
@@ -38,6 +40,8 @@ function WOS_actualizarValidacion() {
 // ── Email: busca el email del reseller en la hoja MASTER ──────
 // ── Etiqueta de envío: datos del pedido + reseller ────────────
 function WOS_getEtiquetaData(numero) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado' };
@@ -80,7 +84,7 @@ function WOS_getEtiquetaData(numero) {
       obs:       obs
     };
   } catch(e) {
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -95,9 +99,9 @@ function _enviarEmailEstado(numero, reseller, obs) {
     return;
   }
   var html = _wosPortalHead('Pedido cancelado — ' + numero) +
-    "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + "</strong>:</p>" +
+    "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + _htmlEsc(reseller) + "</strong>:</p>" +
     "<p style='font-size:13px;color:#555;margin:0 0 14px'>Tu pedido <strong style='color:#e74c3c'>" + numero + "</strong> fue <strong>cancelado</strong>.</p>" +
-    (obs ? "<div style='background:#fdecea;border:1px solid #f5a5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px'><p style='margin:0;font-size:12px;color:#7f1919'><strong>Motivo:</strong> " + obs + "</p></div>" : '') +
+    (obs ? "<div style='background:#fdecea;border:1px solid #f5a5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px'><p style='margin:0;font-size:12px;color:#7f1919'><strong>Motivo:</strong> " + _htmlEsc(obs) + "</p></div>" : '') +
     "<p style='font-size:13px;color:#555'>Si cre\xe9s que esto es un error, respond\xe9 este email y te ayudamos.</p>" +
     _wosPortalFoot('Pedido ' + numero + ' \xb7 ' + reseller + '.');
 
@@ -191,6 +195,8 @@ function _procesarFilasPedidos(datos, stockMap, mapaP, orden) {
 
 // ── Carga todos los pedidos agrupados por número — fusiona Pedidos_resellers + Pedidos_OTs ──
 function WOS_cargarPedidos() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hojaRes = _getHojaPedidos();
     var hojaOT  = _getHojaPedidosOT();
@@ -264,13 +270,15 @@ function WOS_cargarPedidos() {
     return { ok: true, pedidos: result };
   } catch(e) {
     Logger.log('WOS_cargarPedidos: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // ── Cancela un pedido con motivo, lo guarda en OBS y envía email
 function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
+ var u = WOS_getUsuario();
+ if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
  return _wosLockIdempot(reqToken, function() {
   try {
     motivo   = String(motivo   || '').trim();
@@ -299,14 +307,14 @@ function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
       var obsActual = String(datos[i][COL.OBS] || '').trim();
-      var obsNueva  = motivo + (obsActual ? ' · ' + obsActual : '');
+      var obsNueva  = _antiFormula(motivo) + (obsActual ? ' · ' + obsActual : '');
       hoja.getRange(i + 1, COL.OBS + 1).setValue(obsNueva);
     }
     SpreadsheetApp.flush();
     return WOS_cambiarEstado(numero, EST.CANCELADO, operario);
   } catch(e) {
     Logger.log('WOS_cancelarPedido: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
  });
 }
@@ -314,6 +322,8 @@ function WOS_cancelarPedido(numero, motivo, operario, reqToken) {
 
 // ── Cambia el estado + graba timestamp + envía email si aplica
 function WOS_cambiarEstado(numero, nuevoEstado, operario) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
@@ -348,10 +358,10 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
     if (nuevoEstado === EST.CANCELADO) {
       if (canThreadId) {
         var canHtml = _wosPortalHead('Pedido cancelado — ' + numero) +
-          "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + canReseller + "</strong>:</p>" +
+          "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + _htmlEsc(canReseller) + "</strong>:</p>" +
           "<p style='font-size:13px;color:#555;margin:0 0 14px'>Tu pedido " +
             "<strong style='color:#e74c3c'>" + numero + "</strong> fue <strong>cancelado</strong>." +
-            (canObs ? " Motivo: <em>" + canObs + "</em>." : '') + "</p>" +
+            (canObs ? " Motivo: <em>" + _htmlEsc(canObs) + "</em>." : '') + "</p>" +
           "<p style='font-size:13px;color:#555'>Si tenés alguna consulta, respondé este email o escribinos a " +
             "<a href='mailto:" + _wosConfig().emailSoporte + "' style='color:#00a3e0'>" + _wosConfig().emailSoporte + "</a>.</p>" +
           _wosPortalFoot('Pedido ' + numero + ' · ' + canReseller + '.');
@@ -378,7 +388,7 @@ function WOS_cambiarEstado(numero, nuevoEstado, operario) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_cambiarEstado: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -408,6 +418,8 @@ function _invalidarMaestroCache() {
 
 // Mapa { SKU(mayúsculas) → { porBolsa:bool, bulto:N } } para pre-marcar el modal de preparación.
 function WOS_maestroArticulos() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.', map: {} };
   try {
     var cache = CacheService.getScriptCache();
     var cached = cache.get('wos_maestro_v1');
@@ -427,7 +439,7 @@ function WOS_maestroArticulos() {
     return { ok: true, map: map };
   } catch(e) {
     Logger.log('WOS_maestroArticulos: ' + e);
-    return { ok: false, error: e.toString(), map: {} };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', map: {} };
   }
 }
 
@@ -454,17 +466,17 @@ function _wosUpsertMaestro(list, operario) {
       if (idx[su] !== undefined) {
         fila = idx[su] + 1;
       } else {
-        hoja.appendRow([sku, it.desc || '', '', '', '', '']);
+        hoja.appendRow([_antiFormula(sku), _antiFormula(it.desc || ''), '', '', '', '']);
         fila = hoja.getLastRow();
         idx[su] = fila - 1;
       }
-      hoja.getRange(fila, COL_MAESTRO.SKU       + 1).setValue(sku);
-      if (it.desc) hoja.getRange(fila, COL_MAESTRO.DESC + 1).setValue(it.desc);
+      hoja.getRange(fila, COL_MAESTRO.SKU       + 1).setValue(_antiFormula(sku));
+      if (it.desc) hoja.getRange(fila, COL_MAESTRO.DESC + 1).setValue(_antiFormula(it.desc));
       hoja.getRange(fila, COL_MAESTRO.POR_BOLSA + 1).setValue(it.porBolsa ? true : false);
       var bulto = parseInt(it.bulto, 10) || 0;
       if (bulto > 0) hoja.getRange(fila, COL_MAESTRO.BULTO + 1).setValue(bulto);
       hoja.getRange(fila, COL_MAESTRO.FECHA + 1).setValue(now);
-      if (operario) hoja.getRange(fila, COL_MAESTRO.OPERADOR + 1).setValue(operario);
+      if (operario) hoja.getRange(fila, COL_MAESTRO.OPERADOR + 1).setValue(_antiFormula(operario));
     }
     _invalidarMaestroCache();
   } catch(e) {
@@ -478,6 +490,8 @@ function _wosUpsertMaestro(list, operario) {
 // unidades (col CANTIDAD). Al escanear "SO-...-000041" en la preparación por bolsa, WOS
 // trae esa cantidad para autocompletarla. Devuelve { ok, cantidad, sku } (cantidad 0 = no es bolsa).
 function WOS_resolverBolsa(codigo) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, cantidad: 0, error: 'No autorizado.' };
   try {
     codigo = String(codigo || '').trim().toUpperCase();
     if (!codigo) return { ok: true, cantidad: 0 };
@@ -487,7 +501,7 @@ function WOS_resolverBolsa(codigo) {
     return { ok: true, cantidad: 0 };
   } catch(e) {
     Logger.log('WOS_resolverBolsa: ' + e);
-    return { ok: false, cantidad: 0, error: e.toString() };
+    return { ok: false, cantidad: 0, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -524,6 +538,8 @@ function _wosMapaBolsas() {
 // seriales queda como "SO-123 x50" y qtyPrep (unidades reales) lo manda el front (suma de bolsas).
 // seriales: [{ row, qtyPrep, seriales:"SN1, SN2" | "SO-1 x50, SO-2 x20", ubicaciones, sku, desc, porBolsa, bulto }]
 function WOS_prepararConSeriales(numero, seriales, operario, peso) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     numero = String(numero || '').trim();
     var hoja = _getHojaPorNumero(numero);
@@ -611,9 +627,9 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
                     : ((qtyMap[fila] >= _cantPend) ? EST.PREPARADO : EST.PREP_PARCIAL);
       hoja.getRange(fila, COL.ESTADO       + 1).setValue(_estNuevo);
       hoja.getRange(fila, COL.FECHA_ESTADO + 1).setValue(ahora);
-      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(operario);
+      if (operario) hoja.getRange(fila, COL.OPERARIO + 1).setValue(_antiFormula(operario));
       if (serMap[fila] !== undefined && serMap[fila] !== '') {
-        hoja.getRange(fila, COL.SERIALES + 1).setValue(serMap[fila]);
+        hoja.getRange(fila, COL.SERIALES + 1).setValue(_antiFormula(serMap[fila]));
       }
       // Bins elegidos al preparar → col AA (JSON). El descuento del WMS se aplica al despachar.
       if (ubicMap[fila] !== undefined) {
@@ -635,13 +651,17 @@ function WOS_prepararConSeriales(numero, seriales, operario, peso) {
     return { ok: true, filas: tocadas };
   } catch(e) {
     Logger.log('WOS_prepararConSeriales: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // Reactiva solo los ítems en Backorder → Preparado, sin tocar los Entregado_Cerrado
 // del primer despacho. Reemplaza el uso de WOS_cambiarEstado para la acción "reactivar".
+// Sin gate acá: además del botón del cliente, la llama internamente el flujo de cron
+// _wosNotificarIngresoPedido (WOS_GmailFlow.js, vía WOS_notificarIngresos) cuando detecta que
+// llegó todo el stock de un backorder — Session.getActiveUser() no se comporta igual bajo un
+// trigger. Ver WOS_reactivarBackorderCliente para el uso gateado desde el cliente.
 function WOS_reactivarBackorder(numero, operario) {
   try {
     var hoja  = _getHojaPorNumero(numero);
@@ -668,8 +688,17 @@ function WOS_reactivarBackorder(numero, operario) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_reactivarBackorder: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
+}
+
+
+// Wrapper gateado para el botón del cliente ("Reactivar Backorder"). WOS_reactivarBackorder en
+// sí queda sin gate — ver comentario arriba.
+function WOS_reactivarBackorderCliente(numero, operario) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
+  return WOS_reactivarBackorder(numero, operario);
 }
 
 
@@ -683,6 +712,8 @@ function WOS_despacharPedido(numero) {
 // ── Busca pedidos en Backorder que necesitan un SKU ───────────
 // Devuelve lista de { numero, reseller, cantPend } ordenada por fecha ASC (FIFO)
 function WOS_buscarBackorderPorSKU(sku) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var skuUp  = String(sku || '').trim().toUpperCase();
     if (!skuUp) return { ok: false, error: 'SKU vacío.' };
@@ -735,7 +766,7 @@ function WOS_buscarBackorderPorSKU(sku) {
     return { ok: true, sku: skuUp, pedidos: lista };
   } catch(e) {
     Logger.log('WOS_buscarBackorderPorSKU ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -744,6 +775,8 @@ function WOS_buscarBackorderPorSKU(sku) {
 // numeros: array de números de pedido a pasar a Preparado
 // Notifica a cada reseller en su hilo original
 function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var skuUp  = String(sku          || '').trim().toUpperCase();
     var cant   = Number(cantRecibida || 0);
@@ -792,9 +825,9 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
       if (threadId) {
         try {
           var html = _wosPortalHead('Stock disponible — Pedido ' + numero) +
-            "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + reseller + "</strong>:</p>" +
+            "<p style='font-size:14px;color:#666;margin:0 0 22px'>Hola <strong>" + _htmlEsc(reseller) + "</strong>:</p>" +
             "<p style='font-size:13px;color:#555;line-height:1.6'>" +
-              "El stock de <strong>" + skuUp + "</strong> que estabas esperando llegó. " +
+              "El stock de <strong>" + _htmlEsc(skuUp) + "</strong> que estabas esperando llegó. " +
               "Estamos preparando tu pedido <strong style='color:#00a3e0'>" + numero + "</strong> para el despacho " +
               "y te avisaremos en cuanto sea enviado." +
             "</p>" +
@@ -831,13 +864,15 @@ function WOS_recibirMercaderia(sku, cantRecibida, numeros) {
     return { ok: true, reactivados: reactivados };
   } catch(e) {
     Logger.log('WOS_recibirMercaderia ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // Revierte un pedido despachado por error de vuelta a "Preparado"
 function WOS_revertirAPreparado(numero, operario) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
@@ -877,13 +912,15 @@ function WOS_revertirAPreparado(numero, operario) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_revertirAPreparado ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // Lee las últimas N entradas del log para un pedido específico
 function WOS_getHistorial(numero) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, entradas: [] };
   try {
     var ss   = SpreadsheetApp.openById(NOTAS_SS_ID);
     var hoja = ss.getSheetByName('WOS_Log');
@@ -911,6 +948,8 @@ function WOS_getHistorial(numero) {
 
 // Actualiza el campo de observaciones de todas las filas del pedido
 function WOS_actualizarObs(numero, obs, operario) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja  = _getHojaPorNumero(numero);
     if (!hoja) return { ok: false, error: 'Pedido no encontrado.' };
@@ -920,7 +959,7 @@ function WOS_actualizarObs(numero, obs, operario) {
       if (String(datos[i][COL.NUMERO] || '').trim() !== numero) continue;
       reseller    = reseller    || String(datos[i][COL.RESELLER] || '').trim();
       obsAnterior = obsAnterior || String(datos[i][COL.OBS]       || '').trim();
-      hoja.getRange(i + 1, COL.OBS + 1).setValue(obs || '');
+      hoja.getRange(i + 1, COL.OBS + 1).setValue(_antiFormula(obs || ''));
     }
     SpreadsheetApp.flush();
     // Bug reportado por el usuario (auditoría, "sistema a prueba de errores"): esta función
@@ -930,13 +969,15 @@ function WOS_actualizarObs(numero, obs, operario) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_actualizarObs: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
 
 // Polling liviano — compara timestamps de FECHA_ESTADO contra ultimoMs del cliente
 function WOS_checkCambios(ultimoMs) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false };
   try {
     var hojas = [_getHojaPedidos(), _getHojaPedidosOT()].filter(Boolean);
     if (!hojas.length) return { ok: false };

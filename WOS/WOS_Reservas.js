@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  WOS — Reservas de unidades en camino (compras DJI) + ETA.
 //  Extraído de Despacho_Código.js 3.26 el 2026-07-30 — reorganización
@@ -141,8 +141,20 @@ function WOS_getEnCaminoMap() {
     return { ok: true, map: enCaminoMap, stockMap: stockMap };
   } catch(e) {
     Logger.log('WOS_getEnCaminoMap ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
+}
+
+
+// Wrapper gateado para el único caller directo desde el cliente (panel de en-camino). El resto de
+// los callers son internos — algunos desde flujos de cron (WOS_notificarIngresos, WOS_GmailFlow.js)
+// donde Session.getActiveUser() no se comporta igual que en una request real — así que
+// WOS_getEnCaminoMap en sí queda sin gate (mismo criterio que WOS_procesarRespuestaManual/
+// WOS_reporteBackorder, ver HUB/plan de esta ronda).
+function WOS_getEnCaminoMapCliente() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
+  return WOS_getEnCaminoMap();
 }
 
 

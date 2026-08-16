@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Calidad / Precisión (armado guiado)
 //  Extraído de Despacho_Código.js 3.26 el 2026-07-30 — reorganización
@@ -31,6 +31,8 @@ function _wosGetHojaQA() {
 // Chequea N° de serie duplicados: internos (en la lista que se va a despachar) y
 // externos (contra SERIALES ya despachados en OTROS pedidos). Devuelve la lista de duplicados.
 function WOS_verificarSnDuplicados(numero, seriales) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     numero = String(numero || '').trim();
     var lista = (Object.prototype.toString.call(seriales) === '[object Array]')
@@ -68,7 +70,7 @@ function WOS_verificarSnDuplicados(numero, seriales) {
     return { ok: true, hayDuplicados: dups.length > 0, duplicados: dups, internos: internos, externos: externos };
   } catch(e) {
     Logger.log('WOS_verificarSnDuplicados: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -76,6 +78,8 @@ function WOS_verificarSnDuplicados(numero, seriales) {
 // Registra el resultado de un cierre de caja guiado. qa: {reseller, operario, items, unidades,
 // cantOk, snDupOk, envioOk, overrides, resultado, tiempoSeg}. Best-effort (no rompe el despacho).
 function WOS_registrarQA(numero, qa) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     qa = qa || {};
     var hoja = _wosGetHojaQA();
@@ -86,7 +90,7 @@ function WOS_registrarQA(numero, qa) {
     var resultado = qa.resultado ||
       ((qa.cantOk !== false && qa.snDupOk !== false && qa.envioOk !== false && !hayOverride) ? 'limpio' : 'flag');
     hoja.appendRow([
-      new Date(), String(numero || ''), String(qa.reseller || ''), String(qa.operario || ''),
+      new Date(), String(numero || ''), _antiFormula(qa.reseller || ''), _antiFormula(qa.operario || ''),
       Number(qa.items) || 0, Number(qa.unidades) || 0,
       b(qa.cantOk), b(qa.snDupOk), b(qa.envioOk),
       overridesStr, resultado, Number(qa.tiempoSeg) || 0,
@@ -95,7 +99,7 @@ function WOS_registrarQA(numero, qa) {
     return { ok: true, resultado: resultado };
   } catch(e) {
     Logger.log('WOS_registrarQA: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -117,9 +121,9 @@ function _wosRegistrarConfirmacion(numero, reseller, r, nota) {
     if (target >= 1) {
       hoja.getRange(target + 1, 13).setValue(conf);
       hoja.getRange(target + 1, 14).setValue(new Date());
-      if (nota) hoja.getRange(target + 1, 15).setValue(nota);
+      if (nota) hoja.getRange(target + 1, 15).setValue(_antiFormula(nota));
     } else {
-      hoja.appendRow([new Date(), numero, reseller || '', '', 0, 0, '', '', '', '', '', 0, conf, new Date(), nota || '']);
+      hoja.appendRow([new Date(), numero, _antiFormula(reseller || ''), '', 0, 0, '', '', '', '', '', 0, conf, new Date(), _antiFormula(nota || '')]);
     }
   } catch(e) { Logger.log('_wosRegistrarConfirmacion: ' + e); }
 }
@@ -127,6 +131,8 @@ function _wosRegistrarConfirmacion(numero, reseller, r, nota) {
 
 // Métricas de precisión combinadas (proceso + resultado del reseller), global y por operador.
 function WOS_getPrecisionMetrics(desdeISO, hastaISO) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var hoja  = _wosGetHojaQA();
     var datos = hoja.getDataRange().getValues();
@@ -190,7 +196,7 @@ function WOS_getPrecisionMetrics(desdeISO, hastaISO) {
     };
   } catch(e) {
     Logger.log('WOS_getPrecisionMetrics: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 

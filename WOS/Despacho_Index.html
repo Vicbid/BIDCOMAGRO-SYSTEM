@@ -1,4 +1,4 @@
-<!-- @version 3.71 -->
+<!-- @version 3.72 -->
 <!DOCTYPE html>
 <!-- @version 2.5 -->
 <html lang="es">
@@ -8,7 +8,7 @@
 <title>WOS · BIDCOMAGRO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
 <style>
 /* ═══════════════════════════════════════════════════════════
    WOS · BIDCOMAGRO — Design System v2 · Precision Industrial
@@ -1250,6 +1250,9 @@ var _wosVersionCargada = '<?= WOS_VERSION ?>'; // versión con la que cargó EST
 // @version de este archivo; alcanza con 1-3 líneas cortas de lo que le importa al operario, no
 // el detalle de implementación. Ver _wosVerNovedades() y el banner de "versión nueva" más abajo.
 var WOS_NOVEDADES = [
+  { v: '3.72', notas: [
+    'Ahora hace falta estar habilitado en Usuarios_Internos para poder usar WOS — si alguien queda con "Acceso restringido" al entrar, avisar para agregarlo a esa hoja.'
+  ]},
   { v: '3.71', notas: [
     'Nuevo: este cartel de "Novedades" — clic en el número de versión (abajo del menú) para ver qué cambió últimamente.'
   ]},
@@ -1705,7 +1708,7 @@ function _imprimirEtiqueta(numero) {
       w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiqueta ' + escH(r.numero) + '</title>' +
         '<style>' + css + '</style>' +
         '<style id="szstyle"></style>' +
-        '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>' +
+        '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"><\/script>' +
         '</head><body>' +
         '<div class="actions-bar">' +
           '<div class="bulto-ctrl">' +
@@ -2810,15 +2813,16 @@ function enviarReporteBackorder() {
   var btn = document.getElementById('btn-backorder-report');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Enviando…'; }
   google.script.run
-    .withSuccessHandler(function() {
+    .withSuccessHandler(function(res) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-paper-plane"></i> Reporte Backorder'; }
+      if (res && res.ok === false) { toast('Error al enviar: ' + (res.error || ''), 'err'); return; }
       toast('Reporte de backorder enviado a logística internacional', 'ok');
     })
     .withFailureHandler(function(e) {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-paper-plane"></i> Reporte Backorder'; }
       toast('Error al enviar: ' + e.message, 'err');
     })
-    .WOS_reporteBackorder();
+    .WOS_reporteBackorderManual();
 }
 
 function _revertirAPreparado(numero) {
@@ -2908,7 +2912,7 @@ function accion(numero, tipo) {
         _ultimoLoadMs = new Date().getTime();
       })
       .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); _revertir(); });
-    if (tipo === 'reactivar') _run.WOS_reactivarBackorder(numero, _usuario.email);
+    if (tipo === 'reactivar') _run.WOS_reactivarBackorderCliente(numero, _usuario.email);
     else _run.WOS_cambiarEstado(numero, nuevoEst, _usuario.email);
   }
 
@@ -3467,6 +3471,10 @@ function _prepLoadQrLib(cb) {
     if (i >= urls.length) { cb(false); return; }
     var s = document.createElement('script');
     s.src = urls[i++];
+    // Las 3 URLs son la misma versión bit-a-bit idéntica (verificado con sha384) — un solo hash
+    // para las 3, seteado igual que .src antes de agregar el <script> al documento.
+    s.integrity   = 'sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+';
+    s.crossOrigin = 'anonymous';
     s.onload  = function() { cb(!!window.Html5Qrcode); };
     s.onerror = function() { tryNext(); };
     document.head.appendChild(s);
@@ -5534,7 +5542,7 @@ function abrirListaCompras() {
       document.getElementById('btn-compras').classList.remove('loading');
       _renderListaCompras({}, {}, false);
     })
-    .WOS_getEnCaminoMap();
+    .WOS_getEnCaminoMapCliente();
 }
 
 function cerrarListaCompras() {
@@ -6539,7 +6547,7 @@ function confirmarRespuestaTelefonica() {
       toast('Sin respuesta del servidor — la operaci\xF3n puede haberse completado. Actualizando…', 'err');
       cargar();
     })
-    .WOS_procesarRespuestaManual(numero, opcion, cantidades, _usuario.email, 'rt_' + numero + '_' + opcion);
+    .WOS_procesarRespuestaTelefonica(numero, opcion, cantidades, _usuario.email, 'rt_' + numero + '_' + opcion);
 }
 
 // ── Batch Dispatch ────────────────────────────────────────────
@@ -6679,7 +6687,22 @@ cargar();
 // ── Identificación del operario ───────────────────────────────
 google.script.run
   .withSuccessHandler(function(u) {
-    _usuario = u || { email: '', nombre: '', tipo: '' };
+    _usuario = u || { email: '', nombre: '', tipo: '', autorizado: false };
+    // El bloqueo real ya pasó server-side (cada función gateada devuelve "No autorizado" — ver
+    // WOS_getUsuario/appsscript.json access:ANYONE): esto es solo para no dejar el panel operativo
+    // visible sin explicación a alguien que igual no va a poder hacer nada con él.
+    if (!_usuario.autorizado) {
+      var _ov = document.createElement('div');
+      _ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b1220;color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px';
+      _ov.innerHTML = '<div style="max-width:420px">' +
+        '<div style="font-size:40px;margin-bottom:12px">🔒</div>' +
+        '<div style="font-size:16px;font-weight:700;margin-bottom:8px">Acceso restringido</div>' +
+        '<div style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.6">Tu cuenta' +
+        (_usuario.email ? ' (' + escH(_usuario.email) + ')' : '') +
+        ' no está habilitada para operar WOS.<br>Pedí que te agreguen en Usuarios_Internos.</div></div>';
+      document.body.appendChild(_ov);
+      return;
+    }
     var tipoColors = { 'Admin': '#0052cc', 'Operador': '#00875a', 'Virtual': '#5e6778' };
     var chip = document.getElementById('usuario-chip');
     if (chip) {

@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ============================================================
 //  WOS — Herramientas de recuperación/diagnóstico GENÉRICAS (no atadas
 //  a un incidente puntual, idempotentes, pensadas para correr desde el
@@ -49,6 +49,8 @@ function _wosMergeTracking(oldVal, newVal) {
 //   guardar : true → fusiona los códigos recuperados en las filas ya despachadas
 //             (col Q); false/omitido → solo devuelve el reporte (no toca la planilla).
 function WOS_recuperarTracking(numero, guardar) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     numero = String(numero || '').trim();
     if (!numero) return { ok: false, error: 'Falta el número de pedido' };
@@ -105,7 +107,7 @@ function WOS_recuperarTracking(numero, guardar) {
         if (String(ped.datos[r][COL.NUMERO] || '').trim() !== numero) continue;
         var yaDesp = ped.datos[r][COL.FECHA_DESPACHO] || String(ped.datos[r][COL.TRACKING] || '').trim();
         if (!yaDesp) continue; // solo filas efectivamente despachadas
-        var mergedRow = _wosMergeTracking(ped.datos[r][COL.TRACKING], mergeStr);
+        var mergedRow = _antiFormula(_wosMergeTracking(ped.datos[r][COL.TRACKING], mergeStr));
         ped.hoja.getRange(r + 1, COL.TRACKING + 1).setValue(mergedRow);
         escritas++;
       }
@@ -116,7 +118,7 @@ function WOS_recuperarTracking(numero, guardar) {
     return res;
   } catch(e) {
     Logger.log('WOS_recuperarTracking: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -140,6 +142,8 @@ function WOS_recuperarTrackingTest() {
 // llama) y prueba escribir+borrar una fila de test en "Entregados".
 function WOS_diagnosticoCarmen() {
   var out = { carmenId: CARMEN_SS_ID, abrio: false, ok: false };
+  var u = WOS_getUsuario();
+  if (!u.autorizado) { out.error = 'No autorizado.'; return out; }
   try {
     var ss = SpreadsheetApp.openById(CARMEN_SS_ID);
     out.abrio = true;
@@ -173,6 +177,8 @@ function WOS_diagnosticoCarmen() {
 //  Ver resultado en Ver → Registros de ejecución.
 // ─────────────────────────────────────────────────────────────
 function WOS_recuperarThreadIds() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.', recuperados: 0, noEncontrados: [] };
   var hojas = [_wosHoja(), _getHojaPedidosOT()].filter(Boolean);
 
   // Agrupar filas por pedido, solo los que no tienen threadId; registra la hoja de origen

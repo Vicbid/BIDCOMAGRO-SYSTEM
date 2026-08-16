@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.46
+// @version 2.47
 //  WOS — Gestión de hilos Gmail · V-1.0 (Hitos 2–5)
 //
 //  Hito 1 vive en PORTAL_RESELLER/RS_Pedidos.js.
@@ -323,7 +323,7 @@ function _wosLockIdempot(reqToken, fn) {
     return res;
   } catch (e) {
     Logger.log('_wosLockIdempot ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch (eR) {}
   }
@@ -354,6 +354,8 @@ function _parseUbicPrep(raw) {
 
 
 function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEnvio, operario, reqToken) {
+  var _uDesp = WOS_getUsuario();
+  if (!_uDesp.autorizado) return { ok: false, error: 'No autorizado.' };
   // Lock de script: serializa los despachos para que dos ejecuciones (doble-click,
   // dos pestañas) no corran en paralelo y dupliquen nota de entrega + mail.
   var _lock = LockService.getScriptLock();
@@ -476,14 +478,14 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
         ped.hoja.getRange(i + 1, COL.CANT_DESP + 1).setValue(cantFinal);
         // Tracking ACUMULATIVO: si la fila ya tenía código(s) de un despacho anterior,
         // se agregan los nuevos sin pisar ni duplicar (antes se perdía el seguimiento previo).
-        var mergedTrack = _wosMergeTracking(ped.datos[i][COL.TRACKING], track);
+        var mergedTrack = _antiFormula(_wosMergeTracking(ped.datos[i][COL.TRACKING], track));
         // FECHA_DESPACHO (col O), NOTA_ENTREGA (col P), TRACKING (col Q) — bloque contiguo
         ped.hoja.getRange(i + 1, COL.FECHA_DESPACHO + 1, 1, 3).setValues([[ahora, notaEntrega, mergedTrack]]);
         // FECHA_ESTADO (col 19), TRANSPORTISTA_DESP (col 20), COSTO_ENVIO (col 21), PESO_ENVIO (col 22) — bloque contiguo
-        ped.hoja.getRange(i + 1, COL.FECHA_ESTADO + 1, 1, 4).setValues([[ahora, transp, costo > 0 ? costo : '', peso > 0 ? peso : '']]);
-        if (operario) ped.hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(operario);
+        ped.hoja.getRange(i + 1, COL.FECHA_ESTADO + 1, 1, 4).setValues([[ahora, _antiFormula(transp), costo > 0 ? costo : '', peso > 0 ? peso : '']]);
+        if (operario) ped.hoja.getRange(i + 1, COL.OPERARIO + 1).setValue(_antiFormula(operario));
         var rowSeriales = serialMap[i + 1] || '';
-        if (rowSeriales) ped.hoja.getRange(i + 1, COL.SERIALES + 1).setValue(rowSeriales);
+        if (rowSeriales) ped.hoja.getRange(i + 1, COL.SERIALES + 1).setValue(_antiFormula(rowSeriales));
         filasDesp.push(i + 1);
       }
 
@@ -559,12 +561,12 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
       var itR = itemsDesp[ri];
       var serRow = itR.seriales
         ? "<tr><td colspan='4' style='padding:3px 10px 8px 10px;font-size:10px;color:#777;border-bottom:1px solid #eee'>" +
-          "<span style='font-weight:600;color:#555'>N\xba serie:</span> " + itR.seriales + "</td></tr>"
+          "<span style='font-weight:600;color:#555'>N\xba serie:</span> " + _htmlEsc(itR.seriales) + "</td></tr>"
         : '';
       tbodyRows +=
         "<tr>" +
-        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-family:Consolas,monospace;font-size:12px;color:#00a3e0'>" + (itR.sku  || '—') + "</td>" +
-        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-size:12px;color:#333'>"                                   + (itR.desc || '—') + "</td>" +
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-family:Consolas,monospace;font-size:12px;color:#00a3e0'>" + _htmlEsc(itR.sku  || '—') + "</td>" +
+        "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";font-size:12px;color:#333'>"                                   + _htmlEsc(itR.desc || '—') + "</td>" +
         "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";text-align:center;font-weight:700;color:#333'>"                + itR.cantDesp       + "</td>" +
         "<td style='padding:8px 10px" + (itR.seriales ? '' : ';border-bottom:1px solid #eee') + ";text-align:right;font-size:12px;color:#555'>"                 + (itR.precio > 0 ? 'USD ' + _formatMoneda(Number(itR.precio)) : '—') + "</td>" +
         "</tr>" + serRow;
@@ -590,15 +592,15 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var chipBase = "background:#f0f5fa;border:1px solid #dde3ea;border-radius:6px;padding:8px 14px;font-size:12px";
     var chipLbl  = "color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px";
     var chipsHtml = "<div style='margin-top:14px;display:flex;gap:10px;flex-wrap:wrap'>" +
-      (transp ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Transportista</span><strong style='color:#1a1a2e'>" + transp + "</strong></div>" : '') +
-      (ped.pago ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Forma de pago</span><strong style='color:#1a1a2e'>" + ped.pago + "</strong></div>" : '') +
+      (transp ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Transportista</span><strong style='color:#1a1a2e'>" + _htmlEsc(transp) + "</strong></div>" : '') +
+      (ped.pago ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Forma de pago</span><strong style='color:#1a1a2e'>" + _htmlEsc(ped.pago) + "</strong></div>" : '') +
       (costo > 0 ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Costo de Envío (ARS)</span><strong style='color:#1a1a2e'>$ " + _formatMoneda(costo) + "</strong></div>" : '') +
       (peso  > 0 ? "<div style='" + chipBase + "'><span style='" + chipLbl + "'>Peso total</span><strong style='color:#1a1a2e'>" + peso + " kg</strong></div>" : '');
     for (var ci = 0; ci < bultos.length; ci++) {
       var bt = bultos[ci];
       if (!bt.tracking && !(bt.peso > 0)) continue;
       var bLbl = bultos.length > 1 ? 'Bulto ' + (ci + 1) : 'N. de seguimiento';
-      var bVal = (bt.tracking || '—') + (bt.peso > 0 ? ' &nbsp;·&nbsp; ' + bt.peso + ' kg' : '');
+      var bVal = _htmlEsc(bt.tracking || '—') + (bt.peso > 0 ? ' &nbsp;·&nbsp; ' + bt.peso + ' kg' : '');
       chipsHtml += "<div style='" + chipBase + "'><span style='" + chipLbl + "'>" + bLbl + "</span><strong style='color:#1a1a2e;font-family:Consolas,monospace;font-size:11px'>" + bVal + "</strong></div>";
     }
     chipsHtml += "</div>";
@@ -632,7 +634,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     var obsHtml = ped.obs
       ? "<div style='margin-top:14px;background:#fffbe6;border-left:4px solid #f39c12;padding:10px 14px;border-radius:4px'>" +
           "<strong style='font-size:11px;color:#7a5800;text-transform:uppercase;letter-spacing:.06em'>Observaciones</strong>" +
-          "<p style='margin:5px 0 0;font-size:13px;color:#444'>" + ped.obs + "</p>" +
+          "<p style='margin:5px 0 0;font-size:13px;color:#444'>" + _htmlEsc(ped.obs) + "</p>" +
         "</div>"
       : '';
 
@@ -748,7 +750,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
             "<tr><td style='padding:3px 0;color:#888;width:130px'>N\xb0 de env\xedo</td>" +
                 "<td style='font-weight:700;color:#00a3e0;font-size:13px'>" + Number(notaNumStr) + "\xaa factura \xb7 <span style='font-family:monospace;font-size:11px;color:#555'>" + notaEntrega + "</span></td></tr>" +
             "<tr><td style='padding:3px 0;color:#888'>Reseller</td>" +
-                "<td style='font-weight:600;color:#1a1f2e'>" + ped.reseller + "</td></tr>" +
+                "<td style='font-weight:600;color:#1a1f2e'>" + _htmlEsc(ped.reseller) + "</td></tr>" +
             "<tr><td style='padding:3px 0;color:#888'>Fecha despacho</td>" +
                 "<td style='font-weight:600;color:#1a1f2e'>" + fecha + "</td></tr>" +
             "<tr><td style='padding:3px 0;color:#888'>Forma de pago</td>" +
@@ -954,7 +956,7 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
     return resultado;
   } catch(e) {
     Logger.log('WOS_despacharCompleto ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { _lock.releaseLock(); } catch(eR) {}
   }
@@ -970,6 +972,8 @@ function WOS_despacharCompleto(numero, despachos, transportista, bultos, costoEn
 //  faltantes: [{sku, desc, cantSol, cantDisp}]
 // ─────────────────────────────────────────────────────────────
 function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
+ var _uFalt = WOS_getUsuario();
+ if (!_uFalt.autorizado) return { ok: false, error: 'No autorizado.' };
  return _wosLockIdempot(reqToken, function() {
   try {
     operario = String(operario || '');
@@ -1078,8 +1082,8 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
       }
       tablaFalt +=
         "<tr style='border-bottom:1px solid #f0f2f5'>" +
-          "<td style='padding:8px 10px;font-family:monospace;font-weight:700;color:#e74c3c;vertical-align:top'>" + (f.sku  || '') + "</td>" +
-          "<td style='padding:8px 10px;color:#1a202c;vertical-align:top'>"                                      + (f.desc || '') + "</td>" +
+          "<td style='padding:8px 10px;font-family:monospace;font-weight:700;color:#e74c3c;vertical-align:top'>" + _htmlEsc(f.sku  || '') + "</td>" +
+          "<td style='padding:8px 10px;color:#1a202c;vertical-align:top'>"                                      + _htmlEsc(f.desc || '') + "</td>" +
           "<td style='padding:8px 10px;text-align:center;font-weight:700;vertical-align:top'>"                  + (f.cantSol  || 0) + "</td>" +
           "<td style='padding:8px 10px;text-align:center;font-weight:700;vertical-align:top;color:" +
             (f.cantDisp > 0 ? '#1a9e4a' : '#e74c3c') + "'>"                                 + (f.cantDisp || 0) + "</td>" +
@@ -1257,7 +1261,7 @@ function WOS_notificarFaltante(numero, faltantes, operario, reqToken) {
     return { ok: true };
   } catch(e) {
     Logger.log('WOS_notificarFaltante ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
  });
 }
@@ -1544,6 +1548,8 @@ function WOS_detectarRespuestasResellers() {
 //  No modifica nada, es de solo lectura.
 // ─────────────────────────────────────────────────────────────
 function WOS_debugRespuestaPedido(numero) {
+  var _uDbg = WOS_getUsuario();
+  if (!_uDbg.autorizado) return { numero: String(numero || ''), filas: [], threadId: '', mensajes: [], veredicto: 'No autorizado.' };
   numero = String(numero || '').trim();
   var out = { numero: numero, filas: [], threadId: '', mensajes: [], veredicto: '' };
   var hoja = _wosHoja();
@@ -1723,6 +1729,8 @@ function WOS_detectarRespuestasOT() {
 
 // Instala el trigger de tiempo (ejecutar UNA VEZ desde el editor)
 function WOS_instalarTriggerDetector() {
+  var _uTrig = WOS_getUsuario();
+  if (!_uTrig.autorizado) return;
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === 'WOS_detectarRespuestasResellers') {
@@ -1747,6 +1755,9 @@ function WOS_instalarTriggerDetector() {
 //  opcion:     'A' (esperar faltante) | 'B' (cancelar faltante)
 //  cantidades: [{sku, cantDisp}] — requerido solo para opción B
 // ─────────────────────────────────────────────────────────────
+// Sin gate acá — la llama anónimamente _doGetRespFaltante (reseller sin login clickeando el mail)
+// además del botón "Respuesta Telefónica" del cliente. Ver WOS_procesarRespuestaTelefonica para
+// el uso gateado desde el cliente logueado.
 function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqToken) {
  return _wosLockIdempot(reqToken, function() {
   try {
@@ -1933,9 +1944,18 @@ function WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqTo
     return { ok: true, estado: nuevoEst };
   } catch(e) {
     Logger.log('WOS_procesarRespuestaManual ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
  });
+}
+
+
+// Wrapper gateado para el botón "Respuesta Telefónica" del cliente logueado —
+// WOS_procesarRespuestaManual en sí queda sin gate (ver comentario arriba de esa función).
+function WOS_procesarRespuestaTelefonica(numero, opcion, cantidades, operario, reqToken) {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
+  return WOS_procesarRespuestaManual(numero, opcion, cantidades, operario, reqToken);
 }
 
 
@@ -2041,8 +2061,8 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
   var filasLlego = '';
   for (var fl = 0; fl < llegaron.length; fl++) {
     filasLlego += '<tr>' +
-      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + llegaron[fl].sku + '</td>' +
-      "<td style='padding:6px 10px;font-size:12px'>" + llegaron[fl].desc + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + _htmlEsc(llegaron[fl].sku) + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px'>" + _htmlEsc(llegaron[fl].desc) + '</td>' +
       "<td style='padding:6px 10px;font-size:12px;text-align:center;font-weight:700;color:#00875a'>" + llegaron[fl].qty + ' u.</td>' +
       '</tr>';
   }
@@ -2113,8 +2133,8 @@ function _wosNotificarIngresoPedido(numero, llegoItems, stockMap, ecMap) {
   var filasFalta = '';
   for (var ff = 0; ff < faltan.length; ff++) {
     filasFalta += '<tr>' +
-      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + faltan[ff].sku + '</td>' +
-      "<td style='padding:6px 10px;font-size:12px'>" + faltan[ff].desc + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px;font-family:monospace'>" + _htmlEsc(faltan[ff].sku) + '</td>' +
+      "<td style='padding:6px 10px;font-size:12px'>" + _htmlEsc(faltan[ff].desc) + '</td>' +
       "<td style='padding:6px 10px;font-size:12px;text-align:center;font-weight:700;color:#B54708'>" + faltan[ff].falta + ' u.</td>' +
       "<td style='padding:6px 10px;font-size:12px;text-align:center'>" + (faltan[ff].eta ? 'llega ~<strong>' + faltan[ff].eta + '</strong>' : 'a confirmar') + '</td>' +
       '</tr>';

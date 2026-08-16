@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  WOS — Snapshot de stock read-only (WMS integration)
 //
 //  Lee Carmen (STOCK + UBICACIONES) y MASTER (TABLA_POSICIONES)
@@ -154,11 +154,13 @@ function _wosStockBySku(stockMap, sku) {
  * @return {{ ok: boolean, stockMap: Object, ts: string }|{ ok: false, error: string }}
  */
 function WOS_obtenerStockSnapshot() {
+  var u = WOS_getUsuario();
+  if (!u.autorizado) return { ok: false, error: 'No autorizado.' };
   try {
     var snap = _wosCargarStockSnapshot();
     return { ok: true, stockMap: snap.stockMap, ts: snap.ts.toISOString() };
   } catch(e) {
     Logger.log('WOS_obtenerStockSnapshot: ' + e);
-    return { ok: false, error: String(e) };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
