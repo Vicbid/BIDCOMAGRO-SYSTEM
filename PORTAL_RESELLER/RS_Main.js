@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.40
+// @version 1.41
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -18,10 +18,13 @@ var PORTAL_CONFIG = {
   DIAS_AVISO_GARANTIA:  30,
   // Slack Incoming Webhook del canal #analisis-accidente-dji — se avisa ahí cuando se carga
   // un caso de "Análisis de datos de choque" (ver _notificarSlackChoque, RS_Email.js). Se
-  // creó vía api.slack.com/apps → app "Accidente DJI" → Incoming Webhooks. Mientras quede
-  // vacío o con el placeholder "TU_WEBHOOK", _notificarSlackChoque no manda nada (no rompe
-  // la creación del caso).
-  SLACK_WEBHOOK_CHOQUE: "https://hooks.slack.com/services/***REMOVED***",
+  // creó vía api.slack.com/apps → app "Accidente DJI" → Incoming Webhooks. El valor real NO
+  // vive acá — se lee de Script Properties (editor de Apps Script → ⚙ Configuración del
+  // proyecto → Propiedades de secuencia de comandos → clave "SLACK_WEBHOOK_CHOQUE") para que
+  // no quede en texto plano en git (se filtró una versión vieja, removida del historial en
+  // agosto 2026). Mientras la propiedad no esté cargada, _notificarSlackChoque no manda nada
+  // (no rompe la creación del caso).
+  SLACK_WEBHOOK_CHOQUE: PropertiesService.getScriptProperties().getProperty('SLACK_WEBHOOK_CHOQUE') || "",
   DIAS_ESTIMADOS: {
     "Taller-IW": 30, "Taller-OOW": 30,
     "Reseller-IW": 30, "Reseller-OOW": 30,
