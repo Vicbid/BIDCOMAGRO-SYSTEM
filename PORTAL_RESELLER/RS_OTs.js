@@ -1,6 +1,6 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.18
+// @version 1.19
 // ============================================================
 
 // Estados "cerrados"/terminales de una OT — única fuente de verdad para este archivo. Antes
@@ -841,7 +841,7 @@ function guardarClienteOT(token, ot, cliente) {
     for (var i = 1; i < datos.length; i++) {
       if (String(datos[i][SCHEMA.OT.OT] || '').toUpperCase() !== otB) continue;
       if (!_sesionPoseeReseller(_s, datos[i][SCHEMA.OT.RESELLER])) return { ok: false, msg: 'No autorizado.' };
-      sheet.getRange(i + 1, SCHEMA.OT.CLIENTE + 1).setValue(String(cliente || '').trim());
+      sheet.getRange(i + 1, SCHEMA.OT.CLIENTE + 1).setValue(_antiFormula(String(cliente || '').trim()));
       invalidateSheetValues(SCHEMA.SHEETS.OT);
       return { ok: true };
     }

@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Venta a prospectos (RTV) con autorización manual
 // ============================================================
@@ -137,8 +137,8 @@ function crearPedidoProspecto(params) {
     var hojaPed = getSheet(SCHEMA.SHEETS.PEDIDOS_REPUESTOS);
     if (!hojaPed) return { ok: false, error: 'No se encontró la hoja de pedidos.' };
     hojaPed.appendRow([
-      numero, new Date(), nombre, emailProspecto,
-      items.length, 0, 'Pendiente Autorización RTV', obs,
+      numero, new Date(), _antiFormula(nombre), _antiFormula(emailProspecto),
+      items.length, 0, 'Pendiente Autorización RTV', _antiFormula(obs),
       JSON.stringify(items), '', total > 0 ? total : '',
       formaPago, envio, emailRtv, dtoPropuesto
     ]);
@@ -454,9 +454,9 @@ function _escribirNotasDeEntregaProspecto(numero, nombre, items, formaPago, envi
     var stkActual = stockMapCarmen[skuUp] !== undefined ? stockMapCarmen[skuUp] : -1;
     var estadoNota = (stkActual >= 0 && stkActual >= cant) ? 'Confirmado' : 'Pendiente_Revision';
     notasHoja.appendRow([
-      numero, nombre, it.sku || '', it.descripcion || '', cant, 0,
-      '=E' + newRow + '-F' + newRow + '-Z' + newRow,
-      prec, stkH, estadoNota, new Date(), envio, formaPago, obs
+      numero, _antiFormula(nombre), _antiFormula(it.sku) || '', _antiFormula(it.descripcion) || '', cant, 0,
+      '=E' + newRow + '-F' + newRow + '-Z' + newRow,  // fórmula intencional, no tocar
+      prec, stkH, estadoNota, new Date(), envio, formaPago, _antiFormula(obs)
     ]);
   }
 }

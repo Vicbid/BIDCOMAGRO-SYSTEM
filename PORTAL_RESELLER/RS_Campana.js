@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER — Pedidos de Campaña (estimados sin compromiso)
 // ============================================================
 //  Script Properties requeridas (configurar desde Apps Script editor):
@@ -132,8 +132,8 @@ function RS_guardarCampana(token, reseller, campana, items) {
         ahora,
         campana,
         reseller,
-        String(it.codigo      || '').trim(),
-        String(it.descripcion || '').trim(),
+        _antiFormula(String(it.codigo      || '').trim()),
+        _antiFormula(String(it.descripcion || '').trim()),
         parseInt(it.cantidad  || '1') || 1
       ]);
     }

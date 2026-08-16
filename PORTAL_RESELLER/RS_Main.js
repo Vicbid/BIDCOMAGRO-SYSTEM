@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.39
+// @version 1.40
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -7,7 +7,7 @@
 // la trae embebida al cargar la página y la vuelve a consultar cada tanto
 // (RS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta.
 // Ver _chequearVersionNueva en Index.html.
-var PORTAL_VERSION = '2.26';
+var PORTAL_VERSION = '2.27';
 
 var PORTAL_CONFIG = {
   EMAIL_SUPERVISOR:     "soporteagrasdji@bidcom.com.ar",
@@ -145,6 +145,15 @@ function _tokenAprobacion(ot, action) {
 function _htmlEsc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Range.setValue() interpreta como fórmula cualquier string que empiece con = + - @ (o tab/CR)
+// — mismo comportamiento que tipear a mano en una celda. Sin esto, un reseller podía escribir
+// una fórmula (ej. =IMPORTXML/=HYPERLINK) en un campo de texto libre y que se ejecutara en vivo
+// en la hoja real. Antepone un apóstrofo para forzar texto plano, igual que hacerlo a mano.
+function _antiFormula(s) {
+  var v = String(s == null ? '' : s);
+  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
 }
 
 function _paginaAprobacion(ot, action, token) {

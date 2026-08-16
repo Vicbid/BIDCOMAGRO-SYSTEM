@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.11
+// @version 1.12
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -327,13 +327,13 @@ function RS_confirmarCotizacion(params) {
         new Date(),
         reseller,
         emailReseller,
-        cliente,
-        clienteEmail,
+        _antiFormula(cliente),
+        _antiFormula(clienteEmail),
         items.length + manoObra.length,
         JSON.stringify({ repuestos: items, manoObra: manoObra }),
         total > 0 ? total : '',
         pdfUrl || '',
-        obs
+        _antiFormula(obs)
       ]);
       invalidateSheetValues(SCHEMA.SHEETS.COTIZACIONES);
     }
@@ -419,7 +419,7 @@ function _generarPdfCotizacion(numero, resellerMeta, cliente, items, manoObra, t
     sheet.setRowHeight(ri, 20); ri++;
     sheet.getRange(ri, 1, 1, 2).merge().setValue('Nombre')
       .setFontSize(9).setFontWeight('bold').setFontColor('#5e6778').setBackground('#f7f8fa');
-    sheet.getRange(ri, 3, 1, 5).merge().setValue(cliente || '—')
+    sheet.getRange(ri, 3, 1, 5).merge().setValue(_antiFormula(cliente) || '—')
       .setFontSize(9).setFontWeight('bold').setFontColor('#1a1a2e').setBackground('#f7f8fa');
     sheet.setRowHeight(ri, 20); ri++;
 

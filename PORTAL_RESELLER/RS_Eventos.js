@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ══════════════════════════════════════════════════════════════
 //  EVENTOS / CURSOS — inscripción de resellers desde el Portal
 //  El equipo interno carga eventos en la hoja EVENTOS y los resellers
@@ -184,10 +184,10 @@ function guardarInscripcionEvento(token, eventoId, reseller, data) {
     var nuevas = [];
     if (asiste) {
       for (var s = 0; s < asistentes.length; s++) {
-        nuevas.push([ahora, eventoId, titulo, reseller, emailRs, 'SI', asistentes[s].nombre, asistentes[s].email, comentario]);
+        nuevas.push([ahora, eventoId, titulo, reseller, emailRs, 'SI', _antiFormula(asistentes[s].nombre), _antiFormula(asistentes[s].email), _antiFormula(comentario)]);
       }
     } else {
-      nuevas.push([ahora, eventoId, titulo, reseller, emailRs, 'NO', '', '', comentario]);
+      nuevas.push([ahora, eventoId, titulo, reseller, emailRs, 'NO', '', '', _antiFormula(comentario)]);
     }
     hoja.getRange(hoja.getLastRow() + 1, 1, nuevas.length, 9).setValues(nuevas);
     SpreadsheetApp.flush();

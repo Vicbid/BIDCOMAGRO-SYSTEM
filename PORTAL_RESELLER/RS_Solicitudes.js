@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ══════════════════════════════════════════════════════════════
 //  "Pedir algo a BidcomAgro" — solicitudes libres de resellers, sin OT/repuesto/
 //  cotización de por medio (para eso ya está "Mensajes", atado a una OT puntual).
@@ -42,7 +42,7 @@ function RS_crearSolicitud(params) {
     var hoja = _asegurarHojaSolicitudes();
     var ahora = new Date();
     var id = 'S' + ahora.getTime() + Math.floor(100 + Math.random() * 900);
-    hoja.appendRow([id, ahora, reseller, asunto, detalle, 'Pendiente', '', '']);
+    hoja.appendRow([id, ahora, reseller, _antiFormula(asunto), _antiFormula(detalle), 'Pendiente', '', '']);
     SpreadsheetApp.flush();
     invalidateSheetValues(SCHEMA.SHEETS.SOLICITUDES_RESELLER);
 

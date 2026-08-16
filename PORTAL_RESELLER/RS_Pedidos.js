@@ -1,5 +1,5 @@
 // ============================================================
-// @version 2.24
+// @version 2.25
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
@@ -701,7 +701,7 @@ function confirmarPedidoPortal(params) {
 
       if (skuUp && !dbSet[skuUp]) {
         sinCatalogo.push(it);
-        if (hojaDesc) hojaDesc.appendRow([new Date(), reseller, it.sku || it.descripcion, cant, numero]);
+        if (hojaDesc) hojaDesc.appendRow([new Date(), reseller, _antiFormula(it.sku || it.descripcion), cant, numero]);
       }
 
       if (notasHoja) {
@@ -712,18 +712,18 @@ function confirmarPedidoPortal(params) {
         notasHoja.appendRow([
           numero,                            // A: Número de pedido
           reseller,                          // B: Reseller
-          it.sku         || '',              // C: SKU
-          it.descripcion || '',              // D: Descripción
+          _antiFormula(it.sku)         || '',   // C: SKU
+          _antiFormula(it.descripcion) || '',   // D: Descripción
           cant,                              // E: Cantidad solicitada
           0,                                 // F: 0 inicial
-          '=E' + newRow + '-F' + newRow + '-Z' + newRow,  // G: Fórmula pendiente (SOL - DESP - CANCEL)
+          '=E' + newRow + '-F' + newRow + '-Z' + newRow,  // G: Fórmula pendiente (SOL - DESP - CANCEL) — intencional, no tocar
           prec,                              // H: Precio con descuento (reseller)
           stkH,                              // I: Stock Carmen al momento de carga
           estadoNota,                        // J: Estado
           new Date(),                        // K: Timestamp
           envio,                             // L: Método de envío
           formaPago,                         // M: Método de pago
-          obs                                // N: Observaciones
+          _antiFormula(obs)                  // N: Observaciones
         ]);
         // % de descuento aplicado a ESTE pedido (0-100) → col AC (29). WOS lo lee para mostrarlo
         // en la Nota de Entrega (_wosGenerarPDF) y reconstruir el PVP real, en vez del 40% fijo
@@ -751,7 +751,7 @@ function confirmarPedidoPortal(params) {
         items.length,
         sinCatalogo.length,
         'Recibido',
-        obs,
+        _antiFormula(obs),
         JSON.stringify(items),
         pdfUrl || '',
         total > 0 ? total : '',
@@ -839,7 +839,7 @@ function guardarBorradorPortal(params) {
     if (!hojaPed) return { ok: false, error: 'No se encontró la hoja de pedidos.' };
     hojaPed.appendRow([
       numero, new Date(), reseller, emailReseller,
-      items.length, 0, 'Borrador', obs,
+      items.length, 0, 'Borrador', _antiFormula(obs),
       JSON.stringify(items), '', total > 0 ? total : '',
       formaPago, envio
     ]);

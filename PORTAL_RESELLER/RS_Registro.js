@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER — Módulo de Registro de Nuevos Resellers
 //  Flujo: El reseller selecciona su empresa (ya existente en la hoja)
 //         → completa los campos que faltan →
@@ -179,7 +179,7 @@ function REG_solicitarAcceso(params) {
     var ahora = new Date();
     var token = _REG_generarToken(empresa, ahora.getTime());
     if (!token) return { ok: false, error: 'Error interno. Intentá de nuevo más tarde.' };
-    hoja.appendRow([ahora, empresa, cuit, email, telefono, 'Pendiente', token, '', notas, direccion, cp, localidad, provincia]);
+    hoja.appendRow([ahora, _antiFormula(empresa), _antiFormula(cuit), _antiFormula(email), _antiFormula(telefono), 'Pendiente', token, '', _antiFormula(notas), _antiFormula(direccion), _antiFormula(cp), _antiFormula(localidad), _antiFormula(provincia)]);
 
     // Notificar al admin
     _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token, direccion, cp, localidad, provincia);

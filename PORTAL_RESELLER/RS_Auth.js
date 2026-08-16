@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Autenticación y acceso
 // ============================================================
@@ -84,6 +84,33 @@ function _authRegistrarFallo(nombre) {
 }
 function _authLimpiarFallos(nombre) {
   CacheService.getScriptCache().remove(_authIntentosKey(nombre));
+}
+
+// ── Log persistente de eventos de login (Fecha | Evento | Empresa | Detalle) ──────────
+// El rate-limit de arriba solo cuenta fallos en CacheService (TTL 10 min) — se pierde apenas
+// expira, no queda ningún rastro para revisar después si alguien estuvo probando fuerza bruta
+// contra un reseller puntual. Self-provisioning, mismo patrón que _asegurarHojaSolicitudes
+// (RS_Solicitudes.js). Limitación real, no evitable: Apps Script no expone la IP del cliente en
+// llamadas google.script.run — el log tiene quién (nombre de empresa intentado) y cuándo, no
+// desde dónde.
+function _asegurarHojaAuthLog() {
+  var ss   = getDb();
+  var hoja = ss.getSheetByName(SCHEMA.SHEETS.AUTH_LOG);
+  if (!hoja) {
+    hoja = ss.insertSheet(SCHEMA.SHEETS.AUTH_LOG);
+    hoja.appendRow(['Fecha', 'Evento', 'Empresa', 'Detalle']);
+    hoja.setFrozenRows(1);
+    hoja.getRange(1, 1, 1, 4).setBackground('#00a3e0').setFontColor('#fff').setFontWeight('bold');
+    hoja.setColumnWidth(3, 220); hoja.setColumnWidth(4, 260);
+  }
+  return hoja;
+}
+// evento: 'login_ok' | 'clave_incorrecta' | 'bloqueado' | 'no_encontrado'. Nunca debe romper el
+// login si falla — por eso el try/catch mudo acá adentro, no en cada call site.
+function _registrarEventoAuth(evento, nombre, detalle) {
+  try {
+    _asegurarHojaAuthLog().appendRow([new Date(), evento, _antiFormula(String(nombre || '').trim()), String(detalle || '')]);
+  } catch(e) { Logger.log('_registrarEventoAuth: ' + e); }
 }
 
 // ── Sesión real post-login (token opaco) ───────────────────────────────
@@ -197,7 +224,10 @@ function validarAccesoInicial(nombre, clave) {
     var claveB    = String(clave  || '').trim();
     if (!nombreRaw || !claveB) return { ok: false, motivo: 'campos_vacios' };
 
-    if (_authBloqueado(nombreRaw)) return { ok: false, motivo: 'bloqueado' };
+    if (_authBloqueado(nombreRaw)) {
+      _registrarEventoAuth('bloqueado', nombreRaw, 'Rate-limit activo (' + _AUTH_MAX_INTENTOS + '+ fallos en ' + (_AUTH_VENTANA_SEG/60) + ' min)');
+      return { ok: false, motivo: 'bloqueado' };
+    }
 
     var datos = getSheetValues(SCHEMA.SHEETS.RESELLERS);
     if (!datos || datos.length < 2) return { ok: false, motivo: 'sin_datos' };
@@ -218,6 +248,7 @@ function validarAccesoInicial(nombre, clave) {
         if (!pinGrupoEncontrado) {
           if (!_pinCoincideYMigrar(getHoja, gi + 1, SCHEMA.RESELLERS.PIN_GRUPO, rowPinGrupo, claveB)) {
             _authRegistrarFallo(nombreRaw);
+            _registrarEventoAuth('clave_incorrecta', nombreRaw, 'Login de grupo');
             return { ok: false, motivo: 'clave_incorrecta' };
           }
           pinGrupoEncontrado = true;
@@ -225,9 +256,14 @@ function validarAccesoInicial(nombre, clave) {
         if (_resellerInactivo(datos[gi])) continue; // sucursal de baja: fuera del grupo
         if (rowNombreG) resellersDelGrupo.push(rowNombreG);
       }
-      if (!pinGrupoEncontrado) { _authRegistrarFallo(nombreRaw); return { ok: false, motivo: 'grupo_no_encontrado' }; }
+      if (!pinGrupoEncontrado) {
+        _authRegistrarFallo(nombreRaw);
+        _registrarEventoAuth('no_encontrado', nombreRaw, 'Grupo no encontrado');
+        return { ok: false, motivo: 'grupo_no_encontrado' };
+      }
       if (!resellersDelGrupo.length) return { ok: false, motivo: 'inactivo' };
       _authLimpiarFallos(nombreRaw);
+      _registrarEventoAuth('login_ok', grupoNombre, 'Login de grupo · ' + resellersDelGrupo.length + ' sucursal(es)');
       return {
         ok:        true,
         nombre:    grupoNombre,
@@ -250,6 +286,7 @@ function validarAccesoInicial(nombre, clave) {
       if (rowNombre !== nombreB) continue;
       if (!_pinCoincideYMigrar(getHoja, i + 1, SCHEMA.RESELLERS.PIN, rowClave, claveB)) {
         _authRegistrarFallo(nombreRaw);
+        _registrarEventoAuth('clave_incorrecta', nombreRaw, 'Login individual');
         return { ok: false, motivo: 'clave_incorrecta' };
       }
 
@@ -258,6 +295,7 @@ function validarAccesoInicial(nombre, clave) {
       _authLimpiarFallos(nombreRaw);
       var nombreFinal     = String(datos[i][SCHEMA.RESELLERS.NOMBRE] || '').trim();
       var aftersalesFinal = _resellerEsAftersales(datos[i][colAft]);
+      _registrarEventoAuth('login_ok', nombreFinal, 'Login individual');
       return {
         ok:         true,
         nombre:     nombreFinal,
@@ -267,6 +305,7 @@ function validarAccesoInicial(nombre, clave) {
       };
     }
     _authRegistrarFallo(nombreRaw);
+    _registrarEventoAuth('no_encontrado', nombreRaw, 'Reseller no encontrado');
     return { ok: false, motivo: 'reseller_no_encontrado' };
   } catch(e) {
     Logger.log('validarAccesoInicial: ' + e);
@@ -428,12 +467,12 @@ function RS_actualizarPerfil(token, telefono, email, direccion, cp, localidad, p
     var d    = hoja.getDataRange().getValues();
     for (var i = 1; i < d.length; i++) {
       if (String(d[i][SCHEMA.RESELLERS.NOMBRE] || '').trim().toLowerCase() === nombre) {
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.DIRECCION + 1).setValue(String(direccion || '').trim());
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.CP        + 1).setValue(String(cp        || '').trim());
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.LOCALIDAD + 1).setValue(String(localidad || '').trim());
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.PROVINCIA + 1).setValue(String(provincia || '').trim());
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.TELEFONO  + 1).setValue(String(telefono  || '').trim());
-        hoja.getRange(i + 1, SCHEMA.RESELLERS.EMAIL     + 1).setValue(String(email     || '').trim());
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.DIRECCION + 1).setValue(_antiFormula(String(direccion || '').trim()));
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.CP        + 1).setValue(_antiFormula(String(cp        || '').trim()));
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.LOCALIDAD + 1).setValue(_antiFormula(String(localidad || '').trim()));
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.PROVINCIA + 1).setValue(_antiFormula(String(provincia || '').trim()));
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.TELEFONO  + 1).setValue(_antiFormula(String(telefono  || '').trim()));
+        hoja.getRange(i + 1, SCHEMA.RESELLERS.EMAIL     + 1).setValue(_antiFormula(String(email     || '').trim()));
         invalidateSheetValues(SCHEMA.SHEETS.RESELLERS);
         return { ok: true };
       }
