@@ -1,4 +1,4 @@
-// @version 2.4
+// @version 2.5
 // ============================================================
 //  COMANDAS — Mail: templates de envío/aprobación, envío/reenvío,
 //  recordatorios a Sole, auto-mail + sus triggers de setup.
@@ -415,6 +415,10 @@ function _cpEnviarRecordatorioSole(sole, idVenta, e, cfg, det, horas) {
       htmlBody: _cpMailAprobacionHtml(idVenta, parts, det, pdfs, nota, detEnv, e.envio, pend),
       name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO'
     };
+    // Mismo RTV en copia que el mail de aprobación original (_cpEnviarMailSoleCore) —
+    // el recordatorio es el mismo pedido, solo que Sole todavía no lo atendió.
+    var mailRtv = _cpRtvDeReseller(det.reseller);
+    if (mailRtv) opts.cc = mailRtv;
     if (cfg['MAIL_BCC']) opts.bcc = cfg['MAIL_BCC'];
     var adj = _cpPdfBlobs(parts);
     if (adj.length) opts.attachments = adj;

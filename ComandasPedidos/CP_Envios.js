@@ -1,4 +1,4 @@
-// @version 1.3
+// @version 1.4
 // ============================================================
 //  COMANDAS — Envíos: CRUD/pendientes de entrega, trigger onEdit,
 //  snapshot, log de estado.
@@ -454,6 +454,11 @@ function _cpEnviarMailSoleCore(idVenta, envio) {
     htmlBody: _cpMailAprobacionHtml(idVenta, parts, det, pdfs, e.notaAprob, detEnv, e.envio, pend),
     name: cfg['MAIL_REMITENTE_NOMBRE'] || 'BIDCOMAGRO'
   };
+  // RTV del reseller de esta venta, en copia — así se entera de que hay una comanda
+  // esperando aprobación en Masterchief, no recién cuando ya se despachó (mismo criterio
+  // que _cpDestinatariosEnvio ya usa para el mail al reseller).
+  var mailRtv = _cpRtvDeReseller(det.reseller);
+  if (mailRtv) opts.cc = mailRtv;
   if (cfg['MAIL_BCC']) opts.bcc = cfg['MAIL_BCC'];
   var adj = _cpPdfBlobs(parts);
   if (adj.length) opts.attachments = adj;
@@ -463,7 +468,7 @@ function _cpEnviarMailSoleCore(idVenta, envio) {
     return { ok: false, mailError: true, mensaje: 'No se pudo enviar el mail a Sole: ' + String(se && se.message ? se.message : se) };
   }
   _cpMarcarMailAprob(e.rowIdx);
-  return { ok: true, sinPdf: !pdfs.length, destinatario: sole };
+  return { ok: true, sinPdf: !pdfs.length, destinatario: sole, cc: mailRtv };
 }
 
 

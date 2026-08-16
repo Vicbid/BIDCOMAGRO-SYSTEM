@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 // ============================================================
 //  COMANDAS — Datos de apoyo: PDFs adjuntos, configuración,
 //  detalle de venta, mapeo de resellers/RTV.
@@ -449,6 +449,16 @@ function _cpRtvMailMap() {
     }
     return m;
   } catch (e) { Logger.log('_cpRtvMailMap error: ' + e); return {}; }
+}
+
+
+// Email del RTV asignado a un reseller (o '' si no tiene) — combina _cpResellerMap +
+// _cpRtvMailMap, mismo criterio que ya usa _cpDestinatariosEnvio (CP_Mail.js) para poner
+// al RTV en el mail al reseller. Reutilizado para el mail de aprobación a Sole.
+function _cpRtvDeReseller(nombreReseller, resellerMap, rtvMap) {
+  var rinfo = (resellerMap || _cpResellerMap())[_kitKey(nombreReseller)] || {};
+  if (!rinfo.rtv) return '';
+  return (rtvMap || _cpRtvMailMap())[_kitKey(rinfo.rtv)] || '';
 }
 
 
