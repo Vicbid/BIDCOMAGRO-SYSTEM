@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ══════════════════════════════════════════════════════════════
 //  EVENTOS / CURSOS — inscripción de resellers desde el Portal
 //  El equipo interno carga eventos en la hoja EVENTOS y los resellers
@@ -122,7 +122,8 @@ function obtenerEventosPortal(token, reseller) {
     }
     return { ok: true, eventos: out };
   } catch (e) {
-    return { ok: false, error: e.toString(), eventos: [] };
+    Logger.log('obtenerEventosPortal: ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', eventos: [] };
   }
 }
 
@@ -194,7 +195,8 @@ function guardarInscripcionEvento(token, eventoId, reseller, data) {
 
     return { ok: true, asiste: asiste, cantidad: asiste ? asistentes.length : 0 };
   } catch (e) {
-    return { ok: false, error: e.toString() };
+    Logger.log('guardarInscripcionEvento: ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch (eL) {}
   }
@@ -235,20 +237,23 @@ function resumenInscripcionesEvento(eventoId) {
 // El equipo abre un link tipo  .../exec?action=resumen-curso&t=<token>  y ve, por evento,
 // quiénes van y cuántas personas. Correr urlResumenCurso() UNA vez desde el editor para obtenerlo.
 
-function _evEsc(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+function _evEsc(s) { return _htmlEsc(s); }
 
 // Token estable (mismo patrón que _tokenAprobacion): SHA-256 de 'resumen-curso|<secret>'.
 function _tokenResumenCurso() {
-  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET') || 'bidcomagro-default';
+  // Igual criterio que _tokenAprobacion (RS_Main.js): sin APPROVAL_SECRET seteado, no se
+  // genera token con un secreto de respaldo fijo en el código — falla cerrado.
+  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET');
+  if (!secret) { Logger.log('_tokenResumenCurso: falta APPROVAL_SECRET en Script Properties'); return null; }
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'resumen-curso|' + secret);
   return bytes.map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('').substring(0, 40);
 }
 
 // Devuelve (y loguea) el link interno del panel de inscripciones. Correr desde el editor.
 function urlResumenCurso() {
-  var url = ScriptApp.getService().getUrl() + '?action=resumen-curso&t=' + _tokenResumenCurso();
+  var t = _tokenResumenCurso();
+  if (!t) { Logger.log('urlResumenCurso: falta APPROVAL_SECRET en Script Properties — configurala antes de generar el link.'); return null; }
+  var url = ScriptApp.getService().getUrl() + '?action=resumen-curso&t=' + t;
   Logger.log(url);
   return url;
 }

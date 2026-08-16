@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  MATERIAL DE CURSOS — pedido del usuario: "tengo información valiosa
 //  de cursos que hemos hecho, ¿dónde podría colocarla?". Modal buscable
@@ -58,6 +58,7 @@ function obtenerCursosMaterialPortal() {
     out.sort(function(a, b) { return (b.fecha || '').localeCompare(a.fecha || ''); });
     return { ok: true, cursos: out };
   } catch (e) {
-    return { ok: false, error: e.toString(), cursos: [] };
+    Logger.log('obtenerCursosMaterialPortal: ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', cursos: [] };
   }
 }

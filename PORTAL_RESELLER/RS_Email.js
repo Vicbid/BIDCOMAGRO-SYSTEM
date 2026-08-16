@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.2
+// @version 1.3
 //  PORTAL RESELLER BIDCOM — Helpers de email y notificaciones
 // ============================================================
 
@@ -71,7 +71,7 @@ function _notificarNuevaOT(nOT, data, cotizUrl) {
       try {
         var reps = JSON.parse(data.repuestos);
         if (reps && reps.length) {
-          var lista = reps.map(function(r){ return r.sku + ' | ' + (r.descripcion || '') + ' | P:' + r.cantidad + ' E:0'; }).join('<br>');
+          var lista = reps.map(function(r){ return _htmlEsc(r.sku) + ' | ' + _htmlEsc(r.descripcion || '') + ' | P:' + r.cantidad + ' E:0'; }).join('<br>');
           repuestosRow = _filaDetalle("Repuestos solicitados", lista);
         }
       } catch(e) {}
@@ -80,21 +80,25 @@ function _notificarNuevaOT(nOT, data, cotizUrl) {
       ? "<div style='margin-top:18px;text-align:center'><a href='" + cotizUrl + "' target='_blank' style='display:inline-block;background:#1a9e4a;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600'>Ver Pedido de Repuestos</a></div>"
       : '';
 
+    // Campos libres que tipea el reseller (sn/cliente/falla/cas) sin ningún control de
+    // formato — sin escapar acá, HTML/JS se ejecutaba en el mail que abre el staff de
+    // BIDCOM (vector de phishing/clickjacking sobre gente que confía en sus propios avisos).
+    var resellerEsc = _htmlEsc(data.reseller);
     var html = _construirEmailHTML(
       "Nueva solicitud de servicio", "Supervisor",
-      "<p style='font-size:14px;color:#444;margin:0 0 20px'>El reseller <strong>" + data.reseller + "</strong> registró una nueva solicitud desde el Portal.</p>" +
+      "<p style='font-size:14px;color:#444;margin:0 0 20px'>El reseller <strong>" + resellerEsc + "</strong> registró una nueva solicitud desde el Portal.</p>" +
       "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
         _filaDetalle("OT generada", "<strong>" + nOT + "</strong>") +
-        _filaDetalle("Reseller", data.reseller) +
-        _filaDetalle("Equipo", data.equipo) +
-        _filaDetalle("N° de Serie", data.sn || "—") +
-        (clienteStr ? _filaDetalle("Cliente", clienteStr) : '') +
+        _filaDetalle("Reseller", resellerEsc) +
+        _filaDetalle("Equipo", _htmlEsc(data.equipo)) +
+        _filaDetalle("N° de Serie", _htmlEsc(data.sn) || "—") +
+        (clienteStr ? _filaDetalle("Cliente", _htmlEsc(clienteStr)) : '') +
         _filaDetalle("Garantía", data.garantia) +
         _filaDetalle("Tipo de gestión", data.circuito) +
-        (data.cas ? _filaDetalle("N° CAS / FWRC", data.cas) : '') +
+        (data.cas ? _filaDetalle("N° CAS / FWRC", _htmlEsc(data.cas)) : '') +
         (data.aftEstado ? _filaDetalle("Estado reparación", data.aftEstado === 'repuesto' ? 'Ya reparado — Repuesto para reposición' : 'Pendiente — Necesita repuestos para reparar') : '') +
         _filaDetalle("Fecha activación", data.fechaActivacion || "No indicada") +
-        _filaDetalle("Descripción", data.falla || "—") +
+        _filaDetalle("Descripción", _htmlEsc(data.falla) || "—") +
         repuestosRow +
       "</div>" + cotizBtn,
       "Revisá y aprobá esta solicitud en el DJI HUB PRO."
@@ -159,15 +163,15 @@ function _notificarLoteOT(reseller, items, ots, ss) {
       detalleEquipos +=
         "<div style='background:#fff;border:1px solid #ddeef7;border-radius:6px;padding:10px 14px;margin-bottom:10px'>" +
           "<div style='font-size:12px;font-weight:bold;color:#00a3e0;margin-bottom:4px'>" + ots[i] + "</div>" +
-          "<div style='font-size:12px;color:#444'><strong>Modelo:</strong> " + items[i].equipo + " | <strong>S/N:</strong> " + (items[i].sn || "—") + "</div>" +
+          "<div style='font-size:12px;color:#444'><strong>Modelo:</strong> " + _htmlEsc(items[i].equipo) + " | <strong>S/N:</strong> " + (_htmlEsc(items[i].sn) || "—") + "</div>" +
           "<div style='font-size:12px;color:#444'><strong>Garantía:</strong> " + items[i].garantia + " | <strong>Gestión:</strong> " + items[i].circuito + "</div>" +
-          "<div style='font-size:12px;color:#666;margin-top:4px'><em>Falla:</em> " + items[i].falla + "</div>" +
+          "<div style='font-size:12px;color:#666;margin-top:4px'><em>Falla:</em> " + _htmlEsc(items[i].falla) + "</div>" +
         "</div>";
     }
 
     var html = _construirEmailHTML(
       "Ingreso de Lote de Equipos", "Supervisor",
-      "<p style='font-size:14px;color:#444;margin:0 0 20px'>El reseller <strong>" + reseller + "</strong> registró un lote de <strong>" + ots.length + " equipos</strong> desde el Portal.</p>" +
+      "<p style='font-size:14px;color:#444;margin:0 0 20px'>El reseller <strong>" + _htmlEsc(reseller) + "</strong> registró un lote de <strong>" + ots.length + " equipos</strong> desde el Portal.</p>" +
       "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:14px 16px'>" + detalleEquipos + "</div>",
       "Revisá y aprobá estas solicitudes en el DJI HUB PRO."
     );

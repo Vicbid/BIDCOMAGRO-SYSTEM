@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.10
+// @version 1.11
 //  PORTAL RESELLER — Cotizador de Presupuestos (cliente final)
 //  Similar al carrito de repuestos (RS_Pedidos) pero:
 //   - Precio base = PVP de lista (sin el 40% del reseller).
@@ -180,7 +180,7 @@ function RS_listarPlantillasCotizador(params) {
     return { ok: true, generales: generales, mias: mias };
   } catch(e) {
     Logger.log('RS_listarPlantillasCotizador: ' + e);
-    return { ok: false, error: e.toString(), generales: [], mias: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', generales: [], mias: [] };
   }
 }
 
@@ -231,7 +231,7 @@ function RS_guardarPlantillaCotizador(params) {
     return { ok: true };
   } catch(e) {
     Logger.log('RS_guardarPlantillaCotizador: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -263,7 +263,7 @@ function RS_eliminarPlantillaCotizador(params) {
     return { ok: true };
   } catch(e) {
     Logger.log('RS_eliminarPlantillaCotizador: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -345,7 +345,7 @@ function RS_confirmarCotizacion(params) {
 
   } catch(e) {
     Logger.log('RS_confirmarCotizacion ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eL) {}
   }

@@ -1,4 +1,4 @@
-// @version 1.1
+// @version 1.2
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Venta a prospectos (RTV) con autorización manual
 // ============================================================
@@ -28,14 +28,15 @@ function _esRTVValido(email) {
 }
 
 function _tokenProspecto(numero) {
-  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET') || 'bidcomagro-default';
+  // Igual criterio que _tokenAprobacion (RS_Main.js): sin APPROVAL_SECRET seteado, no se
+  // genera token con un secreto de respaldo fijo en el código — falla cerrado.
+  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET');
+  if (!secret) { Logger.log('_tokenProspecto: falta APPROVAL_SECRET en Script Properties'); return null; }
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'prospecto|' + String(numero) + '|' + secret);
   return bytes.map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('').substring(0, 40);
 }
 
-function _prospEsc(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+function _prospEsc(s) { return _htmlEsc(s); }
 
 // Config actual — usada por LAUNCHER (vía Launcher_Código.js) y acá mismo.
 function _configProspectosInterno() {
@@ -149,7 +150,7 @@ function crearPedidoProspecto(params) {
     return { ok: true, numero: numero };
   } catch(e) {
     Logger.log('crearPedidoProspecto ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eL) {}
   }
@@ -187,6 +188,7 @@ function _enviarMailAutorizacionProspecto(numero, nombre, telefono, emailProspec
     "</tr></thead><tbody>" + filas + "</tbody></table>";
 
   var token = _tokenProspecto(numero);
+  if (!token) { Logger.log('_enviarMailAutorizacionProspecto: falta APPROVAL_SECRET, no se manda el mail (link quedaría roto)'); return; }
   var url   = ScriptApp.getService().getUrl() + '?action=autorizar-prospecto&numero=' + encodeURIComponent(numero) + '&token=' + token;
 
   var dPct = (descInfo && typeof descInfo.pct === 'number') ? descInfo.pct : 0;

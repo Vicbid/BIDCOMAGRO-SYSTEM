@@ -1,9 +1,34 @@
 // ============================================================
-// @version 2.23
+// @version 2.24
 //  PORTAL RESELLER — Pedidos de Repuestos (sin garantía)
 // ============================================================
 
 var _ACCESORIOS_SS_ID = '1DWjX4JxHskP1uHa7YXTPpbgh2MD35hs43SpUvhP9Vn0';
+
+// Cache corto de "Pedidos_resellers" (log de despacho de WOS, en otra spreadsheet — no pasa
+// por el cache de getSheetValues, que solo cubre las hojas de MASTER_SHEET_ID). Antes se leía
+// entera y sin cache desde 6 lugares distintos (RS_Pedidos.js, RS_RTV.js, RS_Prospectos.js).
+// Solo se usa acá para vistas de SOLO LECTURA que toleran algo de latencia (historial, tiempo
+// promedio, cumplimiento) — los flujos transaccionales (confirmarPedidoPortal,
+// RS_confirmarRecepcion) siguen leyendo fresco, ahí sí importa la frescura sobre la performance.
+// Reusa _serializeValues/_deserializeValues (Env.js) para no perder los objetos Date al
+// pasar por CacheService, mismo mecanismo que ya usa getSheetValues.
+function _getPedidosResellersDataCached() {
+  var CKEY   = 'pedidos_resellers_wos_v1';
+  var cache  = CacheService.getScriptCache();
+  var cached = cache.get(CKEY);
+  if (cached) {
+    try { return _deserializeValues(cached); } catch(e) {}
+  }
+  var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
+  var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
+  var data = wosHoja ? wosHoja.getDataRange().getValues() : [];
+  try {
+    var payload = _serializeValues(data);
+    if (payload.length < 95000) cache.put(CKEY, payload, 240); // 4 min — log crece, si supera el límite de CacheService simplemente no se cachea
+  } catch(e) {}
+  return data;
+}
 
 function _asegurarHojasPedidos() {
   var ss = getDb();
@@ -207,7 +232,7 @@ function buscarRepuestoConStockPortal(token, query, reseller, pctOverride) {
     return { ok: true, items: items };
   } catch(e) {
     Logger.log('buscarRepuestoConStockPortal: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -453,7 +478,7 @@ function verificarStockYCrearBorrador(params) {
     return { ok: true, numero: 'TMP', itemsConEstado: itemsConEstado };
   } catch(e) {
     Logger.log('verificarStockYCrearBorrador: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -654,7 +679,10 @@ function confirmarPedidoPortal(params) {
 
     var dbSet = {};
     try {
-      var dDb = getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
+      // Reusa la lectura de DB_REPUESTOS del paso A0 (dDbR, arriba) en vez de volver a leer
+      // la misma hoja — antes eran 2 lecturas independientes de un catálogo grande dentro de
+      // la misma ejecución, mientras se sostiene el lock de 30s de este pedido.
+      var dDb = dDbR || getSheetValues(SCHEMA.SHEETS.DB_REPUESTOS);
       var D   = SCHEMA.DB_REPUESTOS;
       for (var di = 1; di < dDb.length; di++) {
         var dbSku = String(dDb[di][D.CODIGO] || '').trim().toUpperCase();
@@ -748,7 +776,7 @@ function confirmarPedidoPortal(params) {
 
   } catch(e) {
     Logger.log('confirmarPedidoPortal ERROR: ' + e + ' | reseller=' + (params ? String(params.reseller || '') : 'null'));
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eL) { Logger.log('confirmarPedidoPortal releaseLock: ' + eL); }
   }
@@ -833,7 +861,7 @@ function guardarBorradorPortal(params) {
     return { ok: true, numero: numero };
   } catch(e) {
     Logger.log('guardarBorradorPortal ERROR: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eL) {}
   }
@@ -976,7 +1004,8 @@ function RS_confirmarRecepcion(token, numero) {
 
     return { ok: true, actualizados: actualizados };
   } catch(e) {
-    return { ok: false, error: e.toString() };
+    Logger.log('RS_confirmarRecepcion: ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eF) {}
   }
@@ -1052,18 +1081,12 @@ function obtenerHistorialPedidosPortal(token, reseller) {
       if (out.length >= 30) break;
     }
 
-    // Cruzar con WOS (Pedidos_resellers) para obtener el estado real
+    // Cruzar con WOS (Pedidos_resellers) para obtener el estado real — vista de solo lectura,
+    // tolera algo de latencia: usa el cache corto en vez de abrir la spreadsheet externa en
+    // cada consulta de historial (ver _getPedidosResellersDataCached, RS_Pedidos.js).
     try {
-      var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-      var notas_ss       = SpreadsheetApp.openById(NOTAS_SS_ID_PR);
-      var sheetNames     = notas_ss.getSheets().map(function(s){ return s.getName(); });
-      console.log('[HIST] Sheets en NOTAS SS: ' + sheetNames.join(', '));
-
-      var wosHoja = notas_ss.getSheetByName('Pedidos_resellers');
-      console.log('[HIST] wosHoja encontrada: ' + (wosHoja !== null));
-
-      if (wosHoja) {
-        var wosData = wosHoja.getDataRange().getValues();
+      var wosData = _getPedidosResellersDataCached();
+      {
         console.log('[HIST] wosData filas: ' + wosData.length);
 
         // IDs que estamos buscando
@@ -1164,13 +1187,12 @@ function obtenerTiempoPromedioEnvioPortal(token, reseller) {
     }
     if (!hayAlguno) return { ok: true, conStock: { muestras: 0, promedio: null }, backorder: { muestras: 0, promedio: null } };
 
-    // id → { enviado, fechaDespacho } desde WOS (Pedidos_resellers)
+    // id → { enviado, fechaDespacho } desde WOS (Pedidos_resellers) — solo lectura, usa el
+    // cache corto (ver _getPedidosResellersDataCached).
     var desp = {};
     try {
-      var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-      var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
-      if (wosHoja) {
-        var wosData = wosHoja.getDataRange().getValues();
+      var wosData = _getPedidosResellersDataCached();
+      {
         for (var j = 1; j < wosData.length; j++) {
           var num = String(wosData[j][0] || '').trim();
           if (!num || !recibido[num]) continue;
@@ -1550,7 +1572,7 @@ function cancelarBorradorPortal(token, numero) {
     return { ok: false, error: 'Borrador no encontrado o ya procesado.' };
   } catch(e) {
     Logger.log('cancelarBorradorPortal: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   } finally {
     try { lock.releaseLock(); } catch(eL) {}
   }
@@ -2167,6 +2189,6 @@ function RS_listarKitsPedidos() {
     return { ok: true, kits: kits };
   } catch(e) {
     Logger.log('RS_listarKitsPedidos: ' + e);
-    return { ok: false, error: e.toString(), kits: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', kits: [] };
   }
 }

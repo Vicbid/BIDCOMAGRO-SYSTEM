@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- @version 2.25 -->
+<!-- @version 2.26 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -152,7 +152,9 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
 /* ── DASHBOARD ──────────────────────────── */
 .dash-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-bottom:6px}
 .dash-ot-card{background:var(--surf);border:1px solid var(--brd);border-radius:var(--rm);padding:12px 14px;cursor:pointer;transition:all .13s}
-.dash-ot-card:hover{border-color:var(--blue);background:#fff;box-shadow:0 2px 8px rgba(0,163,224,.1)}
+.dash-ot-card:hover,.dash-ot-card:focus-visible{border-color:var(--blue);background:#fff;box-shadow:0 2px 8px rgba(0,163,224,.1)}
+/* Filas de tabla clickeables (ver renderDashFiltrado) — foco visible para navegación por teclado */
+tr[role="button"]:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;background:var(--blue-a)}
 .dash-ot-card.fin{opacity:.6}
 .dash-ot-num{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.03em;margin-bottom:4px}
 .dash-eq{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:3px}
@@ -2687,7 +2689,7 @@ textarea.form-control{resize:vertical;min-height:95px;line-height:1.6}
           <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--tx-d);font-size:12px;pointer-events:none"></i>
           <input id="precios-busq" class="form-control" type="text"
                  placeholder="Buscar SKU, descripcion..."
-                 oninput="_preciosFiltrar()"
+                 oninput="_preciosFiltrarDebounced()"
                  style="padding-left:30px!important;font-size:12px!important">
         </div>
         <div style="position:relative" id="mod-dd-wrap">
@@ -4411,7 +4413,7 @@ function registrar() {
       sp(false); btn.disabled = false;
       toast('No se pudo verificar el S/N. Verificá tu conexión e intentá de nuevo.', 'err');
     })
-    .buscarPorSN(sn);
+    .buscarPorSN(_sesionToken, sn);
 }
 
 function _bloquearSelectorReseller() {
@@ -4491,7 +4493,7 @@ function buscar() {
         mostrarResultado(r);
       })
       .withFailureHandler(function(e){ document.getElementById('skel').style.display='none'; toast('Error: '+e.message,'err'); })
-      .consultarEstado(otFull, sn);
+      .consultarEstado(_sesionToken, otFull, sn);
   } else {
     google.script.run
       .withSuccessHandler(function(lista) {
@@ -4500,13 +4502,13 @@ function buscar() {
         if (lista.length === 1) {
           google.script.run
             .withSuccessHandler(mostrarResultado)
-            .consultarEstado(lista[0].ot, sn);
+            .consultarEstado(_sesionToken, lista[0].ot, sn);
         } else {
           mostrarMultiple(lista);
         }
       })
       .withFailureHandler(function(e){ document.getElementById('skel').style.display='none'; toast('Error: '+e.message,'err'); })
-      .buscarPorSN(sn);
+      .buscarPorSN(_sesionToken, sn);
   }
 }
 
@@ -4517,18 +4519,25 @@ function mostrarMultiple(lista) {
     var div = document.createElement('div');
     div.className = 'dash-ot-card';
     var sem = o.dias<=3?'verde':(o.dias<=7?'amarillo':'rojo');
+    // Estos campos los carga cualquiera al abrir un caso (enviarCasoAlHub) sin pasar por
+    // ningún control de formato — mismo bug ya arreglado en renderDashFiltrado, portado acá.
     div.innerHTML =
-      '<div class="dash-ot-num">' + o.ot + '</div>' +
-      '<div class="dash-eq">' + o.equipo + '</div>' +
-      '<div class="dash-sn">S/N: ' + o.sn + '</div>' +
-      '<div class="dash-foot"><span class="b-est">'+o.estado+'</span><span class="dash-dias '+sem+'">'+o.dias+'d</span></div>';
-    div.onclick = function() {
+      '<div class="dash-ot-num">' + _escHtml(o.ot) + '</div>' +
+      '<div class="dash-eq">' + _escHtml(o.equipo) + '</div>' +
+      '<div class="dash-sn">S/N: ' + _escHtml(o.sn) + '</div>' +
+      '<div class="dash-foot"><span class="b-est">'+_escHtml(o.estado)+'</span><span class="dash-dias '+sem+'">'+o.dias+'d</span></div>';
+    // Tarjeta clickeable — accesible por teclado (tabindex + Enter/Espacio), no solo con mouse.
+    div.setAttribute('tabindex', '0');
+    div.setAttribute('role', 'button');
+    var _abrirEstaOT = function() {
       sp(true);
       google.script.run
         .withSuccessHandler(function(r){ sp(false); mostrarResultado(r); })
         .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); })
-        .consultarEstado(o.ot, o.sn);
+        .consultarEstado(_sesionToken, o.ot, o.sn);
     };
+    div.onclick = _abrirEstaOT;
+    div.onkeydown = function(ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); _abrirEstaOT(); } };
     cont.appendChild(div);
   });
   document.getElementById('multi-result').style.display = 'block';
@@ -4711,7 +4720,7 @@ function guardarFechaActivacion() {
         toast('Fecha de activación guardada','ok');
         google.script.run
           .withSuccessHandler(mostrarResultado)
-          .consultarEstado(otActual, snActual);
+          .consultarEstado(_sesionToken, otActual, snActual);
       } else {
         toast(res.msg || 'No se pudo guardar','err');
       }
@@ -4786,7 +4795,9 @@ function renderDashFiltrado() {
     var clienteEsc = _escHtml(o.cliente||''), estadoEsc = _escHtml(o.estado||''), sucursalEsc = _escHtml(o.sucursal||'');
     var onclickAttr = 'abrirOTDesdeHistorial(\'' + o.sn.replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\',\'' + o.ot.replace(/'/g,"\\'").replace(/"/g,'&quot;') + '\')';
 
-    h += '<tr style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="' + onclickAttr + '" onmouseover="this.style.background=\'var(--blue-a)\'" onmouseout="this.style.background=\'\'">';
+    // tabindex+role+onkeydown: la fila es clickeable pero antes solo con mouse — Enter/Espacio
+    // ahora hacen lo mismo que el clic, mismo onclickAttr ya escapado arriba.
+    h += '<tr tabindex="0" role="button" style="border-bottom:1px solid var(--brd);cursor:pointer" onclick="' + onclickAttr + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + onclickAttr + '}" onmouseover="this.style.background=\'var(--blue-a)\'" onmouseout="this.style.background=\'\'">';
     h += '<td style="padding:10px 12px;font-size:11px;font-weight:700;color:var(--blue);white-space:nowrap">' + otEsc + badges + '</td>';
     h += '<td style="padding:10px 12px;font-size:12px;color:var(--tx)">' + (equipoEsc||'—') + '</td>';
     h += '<td style="padding:10px 12px;font-size:11px;color:var(--tx-m);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + clienteEsc + '">' + (clienteEsc || '<span style="color:var(--tx-d)">—</span>') + '</td>';
@@ -4799,7 +4810,7 @@ function renderDashFiltrado() {
     if (esGrupo) h += '<td style="padding:10px 12px;font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis" title="' + sucursalEsc + '">' + (sucursalEsc||'—') + '</td>';
     h += '</tr>';
 
-    hCards += '<div class="dash-ot-card' + (esCerrada ? ' fin' : '') + '" onclick="' + onclickAttr + '">' +
+    hCards += '<div class="dash-ot-card' + (esCerrada ? ' fin' : '') + '" tabindex="0" role="button" onclick="' + onclickAttr + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + onclickAttr + '}">' +
       '<div class="dc-top"><div class="dash-ot-num">' + otEsc + badges + '</div>' + garHtml + '</div>' +
       '<div class="dash-eq">' + (equipoEsc||'—') + '</div>' +
       (clienteEsc ? '<div class="dash-sn">' + clienteEsc + '</div>' : '') +
@@ -4995,12 +5006,17 @@ function renderMensajesPortal() {
     var preview = o.mensajes.replace(/\[LEIDO\]/g,'').replace(/💬[^\n]*\n/g,'').replace(/\n/g,' ').trim();
     if (preview.length > 100) preview = preview.substring(0, 100) + '…';
     var pend = o.msgNoLeido;
-    h += '<div class="msg-item-portal' + (pend ? ' pendiente' : '') + '" onclick="abrirOTDesdeMsg(\'' + o.ot + '\',\'' + (o.sn||'') + '\')">';
+    // Mismo criterio que renderDashFiltrado: o.sn/o.ot son texto libre del reseller (carga
+    // sin control de formato), y acá se interpolan dentro de un atributo onclick="..." — sin
+    // escapar comillas, rompían el atributo (o el string de JS) e inyectaban HTML/JS.
+    var otAttrEsc = String(o.ot||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    var snAttrEsc = String(o.sn||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    h += '<div class="msg-item-portal' + (pend ? ' pendiente' : '') + '" onclick="abrirOTDesdeMsg(\'' + otAttrEsc + '\',\'' + snAttrEsc + '\')">';
     h += '<div class="msg-dot-rs ' + (pend ? 'pend' : 'ok') + '"></div>';
     h += '<div style="flex:1;min-width:0">';
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
-    h += '<span style="font-size:11px;font-weight:700;color:var(--blue)">' + o.ot + '</span>';
-    h += '<span class="b-est">' + o.estado + '</span>';
+    h += '<span style="font-size:11px;font-weight:700;color:var(--blue)">' + _escHtml(o.ot) + '</span>';
+    h += '<span class="b-est">' + _escHtml(o.estado) + '</span>';
     if (pend) h += '<span style="font-size:9px;font-weight:700;color:#a0700a;background:#fff3cd;padding:1px 6px;border-radius:8px;border:1px solid #f0c040">PENDIENTE</span>';
     h += '</div>';
     h += '<div style="font-size:12px;color:var(--tx-m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _escHtml(preview) + '</div>';
@@ -5017,7 +5033,7 @@ function abrirOTDesdeMsg(ot, sn) {
   google.script.run
     .withSuccessHandler(function(r) { sp(false); if (r && r.encontrado) mostrarResultado(r); else toast('OT no encontrada', 'err'); })
     .withFailureHandler(function(e) { sp(false); toast('Error: ' + e.message, 'err'); })
-    .consultarEstado(ot, sn);
+    .consultarEstado(_sesionToken, ot, sn);
 }
 
 function enviarComentario() {
@@ -5039,7 +5055,7 @@ function enviarComentario() {
         inp.value = '';
         google.script.run
           .withSuccessHandler(function(r) { if (r && r.encontrado) { var th=parseMsgThread(r.mensajes); var te=document.getElementById('msg-thread-det'); var ee=document.getElementById('msg-thread-empty'); if (th) { te.innerHTML=th; te.style.display='flex'; ee.style.display='none'; setTimeout(function(){ te.scrollTop=te.scrollHeight; },80); } } })
-          .consultarEstado(otActual, snActual || '');
+          .consultarEstado(_sesionToken, otActual, snActual || '');
       } else toast('Error: ' + (res.msg||'no se pudo guardar'),'err');
     })
     .withFailureHandler(function(e){ inp.disabled=false; if (btn) btn.disabled=false; toast('Error: '+e.message,'err'); })
@@ -5057,13 +5073,18 @@ function buscarRep() {
     google.script.run
       .withSuccessHandler(function(res) {
         var el = document.getElementById('res-rep');
-        if (!res.length) { el.innerHTML='<div class="carrito-empty">Sin resultados para "'+q+'"</div>'; return; }
+        if (!res.length) { el.innerHTML='<div class="carrito-empty">Sin resultados para "'+_escHtml(q)+'"</div>'; return; }
         el.innerHTML='';
         res.forEach(function(r,i) {
           var row=document.createElement('div'); row.className='rep-item';
-          row.innerHTML='<div style="flex:1;min-width:0"><div class="rep-code">'+r.codigo+'</div><div class="rep-name">'+r.nombre+'</div>'+(r.descripcionEs&&r.descripcionEs!==r.nombre?'<div style="font-size:10px;color:var(--tx-d);margin-top:1px">'+r.descripcionEs+'</div>':'')+(r.reemplazadoPor?'<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px"><i class="fa fa-arrow-right"></i> Reemplazado por '+r.reemplazadoPor+'</div>':'')+(r.modelos?'<div style="font-size:9px;color:var(--tx-d);margin-top:2px">'+r.modelos.split('/').join(' · ')+'</div>':'')+'</div>' +
+          var codEsc = _escHtml(r.codigo), nomEsc = _escHtml(r.nombre), descEsEsc = _escHtml(r.descripcionEs), remplzEsc = _escHtml(r.reemplazadoPor), modEsc = _escHtml(r.modelos);
+          // Atributo onclick: escape de comillas aparte del _escHtml de arriba (que no
+          // escapa comillas — no hace falta para texto plano, sí para meterlo en un atributo).
+          var codAttr = String(r.codigo||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+          var nomAttr = String(r.nombre||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+          row.innerHTML='<div style="flex:1;min-width:0"><div class="rep-code">'+codEsc+'</div><div class="rep-name">'+nomEsc+'</div>'+(r.descripcionEs&&r.descripcionEs!==r.nombre?'<div style="font-size:10px;color:var(--tx-d);margin-top:1px">'+descEsEsc+'</div>':'')+(r.reemplazadoPor?'<div style="font-size:10px;color:#e67e22;font-weight:600;margin-top:2px"><i class="fa fa-arrow-right"></i> Reemplazado por '+remplzEsc+'</div>':'')+(r.modelos?'<div style="font-size:9px;color:var(--tx-d);margin-top:2px">'+modEsc.split('/').join(' · ')+'</div>':'')+'</div>' +
             '<input type="number" class="rep-qty" id="qty-'+i+'" value="1" min="1" onclick="event.stopPropagation()">' +
-            '<div class="rep-add-btn" onclick="addCarrito(\''+r.codigo+'\',\''+r.nombre.replace(/'/g,"\\'")+'\',\'qty-'+i+'\')" title="Agregar"><i class="fa fa-plus"></i></div>';
+            '<div class="rep-add-btn" onclick="addCarrito(\''+codAttr+'\',\''+nomAttr+'\',\'qty-'+i+'\')" title="Agregar"><i class="fa fa-plus"></i></div>';
           el.appendChild(row);
         });
       })
@@ -5361,7 +5382,7 @@ function enviarPedido() {
       btn.disabled=false;
     })
     .withFailureHandler(function(e){ sp(false); toast('Error: '+e.message,'err'); btn.disabled=false; })
-    .registrarPedidoRepuestos(otActual, carrito);
+    .registrarPedidoRepuestos(_sesionToken, otActual, carrito);
 }
 // ── APROBACIÓN DE PRESUPUESTO IN-PORTAL ───────────────────────
 function editarClienteOT() {
@@ -5788,15 +5809,18 @@ function buscarRepNueva() {
           box.style.display = 'block'; return;
         }
         lista.slice(0, 12).forEach(function(item) {
-          var sku  = (item.codigo || '').replace(/'/g, "\\'");
-          var desc = (item.nombre || item.descripcion || '').replace(/'/g, "\\'");
+          var nombreODesc = item.nombre || item.descripcion || '';
+          // Atributo onclick: escapa ambas comillas (antes solo escapaba ' — " rompía el
+          // atributo igual). _escHtml abajo es para texto plano, sin comillas.
+          var skuAttr  = String(item.codigo || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          var descAttr = String(nombreODesc).replace(/'/g, "\\'").replace(/"/g, '&quot;');
           var div  = document.createElement('div');
           div.className = 'rep-item';
-          div.innerHTML = '<div style="flex:1;min-width:0"><div class="rep-code">' + item.codigo + '</div>' +
-            '<div class="rep-name">' + (item.nombre || item.descripcion || '') + '</div>' +
-            (item.modelos ? '<div style="font-size:9px;color:var(--tx-d);margin-top:2px">' + item.modelos.split('/').join(' · ') + '</div>' : '') +
+          div.innerHTML = '<div style="flex:1;min-width:0"><div class="rep-code">' + _escHtml(item.codigo) + '</div>' +
+            '<div class="rep-name">' + _escHtml(nombreODesc) + '</div>' +
+            (item.modelos ? '<div style="font-size:9px;color:var(--tx-d);margin-top:2px">' + _escHtml(item.modelos).split('/').join(' · ') + '</div>' : '') +
             '</div>' +
-            '<button class="rep-add-btn" onclick="event.stopPropagation();_addRepNueva(\'' + sku + '\',\'' + desc + '\')">' +
+            '<button class="rep-add-btn" onclick="event.stopPropagation();_addRepNueva(\'' + skuAttr + '\',\'' + descAttr + '\')">' +
             '<i class="fa fa-plus"></i></button>';
           box.appendChild(div);
         });
@@ -10910,6 +10934,16 @@ function _preciosLimpiarModelos() {
   _preciosDDActualizarBoton();
   _preciosDDFiltrar();
   _preciosFiltrar();
+}
+
+// Recorre y re-renderiza toda la lista de precios en cada tecla sin esto — mismo patrón de
+// debounce que ya usan _cotBuscar/_campBuscar, para no recalcular en cada tecla si el catálogo
+// es grande. El resto de los disparadores (dropdown de modelos, orden, carga inicial) siguen
+// llamando _preciosFiltrar() directo — son clics puntuales, no tecleo rápido.
+var _preciosFiltrarTimer = null;
+function _preciosFiltrarDebounced() {
+  clearTimeout(_preciosFiltrarTimer);
+  _preciosFiltrarTimer = setTimeout(_preciosFiltrar, 300);
 }
 
 function _preciosFiltrar() {

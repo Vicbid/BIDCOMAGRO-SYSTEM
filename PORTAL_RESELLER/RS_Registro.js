@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER — Módulo de Registro de Nuevos Resellers
 //  Flujo: El reseller selecciona su empresa (ya existente en la hoja)
 //         → completa los campos que faltan →
@@ -41,7 +41,10 @@ function _REG_asegurarHoja() {
 
 // ── Token único por solicitud (SHA-256 truncado a 32 chars) ──
 function _REG_generarToken(empresa, ts) {
-  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET') || 'bidcomagro-reg-secret';
+  // Igual criterio que _tokenAprobacion (RS_Main.js): sin APPROVAL_SECRET seteado, no se
+  // genera token con un secreto de respaldo fijo en el código — falla cerrado.
+  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET');
+  if (!secret) { Logger.log('_REG_generarToken: falta APPROVAL_SECRET en Script Properties'); return null; }
   var input  = String(empresa) + '|' + String(ts) + '|reg|' + secret;
   var bytes  = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
   var hex    = '';
@@ -175,6 +178,7 @@ function REG_solicitarAcceso(params) {
     // Guardar solicitud
     var ahora = new Date();
     var token = _REG_generarToken(empresa, ahora.getTime());
+    if (!token) return { ok: false, error: 'Error interno. Intentá de nuevo más tarde.' };
     hoja.appendRow([ahora, empresa, cuit, email, telefono, 'Pendiente', token, '', notas, direccion, cp, localidad, provincia]);
 
     // Notificar al admin
@@ -190,10 +194,7 @@ function REG_solicitarAcceso(params) {
 // Todos los campos de este formulario los tipea libremente cualquier visitante anónimo
 // (REG_solicitarAcceso no pide login) — sin escapar, alguien podía inyectar HTML/links en
 // el mail interno que lee el equipo de soporte (auditoría de seguridad).
-function _REG_esc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+function _REG_esc(s) { return _htmlEsc(s); }
 
 // ── Email al admin con botones Aprobar / Rechazar 1-click ─────
 function _REG_notificarAdmin(empresa, cuit, email, telefono, notas, token, direccion, cp, localidad, provincia) {
@@ -254,7 +255,12 @@ function _REG_procesarDecision(token, accion) {
 
   if (!tokenB) return _REG_paginaResultado('Link inválido', 'El link no contiene información válida.', '#e74c3c', '&#9888;');
 
+  // Sin lock, un doble clic en el link del mail (o abrirlo en 2 pestañas) puede pasar el
+  // guard "estado !== 'Pendiente'" dos veces antes de que ninguna escritura termine —
+  // procesando la misma solicitud dos veces (doble PIN/mail de bienvenida).
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var hoja  = _REG_asegurarHoja();
     var datos = hoja.getDataRange().getValues();
     var fila  = -1;
@@ -349,6 +355,8 @@ function _REG_procesarDecision(token, accion) {
   } catch(e) {
     Logger.log('_REG_procesarDecision: ' + e);
     return _REG_paginaResultado('Error', 'Ocurrió un error al procesar la solicitud. Revisá los logs.', '#e74c3c', '&#9888;');
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 

@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER — Pedidos de Campaña (estimados sin compromiso)
 // ============================================================
 //  Script Properties requeridas (configurar desde Apps Script editor):
@@ -87,7 +87,9 @@ function RS_abrirCampana(token, reseller) {
 }
 
 function RS_guardarCampana(token, reseller, campana, items) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token, reseller);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     reseller = _s.nombre;
@@ -142,5 +144,7 @@ function RS_guardarCampana(token, reseller, campana, items) {
     return { ok: true, total: filas.length };
   } catch(e) {
     return { ok: false, msg: e.message };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }

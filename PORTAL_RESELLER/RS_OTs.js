@@ -1,7 +1,20 @@
 // ============================================================
 //  PORTAL RESELLER BIDCOM — Gestión de órdenes de trabajo
-// @version 1.16
+// @version 1.18
 // ============================================================
+
+// Estados "cerrados"/terminales de una OT — única fuente de verdad para este archivo. Antes
+// estaba duplicado e INCONSISTENTE en 4 lugares: enviarCasoAlHub reconocía estos 7 estados,
+// pero buscarOTsReseller/RS_buscarOTsGrupo/obtenerGarantias solo reconocían 3 (Finalizado/
+// Entregado/CANCELADO) — un caso en "Rechazado DJI" o en los estados de Check (Aprobado bajo
+// garantía / No aprobado) seguía apareciendo como "activo" en el dashboard del reseller y en
+// las alertas de vencimiento de garantía. Debe quedar sincronizado con _ESTADOS_CERRADOS
+// (HUB_OTs.js) y EST_CERRADOS (HUB_PRO/Index.html).
+var _OT_ESTADOS_TERMINAL = {
+  'Finalizado': true, 'Entregado': true, 'CANCELADO': true,
+  'Rechazado DJI': true, 'Sin respuesta · Cerrado': true,
+  'Aprobado bajo garantía': true, 'No aprobado - Error del piloto': true
+};
 
 function enviarCasoAlHub(token, data) {
   var lock = LockService.getScriptLock();
@@ -30,17 +43,12 @@ function enviarCasoAlHub(token, data) {
     // quedar sincronizado con HUB_Código.js para que Portal y HUB decidan idéntico.
     var snNorm = String(data.sn || '').trim().toUpperCase();
     if (snNorm) {
-      var ESTADOS_TERMINAL = {
-        'Finalizado': true, 'Entregado': true, 'CANCELADO': true,
-        'Rechazado DJI': true, 'Sin respuesta · Cerrado': true,
-        'Aprobado bajo garantía': true, 'No aprobado - Error del piloto': true
-      };
       var datosOT = hoja.getDataRange().getValues();
       for (var di = 1; di < datosOT.length; di++) {
         var snFila    = String(datosOT[di][SCHEMA.OT.SN]    || '').trim().toUpperCase();
         var estadoFila = String(datosOT[di][SCHEMA.OT.ESTADO] || '').trim();
         if (snFila !== snNorm) continue;
-        if (!ESTADOS_TERMINAL[estadoFila]) {
+        if (!_OT_ESTADOS_TERMINAL[estadoFila]) {
           var otExistente = String(datosOT[di][SCHEMA.OT.OT] || '');
           lock.releaseLock();
           return { ok: false, error: 'Ya existe la OT ' + otExistente + ' abierta para ese S/N (' + snNorm + ')', otExistente: otExistente };
@@ -189,12 +197,19 @@ function enviarLoteAlHub(token, data) {
   } catch(e) {
     if (lock.hasLock()) lock.releaseLock();
     Logger.log("enviarLoteAlHub: " + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
-function consultarEstado(ot, sn) {
+function consultarEstado(token, ot, sn) {
   try {
+    // Sin esto, cualquiera sin login podía ver el detalle completo de una OT (cliente, notas
+    // técnicas, hilo de mensajes) con solo adivinar un N° de OT secuencial (WH/REP/00042) + el
+    // S/N del equipo — más débil que el resto de las funciones de este archivo, que ya piden
+    // sesión. No se restringe a "solo tus propias OTs": mantiene el comportamiento actual de
+    // "Buscar mi reparación" (cualquier reseller logueado puede rastrear cualquier OT+SN),
+    // solo cierra el acceso totalmente anónimo.
+    if (!_sesionResolver(token)) return { encontrado: false, error: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref  = _leerOrdenes();
     var otB  = String(ot).trim().toUpperCase();
     var snB  = String(sn).trim().toUpperCase();
@@ -394,8 +409,13 @@ function consultarEstado(ot, sn) {
   } catch(e) { Logger.log("consultarEstado: " + e); return { encontrado: false }; }
 }
 
-function buscarPorSN(sn) {
+function buscarPorSN(token, sn) {
   try {
+    // Mismo criterio que consultarEstado (arriba): antes cualquiera sin login podía listar
+    // las OTs de un S/N (incluye a qué reseller pertenece cada una). Se mantiene el
+    // comportamiento actual (cualquier reseller logueado puede buscar cualquier S/N), solo
+    // se cierra el acceso anónimo.
+    if (!_sesionResolver(token)) return [];
     var ref = _leerOrdenes();
     var snB = String(sn).trim().toUpperCase();
     var hoy = new Date();
@@ -446,9 +466,7 @@ function buscarOTsReseller(token, nombreReseller, busqueda) {
       var lastMsg      = mensajes.lastIndexOf("💬");
       var lastLeido    = mensajes.lastIndexOf("[LEIDO]");
       var msgNoLeido   = lastMsg !== -1 && (lastLeido === -1 || lastMsg > lastLeido);
-      var esCerrada = (String(f[SCHEMA.OT.ESTADO]||"") === "Finalizado" ||
-                       String(f[SCHEMA.OT.ESTADO]||"") === "Entregado"  ||
-                       String(f[SCHEMA.OT.ESTADO]||"") === "CANCELADO");
+      var esCerrada = !!_OT_ESTADOS_TERMINAL[String(f[SCHEMA.OT.ESTADO]||"")];
       out.push({
         ot:           String(f[SCHEMA.OT.OT]),
         equipo:       String(f[SCHEMA.OT.EQUIPO] || ""),
@@ -472,8 +490,8 @@ function buscarOTsReseller(token, nombreReseller, busqueda) {
       });
     }
     out.sort(function(a, b) {
-      var af = (a.estado === "Finalizado" || a.estado === "Entregado" || a.estado === "CANCELADO") ? 1 : 0;
-      var bf = (b.estado === "Finalizado" || b.estado === "Entregado" || b.estado === "CANCELADO") ? 1 : 0;
+      var af = _OT_ESTADOS_TERMINAL[a.estado] ? 1 : 0;
+      var bf = _OT_ESTADOS_TERMINAL[b.estado] ? 1 : 0;
       return af !== bf ? af - bf : b.dias - a.dias;
     });
     return out;
@@ -482,7 +500,9 @@ function buscarOTsReseller(token, nombreReseller, busqueda) {
 
 // Escritura única — rechaza si la fecha ya fue registrada
 function agregarFechaActivacion(token, ot, fechaStr) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref = _leerOrdenes();
@@ -508,6 +528,8 @@ function agregarFechaActivacion(token, ot, fechaStr) {
   } catch(e) {
     Logger.log("agregarFechaActivacion: " + e);
     return { ok: false, msg: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 
@@ -527,7 +549,7 @@ function obtenerGarantias(token, nombreReseller) {
       if (!f[SCHEMA.OT.OT]) continue;
       if (String(f[SCHEMA.OT.RESELLER] || "").trim().toLowerCase() !== rB) continue;
       var estG = String(f[SCHEMA.OT.ESTADO] || "");
-      if (estG === "Finalizado" || estG === "CANCELADO" || estG === "Entregado") continue;
+      if (_OT_ESTADOS_TERMINAL[estG]) continue;
 
       var fechaAct = f[SCHEMA.OT.FECHA_ACTIVACION];
       if (!(fechaAct instanceof Date)) continue;
@@ -559,7 +581,9 @@ function obtenerGarantias(token, nombreReseller) {
 }
 
 function solicitarRevisionTaller(token, ot, sn) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return false;
     var ref = _leerOrdenes();
@@ -575,14 +599,18 @@ function solicitarRevisionTaller(token, ot, sn) {
     }
     return false;
   } catch(e) { return false; }
+  finally { try { lock.releaseLock(); } catch(eL) {} }
 }
 
 function agregarComentario(token, ot, comentario) {
+  var lock = LockService.getScriptLock();
+  var _iEncontrado = -1, ref, autor;
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
-    var autor = _s.nombre; // nunca el que mande el cliente — evita firmar comentarios como otro
-    var ref = _leerOrdenes();
+    autor = _s.nombre; // nunca el que mande el cliente — evita firmar comentarios como otro
+    ref = _leerOrdenes();
     var otB = String(ot).trim().toUpperCase();
 
     for (var i = 1; i < ref.datos.length; i++) {
@@ -599,49 +627,60 @@ function agregarComentario(token, ot, comentario) {
       if (String(ref.datos[i][SCHEMA.OT.PRIORIDAD]).toUpperCase() !== "URGENTE")
         ref.hoja.getRange(i + 1, SCHEMA.OT.PRIORIDAD + 1).setValue("COMENTARIO RESELLER");
 
-      try {
-        var asunto = "[PORTAL] Comentario reseller — " + ot;
-        var htmlComent = _construirEmailHTML(
-          "Comentario del reseller — " + ot, "Supervisor",
-          "<div style='background:#fff8e6;border-left:3px solid #f39c12;border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:16px'>" +
-            "<p style='font-size:12px;font-weight:700;color:#e67e22;margin:0 0 6px'>💬 " + (autor || "Reseller") + "</p>" +
-            "<p style='font-size:13px;color:#333;margin:0'>" + comentario + "</p>" +
-          "</div>" +
-          "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
-            _filaDetalle("Orden", "<strong>" + ot + "</strong>") +
-            _filaDetalle("Estado actual", String(ref.datos[i][4] || "—")) +
-          "</div>",
-          "El reseller dejó un comentario Revisá el HUB PRO."
-        );
-        var supThreadId = _obtenerThreadId(ot, PORTAL_CONFIG.EMAIL_SUPERVISOR);
-        if (supThreadId) {
-          try {
-            var hilo = GmailApp.getThreadById(supThreadId);
-            if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyAll('', { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
-          } catch(eRep) {
-            Logger.log('agregarComentario replyAll: ' + eRep + ' — fallback');
-            GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
-          }
-        } else {
-          GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
-        }
-      } catch(e2) { Logger.log("Email comentario: " + e2); }
-
-      return { ok: true };
+      _iEncontrado = i;
+      break;
     }
-    return { ok: false, msg: "OT no encontrada" };
+    if (_iEncontrado === -1) return { ok: false, msg: "OT no encontrada" };
   } catch(e) { Logger.log("agregarComentario: " + e); return { ok: false, msg: e.toString() }; }
+  finally {
+    try { lock.releaseLock(); } catch(eL) {}
+  }
+
+  // El mail (I/O lento) se manda ya sin el lock tomado — no hace falta sostenerlo mientras
+  // se espera a Gmail, mismo criterio que enviarCasoAlHub.
+  try {
+    var asunto = "[PORTAL] Comentario reseller — " + ot;
+    var htmlComent = _construirEmailHTML(
+      "Comentario del reseller — " + ot, "Supervisor",
+      "<div style='background:#fff8e6;border-left:3px solid #f39c12;border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:16px'>" +
+        "<p style='font-size:12px;font-weight:700;color:#e67e22;margin:0 0 6px'>💬 " + _htmlEsc(autor || "Reseller") + "</p>" +
+        "<p style='font-size:13px;color:#333;margin:0'>" + _htmlEsc(comentario) + "</p>" +
+      "</div>" +
+      "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
+        _filaDetalle("Orden", "<strong>" + ot + "</strong>") +
+        _filaDetalle("Estado actual", String(ref.datos[_iEncontrado][4] || "—")) +
+      "</div>",
+      "El reseller dejó un comentario Revisá el HUB PRO."
+    );
+    var supThreadId = _obtenerThreadId(ot, PORTAL_CONFIG.EMAIL_SUPERVISOR);
+    if (supThreadId) {
+      try {
+        var hilo = GmailApp.getThreadById(supThreadId);
+        if (!hilo) throw new Error('Thread no encontrado');
+        hilo.replyAll('', { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
+      } catch(eRep) {
+        Logger.log('agregarComentario replyAll: ' + eRep + ' — fallback');
+        GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+      }
+    } else {
+      GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: htmlComent, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+    }
+  } catch(e2) { Logger.log("Email comentario: " + e2); }
+
+  return { ok: true };
 }
 
 // Aprobación o rechazo de presupuesto desde el Portal, con registro firmado en col L
 function aprobarPresupuestoPortal(token, ot, decision, observaciones) {
+  var lock = LockService.getScriptLock();
+  var otB, dec, nuevoEstado, fecha, fRow;
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
-    var ref   = _leerOrdenes();
-    var otB   = String(ot).trim().toUpperCase();
-    var dec   = String(decision||"").toLowerCase();
+    var ref = _leerOrdenes();
+    otB = String(ot).trim().toUpperCase();
+    dec = String(decision||"").toLowerCase();
     if (dec !== "aceptado" && dec !== "rechazado") return { ok: false, msg: "Decisión inválida." };
 
     for (var i = 1; i < ref.datos.length; i++) {
@@ -654,9 +693,9 @@ function aprobarPresupuestoPortal(token, ot, decision, observaciones) {
         return { ok: false, msg: "La OT no está en estado 'Presupuesto enviado' (actual: " + estadoActual + ")." };
       }
 
-      var nuevoEstado = dec === "aceptado" ? "Presupuesto aceptado" : "Presupuesto rechazado";
-      var fecha       = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
-      var firma       = "✅ PRESUPUESTO " + dec.toUpperCase() + " VÍA PORTAL · " + fecha;
+      nuevoEstado = dec === "aceptado" ? "Presupuesto aceptado" : "Presupuesto rechazado";
+      fecha       = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+      var firma   = "✅ PRESUPUESTO " + dec.toUpperCase() + " VÍA PORTAL · " + fecha;
       if (observaciones) firma += " — " + String(observaciones).trim();
 
       // Registrar en MENSAJES (col L)
@@ -669,52 +708,60 @@ function aprobarPresupuestoPortal(token, ot, decision, observaciones) {
       ref.hoja.getRange(i + 1, SCHEMA.OT.ESTADO + 1).setValue(nuevoEstado);
       ref.hoja.getRange(i + 1, SCHEMA.OT.FECHA_ESTADO + 1).setValue(new Date());
 
-      // Notificar al supervisor
-      try {
-        var asunto = "[PORTAL] Presupuesto " + dec + " — " + otB + " · " + String(f[SCHEMA.OT.EQUIPO]||"");
-        var html = _construirEmailHTML(
-          "Presupuesto " + dec + " por el reseller", "Supervisor",
-          "<div style='background:" + (dec==="aceptado"?"#eafaf1":"#fdf2f2") + ";border-left:3px solid " + (dec==="aceptado"?"#1a9e4a":"#e74c3c") + ";border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:16px'>" +
-            "<p style='font-size:13px;font-weight:700;color:" + (dec==="aceptado"?"#1a9e4a":"#e74c3c") + ";margin:0 0 6px'>" +
-            (dec==="aceptado"?"✅ Aprobado":"❌ Rechazado") + " desde el Portal</p>" +
-            (observaciones?"<p style='font-size:12px;color:#555;margin:0'>\"" + observaciones + "\"</p>":"") +
-          "</div>" +
-          "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
-            _filaDetalle("OT", "<strong>" + otB + "</strong>") +
-            _filaDetalle("Reseller", String(f[SCHEMA.OT.RESELLER]||"")) +
-            _filaDetalle("Equipo", String(f[SCHEMA.OT.EQUIPO]||"")) +
-            _filaDetalle("Nuevo estado", "<strong>" + nuevoEstado + "</strong>") +
-            _filaDetalle("Fecha decisión", fecha) +
-          "</div>",
-          "El estado fue actualizado automáticamente en el sistema."
-        );
-        var supThreadId = _obtenerThreadId(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR);
-        if (supThreadId) {
-          try {
-            var hilo = GmailApp.getThreadById(supThreadId);
-            if (!hilo) throw new Error('Thread no encontrado');
-            hilo.replyAll('', { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
-            _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", supThreadId);
-          } catch(eRep) {
-            Logger.log('aprobarPresupuestoPortal replyAll: ' + eRep + ' — fallback');
-            GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
-            _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
-          }
-        } else {
-          GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
-          _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
-        }
-      } catch(e2) { Logger.log("aprobarPresupuestoPortal email: " + e2); }
-
       invalidateSheetValues(SCHEMA.SHEETS.OT);
-      return { ok: true, nuevoEstado: nuevoEstado };
+      fRow = f;
+      break;
     }
-    return { ok: false, msg: "OT no encontrada." };
+    if (!fRow) return { ok: false, msg: "OT no encontrada." };
   } catch(e) { Logger.log("aprobarPresupuestoPortal: " + e); return { ok: false, msg: e.toString() }; }
+  finally {
+    try { lock.releaseLock(); } catch(eL) {}
+  }
+
+  // Mail (I/O lento) ya sin el lock tomado, mismo criterio que enviarCasoAlHub/agregarComentario.
+  try {
+    var asunto = "[PORTAL] Presupuesto " + dec + " — " + otB + " · " + String(fRow[SCHEMA.OT.EQUIPO]||"");
+    var html = _construirEmailHTML(
+      "Presupuesto " + dec + " por el reseller", "Supervisor",
+      "<div style='background:" + (dec==="aceptado"?"#eafaf1":"#fdf2f2") + ";border-left:3px solid " + (dec==="aceptado"?"#1a9e4a":"#e74c3c") + ";border-radius:0 6px 6px 0;padding:12px 16px;margin-bottom:16px'>" +
+        "<p style='font-size:13px;font-weight:700;color:" + (dec==="aceptado"?"#1a9e4a":"#e74c3c") + ";margin:0 0 6px'>" +
+        (dec==="aceptado"?"✅ Aprobado":"❌ Rechazado") + " desde el Portal</p>" +
+        (observaciones?"<p style='font-size:12px;color:#555;margin:0'>\"" + _htmlEsc(observaciones) + "\"</p>":"") +
+      "</div>" +
+      "<div style='background:#f5f9fc;border:1px solid #ddeef7;border-radius:8px;padding:4px 16px'>" +
+        _filaDetalle("OT", "<strong>" + otB + "</strong>") +
+        _filaDetalle("Reseller", _htmlEsc(fRow[SCHEMA.OT.RESELLER])) +
+        _filaDetalle("Equipo", _htmlEsc(fRow[SCHEMA.OT.EQUIPO])) +
+        _filaDetalle("Nuevo estado", "<strong>" + nuevoEstado + "</strong>") +
+        _filaDetalle("Fecha decisión", fecha) +
+      "</div>",
+      "El estado fue actualizado automáticamente en el sistema."
+    );
+    var supThreadId = _obtenerThreadId(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR);
+    if (supThreadId) {
+      try {
+        var hilo = GmailApp.getThreadById(supThreadId);
+        if (!hilo) throw new Error('Thread no encontrado');
+        hilo.replyAll('', { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE });
+        _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", supThreadId);
+      } catch(eRep) {
+        Logger.log('aprobarPresupuestoPortal replyAll: ' + eRep + ' — fallback');
+        GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+        _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
+      }
+    } else {
+      GmailApp.sendEmail(PORTAL_CONFIG.EMAIL_SUPERVISOR, asunto, "", { htmlBody: html, name: PORTAL_CONFIG.NOMBRE_REMITENTE, replyTo: PORTAL_CONFIG.EMAIL_SUPERVISOR });
+      _logEmail(otB, PORTAL_CONFIG.EMAIL_SUPERVISOR, "Supervisor", asunto, "OK", "");
+    }
+  } catch(e2) { Logger.log("aprobarPresupuestoPortal email: " + e2); }
+
+  return { ok: true, nuevoEstado: nuevoEstado };
 }
 
 function confirmarRecepcionRepuestos(token, ot, sn) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var ref = _leerOrdenes();
@@ -737,6 +784,8 @@ function confirmarRecepcionRepuestos(token, ot, sn) {
   } catch(e) {
     Logger.log("confirmarRecepcionRepuestos: " + e);
     return { ok: false, msg: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 
@@ -781,7 +830,9 @@ function obtenerSnapshotOTs(token, nombreReseller, snapshotJson) {
 }
 
 function guardarClienteOT(token, ot, cliente) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(3000);
     var _s = _sesionResolver(token);
     if (!_s) return { ok: false, msg: 'Sesión inválida o expirada. Volvé a ingresar.' };
     var sheet = getSheet(SCHEMA.SHEETS.OT);
@@ -798,6 +849,8 @@ function guardarClienteOT(token, ot, cliente) {
   } catch(e) {
     Logger.log('guardarClienteOT: ' + e);
     return { ok: false, msg: e.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(eL) {}
   }
 }
 
@@ -834,9 +887,7 @@ function RS_buscarOTsGrupo(token) {
       var lastMsg      = mensajes.lastIndexOf('💬');
       var lastLeido    = mensajes.lastIndexOf('[LEIDO]');
       var msgNoLeido   = lastMsg !== -1 && (lastLeido === -1 || lastMsg > lastLeido);
-      var esCerrada    = (String(f[SCHEMA.OT.ESTADO]||'') === 'Finalizado' ||
-                          String(f[SCHEMA.OT.ESTADO]||'') === 'Entregado'  ||
-                          String(f[SCHEMA.OT.ESTADO]||'') === 'CANCELADO');
+      var esCerrada    = !!_OT_ESTADOS_TERMINAL[String(f[SCHEMA.OT.ESTADO]||'')];
       out.push({
         ot:           String(f[SCHEMA.OT.OT]),
         equipo:       String(f[SCHEMA.OT.EQUIPO] || ''),
@@ -862,8 +913,8 @@ function RS_buscarOTsGrupo(token) {
     }
 
     out.sort(function(a, b) {
-      var af = (a.estado === 'Finalizado' || a.estado === 'Entregado' || a.estado === 'CANCELADO') ? 1 : 0;
-      var bf = (b.estado === 'Finalizado' || b.estado === 'Entregado' || b.estado === 'CANCELADO') ? 1 : 0;
+      var af = _OT_ESTADOS_TERMINAL[a.estado] ? 1 : 0;
+      var bf = _OT_ESTADOS_TERMINAL[b.estado] ? 1 : 0;
       if (af !== bf) return af - bf;
       if (a.sucursal !== b.sucursal) return a.sucursal < b.sucursal ? -1 : 1;
       return b.dias - a.dias;

@@ -1,4 +1,4 @@
-// @version 1.7
+// @version 1.8
 // ============================================================
 // @version 1.0
 //  PORTAL RESELLER BIDCOM — Vista RTV (solo lectura)
@@ -71,10 +71,9 @@ function obtenerDatosRTV() {
 function _mapaCumplimientoPedidos() {
   var mapa = {};
   try {
-    var NOTAS_SS_ID_PR = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
-    var wosHoja = SpreadsheetApp.openById(NOTAS_SS_ID_PR).getSheetByName('Pedidos_resellers');
-    if (!wosHoja) return mapa;
-    var d = wosHoja.getDataRange().getValues();
+    // Solo lectura, tolera algo de latencia — usa el cache corto en vez de abrir la
+    // spreadsheet externa en cada carga del panel RTV (_getPedidosResellersDataCached, RS_Pedidos.js).
+    var d = _getPedidosResellersDataCached();
     for (var i = 1; i < d.length; i++) {
       var num = String(d[i][0] || '').trim();
       if (!num) continue;
@@ -329,7 +328,7 @@ function obtenerPedidosRTV() {
     return { ok: true, pedidos: pedidos };
   } catch(e) {
     Logger.log('obtenerPedidosRTV: ' + e);
-    return { ok: false, error: e.toString(), pedidos: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', pedidos: [] };
   }
 }
 
@@ -385,6 +384,6 @@ function obtenerOrdenesRTV() {
     return { ok: true, ordenes: out };
   } catch(e) {
     Logger.log('obtenerOrdenesRTV: ' + e);
-    return { ok: false, error: e.toString(), ordenes: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', ordenes: [] };
   }
 }

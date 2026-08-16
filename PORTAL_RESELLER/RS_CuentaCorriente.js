@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER — Módulo Cuenta Corriente (Solo Lectura)
 //  Fuente: CC.VtaCte (spreadsheet externo, ID en servidor)
 //  Seguridad: nombre de sesión revalidado contra hoja Resellers
@@ -293,7 +293,7 @@ function CC_exportarXLS(params) {
     return { ok: true, base64: base64, nombre: 'CuentaCorriente_' + nombre + '.xlsx' };
   } catch(e) {
     Logger.log('CC_exportarXLS: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -359,7 +359,7 @@ function CC_exportarPDF(params) {
     return { ok: true, base64: base64, nombre: docName + '.pdf' };
   } catch(e) {
     Logger.log('CC_exportarPDF: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 

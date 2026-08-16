@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  "Pedir algo a BidcomAgro" — solicitudes libres de resellers, sin OT/repuesto/
 //  cotización de por medio (para eso ya está "Mensajes", atado a una OT puntual).
@@ -51,7 +51,7 @@ function RS_crearSolicitud(params) {
     return { ok: true };
   } catch(e) {
     Logger.log('RS_crearSolicitud: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }
 
@@ -82,6 +82,6 @@ function RS_listarMisSolicitudes(params) {
     return { ok: true, items: out.slice(0, 20) };
   } catch(e) {
     Logger.log('RS_listarMisSolicitudes: ' + e);
-    return { ok: false, error: e.toString(), items: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', items: [] };
   }
 }

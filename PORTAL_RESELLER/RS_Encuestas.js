@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  Encuesta de satisfacción postventa — corta y periódica, se pregunta después del
 //  login (ver Index.html:_mostrarEncuestaPostLogin, encadenada a _mostrarAvisoPostLogin).
@@ -46,7 +46,7 @@ function RS_getEncuestaPendiente(params) {
     return { ok: true, pendiente: ultima < limite };
   } catch(e) {
     Logger.log('RS_getEncuestaPendiente: ' + e);
-    return { ok: false, error: e.toString(), pendiente: false };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', pendiente: false };
   }
 }
 
@@ -76,6 +76,6 @@ function RS_responderEncuesta(params) {
     return { ok: true };
   } catch(e) {
     Logger.log('RS_responderEncuesta: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }

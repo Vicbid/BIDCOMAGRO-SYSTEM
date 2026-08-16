@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.1
+// @version 1.2
 //  PORTAL RESELLER — Avisos / Comunicados post-login
 //  Almacenado en MASTER hoja PORTAL_CONFIG (clave | valor)
 // ============================================================
@@ -60,6 +60,6 @@ function RS_setAviso(data) {
     return { ok: true };
   } catch(e) {
     Logger.log('RS_setAviso: ' + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
   }
 }

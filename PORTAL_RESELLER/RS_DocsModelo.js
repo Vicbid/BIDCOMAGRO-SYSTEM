@@ -1,4 +1,4 @@
-// @version 1.0
+// @version 1.1
 // ══════════════════════════════════════════════════════════════
 //  DOCUMENTACIÓN POR MODELO — 2 listas simples pedidas por el usuario, cada
 //  una "1 link por modelo de dron" (sin la complejidad de accesorios
@@ -55,7 +55,8 @@ function _dmListarPortal(nombreTab) {
     out.sort(function(a, b) { return a.modelo.localeCompare(b.modelo); });
     return { ok: true, items: out };
   } catch (e) {
-    return { ok: false, error: e.toString(), items: [] };
+    Logger.log('_dmListarPortal ' + nombreTab + ': ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', items: [] };
   }
 }
 

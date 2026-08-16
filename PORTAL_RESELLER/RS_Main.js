@@ -1,5 +1,5 @@
 // ============================================================
-// @version 1.37
+// @version 1.39
 //  PORTAL RESELLER BIDCOM — Configuración, entry point y cachés
 // ============================================================
 
@@ -7,7 +7,7 @@
 // la trae embebida al cargar la página y la vuelve a consultar cada tanto
 // (RS_obtenerVersionActual) para avisar si quedó una pestaña vieja abierta.
 // Ver _chequearVersionNueva en Index.html.
-var PORTAL_VERSION = '2.25';
+var PORTAL_VERSION = '2.26';
 
 var PORTAL_CONFIG = {
   EMAIL_SUPERVISOR:     "soporteagrasdji@bidcom.com.ar",
@@ -126,12 +126,25 @@ function RS_obtenerVersionActual() {
 }
 
 function _tokenAprobacion(ot, action) {
-  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET') || 'bidcomagro-default';
+  // Sin este guard, si la Property APPROVAL_SECRET nunca se seteó, "secret" caía en un
+  // fallback fijo visible en el código fuente — cualquiera podía calcular tokens de
+  // aprobación válidos. Ahora, sin secreto configurado, no se genera ningún token (falla
+  // cerrado: el link de aprobación queda inválido en vez de aceptar un secreto público).
+  var secret = PropertiesService.getScriptProperties().getProperty('APPROVAL_SECRET');
+  if (!secret) { Logger.log('_tokenAprobacion: falta APPROVAL_SECRET en Script Properties'); return null; }
   var bytes = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     String(ot) + '|' + String(action) + '|' + secret
   );
   return bytes.map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('').substring(0, 40);
+}
+
+// Escape HTML compartido para todo el proyecto — antes había 3 versiones independientes
+// (_REG_esc, _prospEsc, _evEsc) con distinto criterio (algunas no escapaban comillas), así
+// que un fix a una no se propagaba a las otras. Ahora las 3 delegan acá.
+function _htmlEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function _paginaAprobacion(ot, action, token) {

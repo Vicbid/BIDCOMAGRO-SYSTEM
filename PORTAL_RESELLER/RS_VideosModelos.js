@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ══════════════════════════════════════════════════════════════
 //  VIDEOS DE ARMADO Y DESARMADO — links directos que comparte DJI.
 //  Un modelo puede tener VARIOS componentes (ej: T100 = Aeronave +
@@ -72,6 +72,7 @@ function obtenerVideosModelosPortal() {
     });
     return { ok: true, modelos: out };
   } catch (e) {
-    return { ok: false, error: e.toString(), modelos: [] };
+    Logger.log('obtenerVideosModelosPortal: ' + e);
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', modelos: [] };
   }
 }

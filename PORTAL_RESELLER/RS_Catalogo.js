@@ -1,4 +1,4 @@
-// @version 2.2
+// @version 2.3
 // ══════════════════════════════════════════════════════════════
 //  CATÁLOGO EXPLOTADAS — despieces DJI para el Portal Reseller
 //  Datos generados desde los Excel oficiales de DJI ("… Material
@@ -96,6 +96,6 @@ function obtenerCatalogoExplotadas() {
     return { ok: true, modelos: modelos };
   } catch(e) {
     Logger.log('obtenerCatalogoExplotadas: ' + e);
-    return { ok: false, error: e.toString(), modelos: [] };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Intentá de nuevo.', modelos: [] };
   }
 }
