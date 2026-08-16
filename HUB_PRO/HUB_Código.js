@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.32
+// @version 2.33
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -25,7 +25,7 @@
 // embebida al cargar la página y la vuelve a consultar cada tanto (HUB_obtenerVersionActual)
 // para avisar si quedó una pestaña vieja abierta. Ver _chequearVersionNueva en Index.html.
 // Mismo patrón que Portal Reseller (RS_Main.js:PORTAL_VERSION).
-var HUB_VERSION = '2.30';
+var HUB_VERSION = '2.31';
 
 function HUB_obtenerVersionActual() {
   return HUB_VERSION;

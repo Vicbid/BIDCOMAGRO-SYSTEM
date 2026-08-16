@@ -1,4 +1,4 @@
-<!-- @version 2.30 -->
+<!-- @version 2.31 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2580,6 +2580,7 @@ function abrir(c){
   if (circNorm.toUpperCase() === 'RESELLER PROPIO') circNorm = 'Reseller Propio';
   else if (circNorm.toUpperCase().indexOf('PROPIO') !== -1) circNorm = 'Reseller Propio';
   else if (circNorm.toUpperCase() === 'RESELLER' || circNorm.toUpperCase() === 'SI') circNorm = 'Reseller';
+  else if (circNorm.toUpperCase() === 'CHECK') circNorm = 'Check';
   else circNorm = 'Taller';
   document.getElementById('f-circ').value = circNorm;
   actual.circuito = circNorm; // sincronizar el objeto
