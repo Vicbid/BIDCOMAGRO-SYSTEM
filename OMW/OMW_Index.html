@@ -1,0 +1,1736 @@
+<!-- @version 1.5 -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OMW · Pipeline DJI Enterprise</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#080C14;--surface:#0F1520;--panel:#141D2E;--card:#1A2438;--card-h:#1F2C42;
+  --b:rgba(255,255,255,.07);--bm:rgba(255,255,255,.12);
+  --blue:#3B82F6;--blue-d:#1D4ED8;--blue-l:rgba(59,130,246,.12);--blue-g:rgba(59,130,246,.25);
+  --green:#10B981;--green-l:rgba(16,185,129,.12);--green-d:rgba(5,150,105,1);
+  --amber:#F59E0B;--amber-l:rgba(245,158,11,.12);
+  --red:#EF4444;--red-l:rgba(239,68,68,.12);
+  --purple:#8B5CF6;--purple-l:rgba(139,92,246,.12);
+  --teal:#06B6D4;--teal-l:rgba(6,182,212,.12);
+  --gold:#D4AF37;--gold-l:rgba(212,175,55,.10);
+  --tx:#E2E8F0;--txm:#94A3B8;--txd:#4B5563;
+  --r:8px;--rm:10px;--rl:14px;
+  --shd:0 1px 3px rgba(0,0,0,.5);--shd-m:0 4px 16px rgba(0,0,0,.6);--shd-xl:0 24px 64px rgba(0,0,0,.8);
+}
+[data-theme="light"]{
+  --bg:#EEF2F8;--surface:#FFFFFF;--panel:#F5F7FB;--card:#FFFFFF;--card-h:#F0F4FA;
+  --b:rgba(0,0,0,.08);--bm:rgba(0,0,0,.14);
+  --blue:#2563EB;--blue-d:#1D4ED8;--blue-l:rgba(37,99,235,.10);
+  --green:#059669;--green-l:rgba(5,150,105,.10);--green-d:rgba(4,120,87,1);
+  --amber:#D97706;--amber-l:rgba(217,119,6,.10);
+  --red:#DC2626;--red-l:rgba(220,38,38,.10);
+  --purple:#7C3AED;--purple-l:rgba(124,58,237,.10);
+  --teal:#0891B2;--teal-l:rgba(8,145,178,.10);
+  --gold:#B45309;--gold-l:rgba(180,83,9,.08);
+  --tx:#0F172A;--txm:#475569;--txd:#94A3B8;
+  --shd:0 1px 3px rgba(0,0,0,.10);--shd-m:0 4px 12px rgba(0,0,0,.12);--shd-xl:0 20px 50px rgba(0,0,0,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:var(--tx);background:var(--bg)}
+body{min-height:100vh;background-image:radial-gradient(ellipse at 15% 0%,rgba(59,130,246,.07) 0%,transparent 55%),radial-gradient(ellipse at 85% 100%,rgba(139,92,246,.05) 0%,transparent 55%)}
+
+/* ─── LOADING ────────────────────────────── */
+#screen-loading{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;background:var(--bg);flex-direction:column;gap:16px}
+.spinner{width:36px;height:36px;border:3px solid var(--bm);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-size:13px;color:var(--txm)}
+
+/* ─── LOGIN ──────────────────────────────── */
+#screen-login{position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse at 20% 20%,rgba(59,130,246,.08) 0%,transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(139,92,246,.06) 0%,transparent 60%);padding:24px}
+.login-wrap{width:100%;max-width:400px}
+.login-brand{text-align:center;margin-bottom:32px}
+.login-logo{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--blue),var(--blue-d));font-size:22px;margin-bottom:12px;box-shadow:0 0 0 1px rgba(59,130,246,.4),0 8px 24px rgba(29,78,216,.4)}
+.login-title{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px}
+.login-sub{font-size:12px;color:var(--txm)}
+.login-card{background:var(--panel);border:1px solid var(--bm);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shd-xl)}
+.login-tabs{display:flex;border-bottom:1px solid var(--b)}
+.login-tab{flex:1;padding:12px;font-size:12px;font-weight:700;text-align:center;cursor:pointer;color:var(--txm);background:none;border:none;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.login-tab.active{color:var(--blue);border-bottom-color:var(--blue);background:var(--blue-l)}
+.login-tab:hover:not(.active){color:var(--tx)}
+.login-panel{display:none;padding:22px}
+.login-panel.active{display:block}
+.login-field{margin-bottom:14px}
+.login-field:last-of-type{margin-bottom:0}
+.login-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txd);margin-bottom:5px;display:block}
+.login-inp{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--bm);border-radius:var(--r);padding:9px 12px;color:var(--tx);font-size:13px;font-family:inherit;outline:none;transition:border-color .14s}
+.login-inp:focus{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.login-inp::placeholder{color:var(--txd)}
+.login-btn{width:100%;margin-top:18px;background:linear-gradient(135deg,var(--blue),var(--blue-d));border:none;color:#fff;font-size:13px;font-weight:700;padding:10px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 0 0 1px rgba(59,130,246,.4),0 4px 10px rgba(29,78,216,.35);transition:all .14s}
+.login-btn:hover:not(:disabled){filter:brightness(1.1)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-err{font-size:11px;color:var(--red);margin-top:10px;text-align:center;min-height:16px}
+.login-theme{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.06);border:1px solid var(--bm);color:var(--txm);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:13px}
+
+/* ─── APP ────────────────────────────────── */
+#screen-app{display:none;flex-direction:column;height:100vh}
+
+/* ─── TOPBAR ─────────────────────────────── */
+.topbar{display:flex;align-items:center;gap:10px;padding:0 18px;height:48px;background:var(--surface);border-bottom:1px solid var(--b);flex-shrink:0}
+.tb-brand{display:flex;align-items:center;gap:9px;margin-right:auto}
+.tb-logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--blue-d));display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 0 0 1px rgba(59,130,246,.35)}
+.tb-name{font-size:13px;font-weight:800;letter-spacing:-.01em}
+.tb-pipe{font-size:11px;color:var(--txm)}
+.tb-sla{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.tb-sla .d{width:5px;height:5px;background:var(--red);border-radius:50%;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+.role-pill{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.role-pill.rtv     {background:var(--amber-l);border:1px solid rgba(245,158,11,.3);color:var(--amber)}
+.role-pill.admin   {background:var(--purple-l);border:1px solid rgba(139,92,246,.3);color:var(--purple)}
+.role-pill.logistica{background:var(--green-l);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+.role-pill.reseller{background:var(--teal-l);border:1px solid rgba(6,182,212,.3);color:var(--teal)}
+.btn-sm{background:rgba(255,255,255,.05);border:1px solid var(--bm);color:var(--txm);font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;transition:all .14s;display:flex;align-items:center;gap:5px}
+.btn-sm:hover{background:rgba(255,255,255,.09);color:var(--tx)}
+.btn-nuevo{background:var(--blue-l);border:1px solid rgba(59,130,246,.35);color:var(--blue)}
+.btn-nuevo:hover{background:rgba(59,130,246,.22);color:var(--blue)}
+
+/* ─── BOARD ──────────────────────────────── */
+#board-view{display:none;flex:1;overflow:hidden}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:0;height:100%;overflow:hidden}
+.col-wrap{display:flex;flex-direction:column;border-right:1px solid var(--b)}
+.col-wrap:last-child{border-right:none}
+.col-head{padding:12px 14px 10px;border-bottom:1px solid var(--b);flex-shrink:0;display:flex;align-items:center;gap:8px;background:var(--surface)}
+.col-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.col-count{font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px}
+.col-head.rtv   .col-label{color:var(--amber)} .col-head.rtv   .col-count{background:var(--amber-l);color:var(--amber)}
+.col-head.admin .col-label{color:var(--purple)}.col-head.admin .col-count{background:var(--purple-l);color:var(--purple)}
+.col-head.depo  .col-label{color:var(--green)} .col-head.depo  .col-count{background:var(--green-l);color:var(--green)}
+.col-body{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:9px;position:relative}
+
+/* ─── CARD ───────────────────────────────── */
+.card-ped{background:var(--card);border:1px solid var(--b);border-radius:var(--rm);transition:all .18s;cursor:default;position:relative;overflow:hidden}
+.card-ped:hover{border-color:var(--bm);box-shadow:var(--shd-m)}
+.card-ped.rtv:hover  {border-color:rgba(245,158,11,.35);box-shadow:0 0 0 1px rgba(245,158,11,.1),var(--shd-m)}
+.card-ped.admin:hover{border-color:rgba(139,92,246,.35);box-shadow:0 0 0 1px rgba(139,92,246,.1),var(--shd-m)}
+.card-ped.depo:hover {border-color:rgba(16,185,129,.35);box-shadow:0 0 0 1px rgba(16,185,129,.1),var(--shd-m)}
+.card-ped.sla{border-color:rgba(239,68,68,.3)}
+.card-ped.locked{opacity:.55;cursor:not-allowed;pointer-events:none}
+.card-inner{padding:12px 13px}
+.card-row1{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px}
+.card-num{font-size:12px;font-weight:700;font-family:'Courier New',monospace;color:var(--blue)}
+.card-time{font-size:9px;color:var(--txd);margin-top:2px;display:flex;align-items:center;gap:3px}
+.badges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.badge-sla{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;display:flex;align-items:center;gap:3px;text-transform:uppercase;letter-spacing:.04em}
+.badge-ok{background:var(--green-l);border:1px solid rgba(16,185,129,.3);color:var(--green);font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;display:flex;align-items:center;gap:3px}
+.party{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
+.party-row{display:flex;gap:6px;align-items:baseline}
+.plbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txd);width:48px;flex-shrink:0}
+.pval{font-size:11px;font-weight:600}
+.pval.res{color:var(--teal)}
+.pval.cli{color:var(--tx)}
+.div{height:1px;background:var(--b);margin:8px 0}
+.prods{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.prow{display:flex;gap:5px;align-items:flex-start}
+.pqty{font-size:9px;font-weight:800;background:var(--blue-l);color:var(--blue);padding:1px 5px;border-radius:3px;flex-shrink:0;margin-top:1px}
+.pname{font-size:10px;color:var(--txm);line-height:1.4}
+.card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.amount{font-size:13px;font-weight:800;color:var(--gold)}
+.amount-lbl{font-size:9px;color:var(--txm);margin-top:1px}
+.amount-lbl.wait{color:var(--purple)}
+.amount-lbl.ok  {color:var(--green)}
+.cta{font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .14s}
+.cta.rtv  {background:var(--amber-l);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.cta.admin{background:var(--purple-l);color:var(--purple);border:1px solid rgba(139,92,246,.3)}
+.cta.depo {background:var(--green-l);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.cta:hover.rtv  {background:rgba(245,158,11,.22)}
+.cta:hover.admin{background:rgba(139,92,246,.22)}
+.cta:hover.depo {background:rgba(16,185,129,.22)}
+.acred-footer{background:rgba(139,92,246,.06);border-top:1px solid rgba(139,92,246,.15);padding:7px 13px;font-size:10px;color:var(--purple);display:flex;align-items:center;gap:6px}
+.col-locked-overlay{display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--txd);font-size:11px;text-align:center;padding:20px}
+.col-locked-overlay i{font-size:22px;opacity:.4}
+.col-empty{color:var(--txd);font-size:11px;text-align:center;padding:24px 0}
+
+/* ─── RESELLER VIEW ──────────────────────── */
+#reseller-view{display:none;flex:1;overflow-y:auto;padding:20px}
+.res-wrap{max-width:720px;margin:0 auto}
+.res-title{font-size:15px;font-weight:800;margin-bottom:16px}
+.res-order-card{background:var(--card);border:1px solid var(--b);border-radius:var(--rm);padding:14px 16px;margin-bottom:10px}
+.res-order-head{display:flex;justify-content:space-between;margin-bottom:12px}
+.res-order-num{font-size:12px;font-weight:700;font-family:'Courier New',monospace;color:var(--blue)}
+.res-order-client{font-size:12px;font-weight:600;margin-top:2px}
+.res-order-prods{font-size:11px;color:var(--txm);margin-top:3px}
+.res-order-amount{font-size:14px;font-weight:800;color:var(--gold);text-align:right}
+.res-order-status{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;text-align:center;margin-top:4px}
+.res-order-status.pending   {background:var(--amber-l);color:var(--amber)}
+.res-order-status.processing{background:var(--purple-l);color:var(--purple)}
+.res-order-status.ready     {background:var(--green-l);color:var(--green)}
+.res-timeline{display:flex;align-items:center;gap:0}
+.ts-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;flex-shrink:0}
+.ts-dot.done  {background:var(--green);color:#fff}
+.ts-dot.active{background:var(--blue);color:#fff}
+.ts-dot.idle  {background:var(--b);color:var(--txd);border:1px solid var(--bm)}
+.ts-line{flex:1;height:2px;background:var(--b)}
+.ts-line.done{background:var(--green)}
+.ts-lbl{font-size:8px;font-weight:600;margin-top:3px;text-align:center;white-space:nowrap}
+.ts-lbl.done  {color:var(--green)}
+.ts-lbl.active{color:var(--blue)}
+.ts-lbl.idle  {color:var(--txd)}
+
+/* ─── MODAL ──────────────────────────────── */
+.overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fdin .18s ease}
+@keyframes fdin{from{opacity:0}to{opacity:1}}
+.mbox{background:var(--panel);border:1px solid var(--bm);border-radius:var(--rl);width:100%;max-width:860px;box-shadow:var(--shd-xl),0 0 0 1px rgba(59,130,246,.1);animation:slin .2s ease;overflow:hidden;display:flex;flex-direction:column;max-height:92vh}
+.mbox-sm{max-width:520px}
+.modal-layout{display:flex;flex:1;overflow:hidden;min-height:0}
+.modal-form-col{flex:1;min-width:0;display:flex;flex-direction:column}
+.modal-form-col .mbody{flex:1;overflow-y:auto}
+.modal-chat-col{width:300px;border-left:1px solid var(--b);display:flex;flex-direction:column;flex-shrink:0;background:rgba(0,0,0,.08)}
+@keyframes slin{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.mstrip{height:4px;background:linear-gradient(90deg,var(--blue),var(--purple))}
+.mhead{padding:18px 22px 14px;border-bottom:1px solid var(--b);display:flex;align-items:flex-start;gap:12px;flex-shrink:0}
+.mhead-ico{width:38px;height:38px;border-radius:var(--rm);background:var(--blue-l);border:1px solid rgba(59,130,246,.25);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.mhead-title{font-size:14px;font-weight:700;margin-bottom:2px}
+.mhead-sub  {font-size:11px;color:var(--txm)}
+.mclose{margin-left:auto;background:none;border:none;color:var(--txd);font-size:17px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .13s;flex-shrink:0}
+.mclose:hover{background:rgba(255,255,255,.06);color:var(--tx)}
+.mbody{padding:20px 22px}
+.mfoot{padding:14px 22px;border-top:1px solid var(--b);display:flex;align-items:center;gap:8px;justify-content:flex-end;background:rgba(0,0,0,.12);flex-shrink:0}
+.order-summary{background:rgba(255,255,255,.03);border:1px solid var(--b);border-radius:var(--rm);padding:13px 15px;margin-bottom:18px}
+.osr{display:flex;gap:7px;margin-bottom:5px}.osr:last-child{margin-bottom:0}
+.osr-l{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txd);width:68px;flex-shrink:0;padding-top:1px}
+.osr-v{font-size:12px;color:var(--tx);font-weight:500}
+.osr-v.mono{font-family:'Courier New',monospace;color:var(--blue);font-weight:700}
+.osr-v.gold{color:var(--gold);font-weight:800;font-size:14px}
+.osr-prod{display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:11px;color:var(--txm)}
+.pago-box{background:var(--purple-l);border:1px solid rgba(139,92,246,.25);border-radius:var(--rm);padding:11px 13px;margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.pago-box-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--purple);margin-bottom:3px}
+.pago-box-val{font-size:12px;color:var(--tx);font-weight:600}
+.checklist{display:flex;flex-direction:column;gap:9px;margin-bottom:16px}
+.chk{display:flex;align-items:flex-start;gap:9px;background:rgba(255,255,255,.025);border:1px solid var(--b);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .14s}
+.chk:hover{background:rgba(255,255,255,.04);border-color:var(--bm)}
+.chk.on{background:var(--green-l);border-color:rgba(16,185,129,.3)}
+.chk input{display:none}
+.chk-box{width:17px;height:17px;border-radius:4px;border:2px solid var(--txd);display:flex;align-items:center;justify-content:center;transition:all .14s;flex-shrink:0;margin-top:1px}
+.chk.on .chk-box{background:var(--green);border-color:var(--green)}
+.chk-ico{font-size:9px;color:#fff;display:none}
+.chk.on .chk-ico{display:block}
+.chk-txt{font-size:12px;color:var(--txm);line-height:1.45}
+.chk.on .chk-txt{color:var(--tx)}
+.fld-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txd);margin-bottom:5px;display:block}
+.fld-inp{width:100%;background:rgba(0,0,0,.2);border:1px solid var(--bm);border-radius:var(--r);padding:8px 11px;color:var(--tx);font-size:12px;font-family:inherit;outline:none;transition:border-color .14s}
+.fld-inp:focus{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.fld-inp::placeholder{color:var(--txd)}
+.fld-ta{width:100%;background:rgba(0,0,0,.2);border:1px solid var(--bm);border-radius:var(--r);padding:9px 11px;color:var(--tx);font-size:12px;font-family:inherit;resize:vertical;min-height:68px;outline:none;transition:border-color .14s}
+.fld-ta:focus{border-color:rgba(59,130,246,.5);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.fld-ta::placeholder{color:var(--txd)}
+.warn-box{background:var(--amber-l);border:1px solid rgba(245,158,11,.25);border-radius:var(--r);padding:10px 13px;margin-bottom:16px;font-size:11px;color:var(--amber);display:flex;align-items:flex-start;gap:8px}
+
+/* ─── CHAT ───────────────────────────────── */
+.chat-hdr{padding:10px 13px 8px;border-bottom:1px solid var(--b);display:flex;align-items:center;gap:7px;flex-shrink:0}
+.chat-hdr-title{font-size:10px;font-weight:700;color:var(--txm);text-transform:uppercase;letter-spacing:.06em}
+.chat-count{font-size:9px;font-weight:800;background:var(--blue-l);color:var(--blue);padding:2px 6px;border-radius:10px;margin-left:auto}
+.chat-msgs{flex:1;overflow-y:auto;padding:10px 10px 4px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.chat-msg{display:flex;flex-direction:column;gap:2px;max-width:93%}
+.chat-msg.me{align-self:flex-end;align-items:flex-end}
+.chat-msg.other{align-self:flex-start;align-items:flex-start}
+.chat-bubble{padding:7px 10px;border-radius:9px;font-size:11.5px;line-height:1.5;word-break:break-word}
+.chat-msg.rtv   .chat-bubble{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.22);color:var(--tx)}
+.chat-msg.admin .chat-bubble{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.22);color:var(--tx)}
+.chat-msg.me.rtv   .chat-bubble{background:rgba(245,158,11,.24);border-color:rgba(245,158,11,.4)}
+.chat-msg.me.admin .chat-bubble{background:rgba(139,92,246,.24);border-color:rgba(139,92,246,.4)}
+.chat-meta{font-size:9px;color:var(--txd);display:flex;align-items:center;gap:4px}
+.chat-badge{font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
+.chat-badge.rtv  {background:var(--amber-l);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.chat-badge.admin{background:var(--purple-l);color:var(--purple);border:1px solid rgba(139,92,246,.3)}
+.chat-input-wrap{padding:8px 9px;border-top:1px solid var(--b);display:flex;gap:6px;flex-shrink:0}
+.chat-in{flex:1;background:rgba(0,0,0,.22);border:1px solid var(--bm);border-radius:7px;padding:6px 9px;color:var(--tx);font-size:11.5px;font-family:inherit;outline:none;resize:none;min-height:32px;max-height:72px;transition:border-color .14s;line-height:1.4}
+.chat-in:focus{border-color:rgba(59,130,246,.5)}
+.chat-in::placeholder{color:var(--txd)}
+.chat-send{background:var(--blue-l);border:1px solid rgba(59,130,246,.35);color:var(--blue);width:30px;height:30px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .14s;flex-shrink:0;align-self:flex-end}
+.chat-send:hover{background:var(--blue);color:#fff}
+.chat-send:disabled{opacity:.4;cursor:not-allowed}
+
+/* ─── BUTTONS ────────────────────────────── */
+.btn-ghost{background:rgba(255,255,255,.05);border:1px solid var(--bm);color:var(--txm);font-size:12px;font-weight:600;padding:8px 14px;border-radius:var(--r);cursor:pointer;transition:all .14s}
+.btn-ghost:hover{background:rgba(255,255,255,.09);color:var(--tx)}
+.btn-reject{background:var(--red-l);border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:12px;font-weight:700;padding:8px 14px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .14s}
+.btn-reject:hover{background:rgba(239,68,68,.2)}
+.btn-auth{background:linear-gradient(135deg,var(--blue),var(--blue-d));border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 16px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px rgba(59,130,246,.4),0 4px 10px rgba(29,78,216,.35);transition:all .14s}
+.btn-auth:hover:not(:disabled){filter:brightness(1.1)}
+.btn-auth:disabled,.btn-acred:disabled,.btn-crear:disabled{opacity:.4;cursor:not-allowed}
+.btn-acred{background:linear-gradient(135deg,var(--green),var(--green-d));border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 16px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 0 0 1px rgba(16,185,129,.4),0 4px 10px rgba(5,150,105,.35);transition:all .14s}
+.btn-acred:hover:not(:disabled){filter:brightness(1.1)}
+.btn-crear{background:linear-gradient(135deg,var(--blue),var(--blue-d));border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 16px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .14s}
+.btn-crear:hover:not(:disabled){filter:brightness(1.1)}
+
+/* ─── NUEVO PEDIDO FORM ──────────────────── */
+.form-row{margin-bottom:14px}
+.form-row:last-child{margin-bottom:0}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.prod-row{display:flex;gap:6px;align-items:center;margin-bottom:7px}
+.prod-cant{width:54px;flex-shrink:0}
+.prod-nombre{flex:1}
+.prod-rm{background:none;border:none;color:var(--txd);cursor:pointer;padding:4px;border-radius:4px;font-size:13px;transition:color .13s}
+.prod-rm:hover{color:var(--red)}
+.btn-add-prod{background:none;border:1px dashed var(--bm);color:var(--txm);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;width:100%;transition:all .14s;margin-top:4px}
+.btn-add-prod:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ─── COTIZADOR ──────────────────────────── */
+.btn-cotiz{background:var(--gold-l);border:1px solid rgba(212,175,55,.3);color:var(--gold)}
+.btn-cotiz:hover{background:rgba(212,175,55,.2);color:var(--gold)}
+.cot-hdr{display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px;color:var(--txm)}
+.cot-sep{color:var(--txd)}
+.cot-table{background:rgba(0,0,0,.15);border:1px solid var(--b);border-radius:var(--rm);overflow:hidden;margin-bottom:0}
+.cot-row{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
+.cot-lbl{font-size:11px;color:var(--txm)}
+.cot-val{font-size:12px;font-weight:600;font-family:'Courier New',monospace;color:var(--tx)}
+.cot-val.neg{color:var(--red)}
+.cot-val.muted{color:var(--txd)}
+.cot-divider{height:1px;background:var(--bm)}
+.cot-total-row{display:flex;justify-content:space-between;align-items:center;padding:13px 14px;background:linear-gradient(135deg,rgba(212,175,55,.07),rgba(212,175,55,.03));border-top:2px solid rgba(212,175,55,.3)}
+.cot-total-lbl{font-size:13px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:5px}
+.cot-total-val{font-size:17px;font-weight:800;color:var(--gold);font-family:'Courier New',monospace}
+.cot-foot-note{padding:7px 14px;font-size:10px;color:var(--txd);background:rgba(0,0,0,.1);border-top:1px solid var(--b)}
+
+/* ─── COTIZ GUARDAR ─────────────────────── */
+.btn-guardar-cot{background:var(--gold-l);border:1px solid rgba(212,175,55,.35);color:var(--gold);font-size:12px;font-weight:700;padding:9px 16px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .14s}
+.btn-guardar-cot:hover{background:rgba(212,175,55,.2)}
+.btn-guardar-cot:disabled{opacity:.4;cursor:not-allowed}
+
+/* ─── COTIZ LIST CARDS ───────────────────── */
+.res-cotiz-card{background:var(--card);border:1px solid var(--b);border-radius:var(--rm);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .18s}
+.res-cotiz-card:hover{border-color:rgba(212,175,55,.4);box-shadow:0 0 0 1px rgba(212,175,55,.08),var(--shd-m)}
+.res-cotiz-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.res-cotiz-cliente{font-size:13px;font-weight:700;margin-bottom:3px}
+.res-cotiz-sku{font-size:10px;color:var(--txm)}
+.res-cotiz-total{font-size:14px;font-weight:800;color:var(--gold)}
+.res-cotiz-fecha{font-size:10px;color:var(--txd);text-align:right;margin-top:2px}
+.res-cotiz-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px}
+
+/* ─── TOAST ──────────────────────────────── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.ti{background:var(--surface);border:1px solid var(--bm);border-radius:var(--rm);padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:var(--shd-xl);min-width:220px;max-width:320px;font-size:12px;pointer-events:all}
+.ti-msg{flex:1;line-height:1.4}
+.ti.ok  {border-color:rgba(16,185,129,.4);background:rgba(5,150,105,.12)}
+.ti.err {border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
+.ti.inf {border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.08)}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING ══════════════════════════════ -->
+<div id="screen-loading">
+  <div class="spinner"></div>
+  <div class="load-txt" id="load-txt">Cargando…</div>
+</div>
+
+<!-- ══ LOGIN ════════════════════════════════ -->
+<div id="screen-login">
+  <button class="login-theme" id="theme-btn-login" onclick="toggleTheme()">🌙</button>
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-logo">✈</div>
+      <div class="login-title">OMW Pipeline</div>
+      <div class="login-sub">Equipos DJI AGRAS & Enterprise · BIDCOMAGRO</div>
+    </div>
+    <div class="login-card">
+      <div class="login-tabs">
+        <button class="login-tab active" id="tab-bidcom" onclick="switchTab('bidcom')">
+          <i class="fa-solid fa-building"></i> Bidcom
+        </button>
+        <button class="login-tab" id="tab-reseller" onclick="switchTab('reseller')">
+          <i class="fa-solid fa-handshake"></i> Reseller
+        </button>
+      </div>
+
+      <!-- Panel Bidcom -->
+      <div class="login-panel active" id="panel-bidcom">
+        <div class="login-field">
+          <label class="login-lbl">Email corporativo</label>
+          <input class="login-inp" id="bi-email" type="email" placeholder="nombre@bidcom.com.ar" onkeydown="if(event.key==='Enter')loginBidcom()">
+        </div>
+        <div class="login-err" id="bi-err"></div>
+        <button class="login-btn" id="bi-btn" onclick="loginBidcom()">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar
+        </button>
+      </div>
+
+      <!-- Panel Reseller -->
+      <div class="login-panel" id="panel-reseller">
+        <div class="login-field">
+          <label class="login-lbl">Empresa</label>
+          <select class="login-inp" id="rs-nombre">
+            <option value="">Cargando empresas…</option>
+          </select>
+        </div>
+        <div class="login-field">
+          <label class="login-lbl">Contraseña / PIN</label>
+          <input class="login-inp" id="rs-pin" type="password" placeholder="Tu PIN de acceso" onkeydown="if(event.key==='Enter')loginReseller()">
+        </div>
+        <div class="login-err" id="rs-err"></div>
+        <button class="login-btn" id="rs-btn" onclick="loginReseller()">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══════════════════════════════════ -->
+<div id="screen-app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-brand">
+      <div class="tb-logo">✈</div>
+      <div>
+        <div class="tb-name">OMW Pipeline</div>
+        <div class="tb-pipe">Equipos DJI AGRAS & Enterprise</div>
+      </div>
+    </div>
+    <div id="tb-sla-div" style="display:none">
+      <div class="tb-sla" id="tb-sla" style="display:none"><span class="d"></span><span id="tb-sla-txt">0 SLAs</span></div>
+    </div>
+    <button class="btn-sm btn-cotiz" id="btn-cotiz-wrap" style="display:none" onclick="abrirCotizador()">
+      <i class="fa-solid fa-calculator"></i> Cotizar
+    </button>
+    <button class="btn-sm btn-nuevo" id="btn-nuevo-wrap" style="display:none" onclick="abrirNuevoPedido()">
+      <i class="fa-solid fa-plus"></i> Nuevo Pedido
+    </button>
+    <button class="btn-sm" onclick="recargar()"><i class="fa-solid fa-rotate-right"></i></button>
+    <button class="btn-sm" id="theme-btn" onclick="toggleTheme()">🌙</button>
+    <div class="role-pill" id="role-pill"><span id="role-pill-txt">—</span></div>
+  </div>
+
+  <!-- BOARD (RTV / Admin / Logística) -->
+  <div id="board-view">
+    <div class="board">
+      <!-- Col RTV -->
+      <div class="col-wrap">
+        <div class="col-head rtv">
+          <i class="fa-solid fa-clipboard-check" style="color:var(--amber);font-size:12px"></i>
+          <span class="col-label">Revisión Comercial</span>
+          <span class="col-count" id="cnt-rtv">0</span>
+        </div>
+        <div class="col-body" id="col-rtv-body"></div>
+      </div>
+      <!-- Col Admin -->
+      <div class="col-wrap">
+        <div class="col-head admin">
+          <i class="fa-solid fa-building-columns" style="color:var(--purple);font-size:12px"></i>
+          <span class="col-label">Acreditación de Fondos</span>
+          <span class="col-count" id="cnt-admin">0</span>
+        </div>
+        <div class="col-body" id="col-admin-body"></div>
+      </div>
+      <!-- Col Depósito -->
+      <div class="col-wrap">
+        <div class="col-head depo">
+          <i class="fa-solid fa-boxes-stacked" style="color:var(--green);font-size:12px"></i>
+          <span class="col-label">Listos para Depósito</span>
+          <span class="col-count" id="cnt-depo">0</span>
+        </div>
+        <div class="col-body" id="col-depo-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESELLER VIEW -->
+  <div id="reseller-view">
+    <div class="res-wrap">
+      <div class="res-title">Mis Pedidos</div>
+      <div id="res-orders-list"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:16px">
+        <div class="res-title" style="margin:0">Mis Cotizaciones</div>
+        <button class="btn-sm" onclick="_cargarCotizaciones()" title="Actualizar"><i class="fa-solid fa-rotate-right"></i></button>
+      </div>
+      <div id="res-cotiz-list">
+        <div style="color:var(--txd);font-size:11px;text-align:center;padding:16px">Cargando…</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screen-app -->
+
+<!-- ══ MODAL RTV ══════════════════════════════ -->
+<div class="overlay" id="modal-rtv" style="display:none" onclick="if(event.target===this)cerrarModal('rtv')">
+  <div class="mbox">
+    <div class="mstrip"></div>
+    <div class="mhead">
+      <div class="mhead-ico">📋</div>
+      <div>
+        <div class="mhead-title">Revisión Comercial — RTV</div>
+        <div class="mhead-sub" id="rtv-sub">Autorización de Liberación Comercial DJI Enterprise</div>
+      </div>
+      <button class="mclose" onclick="cerrarModal('rtv')">✕</button>
+    </div>
+    <div class="modal-layout">
+      <div class="modal-form-col">
+        <div class="mbody">
+          <div class="warn-box" id="rtv-sla" style="display:none"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>SLA CRÍTICO:</strong> Más de 24 hs sin resolución. Ventana de siembra comprometida — prioridad máxima.</span></div>
+          <div class="order-summary" id="rtv-summary"></div>
+          <div class="pago-box"><span style="font-size:17px">🏦</span><div><div class="pago-box-lbl">Forma de Pago Propuesta</div><div class="pago-box-val" id="rtv-pago">—</div></div></div>
+          <div class="checklist">
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Margen de comisión del Reseller</strong> alineado con política DJI Enterprise — mínimo 12% neto sobre precio de lista USD.</div></div>
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Documentación del cliente final validada:</strong> CUIT activo · AFIP al día · IIBB · Contrato de uso responsable de aeronaves firmado.</div></div>
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Habilitación ANAC:</strong> Cliente posee o tramitará RPAS clase III antes de entrega.</div></div>
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Precio en USD confirmado por DJI Enterprise.</strong> Sin descuentos fuera de política.</div></div>
+          </div>
+          <label class="fld-lbl">Observaciones del RTV (opcional)</label>
+          <textarea class="fld-ta" id="rtv-obs" placeholder="Ej: Cliente ya cuenta con T30. Operador certificado DJI…"></textarea>
+        </div>
+        <div class="mfoot">
+          <button class="btn-ghost" onclick="cerrarModal('rtv')">Cancelar</button>
+          <button class="btn-reject" onclick="rechazarRTV()"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+          <button class="btn-auth" id="btn-auth" disabled onclick="autorizarRTV()"><i class="fa-solid fa-shield-halved"></i> Autorizar → Admin</button>
+        </div>
+      </div>
+      <div class="modal-chat-col">
+        <div class="chat-hdr"><i class="fa-solid fa-comments" style="color:var(--blue);font-size:12px"></i><span class="chat-hdr-title">Conversación</span><span class="chat-count" id="rtv-chat-count">0</span></div>
+        <div class="chat-msgs" id="rtv-chat-msgs"></div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-in" id="rtv-chat-in" placeholder="Escribí un mensaje…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat('rtv')}"></textarea>
+          <button class="chat-send" id="rtv-chat-send" onclick="sendChat('rtv')"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ADMIN ════════════════════════════ -->
+<div class="overlay" id="modal-admin" style="display:none" onclick="if(event.target===this)cerrarModal('admin')">
+  <div class="mbox">
+    <div class="mstrip" style="background:linear-gradient(90deg,var(--purple),var(--blue))"></div>
+    <div class="mhead">
+      <div class="mhead-ico" style="background:var(--purple-l);border-color:rgba(139,92,246,.25)">🏦</div>
+      <div>
+        <div class="mhead-title">Confirmar Acreditación de Fondos</div>
+        <div class="mhead-sub" id="admin-sub">Verificación bancaria · Administración</div>
+      </div>
+      <button class="mclose" onclick="cerrarModal('admin')">✕</button>
+    </div>
+    <div class="modal-layout">
+      <div class="modal-form-col">
+        <div class="mbody">
+          <div class="warn-box" id="admin-sla" style="display:none"><i class="fa-solid fa-triangle-exclamation"></i><span><strong>SLA CRÍTICO:</strong> Pedido supera 24 hs. Escalado a Dirección — ventana de siembra en riesgo.</span></div>
+          <div class="order-summary" id="admin-summary"></div>
+          <div class="checklist">
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Transferencia bancaria confirmada</strong> en cuenta corriente USD. CBU origen verificado.</div></div>
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Monto acreditado coincide exactamente</strong> con el total del pedido (sin diferencias de cambio pendientes).</div></div>
+            <div class="chk" onclick="toggleChk(this)"><input type="checkbox"><div class="chk-box"><i class="fa-solid fa-check chk-ico"></i></div><div class="chk-txt"><strong>Comprobante de pago archivado</strong> en el expediente. Número de transacción registrado en contable.</div></div>
+          </div>
+          <label class="fld-lbl">N° de transacción / referencia bancaria</label>
+          <textarea class="fld-ta" id="admin-ref" rows="2" placeholder="Ej: TRF-20250702-ICBC-00487221 · CBU origen verificado…" style="min-height:52px"></textarea>
+        </div>
+        <div class="mfoot">
+          <button class="btn-ghost" onclick="cerrarModal('admin')">Cancelar</button>
+          <button class="btn-acred" id="btn-acred" disabled onclick="acreditarAdmin()"><i class="fa-solid fa-circle-check"></i> Confirmar Acreditación → Depósito</button>
+        </div>
+      </div>
+      <div class="modal-chat-col">
+        <div class="chat-hdr"><i class="fa-solid fa-comments" style="color:var(--blue);font-size:12px"></i><span class="chat-hdr-title">Conversación</span><span class="chat-count" id="admin-chat-count">0</span></div>
+        <div class="chat-msgs" id="admin-chat-msgs"></div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-in" id="admin-chat-in" placeholder="Escribí un mensaje…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat('admin')}"></textarea>
+          <button class="chat-send" id="admin-chat-send" onclick="sendChat('admin')"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL NUEVO PEDIDO ═════════════════════ -->
+<div class="overlay" id="modal-nuevo" style="display:none" onclick="if(event.target===this)cerrarModal('nuevo')">
+  <div class="mbox mbox-sm">
+    <div class="mstrip" style="background:linear-gradient(90deg,var(--teal),var(--blue))"></div>
+    <div class="mhead">
+      <div class="mhead-ico" style="background:var(--teal-l);border-color:rgba(6,182,212,.25)">📦</div>
+      <div>
+        <div class="mhead-title">Nuevo Pedido DJI Enterprise</div>
+        <div class="mhead-sub">Ingresá al pipeline de revisión comercial</div>
+      </div>
+      <button class="mclose" onclick="cerrarModal('nuevo')">✕</button>
+    </div>
+    <div class="mbody" style="overflow-y:auto;flex:1">
+      <div class="form-grid2">
+        <div>
+          <label class="fld-lbl">Reseller *</label>
+          <input class="fld-inp" id="np-reseller" placeholder="Nombre del reseller">
+        </div>
+        <div>
+          <label class="fld-lbl">Cliente Final *</label>
+          <input class="fld-inp" id="np-cliente" placeholder="Nombre del cliente">
+        </div>
+      </div>
+      <div class="form-grid2">
+        <div>
+          <label class="fld-lbl">Importe USD *</label>
+          <input class="fld-inp" id="np-importe" type="number" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div>
+          <label class="fld-lbl">Forma de Pago</label>
+          <input class="fld-inp" id="np-pago" placeholder="Ej: Transferencia Banco BBVA">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="fld-lbl">Productos</label>
+        <div id="np-prods-list"></div>
+        <button class="btn-add-prod" onclick="addProdRow()"><i class="fa-solid fa-plus" style="font-size:9px"></i> Agregar producto</button>
+      </div>
+      <div class="form-row">
+        <label class="fld-lbl">Alerta / Nota interna</label>
+        <input class="fld-inp" id="np-alerta" placeholder="Ej: Ventana de siembra 15/07 — urgente">
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn-ghost" onclick="cerrarModal('nuevo')">Cancelar</button>
+      <button class="btn-crear" id="btn-np-crear" onclick="crearPedido()"><i class="fa-solid fa-plus"></i> Crear Pedido</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL COTIZADOR ════════════════════════ -->
+<div class="overlay" id="modal-cotiz" style="display:none" onclick="if(event.target===this)cerrarModal('cotiz')">
+  <div class="mbox mbox-sm">
+    <div class="mstrip" style="background:linear-gradient(90deg,var(--gold),var(--amber))"></div>
+    <div class="mhead">
+      <div class="mhead-ico" style="background:var(--gold-l);border-color:rgba(212,175,55,.3);font-size:16px">📊</div>
+      <div>
+        <div class="mhead-title">Cotizador DJI AGRAS & Enterprise</div>
+        <div class="mhead-sub">ExpoAgro 2026 · Condiciones vigentes</div>
+      </div>
+      <button class="mclose" onclick="cerrarModal('cotiz')">✕</button>
+    </div>
+    <div class="mbody" style="overflow-y:auto;flex:1">
+
+      <!-- Selectors -->
+      <div class="form-grid2">
+        <div>
+          <label class="fld-lbl">Producto (SKU)</label>
+          <select class="fld-inp" id="cotiz-sku" onchange="_cOnSkuChange()">
+            <option value="">Cargando catálogo…</option>
+          </select>
+        </div>
+        <div>
+          <label class="fld-lbl">Método de Pago</label>
+          <select class="fld-inp" id="cotiz-metodo" onchange="_cOnMetodoChange()" disabled>
+            <option value="">— Seleccioná SKU primero —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Loading indicator (cotización) -->
+      <div id="cotiz-calc" style="display:none;text-align:center;padding:36px 0;color:var(--txm);font-size:12px">
+        <div class="spinner" style="margin:0 auto 10px"></div>Calculando…
+      </div>
+
+      <!-- Error -->
+      <div id="cotiz-err" style="display:none;color:var(--red);font-size:12px;text-align:center;padding:20px;background:var(--red-l);border-radius:var(--r);border:1px solid rgba(239,68,68,.25)"></div>
+
+      <!-- Breakdown -->
+      <div id="cotiz-breakdown" style="display:none">
+        <div class="cot-hdr">
+          <span id="cv-cat" style="font-weight:600;color:var(--tx)"></span>
+          <span class="cot-sep">·</span>
+          <span id="cv-sku" style="font-weight:700;color:var(--blue)"></span>
+        </div>
+        <div class="cot-table">
+          <div class="cot-row">
+            <span class="cot-lbl">PVP (Precio de Venta al Público)</span>
+            <span class="cot-val" id="cv-pvp">—</span>
+          </div>
+          <div class="cot-row">
+            <span class="cot-lbl">IVA</span>
+            <span class="cot-val muted" id="cv-iva">—</span>
+          </div>
+          <div class="cot-divider"></div>
+          <div class="cot-row">
+            <span class="cot-lbl">Comisión Llena</span>
+            <span class="cot-val neg" id="cv-com-ll">—</span>
+          </div>
+          <div class="cot-row">
+            <span class="cot-lbl">Desc. Complementario</span>
+            <span class="cot-val neg" id="cv-desc-co">—</span>
+          </div>
+          <div class="cot-row">
+            <span class="cot-lbl">Voucher</span>
+            <span class="cot-val neg" id="cv-voucher">—</span>
+          </div>
+          <div class="cot-row">
+            <span class="cot-lbl">CFT / Ajuste Financiero</span>
+            <span class="cot-val" id="cv-cft">—</span>
+          </div>
+          <div class="cot-divider"></div>
+          <div class="cot-row" style="background:rgba(212,175,55,.04)">
+            <span class="cot-lbl" style="font-weight:600;color:var(--tx)">Subtotal al Cliente</span>
+            <span class="cot-val" style="color:var(--gold)" id="cv-sub">—</span>
+          </div>
+          <div class="cot-row">
+            <span class="cot-lbl">IVA al Cliente</span>
+            <span class="cot-val" id="cv-iva-cl">—</span>
+          </div>
+          <div class="cot-total-row">
+            <span class="cot-total-lbl">💰 Total Cliente</span>
+            <span class="cot-total-val" id="cv-total">—</span>
+          </div>
+          <div class="cot-foot-note">
+            Comisión efectiva: <strong id="cv-pct-com">—</strong> → <strong id="cv-comision">—</strong>
+            &nbsp;·&nbsp;Descuento Reseller: <strong id="cv-desc-res">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario de cliente (solo resellers, se muestra al presionar "Guardar Cotización") -->
+      <div id="cotiz-client-form" style="display:none;border-top:1px solid var(--b);padding-top:18px;margin-top:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--teal);margin-bottom:14px;display:flex;align-items:center;gap:7px">
+          <i class="fa-solid fa-user-plus"></i> Datos del cliente
+        </div>
+        <div class="form-grid2">
+          <div>
+            <label class="fld-lbl">Nombre *</label>
+            <input class="fld-inp" id="cot-nombre" placeholder="Nombre completo" onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+          </div>
+          <div>
+            <label class="fld-lbl">Empresa / Razón social</label>
+            <input class="fld-inp" id="cot-empresa" placeholder="Agro S.A." onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+          </div>
+        </div>
+        <div class="form-grid2">
+          <div>
+            <label class="fld-lbl">CUIT</label>
+            <input class="fld-inp" id="cot-cuit" placeholder="20-12345678-9" onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+          </div>
+          <div>
+            <label class="fld-lbl">Teléfono</label>
+            <input class="fld-inp" id="cot-tel" type="tel" placeholder="+54 9 11..." onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="fld-lbl">Email</label>
+          <input class="fld-inp" id="cot-email" type="email" placeholder="cliente@email.com" onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+        </div>
+        <div class="form-row">
+          <label class="fld-lbl">Notas internas</label>
+          <input class="fld-inp" id="cot-notas" placeholder="Interesado en, comentarios…" onkeydown="if(event.key==='Enter')confirmarGuardarCotiz()">
+        </div>
+      </div>
+
+    </div>
+    <div class="mfoot">
+      <button class="btn-ghost" id="btn-cerrar-cotiz" onclick="cerrarModal('cotiz')">Cerrar</button>
+      <button class="btn-ghost" id="btn-volver-cotiz" style="display:none" onclick="_cVolverBreakdown()">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+      </button>
+      <button class="btn-guardar-cot" id="btn-guardar-cotiz" style="display:none" onclick="_cMostrarFormCliente()">
+        <i class="fa-solid fa-bookmark"></i> Guardar Cotización
+      </button>
+      <button class="btn-crear" id="btn-usar-cotiz" style="display:none" onclick="usarCotizacion()">
+        <i class="fa-solid fa-file-circle-plus"></i> Crear Pedido &nbsp;·&nbsp; <span id="btn-usar-cotiz-amt">—</span>
+      </button>
+      <button class="btn-acred" id="btn-confirmar-cotiz" style="display:none" onclick="confirmarGuardarCotiz()">
+        <i class="fa-solid fa-floppy-disk"></i> Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+/* ════════════════════════════════════════════
+   ESTADO GLOBAL
+════════════════════════════════════════════ */
+var _user      = null;
+var _pedidos   = null;
+var _pedActivo = null;
+var _chatWhich = null;
+var _dark      = true;
+
+/* ════════════════════════════════════════════
+   INIT — arranca al cargar la página
+════════════════════════════════════════════ */
+(function() {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  // Cargar lista de resellers en background para el dropdown
+  google.script.run
+    .withSuccessHandler(_poblarResellers)
+    .withFailureHandler(function(){})
+    .OMW_getResellersPortal();
+})();
+
+function _poblarResellers(list) {
+  var sel = document.getElementById('rs-nombre');
+  sel.innerHTML = '<option value="">Seleccioná tu empresa…</option>';
+  (list || []).forEach(function(n) {
+    var opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+}
+
+/* ════════════════════════════════════════════
+   LOGIN
+════════════════════════════════════════════ */
+function switchTab(which) {
+  ['bidcom','reseller'].forEach(function(t) {
+    document.getElementById('tab-'+t).classList.toggle('active', t===which);
+    document.getElementById('panel-'+t).classList.toggle('active', t===which);
+  });
+}
+
+function loginBidcom() {
+  var email = document.getElementById('bi-email').value.trim();
+  var errEl = document.getElementById('bi-err');
+  var btn   = document.getElementById('bi-btn');
+  errEl.textContent = '';
+  if (!email) { errEl.textContent = 'Ingresá tu email'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar';
+      if (!res.ok) { errEl.textContent = res.error; return; }
+      _postLogin(res);
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar';
+      errEl.textContent = 'Error: ' + (e.message || 'no se pudo conectar');
+    })
+    .OMW_loginInterno(email);
+}
+
+function loginReseller() {
+  var nombre = document.getElementById('rs-nombre').value;
+  var pin    = document.getElementById('rs-pin').value.trim();
+  var errEl  = document.getElementById('rs-err');
+  var btn    = document.getElementById('rs-btn');
+  errEl.textContent = '';
+  if (!nombre) { errEl.textContent = 'Seleccioná tu empresa'; return; }
+  if (!pin)    { errEl.textContent = 'Ingresá tu contraseña'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar';
+      if (!res.ok) { errEl.textContent = res.error; return; }
+      _postLogin(res);
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar';
+      errEl.textContent = 'Error: ' + (e.message || 'no se pudo conectar');
+    })
+    .OMW_loginReseller(nombre, pin);
+}
+
+function _postLogin(userObj) {
+  _user = userObj;
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-loading').style.display = 'flex';
+  document.getElementById('load-txt').textContent = 'Cargando pipeline…';
+  google.script.run
+    .withSuccessHandler(_onPedidosLoaded)
+    .withFailureHandler(function(e) {
+      document.getElementById('screen-loading').style.display = 'none';
+      document.getElementById('screen-login').style.display = 'flex';
+      document.getElementById('bi-err').textContent = 'Error al cargar datos: ' + (e.message||'');
+    })
+    .OMW_getPedidos();
+}
+
+function _onPedidosLoaded(pedidos) {
+  _pedidos = pedidos;
+  document.getElementById('screen-loading').style.display = 'none';
+
+  var pill = document.getElementById('role-pill');
+  pill.className = 'role-pill ' + _user.rol;
+  document.getElementById('role-pill-txt').textContent = _user.nombre + ' · ' + _rolLabel(_user.rol);
+
+  if (_user.rol !== 'reseller') {
+    document.getElementById('tb-sla-div').style.display = '';
+    _updateSLA();
+  }
+  // Solo RTV y admin full pueden crear pedidos; administracion solo ve acreditación
+  if (_isRoleRTV(_user.rol) || _isRoleAdmin(_user.rol)) {
+    document.getElementById('btn-nuevo-wrap').style.display = '';
+  }
+  document.getElementById('btn-cotiz-wrap').style.display = '';
+
+  document.getElementById('screen-app').style.display = 'flex';
+
+  if (_user.rol === 'reseller') {
+    document.getElementById('reseller-view').style.display = 'block';
+    renderReseller();
+  } else {
+    document.getElementById('board-view').style.display = 'block';
+    renderBoard();
+  }
+}
+
+function _rolLabel(rol) {
+  return {rtv:'RTV', admin:'Administración', administracion:'Administración', logistica:'Logística', reseller:'Reseller'}[rol] || rol;
+}
+
+// 'admin' = rol full con todos los permisos
+function _isRoleAdmin(rol) {
+  return rol === 'admin';
+}
+
+// 'administracion' = rol restrictivo, solo acreditación
+function _isRoleAdministracion(rol) {
+  return rol === 'administracion';
+}
+
+function _isRoleRTV(rol) {
+  return rol === 'rtv';
+}
+
+function _updateSLA() {
+  var n = 0;
+  ['rtv','admin','depo'].forEach(function(s) { (_pedidos[s]||[]).forEach(function(p){ if(p.sla) n++; }); });
+  var el = document.getElementById('tb-sla');
+  el.style.display = n > 0 ? 'flex' : 'none';
+  document.getElementById('tb-sla-txt').textContent = n + ' SLA crítico' + (n!==1?'s':'');
+}
+
+function recargar() {
+  document.getElementById('load-txt').textContent = 'Actualizando…';
+  document.getElementById('screen-loading').style.display = 'flex';
+  google.script.run
+    .withSuccessHandler(function(p) { _pedidos = p; document.getElementById('screen-loading').style.display='none'; renderBoard(); _updateSLA(); })
+    .withFailureHandler(function(e){ document.getElementById('screen-loading').style.display='none'; toast('Error: '+(e.message||''),'err','✕'); })
+    .OMW_getPedidos();
+}
+
+/* ════════════════════════════════════════════
+   BOARD
+════════════════════════════════════════════ */
+function renderBoard() {
+  // 'administracion' solo ve columna admin (acreditación)
+  if (_isRoleAdministracion(_user.rol)) {
+    renderCol('admin', _pedidos.admin || [], true);
+    document.getElementById('cnt-admin').textContent = (_pedidos.admin||[]).length;
+  }
+  // 'admin' full ve todo; RTV ve rtv; logistica ve depo
+  else {
+    renderCol('rtv',   _pedidos.rtv   || [], _isRoleRTV(_user.rol));
+    renderCol('admin', _pedidos.admin || [], _isRoleAdmin(_user.rol));
+    renderCol('depo',  _pedidos.depo  || [], _user.rol === 'logistica');
+    document.getElementById('cnt-rtv').textContent   = (_pedidos.rtv||[]).length;
+    document.getElementById('cnt-admin').textContent = (_pedidos.admin||[]).length;
+    document.getElementById('cnt-depo').textContent  = (_pedidos.depo||[]).length;
+  }
+  _updateSLA();
+}
+
+function renderCol(col, peds, canAct) {
+  var body = document.getElementById('col-'+col+'-body');
+  if (!peds.length) {
+    body.innerHTML = '<div class="col-empty"><i class="fa-solid fa-inbox" style="font-size:18px;opacity:.3;display:block;margin-bottom:6px"></i>Sin pedidos</div>' +
+      (!canAct ? '<div class="col-locked-overlay" style="display:flex"><i class="fa-solid fa-lock"></i><span>Gestionado por<br><strong>'+_colOwner(col)+'</strong></span></div>' : '');
+    return;
+  }
+  body.innerHTML = peds.map(function(p){ return _cardHtml(p, col, canAct); }).join('') +
+    (!canAct ? '<div class="col-locked-overlay" style="display:flex"><i class="fa-solid fa-lock"></i><span>Gestionado por<br><strong>'+_colOwner(col)+'</strong></span></div>' : '');
+}
+
+function _colOwner(col) {
+  return {rtv:'RTV · Revisión Comercial', admin:'Administración', depo:'Logística Interna'}[col] || col;
+}
+
+function _cardHtml(ped, col, canAct) {
+  var locked = !canAct ? ' locked' : '';
+  var sla    = ped.sla ? ' sla' : '';
+  var prods  = (ped.prods||[]).map(function(p){
+    return '<div class="prow"><span class="pqty">×'+p.q+'</span><span class="pname">'+_esc(p.n)+'</span></div>';
+  }).join('');
+  var cta = '';
+  if (canAct && col==='rtv')   cta = '<button class="cta rtv" onclick="event.stopPropagation();abrirRTV(\''+ped.id+'\')"><i class="fa-solid fa-eye"></i> Revisar</button>';
+  if (canAct && col==='admin') cta = '<button class="cta admin" onclick="event.stopPropagation();abrirAdmin(\''+ped.id+'\')"><i class="fa-solid fa-building-columns"></i> Confirmar</button>';
+  if (canAct && col==='depo')  cta = '<button class="cta depo" onclick="event.stopPropagation();generarComanda(\''+ped.id+'\')"><i class="fa-solid fa-file-invoice"></i> Despachar</button>';
+  var alerta = ped.alerta ? '<div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:5px;padding:7px 9px;margin-bottom:9px;font-size:10px;color:var(--red);display:flex;gap:6px"><i class="fa-solid fa-triangle-exclamation"></i><span>'+_esc(ped.alerta)+'</span></div>' : '';
+  var amtLbl = col==='admin' ? '<div class="amount-lbl wait"><i class="fa-solid fa-spinner fa-spin" style="font-size:8px"></i> Esperando acreditación</div>' : col==='depo' ? '<div class="amount-lbl ok">Pago acreditado ✓</div>' : '<div class="amount-lbl">'+_esc(ped.pago)+'</div>';
+  var clickFn = canAct && col==='rtv' ? 'onclick="abrirRTV(\''+ped.id+'\')"' : canAct && col==='admin' ? 'onclick="abrirAdmin(\''+ped.id+'\')"' : '';
+  return '<div class="card-ped '+col+sla+locked+'" '+clickFn+'>' +
+    '<div class="card-inner">' +
+      '<div class="card-row1">' +
+        '<div><div class="card-num">#'+_esc(ped.num)+'</div><div class="card-time"><i class="fa-regular fa-clock" style="font-size:8px"></i> Hace '+ped.horas+'h</div></div>' +
+        '<div class="badges">'+(ped.sla?'<div class="badge-sla"><span class="d"></span>SLA</div>':col==='depo'?'<div class="badge-ok"><i class="fa-solid fa-circle-check" style="font-size:8px"></i> OK</div>':'')+'</div>' +
+      '</div>' +
+      '<div class="party">' +
+        '<div class="party-row"><span class="plbl">Reseller</span><span class="pval res">'+_esc(ped.reseller)+'</span></div>' +
+        '<div class="party-row"><span class="plbl">Cliente</span><span class="pval cli">'+_esc(ped.cliente)+'</span></div>' +
+      '</div>' +
+      '<div class="div"></div>' +
+      '<div class="prods">'+prods+'</div>' +
+      alerta +
+      '<div class="card-foot">' +
+        '<div><div class="amount">'+_esc(ped.importe)+'</div>'+amtLbl+'</div>' +
+        cta +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/* ════════════════════════════════════════════
+   RESELLER VIEW
+════════════════════════════════════════════ */
+function renderReseller() {
+  _cargarCotizaciones();
+  var resellerLow = (_user.reseller || '').trim().toLowerCase();
+  var peds = [];
+  ['rtv','admin','depo','done','rechazado'].forEach(function(s) {
+    (_pedidos[s]||[]).forEach(function(p) {
+      if ((p.reseller||'').trim().toLowerCase() === resellerLow) peds.push(p);
+    });
+  });
+  var list = document.getElementById('res-orders-list');
+  if (!peds.length) { list.innerHTML='<div style="color:var(--txd);text-align:center;padding:24px 0">Sin pedidos activos.</div>'; return; }
+  list.innerHTML = peds.map(function(p) {
+    if (p.stage === 'rechazado') {
+      return '<div class="res-order-card" style="border-color:rgba(239,68,68,.3);background:var(--red-l)">' +
+        '<div class="res-order-head">' +
+          '<div><div class="res-order-num">#'+_esc(p.num)+'</div><div class="res-order-client">'+_esc(p.cliente)+'</div></div>' +
+          '<div><div class="res-order-amount">'+_esc(p.importe)+'</div><div class="res-order-status" style="color:var(--red)">Rechazado por RTV</div></div>' +
+        '</div>' +
+        (p.obsRTV ? '<div style="color:var(--red);font-size:11px;margin-top:8px;padding:6px 8px;background:rgba(239,68,68,.08);border-radius:6px"><b>Motivo:</b> '+_esc(p.obsRTV)+'</div>' : '') +
+        '<button onclick="reenviarPedido(\''+p.id+'\')" class="btn-sm btn-nuevo" style="margin-top:10px"><i class="fa-solid fa-rotate-left"></i> Re-enviar a RTV</button>' +
+      '</div>';
+    }
+    var stages = [
+      {lbl:'Pedido',         s: 'done'},
+      {lbl:'Rev. Comercial', s: p.stage==='rtv'?'active':(p.stage==='admin'||p.stage==='depo'||p.stage==='done'?'done':'idle')},
+      {lbl:'Pago',           s: p.stage==='admin'?'active':(p.stage==='depo'||p.stage==='done'?'done':'idle')},
+      {lbl:'Depósito',       s: p.stage==='depo'?'active':(p.stage==='done'?'done':'idle')}
+    ];
+    var tl = stages.map(function(st,i) {
+      var conn = i<stages.length-1?'<div class="ts-line '+st.s+'"></div>':'';
+      return '<div style="display:flex;align-items:center;flex:1">' +
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">' +
+          '<div class="ts-dot '+st.s+'">'+(st.s==='done'?'✓':'')+'</div>' +
+          '<div class="ts-lbl '+st.s+'">'+_esc(st.lbl)+'</div>' +
+        '</div>'+conn+'</div>';
+    }).join('');
+    var stLbl = {rtv:'En revisión comercial',admin:'Esperando acreditación',depo:'Listo para despacho',done:'Despachado'}[p.stage]||p.stage;
+    var stCls = {rtv:'pending',admin:'processing',depo:'ready',done:'ready'}[p.stage]||'';
+    return '<div class="res-order-card">' +
+      '<div class="res-order-head">' +
+        '<div><div class="res-order-num">#'+_esc(p.num)+'</div><div class="res-order-client">'+_esc(p.cliente)+'</div></div>' +
+        '<div><div class="res-order-amount">'+_esc(p.importe)+'</div><div class="res-order-status '+stCls+'">'+_esc(stLbl)+'</div></div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:0;padding-top:8px">'+tl+'</div>' +
+    '</div>';
+  }).join('');
+}
+
+function reenviarPedido(pedidoId) {
+  if (!confirm('¿Re-enviar este pedido a revisión RTV?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.exito) { toast('Pedido re-enviado a RTV ✅', 'ok', '✅'); _refreshBoard(); }
+      else { toast((r && r.mensaje) || 'Error al re-enviar', 'err', '✕'); }
+    })
+    .withFailureHandler(function(e) { toast('Error: '+(e.message||''),'err','✕'); })
+    .OMW_reenviarPedidoRechazado(pedidoId, {}, _user.reseller, _user.email);
+}
+
+/* ════════════════════════════════════════════
+   MODAL RTV
+════════════════════════════════════════════ */
+function abrirRTV(id) {
+  var ped = (_pedidos.rtv||[]).find(function(p){ return p.id===id; });
+  if (!ped) return;
+  _pedActivo = id;
+  _chatWhich = 'rtv';
+  document.getElementById('rtv-sub').textContent = '#'+ped.num+' · '+ped.reseller+' → '+ped.cliente;
+  document.getElementById('rtv-sla').style.display  = ped.sla ? 'flex' : 'none';
+  document.getElementById('rtv-pago').textContent   = ped.pago;
+  document.getElementById('rtv-summary').innerHTML  = _buildSummary(ped);
+  document.getElementById('rtv-obs').value = '';
+  _resetChks('modal-rtv');
+  document.getElementById('btn-auth').disabled = true;
+  document.getElementById('modal-rtv').style.display = 'flex';
+  _loadChat(id, 'rtv');
+}
+
+function autorizarRTV() {
+  var obs = document.getElementById('rtv-obs').value.trim();
+  var btn = document.getElementById('btn-auth');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
+  google.script.run
+    .withSuccessHandler(function() {
+      cerrarModal('rtv');
+      toast('Pedido autorizado → Administración', 'ok', '✅');
+      _refreshBoard();
+    })
+    .withFailureHandler(function(e) {
+      toast('Error: '+(e.message||''), 'err', '✕');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Autorizar → Admin';
+    })
+    .OMW_autorizarRTV(_pedActivo, obs, _user.email);
+}
+
+function rechazarRTV() {
+  if (!confirm('¿Rechazar este pedido y notificar correcciones?')) return;
+  google.script.run
+    .withSuccessHandler(function() {
+      cerrarModal('rtv');
+      toast('Pedido rechazado.', 'err', '✕');
+      _refreshBoard();
+    })
+    .withFailureHandler(function(e){ toast('Error: '+(e.message||''),'err','✕'); })
+    .OMW_rechazarRTV(_pedActivo, '', _user.email);
+}
+
+/* ════════════════════════════════════════════
+   MODAL ADMIN
+════════════════════════════════════════════ */
+function abrirAdmin(id) {
+  var ped = (_pedidos.admin||[]).find(function(p){ return p.id===id; });
+  if (!ped) { toast('Pedido no encontrado en Administración', 'err', '✕'); return; }
+  _pedActivo = id;
+  _chatWhich = 'admin';
+  document.getElementById('admin-sub').textContent = '#'+ped.num+' · '+ped.reseller;
+  document.getElementById('admin-sla').style.display  = ped.sla ? 'flex' : 'none';
+  document.getElementById('admin-summary').innerHTML  = _buildSummary(ped);
+  document.getElementById('admin-ref').value = '';
+  _resetChks('modal-admin');
+  document.getElementById('btn-acred').disabled = true;
+  document.getElementById('modal-admin').style.display = 'flex';
+  _loadChat(id, 'admin');
+}
+
+function acreditarAdmin() {
+  var ref = document.getElementById('admin-ref').value.trim();
+  var btn = document.getElementById('btn-acred');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
+  google.script.run
+    .withSuccessHandler(function() {
+      cerrarModal('admin');
+      toast('Acreditación confirmada → Depósito', 'ok', '✅');
+      _refreshBoard();
+    })
+    .withFailureHandler(function(e) {
+      toast('Error: '+(e.message||''), 'err', '✕');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirmar Acreditación → Depósito';
+    })
+    .OMW_acreditarAdmin(_pedActivo, ref, _user.email);
+}
+
+/* ════════════════════════════════════════════
+   DESPACHO (Logística)
+════════════════════════════════════════════ */
+function generarComanda(id) {
+  if (!confirm('¿Confirmar despacho del pedido #'+id+'? Esta acción es irreversible.')) return;
+  google.script.run
+    .withSuccessHandler(function() {
+      toast('Comanda generada. Pedido marcado como despachado.', 'ok', '✅');
+      _refreshBoard();
+    })
+    .withFailureHandler(function(e){ toast('Error: '+(e.message||''),'err','✕'); })
+    .OMW_generarComanda(id, _user.email);
+}
+
+/* ════════════════════════════════════════════
+   NUEVO PEDIDO
+════════════════════════════════════════════ */
+var _npProds = [];
+
+function abrirNuevoPedido() {
+  document.getElementById('np-reseller').value = '';
+  document.getElementById('np-cliente').value  = '';
+  document.getElementById('np-importe').value  = '';
+  document.getElementById('np-pago').value     = '';
+  document.getElementById('np-alerta').value   = '';
+  document.getElementById('btn-np-crear').disabled = false;
+  _npProds = [{cant:1,nombre:''}];
+  _renderNPProds();
+  document.getElementById('modal-nuevo').style.display = 'flex';
+}
+
+function _renderNPProds() {
+  var el = document.getElementById('np-prods-list');
+  el.innerHTML = _npProds.map(function(p,i) {
+    return '<div class="prod-row">' +
+      '<input class="fld-inp prod-cant" type="number" min="1" value="'+p.cant+'" placeholder="Qty" oninput="_npProds['+i+'].cant=parseInt(this.value)||1">' +
+      '<input class="fld-inp prod-nombre" type="text" value="'+_esc(p.nombre)+'" placeholder="Ej: DJI Agras T50 — Aeronave" oninput="_npProds['+i+'].nombre=this.value">' +
+      '<button class="prod-rm" onclick="_npRemProd('+i+')" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>' +
+    '</div>';
+  }).join('');
+}
+
+function addProdRow() { _npProds.push({cant:1,nombre:''}); _renderNPProds(); }
+function _npRemProd(i) { _npProds.splice(i,1); if(!_npProds.length) _npProds=[{cant:1,nombre:''}]; _renderNPProds(); }
+
+function crearPedido() {
+  var datos = {
+    reseller: document.getElementById('np-reseller').value.trim(),
+    cliente:  document.getElementById('np-cliente').value.trim(),
+    importe:  parseFloat(document.getElementById('np-importe').value) || 0,
+    pago:     document.getElementById('np-pago').value.trim(),
+    alerta:   document.getElementById('np-alerta').value.trim(),
+    prods:    _npProds.filter(function(p){ return p.nombre.trim(); })
+  };
+  if (!datos.reseller || !datos.cliente || !datos.importe) {
+    toast('Reseller, Cliente e Importe son obligatorios', 'err', '⚠'); return;
+  }
+  var btn = document.getElementById('btn-np-crear');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      cerrarModal('nuevo');
+      toast('Pedido '+res.numero+' creado y en revisión RTV', 'ok', '✅');
+      _refreshBoard();
+    })
+    .withFailureHandler(function(e) {
+      toast('Error: '+(e.message||''), 'err', '✕');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-plus"></i> Crear Pedido';
+    })
+    .OMW_crearPedido(datos, _user.email);
+}
+
+/* ════════════════════════════════════════════
+   CHAT
+════════════════════════════════════════════ */
+function _loadChat(pedidoId, which) {
+  var container = document.getElementById(which+'-chat-msgs');
+  container.innerHTML = '<div style="color:var(--txd);font-size:11px;text-align:center;padding:20px">Cargando…</div>';
+  document.getElementById(which+'-chat-count').textContent = '…';
+  google.script.run
+    .withSuccessHandler(function(msgs) { _renderChat(msgs, pedidoId, which); })
+    .withFailureHandler(function() { container.innerHTML = '<div style="color:var(--red);font-size:11px;text-align:center;padding:20px">Error al cargar mensajes</div>'; })
+    .OMW_getMensajes(pedidoId);
+}
+
+function _renderChat(msgs, pedId, which) {
+  var container = document.getElementById(which+'-chat-msgs');
+  var countEl   = document.getElementById(which+'-chat-count');
+  if (!msgs.length) {
+    container.innerHTML = '<div style="color:var(--txd);font-size:11px;text-align:center;padding:24px 10px;line-height:1.6">Sin mensajes aún.<br>Usá este canal para coordinar condiciones de pago.</div>';
+  } else {
+    container.innerHTML = msgs.map(function(m) {
+      var isMe = (_user.rol === m.rol);
+      var lbl  = m.rol==='rtv'?'RTV':'Admin';
+      var meta = isMe
+        ? '<span>'+_esc(m.ts)+'</span><span class="chat-badge '+m.rol+'">'+lbl+'</span>'
+        : '<span class="chat-badge '+m.rol+'">'+lbl+'</span><span>'+_esc(m.ts)+'</span>';
+      return '<div class="chat-msg '+m.rol+(isMe?' me':' other')+'">' +
+        '<div class="chat-meta">'+meta+'</div>' +
+        '<div class="chat-bubble">'+_esc(m.txt).replace(/\n/g,'<br>')+'</div>' +
+        '</div>';
+    }).join('');
+  }
+  if (countEl) countEl.textContent = msgs.length;
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendChat(which) {
+  var inEl = document.getElementById(which+'-chat-in');
+  var btn  = document.getElementById(which+'-chat-send');
+  var txt  = (inEl ? inEl.value : '').trim();
+  if (!txt || !_pedActivo) return;
+  inEl.disabled = true;
+  btn.disabled  = true;
+  google.script.run
+    .withSuccessHandler(function(msgs) {
+      inEl.value = '';
+      inEl.disabled = false;
+      btn.disabled  = false;
+      _renderChat(msgs, _pedActivo, which);
+      inEl.focus();
+    })
+    .withFailureHandler(function(e) {
+      toast('Error al enviar: '+(e.message||''), 'err', '✕');
+      inEl.disabled = false;
+      btn.disabled  = false;
+    })
+    .OMW_sendMensaje(_pedActivo, txt, _user.email, _user.rol);
+}
+
+/* ════════════════════════════════════════════
+   HELPERS UI
+════════════════════════════════════════════ */
+function _refreshBoard() {
+  google.script.run
+    .withSuccessHandler(function(p) {
+      _pedidos = p;
+      if (_user.rol === 'reseller') renderReseller();
+      else { renderBoard(); _updateSLA(); }
+    })
+    .withFailureHandler(function(e){ toast('Error al actualizar: '+(e.message||''),'err','✕'); })
+    .OMW_getPedidos();
+}
+
+function _buildSummary(ped) {
+  var prods = (ped.prods||[]).map(function(p){ 
+    return '<div class="osr-prod"><span class="osr-qty">×'+p.q+'</span>'+_esc(p.n)+'</div>'; 
+  }).join('');
+  
+  var breakdown = '';
+  if (ped.subtotal || ped.subtotal === 0) {
+    var subtotalNum = parseFloat(ped.subtotal) || 0;
+    var ivaNum = parseFloat(ped.importe.replace(/[^\d.-]/g, '')) - subtotalNum || 0;
+    breakdown = '<div class="osr-price-break" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b);font-size:11px">' +
+      '<div class="osr" style="margin-bottom:4px"><span class="osr-l">Subtotal</span><span class="osr-v">USD ' + subtotalNum.toLocaleString('en-US',{minimumFractionDigits:0}) + '</span></div>' +
+      (ivaNum > 0 ? '<div class="osr" style="margin-bottom:4px"><span class="osr-l">IVA</span><span class="osr-v">USD ' + ivaNum.toLocaleString('en-US',{minimumFractionDigits:0}) + '</span></div>' : '') +
+      '</div>';
+  }
+  
+  return '<div class="osr"><span class="osr-l">Pedido</span><span class="osr-v mono">#'+_esc(ped.num)+'</span></div>'+
+    '<div class="osr"><span class="osr-l">Reseller</span><span class="osr-v">'+_esc(ped.reseller)+'</span></div>'+
+    '<div class="osr"><span class="osr-l">Cliente</span><span class="osr-v">'+_esc(ped.cliente)+'</span></div>'+
+    '<div class="osr"><span class="osr-l">Equipos</span><div class="osr-v"><div>'+prods+'</div></div></div>'+
+    '<div class="osr"><span class="osr-l">Total</span><span class="osr-v gold">'+_esc(ped.importe)+'</span></div>' +
+    breakdown;
+}
+
+function toggleChk(el) {
+  el.classList.toggle('on');
+  var modal   = el.closest('.mbox');
+  var allChks = modal.querySelectorAll('.chk');
+  var onChks  = modal.querySelectorAll('.chk.on');
+  var btnAuth  = modal.querySelector('#btn-auth');
+  var btnAcred = modal.querySelector('#btn-acred');
+  if (btnAuth)  btnAuth.disabled  = onChks.length < allChks.length;
+  if (btnAcred) btnAcred.disabled = onChks.length < allChks.length;
+}
+
+function _resetChks(modalId) {
+  document.querySelectorAll('#'+modalId+' .chk').forEach(function(el){ el.classList.remove('on'); });
+}
+
+function cerrarModal(id) {
+  document.getElementById('modal-'+id).style.display = 'none';
+  var inEl = document.getElementById(id+'-chat-in');
+  if (inEl) inEl.value = '';
+  _pedActivo = null;
+  _chatWhich = null;
+  if (id === 'cotiz') _cResetModalState();
+}
+
+function toast(msg, type, icon) {
+  var wrap = document.getElementById('toast-wrap');
+  var el   = document.createElement('div');
+  el.className = 'ti '+(type||'inf');
+  el.innerHTML = '<span style="font-size:15px">'+(icon||'ℹ')+'</span><span class="ti-msg">'+msg+'</span>';
+  wrap.appendChild(el);
+  setTimeout(function(){
+    el.style.transition='opacity .3s,transform .3s';
+    el.style.opacity='0'; el.style.transform='translateX(14px)';
+    setTimeout(function(){ el.remove(); }, 320);
+  }, 3800);
+}
+
+function toggleTheme() {
+  _dark = !_dark;
+  var ico = _dark ? '🌙' : '☀️';
+  document.documentElement.setAttribute('data-theme', _dark?'dark':'light');
+  var b1 = document.getElementById('theme-btn');
+  var b2 = document.getElementById('theme-btn-login');
+  if (b1) b1.textContent = ico;
+  if (b2) b2.textContent = ico;
+}
+
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key==='Escape') { cerrarModal('rtv'); cerrarModal('admin'); cerrarModal('nuevo'); cerrarModal('cotiz'); }
+});
+
+/* ════════════════════════════════════════════
+   COTIZADOR
+════════════════════════════════════════════ */
+var _tablaCondiciones = null; // cache completo de precios — se carga una sola vez
+var _catalogoCotiz    = null; // derivado de _tablaCondiciones: [{sku, cat, metodos[]}]
+var _cotizActiva      = null;
+var _preFillSku       = null;
+var _preFillMetodo = null;
+
+function _cResetModalState() {
+  document.getElementById('cotiz-client-form').style.display    = 'none';
+  document.getElementById('btn-volver-cotiz').style.display     = 'none';
+  document.getElementById('btn-confirmar-cotiz').style.display  = 'none';
+  document.getElementById('btn-cerrar-cotiz').style.display     = '';
+  ['cot-nombre','cot-empresa','cot-cuit','cot-tel','cot-email','cot-notas'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+
+function abrirCotizador(preFillSku, preFillMetodo) {
+  _preFillSku    = preFillSku    || null;
+  _preFillMetodo = preFillMetodo || null;
+  _cotizActiva   = null;
+  document.getElementById('cotiz-breakdown').style.display     = 'none';
+  document.getElementById('cotiz-err').style.display           = 'none';
+  document.getElementById('cotiz-calc').style.display          = 'none';
+  document.getElementById('btn-usar-cotiz').style.display      = 'none';
+  document.getElementById('btn-guardar-cotiz').style.display   = 'none';
+  _cResetModalState();
+  document.getElementById('modal-cotiz').style.display         = 'flex';
+
+  if (_catalogoCotiz) { _cPoblarSkus(_catalogoCotiz); return; }
+
+  var skuSel = document.getElementById('cotiz-sku');
+  skuSel.innerHTML = '<option value="">Cargando catálogo…</option>';
+  skuSel.disabled  = true;
+  document.getElementById('cotiz-metodo').disabled = true;
+  document.getElementById('cotiz-calc').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(function(tabla) {
+      document.getElementById('cotiz-calc').style.display = 'none';
+      _tablaCondiciones = tabla || [];
+      // Deriva el catálogo de SKUs agrupando por sku (mantiene orden del sheet)
+      var map = {}, order = [];
+      _tablaCondiciones.forEach(function(r) {
+        if (!map[r.sku]) { map[r.sku] = { cat: r.cat, metodos: [] }; order.push(r.sku); }
+        if (map[r.sku].metodos.indexOf(r.metodo) === -1) map[r.sku].metodos.push(r.metodo);
+      });
+      _catalogoCotiz = order.map(function(sku) { return { sku: sku, cat: map[sku].cat, metodos: map[sku].metodos }; });
+      _cPoblarSkus(_catalogoCotiz);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('cotiz-calc').style.display = 'none';
+      document.getElementById('cotiz-err').textContent = 'Error al cargar catálogo: ' + (e.message || 'sin detalle');
+      document.getElementById('cotiz-err').style.display = 'block';
+    })
+    .OMW_getTablaCondiciones();
+}
+
+function _cPoblarSkus(cat) {
+  var skuSel = document.getElementById('cotiz-sku');
+  skuSel.innerHTML = '<option value="">— Seleccioná un SKU —</option>';
+  cat.forEach(function(item, i) {
+    var opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = item.sku + ' (' + item.cat + ')';
+    skuSel.appendChild(opt);
+  });
+  skuSel.disabled = false;
+
+  if (_preFillSku) {
+    var targetSku = _preFillSku.toUpperCase();
+    var found = false;
+    cat.forEach(function(item, i) {
+      if (!found && item.sku.toUpperCase() === targetSku) {
+        skuSel.selectedIndex = i + 1; found = true;
+      }
+    });
+    if (found) { _cOnSkuChange(); return; }
+  }
+  if (cat.length === 1) { skuSel.selectedIndex = 1; _cOnSkuChange(); }
+}
+
+function _cOnSkuChange() {
+  var skuSel = document.getElementById('cotiz-sku');
+  var metSel = document.getElementById('cotiz-metodo');
+  _cotizActiva = null;
+  document.getElementById('cotiz-breakdown').style.display    = 'none';
+  document.getElementById('cotiz-err').style.display          = 'none';
+  document.getElementById('btn-usar-cotiz').style.display     = 'none';
+  document.getElementById('btn-guardar-cotiz').style.display  = 'none';
+  _cResetModalState();
+
+  var idxStr = skuSel.value;
+  if (!idxStr) {
+    metSel.innerHTML = '<option value="">— Seleccioná SKU primero —</option>';
+    metSel.disabled  = true;
+    return;
+  }
+  var item = _catalogoCotiz[parseInt(idxStr, 10)];
+  metSel.innerHTML = '<option value="">— Método de Pago —</option>';
+  (item.metodos || []).forEach(function(m) {
+    var opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    metSel.appendChild(opt);
+  });
+  metSel.disabled = false;
+
+  if (_preFillMetodo) {
+    var targetMet = _preFillMetodo.toLowerCase();
+    var foundIdx  = -1;
+    (item.metodos || []).forEach(function(m, i) { if (m.toLowerCase() === targetMet) foundIdx = i; });
+    if (foundIdx >= 0) {
+      metSel.selectedIndex = foundIdx + 1;
+      _preFillMetodo = null;
+      _cOnMetodoChange();
+      return;
+    }
+  }
+  if (item.metodos.length > 0) { metSel.selectedIndex = 1; _cOnMetodoChange(); }
+}
+
+function _cOnMetodoChange() {
+  var skuSel = document.getElementById('cotiz-sku');
+  var metSel = document.getElementById('cotiz-metodo');
+  var idxStr = skuSel.value;
+  var metodo = metSel.value;
+  _cotizActiva = null;
+  document.getElementById('cotiz-breakdown').style.display    = 'none';
+  document.getElementById('cotiz-err').style.display          = 'none';
+  document.getElementById('btn-usar-cotiz').style.display     = 'none';
+  document.getElementById('btn-guardar-cotiz').style.display  = 'none';
+  _cResetModalState();
+
+  if (!idxStr || !metodo) return;
+
+  var item = _catalogoCotiz[parseInt(idxStr, 10)];
+  var skuN = item.sku.toUpperCase();
+  var metN = metodo.toLowerCase();
+
+  // Búsqueda local en caché — sin round-trip al servidor
+  var found = null;
+  for (var i = 0; i < (_tablaCondiciones || []).length; i++) {
+    var r = _tablaCondiciones[i];
+    if (r.sku.toUpperCase() === skuN && r.metodo.toLowerCase() === metN) { found = r; break; }
+  }
+  if (!found) {
+    document.getElementById('cotiz-err').textContent = 'Condición no disponible para esta combinación';
+    document.getElementById('cotiz-err').style.display = 'block';
+    return;
+  }
+  _cOnLoaded({ ok: true, categoria: found.cat, sku: found.sku, metodoPago: found.metodo,
+    pvp: found.pvp, pvpStr: found.pvpStr, ivaStr: found.ivaStr,
+    comLlenaStr: found.comLlenaStr, descCompStr: found.descCompStr,
+    voucherStr: found.voucherStr, cftStr: found.cftStr, descResStr: found.descResStr,
+    pctComStr: found.pctComStr, comision: found.comision, comisionStr: found.comisionStr,
+    subtotalCL: found.subtotalCL, subtotalStr: found.subtotalStr,
+    ivaCL: found.ivaCL, ivaCLStr: found.ivaCLStr, totalCL: found.totalCL, totalStr: found.totalStr
+  });
+}
+
+function _cOnLoaded(res) {
+  document.getElementById('cotiz-calc').style.display = 'none';
+  if (!res || !res.ok) {
+    document.getElementById('cotiz-err').textContent = (res && res.error) || 'Condición no disponible';
+    document.getElementById('cotiz-err').style.display = 'block';
+    return;
+  }
+  _cotizActiva = res;
+
+  document.getElementById('cv-cat').textContent      = res.categoria;
+  document.getElementById('cv-sku').textContent      = res.sku;
+  document.getElementById('cv-pvp').textContent      = res.pvpStr;
+  document.getElementById('cv-iva').textContent      = res.ivaStr;
+  document.getElementById('cv-com-ll').textContent   = res.comLlenaStr;
+  document.getElementById('cv-desc-co').textContent  = res.descCompStr;
+  document.getElementById('cv-voucher').textContent  = res.voucherStr;
+  document.getElementById('cv-cft').textContent      = res.cftStr;
+  document.getElementById('cv-sub').textContent      = res.subtotalStr;
+  document.getElementById('cv-iva-cl').textContent   = res.ivaCLStr;
+  document.getElementById('cv-total').textContent    = res.totalStr;
+  document.getElementById('cv-pct-com').textContent  = res.pctComStr;
+  document.getElementById('cv-comision').textContent = res.comisionStr;
+  document.getElementById('cv-desc-res').textContent = res.descResStr;
+
+  document.getElementById('cotiz-breakdown').style.display = 'block';
+
+  if (_user && _user.rol === 'reseller') {
+    document.getElementById('btn-guardar-cotiz').style.display = 'flex';
+  } else if (_user) {
+    document.getElementById('btn-usar-cotiz-amt').textContent = res.totalStr;
+    document.getElementById('btn-usar-cotiz').style.display   = 'flex';
+  }
+}
+
+function _cMostrarFormCliente() {
+  document.getElementById('cotiz-client-form').style.display   = 'block';
+  document.getElementById('btn-guardar-cotiz').style.display   = 'none';
+  document.getElementById('btn-cerrar-cotiz').style.display    = 'none';
+  document.getElementById('btn-volver-cotiz').style.display    = 'flex';
+  document.getElementById('btn-confirmar-cotiz').style.display = 'flex';
+  setTimeout(function() { document.getElementById('cot-nombre').focus(); }, 50);
+}
+
+function _cVolverBreakdown() {
+  document.getElementById('cotiz-client-form').style.display   = 'none';
+  document.getElementById('btn-volver-cotiz').style.display    = 'none';
+  document.getElementById('btn-confirmar-cotiz').style.display = 'none';
+  document.getElementById('btn-cerrar-cotiz').style.display    = '';
+  document.getElementById('btn-guardar-cotiz').style.display   = 'flex';
+}
+
+function confirmarGuardarCotiz() {
+  var nombre = document.getElementById('cot-nombre').value.trim();
+  if (!nombre) { toast('El nombre del cliente es obligatorio', 'err', '⚠'); document.getElementById('cot-nombre').focus(); return; }
+  if (!_cotizActiva) { toast('Sin cotización activa', 'err', '✕'); return; }
+
+  var datos = {
+    reseller:   _user.reseller,
+    nombreCli:  nombre,
+    empresaCli: document.getElementById('cot-empresa').value.trim(),
+    cuit:       document.getElementById('cot-cuit').value.trim(),
+    tel:        document.getElementById('cot-tel').value.trim(),
+    emailCli:   document.getElementById('cot-email').value.trim(),
+    notas:      document.getElementById('cot-notas').value.trim(),
+    sku:        _cotizActiva.sku,
+    categoria:  _cotizActiva.categoria,
+    metodoPago: _cotizActiva.metodoPago,
+    pvp:        _cotizActiva.pvp,
+    subtotalCL: _cotizActiva.subtotalCL,
+    ivaCL:      _cotizActiva.ivaCL,
+    totalCL:    _cotizActiva.totalCL
+  };
+
+  var btn = document.getElementById('btn-confirmar-cotiz');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando…';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Confirmar';
+      if (!res.exito) { toast('Error: ' + (res.mensaje || ''), 'err', '✕'); return; }
+      cerrarModal('cotiz');
+      toast('Cotización #' + res.id + ' guardada', 'ok', '✅');
+      _cargarCotizaciones();
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Confirmar';
+      toast('Error: ' + (e.message || ''), 'err', '✕');
+    })
+    .OMW_guardarCotizacion(datos);
+}
+
+/* ─── Mis Cotizaciones ───────────────────── */
+function _cargarCotizaciones() {
+  if (!_user || _user.rol !== 'reseller') return;
+  var el = document.getElementById('res-cotiz-list');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--txd);font-size:11px;text-align:center;padding:16px">Cargando…</div>';
+  google.script.run
+    .withSuccessHandler(_renderCotizaciones)
+    .withFailureHandler(function(e) {
+      var el2 = document.getElementById('res-cotiz-list');
+      if (el2) el2.innerHTML = '<div style="color:var(--red);font-size:11px;text-align:center;padding:16px">Error al cargar: ' + _esc(e.message||'') + '</div>';
+    })
+    .OMW_getCotizaciones(_user.reseller);
+}
+
+function _renderCotizaciones(list) {
+  var el = document.getElementById('res-cotiz-list');
+  if (!el) return;
+  if (!list || !list.length) {
+    el.innerHTML = '<div style="color:var(--txd);font-size:11px;text-align:center;padding:24px 0"><i class="fa-solid fa-file-circle-xmark" style="font-size:22px;opacity:.25;display:block;margin-bottom:8px"></i>Sin cotizaciones guardadas.</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(c) {
+    var badgeMap = {
+      nueva:       'background:var(--blue-l);border:1px solid rgba(59,130,246,.3);color:var(--blue)',
+      seguimiento: 'background:var(--amber-l);border:1px solid rgba(245,158,11,.3);color:var(--amber)',
+      cerrada:     'background:rgba(255,255,255,.04);border:1px solid var(--bm);color:var(--txd)'
+    };
+    var badgeStyle = badgeMap[(c.estado||'nueva').toLowerCase()] || badgeMap.nueva;
+    var extra = [];
+    if (c.cuit)     extra.push('CUIT: ' + _esc(c.cuit));
+    if (c.tel)      extra.push('📞 ' + _esc(c.tel));
+    if (c.emailCli) extra.push('✉ ' + _esc(c.emailCli));
+    var safeSkuArg  = c.sku.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var safeMetArg  = c.metodoPago.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var esNueva      = c.estado.toLowerCase() !== 'seguimiento';
+    var esCerrada    = c.estado.toLowerCase() === 'cerrada';
+    return '<div class="res-cotiz-card" onclick="cargarCotizEnCotizador(\'' + safeSkuArg + '\',\'' + safeMetArg + '\')">' +
+      '<div class="res-cotiz-head">' +
+        '<div>' +
+          '<div class="res-cotiz-cliente">' + _esc(c.nombreCli||'—') + (c.empresaCli ? ' <span style="color:var(--txm);font-weight:400">· ' + _esc(c.empresaCli) + '</span>' : '') + '</div>' +
+          '<div class="res-cotiz-sku">' + _esc(c.sku) + ' &nbsp;·&nbsp; ' + _esc(c.metodoPago) + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<div class="res-cotiz-total">' + _esc(c.totalStr) + '</div>' +
+          '<div class="res-cotiz-fecha">' + _esc(c.fecha) + '</div>' +
+        '</div>' +
+      '</div>' +
+      (extra.length ? '<div style="font-size:10px;color:var(--txm);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">' + extra.join('') + '</div>' : '') +
+      (c.notas ? '<div style="font-size:10px;color:var(--txd);margin-top:5px;font-style:italic">' + _esc(c.notas) + '</div>' : '') +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">' +
+        '<span class="res-cotiz-badge" style="' + badgeStyle + '">' + _esc(c.estado) + '</span>' +
+        '<div style="display:flex;gap:5px" onclick="event.stopPropagation()">' +
+          (c.puedeFormalizar ? '<button class="btn-sm" style="font-size:9px;padding:4px 8px;background:var(--blue-l);border:1px solid rgba(59,130,246,.35);color:var(--blue)" onclick="formalizarCotizacion(\'' + c.id + '\')"><i class="fa-solid fa-arrow-up-right-from-square"></i> Formalizar</button>' : '') +
+          (esNueva && !esCerrada ? '<button class="btn-sm" style="font-size:9px;padding:3px 7px" onclick="_setEstadoCotiz(\'' + c.id + '\',\'Seguimiento\')">Seguimiento</button>' : '') +
+          (!esCerrada ? '<button class="btn-sm" style="font-size:9px;padding:3px 7px;color:var(--txd)" onclick="_setEstadoCotiz(\'' + c.id + '\',\'Cerrada\')">Cerrar</button>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function cargarCotizEnCotizador(sku, metodo) {
+  abrirCotizador(sku, metodo);
+}
+
+function _setEstadoCotiz(id, estado) {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res.exito) { toast('Error: ' + (res.mensaje||''), 'err', '✕'); return; }
+      _cargarCotizaciones();
+    })
+    .withFailureHandler(function(e) { toast('Error: ' + (e.message||''), 'err', '✕'); })
+    .OMW_actualizarEstadoCotiz(id, estado, _user.reseller);
+}
+
+// DIRECTIVA 2: Formalización Atómica de Cotización → Pedido
+// El reseller convierte su borrador en un pedido en el pipeline de RTV
+function formalizarCotizacion(cotizId) {
+  if (!confirm('¿Formalizar esta cotización?\n\nSe convertirá en un pedido y se enviará a revisión de RTV.\n\nLos precios quedarán congelados y no podrán ser modificados.')) return;
+  
+  var btn = event.target.closest('button');
+  var originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      
+      if (!res.exito) {
+        var errMsg = res.mensaje || 'Error desconocido';
+        if (res.codigoError === 'ALREADY_CONVERTED') {
+          toast('⚠ Esta cotización ya fue formalizada previamente', 'err', '⚠');
+        } else if (res.codigoError === 'LOCK_TIMEOUT') {
+          toast('⏱ Sistema ocupado, intenta en 10 segundos', 'err', '⏱');
+        } else {
+          toast('Error: ' + errMsg, 'err', '✕');
+        }
+        return;
+      }
+      
+      // Éxito: actualizar lista y mostrar confirmación
+      toast('✅ Pedido ' + res.idPedido + ' formalizado y enviado a RTV', 'ok', '✅');
+      _cargarCotizaciones();
+      _refreshBoard();  // Actualizar tablero si el reseller lo ve
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      toast('Error: ' + (e.message||''), 'err', '✕');
+    })
+    .OMW_formalizarPedido(cotizId, _user.reseller, _user.email);
+}
+
+function usarCotizacion() {
+  if (!_cotizActiva) return;
+  var cot = _cotizActiva;
+  cerrarModal('cotiz');
+  abrirNuevoPedido();
+  document.getElementById('np-importe').value = cot.totalCL.toFixed(2);
+  document.getElementById('np-pago').value    = cot.metodoPago;
+  if (_user && _user.reseller) document.getElementById('np-reseller').value = _user.reseller;
+  _npProds = [{ cant: 1, nombre: cot.sku + ' · ' + cot.categoria }];
+  _renderNPProds();
+}
+</script>
+</body>
+</html>

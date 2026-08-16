@@ -9,6 +9,10 @@
 # Agentes IA
 .ai_agents/
 
+# Catálogo EPC — Excel fuente + imágenes extraídas (pesan cientos de MB, algunos
+# superan el límite de 100MB de GitHub). Si hace falta versionarlos, usar Git LFS.
+Explotadas/
+
 # Node / misc
 node_modules/
 *.log
