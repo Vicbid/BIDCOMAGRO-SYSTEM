@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Command Center del supervisor: métricas, logs,
 //  pendientes de envío, deuda de resellers, búsquedas/historial de
@@ -255,8 +255,9 @@ function sincronizarDeudaReseller(data) {
     if (ped > env) {
       var cod  = p[0].trim();
       var desc = p[1].replace("(" + cod + ")", "").trim();
-      // Preparamos la fila en memoria
-      filasAgregar.push([fechaHoy, data.ot, data.reseller, cod, desc, ped, env, ped - env, "Pendiente", data.estado]);
+      // Preparamos la fila en memoria — _antiFormula en reseller/cod/desc (texto libre, ver
+      // _antiFormula en HUB_Código.js): sin esto se escriben crudos en DEUDA_RESELLERS.
+      filasAgregar.push([fechaHoy, data.ot, _antiFormula(data.reseller), _antiFormula(cod), _antiFormula(desc), ped, env, ped - env, "Pendiente", data.estado]);
     }
   }
 

@@ -2,7 +2,7 @@
 //  DJI HUB PRO v14.1 — Codigo.gs
 //  Proyecto: DJI HUB PRO
 //  Sheet ID: MASTER_SHEET_ID (Env.js) — ver getDb()/getSheet() ahí.
-// @version 2.33
+// @version 2.34
 //
 //  Router (doGet) + utilidades base compartidas por todo el proyecto:
 //  sesión (identificarUsuario), logs (registrarLog/registrarEmailLog),
@@ -25,7 +25,7 @@
 // embebida al cargar la página y la vuelve a consultar cada tanto (HUB_obtenerVersionActual)
 // para avisar si quedó una pestaña vieja abierta. Ver _chequearVersionNueva en Index.html.
 // Mismo patrón que Portal Reseller (RS_Main.js:PORTAL_VERSION).
-var HUB_VERSION = '2.31';
+var HUB_VERSION = '2.32';
 
 function HUB_obtenerVersionActual() {
   return HUB_VERSION;
@@ -36,6 +36,16 @@ function HUB_obtenerVersionActual() {
 function _htmlEsc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Range.setValue() interpreta como fórmula cualquier string que empiece con = + - @ (o tab/CR)
+// — mismo comportamiento que tipear a mano en una celda. Sin esto, cualquier campo de texto
+// libre (equipo, trabajo, informe técnico, etc.) podía ejecutar una fórmula en vivo contra la
+// hoja real de OTs (ej. =IMPORTXML para exfiltración). Antepone un apóstrofo para forzar texto
+// plano, igual que hacerlo a mano. Mismo helper que ya existe en Portal Reseller (RS_Main.js).
+function _antiFormula(s) {
+  var v = String(s == null ? '' : s);
+  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
 }
 
 function _fmtNum(n) {
@@ -131,7 +141,11 @@ function identificarUsuario() {
         return { nombre: nombre, email: email, rol: rol, esTecnico: esTecnico };
       }
     }
-    return { nombre: emailActivo, email: emailActivo, rol: "operador", esTecnico: false };
+    // Fail-closed: antes, un email del dominio que no estuviera en Usuarios_Internos igual
+    // entraba como "operador" — la lista no era una puerta, solo un directorio para el nombre
+    // mostrado. Con access:DOMAIN en appsscript.json (cualquier cuenta del Workspace puede abrir
+    // la app), eso permitía invocar cualquier función que mute datos sin estar habilitado.
+    return null;
   } catch(e) {
     Logger.log("identificarUsuario: " + e);
     return null;
@@ -140,7 +154,10 @@ function identificarUsuario() {
 
 
 function registrarLog(ot, tec, em, acc, ant, nue, det) {
-  try { getSheet(SCHEMA.SHEETS.LOGS).appendRow([new Date(), ot, tec, em, acc, ant, nue, det]); } catch(e) {
+  // _antiFormula en tec/det: son los 2 campos de texto libre de esta fila (tec puede traer
+  // el nombre del técnico tipeado, det el detalle armado con datos de la OT) — un solo lugar
+  // acá cubre a todos los que llaman registrarLog(), sin tocar cada call site.
+  try { getSheet(SCHEMA.SHEETS.LOGS).appendRow([new Date(), ot, _antiFormula(tec), em, acc, ant, nue, _antiFormula(det)]); } catch(e) {
     var payload = JSON.stringify({ modulo: "registrarLog", hoja: "LOGS", ot: ot, accion: acc, error: e.toString() });
     Logger.log("ERROR_LOGS_APPEND: " + payload);
     console.log(payload);

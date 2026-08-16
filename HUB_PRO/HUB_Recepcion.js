@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Recepción obligatoria de equipos (circuito Taller)
 //  Registro permanente de con qué accesorios ingresó un equipo al
@@ -122,6 +122,7 @@ function confirmarRecepcionEquipo(payload) {
     var ahora    = new Date();
     var usuario  = Session.getActiveUser().getEmail();
     var _u       = identificarUsuario();
+    if (!_u) return { resultado: 'No autorizado.' };
     var usuarioNombre = (_u && _u.nombre) ? _u.nombre : usuario;
 
     var tipoEquipo    = (['Dron', 'Bateria', 'Control', 'Generador', 'Mavic'].indexOf(payload.tipoEquipo) !== -1) ? payload.tipoEquipo : 'Dron';
@@ -138,7 +139,7 @@ function confirmarRecepcionEquipo(payload) {
     _recepcionHoja().appendRow([
       ahora, ot, usuario, tipoEquipo, baterias,
       controlRemoto ? 'SI' : '', coolingBox ? 'SI' : '', cargador ? 'SI' : '', helices ? 'SI' : '',
-      otros, observaciones
+      _antiFormula(otros), _antiFormula(observaciones)
     ]);
     invalidateSheetValues(SCHEMA.SHEETS.RECEPCIONES_EQUIPO);
 

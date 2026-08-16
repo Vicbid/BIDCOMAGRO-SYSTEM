@@ -1,4 +1,4 @@
-// @version 1.4
+// @version 1.5
 // ============================================================
 //  HUB PRO — Motor de notificaciones por mail ante cambio de estado
 //  de una OT (reseller/técnico/supervisor/facturación) + las 2
@@ -68,7 +68,7 @@ function HUB_notificarOT(numeroOT, forzarAbierto) {
     };
   } catch(e) {
     Logger.log("HUB_notificarOT: " + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Revisá los logs.' };
   }
 }
 
@@ -151,7 +151,7 @@ function HUB_diagnosticoBateria(numeroOT) {
     return r;
   } catch(e) {
     Logger.log("HUB_diagnosticoBateria: " + e);
-    return { ok: false, error: e.toString() };
+    return { ok: false, error: 'No se pudo procesar la solicitud. Revisá los logs.' };
   }
 }
 

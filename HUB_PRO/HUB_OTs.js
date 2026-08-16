@@ -1,4 +1,4 @@
-// @version 1.10
+// @version 1.11
 // ============================================================
 //  HUB PRO — Órdenes de trabajo: CRUD/listado, catálogo, pedido de
 //  repuestos para una OT, validación de duplicados CAS/FWRC/SN.
@@ -11,6 +11,8 @@ var WOS_SS_ID    = '1IjCHG0BZ4ZiISca10d9GYU2gDQvwDgWibDaStjb1giw';
 var WOS_HOJA_PED = 'Pedidos_OTs';
 
 function HUB_generarPedidoRepuestos(data) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false, error: 'No autorizado.' };
   // Lock: sin esto, dos pedidos simultáneos de la misma OT con SKUs solapados pueden leer
   // "existingSKUs" antes de que el otro termine de escribir y duplicar líneas reales hacia WOS.
   var lock = LockService.getScriptLock();
@@ -92,7 +94,8 @@ function HUB_generarPedidoRepuestos(data) {
       var itemsText = '';
       for (var ii = 0; ii < items.length; ii++) {
         var itI = items[ii];
-        itemsText += '• ' + _htmlEsc(String(itI.cod || '').trim()) + ' · ' + _htmlEsc(String(itI.desc || '').trim()) + ' (x' + (Number(itI.qty) || 1) + ')\n';
+        var itISinCat = !priceMap.hasOwnProperty(String(itI.cod || '').trim().toUpperCase());
+        itemsText += '• ' + _htmlEsc(String(itI.cod || '').trim()) + ' · ' + _htmlEsc(String(itI.desc || '').trim()) + ' (x' + (Number(itI.qty) || 1) + ')' + (itISinCat ? ' ⚠️ SIN PRECIO CATALOGADO' : '') + '\n';
       }
       var bodyHtml = existingThreadId
         ? '<p>Ítems adicionales agregados a <strong>' + numero + '</strong>:</p>' +
@@ -112,13 +115,17 @@ function HUB_generarPedidoRepuestos(data) {
       if (!it.cod || !it.desc) continue;
       var qty    = Number(it.qty) || 1;
       var skuUp  = String(it.cod || '').trim().toUpperCase();
-      var precio = priceMap[skuUp] || Number(it.precio || it.price || 0);
+      // No confiar nunca en it.precio/it.price (vienen del cliente) — si el SKU no está en
+      // Lista_Repuestos, el precio queda en 0 y el ítem ya se marcó "SIN PRECIO CATALOGADO"
+      // en el mail de arriba, para revisión manual, en vez de aceptar cualquier número que
+      // mande el navegador.
+      var precio = priceMap.hasOwnProperty(skuUp) ? priceMap[skuUp] : 0;
       // 26 posiciones: índice 0=A … 25=Z
       var fila = ['','','','','','','','','','','','','','','','','','','','','','','','','',''];
       fila[0]  = numero;                                   // A NUMERO
-      fila[1]  = reseller;                                 // B RESELLER
-      fila[2]  = String(it.cod  || '').trim().toUpperCase(); // C SKU
-      fila[3]  = String(it.desc || '').trim();             // D DESC
+      fila[1]  = _antiFormula(reseller);                   // B RESELLER
+      fila[2]  = _antiFormula(String(it.cod  || '').trim().toUpperCase()); // C SKU
+      fila[3]  = _antiFormula(String(it.desc || '').trim()); // D DESC
       fila[4]  = qty;                                      // E CANT_SOL
       fila[5]  = 0;                                        // F CANT_DESP
       // G(6) CANT_PEND: se pone fórmula después (appendRow no soporta fórmulas)
@@ -479,6 +486,8 @@ function obtenerDetalleOT(fila) {
 //  ACTUALIZAR ORDEN (CORREGIDA Y MAPEADA COLUMNA POR COLUMNA)
 // ============================================================
 function actualizarOrden(data) {
+  var _u = identificarUsuario();
+  if (!_u) return { resultado: 'No autorizado.', ot: data.ot || '' };
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
@@ -548,27 +557,30 @@ function actualizarOrden(data) {
     }
 
     // Escritura inequívoca por columna (evita desfasajes)
-    hoja.getRange(fila, SCHEMA.OT.GARANTIA         + 1).setValue(data.garantia);
+    // _antiFormula en los campos de texto libre: sin esto, un valor que empiece con
+    // =/+/-/@ se ejecuta como fórmula en vivo contra la hoja real de OTs (ver _antiFormula,
+    // HUB_Código.js). data.estado/data.prioridad no van (dropdowns fijos, no texto libre).
+    hoja.getRange(fila, SCHEMA.OT.GARANTIA         + 1).setValue(_antiFormula(data.garantia));
     hoja.getRange(fila, SCHEMA.OT.ESTADO           + 1).setValue(data.estado);
-    hoja.getRange(fila, SCHEMA.OT.EQUIPO           + 1).setValue(data.equipo);
-    hoja.getRange(fila, SCHEMA.OT.SN               + 1).setValue(data.sn);
-    hoja.getRange(fila, SCHEMA.OT.RESELLER         + 1).setValue(data.reseller);
+    hoja.getRange(fila, SCHEMA.OT.EQUIPO           + 1).setValue(_antiFormula(data.equipo));
+    hoja.getRange(fila, SCHEMA.OT.SN               + 1).setValue(_antiFormula(data.sn));
+    hoja.getRange(fila, SCHEMA.OT.RESELLER         + 1).setValue(_antiFormula(data.reseller));
     if (data.mensajes !== undefined) hoja.getRange(fila, SCHEMA.OT.MENSAJES + 1).setValue(data.mensajes || "");
-    hoja.getRange(fila, SCHEMA.OT.TRABAJO          + 1).setValue(data.trabajo);
-    if (data.informeTecnico !== undefined) hoja.getRange(fila, SCHEMA.OT.INFORME_TECNICO + 1).setValue(data.informeTecnico || "");
+    hoja.getRange(fila, SCHEMA.OT.TRABAJO          + 1).setValue(_antiFormula(data.trabajo));
+    if (data.informeTecnico !== undefined) hoja.getRange(fila, SCHEMA.OT.INFORME_TECNICO + 1).setValue(_antiFormula(data.informeTecnico || ""));
     hoja.getRange(fila, SCHEMA.OT.FECHA_ACTIVACION + 1).setValue(data.factura || "");
-    hoja.getRange(fila, SCHEMA.OT.CAS              + 1).setValue(data.cas);
-    if (data.fwrc !== undefined) hoja.getRange(fila, SCHEMA.OT.FWRC + 1).setValue(data.fwrc || "");
-    hoja.getRange(fila, SCHEMA.OT.REPUESTOS        + 1).setValue(data.repuestos);
+    hoja.getRange(fila, SCHEMA.OT.CAS              + 1).setValue(_antiFormula(data.cas));
+    if (data.fwrc !== undefined) hoja.getRange(fila, SCHEMA.OT.FWRC + 1).setValue(_antiFormula(data.fwrc || ""));
+    hoja.getRange(fila, SCHEMA.OT.REPUESTOS        + 1).setValue(_antiFormula(data.repuestos));
     hoja.getRange(fila, SCHEMA.OT.PRIORIDAD        + 1).setValue(data.prioridad ? "URGENTE" : "NORMAL");
-    hoja.getRange(fila, SCHEMA.OT.CIRCUITO         + 1).setValue(data.circuito);
+    hoja.getRange(fila, SCHEMA.OT.CIRCUITO         + 1).setValue(_antiFormula(data.circuito));
     // Origen del repuesto (AA) y tipo de cierre (AB) — informativos, editables en HUB
-    if (data.origenRepuesto !== undefined) hoja.getRange(fila, SCHEMA.OT.ORIGEN_REPUESTO + 1).setValue(data.origenRepuesto || "");
-    if (data.cierreTipo     !== undefined) hoja.getRange(fila, SCHEMA.OT.CIERRE_TIPO     + 1).setValue(data.cierreTipo || "");
+    if (data.origenRepuesto !== undefined) hoja.getRange(fila, SCHEMA.OT.ORIGEN_REPUESTO + 1).setValue(_antiFormula(data.origenRepuesto || ""));
+    if (data.cierreTipo     !== undefined) hoja.getRange(fila, SCHEMA.OT.CIERRE_TIPO     + 1).setValue(_antiFormula(data.cierreTipo || ""));
     if (data.manoObraGuardada !== undefined) {
       hoja.getRange(fila, SCHEMA.OT.MANO_OBRA      + 1).setValue(data.manoObraGuardada);
       if (data.notasInternas !== undefined) {
-        hoja.getRange(fila, SCHEMA.OT.NOTAS_INTERNAS + 1).setValue(data.notasInternas || "");
+        hoja.getRange(fila, SCHEMA.OT.NOTAS_INTERNAS + 1).setValue(_antiFormula(data.notasInternas || ""));
       }
     }
 
@@ -623,6 +635,8 @@ function actualizarOrden(data) {
 //     dispara el mail "Nuevo mensaje en tu orden de trabajo" con el motivo adentro.
 // ============================================================
 function cancelarCaso(idOT, motivo) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false, msg: 'No autorizado.' };
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(15000);
@@ -748,6 +762,8 @@ function _otBuscarSnAbierto(sn, otExcluir, datosPreloaded) {
 
 function crearNuevaOT(datos) {
   datos = datos || {};
+  var _u = identificarUsuario();
+  if (!_u) return { resultado: 'No autorizado.', ot: '' };
   var lock = LockService.getScriptLock();
   var nOT  = "";
   try {
@@ -781,19 +797,22 @@ function crearNuevaOT(datos) {
     var row = new Array(21).fill("");
     row[0]  = new Date();
     row[2]  = nOT;
-    row[3]  = datos.garantia  || "OOW";
+    // _antiFormula en los campos de texto libre — mismo criterio que actualizarOrden (ver
+    // _antiFormula, HUB_Código.js): sin esto, un valor que empiece con =/+/-/@ se ejecuta
+    // como fórmula en vivo al guardarse en la hoja real de OTs.
+    row[3]  = _antiFormula(datos.garantia  || "OOW");
     // Check (Análisis de datos de choque) arranca en "Pendiente de Aprobación" — mismo estado
     // inicial que usa enviarCasoAlHub (Portal Reseller) y el único que existe en EST_CHECK
     // antes de "Enviado a DJI"; los demás circuitos arrancan en "Abierto" como siempre.
     row[4]  = (datos.circuito === "Check") ? "Pendiente de Aprobación" : "Abierto";
-    row[5]  = datos.equipo    || "";
-    row[6]  = datos.sn        || "";
-    row[7]  = datos.reseller  || "";
-    row[9]  = datos.tecnico   || "";
-    row[12] = datos.trabajo   || "";
+    row[5]  = _antiFormula(datos.equipo    || "");
+    row[6]  = _antiFormula(datos.sn        || "");
+    row[7]  = _antiFormula(datos.reseller  || "");
+    row[9]  = _antiFormula(datos.tecnico   || "");
+    row[12] = _antiFormula(datos.trabajo   || "");
     row[13] = fechaAct        || "";
-    row[14] = datos.cas       || "";   // O: CAS (opcional, único)
-    row[15] = datos.fwrc      || "";   // P: FWRC (opcional, único)
+    row[14] = _antiFormula(datos.cas       || "");   // O: CAS (opcional, único)
+    row[15] = _antiFormula(datos.fwrc      || "");   // P: FWRC (opcional, único)
     // Check nace URGENTE siempre, igual que por Portal — mismo criterio que enviarCasoAlHub.
     row[17] = (datos.circuito === "Check") ? "URGENTE" : (datos.prioridad || "NORMAL");
     row[18] = datos.circuito  || "Taller";

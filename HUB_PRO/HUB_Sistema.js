@@ -1,4 +1,4 @@
-// @version 1.5
+// @version 1.6
 // ============================================================
 //  HUB PRO — Sistema: detección/reposición de batería, triggers
 //  (SLA diario + reporte mensual + instalación), diagnóstico general,
@@ -382,6 +382,8 @@ function diagnosticarSistema() {
 
 
 function marcarMensajesLeidos(fila) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false };
   // Lock: la columna MENSAJES también la escribe Portal Reseller (mismo caso que cancelarCaso,
   // HUB_OTs.js) — sin candado, dos escrituras casi simultáneas pueden pisarse.
   var lock = LockService.getScriptLock();
@@ -408,6 +410,8 @@ function marcarMensajesLeidos(fila) {
 
 
 function enviarMensajeHUB(fila, texto) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false, msg: 'No autorizado.' };
   var lock = LockService.getScriptLock();
   try {
     var filaNum = parseInt(fila);

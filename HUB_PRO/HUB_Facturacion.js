@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Solicitud de factura: descuento del reseller, XLS de
 //  detalle, mail a administración/facturación.
@@ -76,8 +76,8 @@ function _generarXLSFactura(ot, items, totalGeneral, data) {
   if (items.length > 0) {
     var rows = items.map(function(item) {
       return [
-        item.codigo,
-        item.descripcion,
+        _antiFormula(item.codigo),
+        _antiFormula(item.descripcion),
         item.cantidad,
         item.pvp > 0 ? item.pvp : '',
         item.total > 0 ? item.total : ''
@@ -184,6 +184,8 @@ function _construirEmailFacturacion(data, items, totalGeneral, infoCliente, desc
 
 
 function solicitarFactura(data) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false, msg: 'No autorizado.' };
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);

@@ -1,4 +1,4 @@
-// @version 1.2
+// @version 1.3
 // ============================================================
 //  HUB PRO — Presupuestos: armado del HTML, tokens de aprobación/
 //  rechazo por link de mail, envío al reseller.
@@ -53,7 +53,14 @@ function _bloquesBotonesPresupuesto(ot) {
 //  ENVIAR PRESUPUESTO AL RESELLER — manual desde el HUB
 // ============================================================
 function enviarPresupuesto(data) {
+  var _u = identificarUsuario();
+  if (!_u) return { ok: false, msg: 'No autorizado.' };
+  // Lock: sin esto, dos envíos casi simultáneos de la misma OT pueden pisarse el JSON de
+  // HISTORIAL_ESTADOS (lectura-modificación-escritura más abajo, sin candado hasta ahora —
+  // era la única de las funciones que cambian ESTADO/HISTORIAL_ESTADOS sin LockService).
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(10000);
     var emailReseller = obtenerEmailReseller(data.reseller);
     if (!emailReseller) return { ok: false, msg: "El reseller no tiene email registrado." };
 
@@ -199,6 +206,8 @@ function enviarPresupuesto(data) {
   } catch(e) {
     Logger.log("enviarPresupuesto ERROR: " + e);
     return { ok: false, msg: 'No se pudo procesar la solicitud. Intentá de nuevo.' };
+  } finally {
+    try { if (lock.hasLock()) lock.releaseLock(); } catch(eL) {}
   }
 }
 
